@@ -66,7 +66,13 @@ Battles use a D20-style resolution during "The Crunch."
 *   **Hit Calculation:** $Hit Chance = (Attacker.Accuracy / Target.Evasion) * 75\%$
 *   **Damage Mitigation:** $Final Damage = (Base Damage - Target.Armor) * (1 - Target.Resistances\%)$
 *   **Rarity:** Gear features "Diablo-style" affixes (e.g., Calibrated Iron Drill of Haste).
-*   **Full Loot:** In the Deep Wilds, destruction results in a full inventory drop for the victor.
+*   **Death & Respawn:** Agents are never "permanently" destroyed. Upon reaching 0 Structure, they are "Critical Damage Ejected" back to the Colony Hub (0,0) with 50% HP restored.
+*   **Inventory Loss:** 
+    - 50% chance per item stack to lose 30% of its quantity.
+    - **PvP:** Lost items are transferred to the attacker's inventory.
+    - **PvE:** Lost items are dropped to the ground (future implementation).
+    - **Gear Safety:** Equipped Modular Parts (ChassisParts) are never lost during respawn.
+*   **Full Loot:** In the Deep Wilds, destruction results in a significant inventory drop, but gear remains protected.
 
 ## 7. Colonial Economy & Licensing
 *   **The Mass-Driver (Earth-Settle):** Shipping refined materials to Earth "burns" the DB item and mints $NEURAL to the owner’s wallet.

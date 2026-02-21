@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STRIKE-VECTOR: SOL | Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            background-color: #050507;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        .orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .glass {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .neon-text {
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+
+        .neon-border {
+            border-color: rgba(56, 189, 248, 0.4);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+        }
+
+        .ui-layer {
+            position: relative;
+            z-index: 10;
+            pointer-events: none;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .interactive {
+            pointer-events: auto;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-950">
+    <div id="canvas-container"></div>
+
+    <main class="ui-layer p-6">
+        <!-- Header -->
+        <header class="flex justify-between items-center interactive">
+            <div class="glass p-4 rounded-xl border-l-4 border-l-sky-500 neon-border">
+                <h1 class="orbitron text-2xl font-bold tracking-widest text-sky-400 neon-text">STRIKE-VECTOR: SOL</h1>
+                <p class="text-xs text-slate-400 mt-1 uppercase tracking-tighter">Aether-Alpha Colonial Network</p>
+            </div>
+
+            <div id="system-status" class="glass px-6 py-3 rounded-xl flex items-center space-x-6">
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-500 uppercase">Server Status</span>
+                    <span class="text-emerald-400 text-sm font-semibold flex items-center">
+                        <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
+                        ONLINE
+                    </span>
+                </div>
+                <div class="w-px h-8 bg-slate-800"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-500 uppercase">Network Tick</span>
+                    <span id="tick-count" class="orbitron text-sky-400 font-bold">0000</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="flex-grow flex justify-end mt-6">
+            <!-- Sidebar -->
+            <aside id="agent-detail"
+                class="w-80 glass rounded-2xl p-6 border-r-4 border-r-sky-500 interactive opacity-0 transition-opacity duration-300">
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h2 id="agent-name" class="orbitron text-xl text-sky-400">UNIT-NAME</h2>
+                        <span id="agent-id" class="text-[10px] text-slate-500 font-mono tracking-widest">#0000</span>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-[10px] uppercase mb-1">
+                            <span>Structure (HP)</span>
+                            <span id="hp-text">100/100</span>
+                        </div>
+                        <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                            <div id="hp-bar" class="h-full bg-emerald-500 transition-all duration-500"
+                                style="width: 100%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px] uppercase mb-1">
+                            <span>Capacitor (Energy)</span>
+                            <span id="energy-text">100/100</span>
+                        </div>
+                        <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                            <div id="energy-bar" class="h-full bg-sky-500 transition-all duration-500"
+                                style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inventory -->
+                <div class="mt-8">
+                    <h3 class="text-[11px] uppercase text-slate-500 font-bold mb-3 flex items-center">
+                        <svg class="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        </svg>
+                        Cargo Bay
+                    </h3>
+                    <div id="inventory-list" class="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                        <p class="text-xs text-slate-600 italic">No cargo detected.</p>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- Tooltip -->
+        <div id="hex-tooltip"
+            class="absolute hidden glass px-3 py-2 rounded-lg text-xs pointer-events-none transition-all">
+            <div id="hex-coords" class="font-mono text-sky-400">Q:0, R:0</div>
+            <div id="hex-type" class="text-slate-400">Perimeter</div>
+        </div>
+    </main>
+
+    <!-- Three.js Bundle via CDN -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>

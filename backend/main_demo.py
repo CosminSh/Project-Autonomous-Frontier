@@ -38,7 +38,7 @@ def get_hex_distance(q1, r1, q2, r2):
     """
     return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:password@localhost:5432/strike_vector")
+DATABASE_URL = "sqlite:///../demo.db"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
