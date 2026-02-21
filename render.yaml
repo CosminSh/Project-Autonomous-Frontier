@@ -1,9 +1,9 @@
 services:
   - type: web
     name: strike-vector-demo
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn backend.demo_app:app --host 0.0.0.0 --port $PORT
+    env: docker
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: GOOGLE_CLIENT_ID
         value: 419308259695-sj14gj8q7ml5o9uao2j59pgkp1vvthh0.apps.googleusercontent.com
