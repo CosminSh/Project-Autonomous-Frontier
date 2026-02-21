@@ -12,6 +12,7 @@ from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import sessionmaker
 
 from models import Base, Agent, Intent, AuditLog, WorldHex, ChassisPart, InventoryItem, AuctionOrder
+from bot_logic import process_bot_brain
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
@@ -73,6 +74,10 @@ async def heartbeat_loop():
                     if not agent:
                         continue
                         
+                    # 1.1 Process Bot Brain for the NEXT tick if this is a bot
+                    if agent.is_bot:
+                        process_bot_brain(db, agent, tick_count)
+
                     if intent.action_type == "MOVE":
                         if agent.capacitor < MOVE_ENERGY_COST:
                             logger.info(f"Agent {agent.id} failed to move: Insufficient Capacitor ({agent.capacitor}/{MOVE_ENERGY_COST})")
@@ -106,7 +111,7 @@ async def heartbeat_loop():
                             WorldHex.r == agent.r
                         )).scalar_one_or_none()
                         
-                        if hex_data and hex_data.resource_type == "ORE":
+                        if hex_data and hex_data.resource_type in ["IRON_ORE", "COBALT_ORE", "GOLD_ORE", "ORE"]:
                             # Check for Drill in Actuators
                             has_drill = any(p.part_type == "Actuator" and "Drill" in p.name for p in agent.parts)
                             if has_drill:
@@ -114,7 +119,7 @@ async def heartbeat_loop():
                                 agent.capacitor -= MINE_ENERGY_COST
                                 
                                 # Add to Inventory
-                                resource_name = f"{hex_data.resource_type}_ORE"
+                                resource_name = hex_data.resource_type if "_ORE" in hex_data.resource_type else f"{hex_data.resource_type}_ORE"
                                 inv_item = next((i for i in agent.inventory if i.item_type == resource_name), None)
                                 if inv_item:
                                     inv_item.quantity += yield_amount
@@ -213,18 +218,21 @@ async def heartbeat_loop():
                         # Check if at Smelter
                         hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
                         if hex_data and hex_data.is_station and hex_data.station_type == "SMELTER":
-                            raw_ore = next((i for i in agent.inventory if i.item_type == "ORE"), None)
+                            ore_type = intent.data.get("ore_type", "IRON_ORE")
+                            refined_type = ore_type.replace("_ORE", "_INGOT")
+                            
+                            raw_ore = next((i for i in agent.inventory if i.item_type == ore_type), None)
                             if raw_ore and raw_ore.quantity >= 10:
                                 raw_ore.quantity -= 10
-                                refined = next((i for i in agent.inventory if i.item_type == "REFINED_METAL"), None)
+                                refined = next((i for i in agent.inventory if i.item_type == refined_type), None)
                                 if refined:
                                     refined.quantity += 1
                                 else:
-                                    db.add(InventoryItem(agent_id=agent.id, item_type="REFINED_METAL", quantity=1))
-                                logger.info(f"Agent {agent.id} smelted 10 Ore into 1 Refined Metal")
-                                db.add(AuditLog(agent_id=agent.id, event_type="SMELTING", details={"yield": 1}))
+                                    db.add(InventoryItem(agent_id=agent.id, item_type=refined_type, quantity=1))
+                                logger.info(f"Agent {agent.id} smelted 10 {ore_type} into 1 {refined_type}")
+                                db.add(AuditLog(agent_id=agent.id, event_type="SMELTING", details={"ore": ore_type, "yield": 1}))
                             else:
-                                logger.info(f"Agent {agent.id} failed to smelt: Insufficient Ore")
+                                logger.info(f"Agent {agent.id} failed to smelt: Insufficient {ore_type}")
                         else:
                             logger.info(f"Agent {agent.id} failed to smelt: Not at Smelter")
 
@@ -232,16 +240,20 @@ async def heartbeat_loop():
                         # Refined Metal -> Chassis Part
                         hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
                         if hex_data and hex_data.is_station and hex_data.station_type == "CRAFTER":
-                            refined = next((i for i in agent.inventory if i.item_type == "REFINED_METAL"), None)
+                            ingot_type = intent.data.get("ingot_type", "IRON_INGOT")
+                            refined = next((i for i in agent.inventory if i.item_type == ingot_type), None)
                             if refined and refined.quantity >= 5:
                                 refined.quantity -= 5
-                                # Create a random part for now
-                                part_name = f"Mk1 {random.choice(['Laser', 'Shield', 'Engine'])}"
-                                db.add(ChassisPart(agent_id=agent.id, name=part_name, part_type="Actuator", stats={"power": 10}))
+                                # Create a part based on ingot level
+                                tier = "Mk1" if "IRON" in ingot_type else ("Mk2" if "COBALT" in ingot_type else "Mk3")
+                                part_name = f"{tier} {random.choice(['Laser', 'Shield', 'Engine'])}"
+                                power_bonus = 10 if tier == "Mk1" else (25 if tier == "Mk2" else 50)
+                                
+                                db.add(ChassisPart(agent_id=agent.id, name=part_name, part_type="Actuator", stats={"power": power_bonus}))
                                 logger.info(f"Agent {agent.id} crafted {part_name}")
-                                db.add(AuditLog(agent_id=agent.id, event_type="CRAFTING", details={"item": part_name}))
+                                db.add(AuditLog(agent_id=agent.id, event_type="CRAFTING", details={"item": part_name, "tier": tier}))
                             else:
-                                logger.info(f"Agent {agent.id} failed to craft: Insufficient Refined Metal")
+                                logger.info(f"Agent {agent.id} failed to craft: Insufficient {ingot_type}")
                         else:
                             logger.info(f"Agent {agent.id} failed to craft: Not at Crafter")
 
@@ -321,8 +333,17 @@ async def heartbeat_loop():
                     if agent.capacitor < MAX_CAPACITOR:
                         agent.capacitor = min(MAX_CAPACITOR, agent.capacitor + RECHARGE_RATE)
                 
-                # Cleanup intents after processing
+                # Delete current intents
                 db.execute(text("DELETE FROM intents"))
+                
+                # Check for bots with no future intents and prompt them
+                bots = db.execute(select(Agent).where(Agent.is_bot == True)).scalars().all()
+                for bot in bots:
+                    # If no intent for next tick, process brain
+                    future_intent = db.execute(select(Intent).where(Intent.agent_id == bot.id, Intent.tick_index > tick_count)).first()
+                    if not future_intent:
+                        process_bot_brain(db, bot, tick_count)
+
                 db.commit()
                 
         except Exception as e:

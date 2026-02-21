@@ -47,12 +47,19 @@ def seed_world():
                 is_station = False
                 st_type = None
                 
-                # Random terrain/resources
+                # Sector-based tiered resources
+                dist = (abs(sector.q) + abs(sector.q + sector.r) + abs(sector.r)) // 2
+                
                 roll = random.random()
                 if roll < 0.1:
                     terrain = "ASTEROID"
-                    res_type = "ORE"
-                    res_density = random.uniform(0.5, 2.0)
+                    if dist <= 1:
+                        res_type = "IRON_ORE"
+                    elif dist == 2:
+                        res_type = "COBALT_ORE"
+                    else:
+                        res_type = "GOLD_ORE"
+                    res_density = random.uniform(0.5, 2.0) * (1 + dist * 0.2)
                 elif roll < 0.15:
                     terrain = "OBSTACLE"
                 
@@ -95,8 +102,17 @@ def seed_world():
         db.add(agent)
         db.flush()
         db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=1000))
-        db.add(InventoryItem(agent_id=agent.id, item_type="ORE", quantity=50))
-    
+        db.add(InventoryItem(agent_id=agent.id, item_type="IRON_ORE", quantity=50))
+        
+        # Add Industrial Bots
+        for i in range(5):
+            bot = Agent(name=f"Worker-Bot-{i}", q=random.randint(-2, 2), r=random.randint(-2, 2), is_bot=True)
+            db.add(bot)
+            db.flush()
+            db.add(InventoryItem(agent_id=bot.id, item_type="CREDITS", quantity=500))
+            # Give them a drill so they can mine
+            db.add(ChassisPart(agent_id=bot.id, name="Industrial Drill", part_type="Actuator", stats={"power": 10}))
+            
     db.commit()
     print("World seeding complete!")
 

@@ -1,6 +1,20 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+function copyAgentPrompt() {
+    const prompt = document.getElementById('agent-prompt');
+    const apiKey = localStorage.getItem('sv_api_key') || 'YOUR_API_KEY_HERE';
+    const serverUrl = window.location.origin;
+
+    // Dynamically inject current values for easy copy-paste
+    let text = prompt.value;
+    text = text.replace('[PASTE_SERVER_URL_HERE]', serverUrl);
+    text = text.replace('[YOUR_API_KEY]', apiKey);
+
+    navigator.clipboard.writeText(text);
+    alert('Agent Directive copied to clipboard!');
+}
+
 class GameClient {
     constructor() {
         this.scene = null;
@@ -14,6 +28,157 @@ class GameClient {
         this.init();
         this.animate();
         this.startPolling();
+
+        // Setup UI Listeners
+        document.getElementById('logout-btn').addEventListener('click', () => this.logout());
+        document.getElementById('copy-api-btn').addEventListener('click', () => this.copyApiKey());
+
+        // Tab Listeners
+        ['command', 'garage', 'market'].forEach(tab => {
+            document.getElementById(`tab-${tab}`).addEventListener('click', () => this.switchTab(tab));
+        });
+
+        // Check for existing session
+        this.checkAuth();
+    }
+
+    switchTab(tabName) {
+        const tabs = ['command', 'garage', 'market'];
+        tabs.forEach(t => {
+            const content = document.getElementById(`content-${t}`);
+            const btn = document.getElementById(`tab-${t}`);
+            if (t === tabName) {
+                content.classList.remove('hidden');
+                btn.classList.add('border-b-2', 'border-sky-500', 'text-sky-400');
+                btn.classList.remove('text-slate-500');
+            } else {
+                content.classList.add('hidden');
+                btn.classList.remove('border-b-2', 'border-sky-500', 'text-sky-400');
+                btn.classList.add('text-slate-500');
+            }
+        });
+    }
+
+    checkAuth() {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (apiKey) {
+            this.setAuthenticated(true);
+        }
+    }
+
+    setAuthenticated(isAuthenticated) {
+        const publicLayer = document.getElementById('public-dashboard');
+        const privateLayer = document.getElementById('private-dashboard');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        if (isAuthenticated) {
+            publicLayer.classList.add('hidden');
+            privateLayer.classList.remove('hidden');
+            logoutBtn.classList.remove('hidden');
+            document.getElementById('agent-detail').style.opacity = '1';
+        } else {
+            publicLayer.classList.remove('hidden');
+            privateLayer.classList.add('hidden');
+            logoutBtn.classList.add('hidden');
+            document.getElementById('agent-detail').style.opacity = '0';
+            localStorage.removeItem('sv_api_key');
+        }
+    }
+
+    async handleLogin(response) {
+        console.log("--- AUTHENTICATING WITH BACKEND ---");
+        console.log("Endpoint: /auth/login");
+
+        if (!response.credential) {
+            console.error("Error: No Google credential to send.");
+            return;
+        }
+
+        try {
+            const res = await fetch('/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: response.credential })
+            });
+
+            console.log("Backend HTTP Status:", res.status, res.statusText);
+
+            const contentType = res.headers.get("content-type");
+            console.log("Content-Type:", contentType);
+
+            let data;
+            try {
+                data = await res.json();
+            } catch (jsonErr) {
+                console.error("Failed to parse JSON response. Potential 404 or Server Error.");
+                const text = await res.text();
+                console.error("Raw Response Text:", text.substring(0, 500));
+                alert("Server Error: Received non-JSON response. Check console for details.");
+                return;
+            }
+
+            console.log("Backend Response Data:", data);
+
+            if (data.status === 'success') {
+                console.log("Successfully authenticated. Storing API key and transitioning UI.");
+                localStorage.setItem('sv_api_key', data.api_key);
+                this.setAuthenticated(true);
+                this.pollState();
+            } else {
+                console.warn("Authentication failed by server:", data.message);
+                alert("Login Failed: " + (data.message || "Unknown error"));
+            }
+        } catch (e) {
+            console.error("CRITICAL FETCH ERROR:", e);
+            alert("Connection Error: Could not reach the authentication server. Verify the backend is running on port 8001.");
+        }
+    }
+
+    async handleGuestLogin() {
+        console.log("--- INITIATING GUEST BYPASS ---");
+        try {
+            const res = await fetch('/auth/guest', { method: 'POST' });
+            console.log("Guest Auth Status:", res.status);
+
+            if (res.status === 405) {
+                console.error("405 Method Not Allowed. Backend routes may not have reloaded.");
+                alert("Server Error: 405 Method Not Allowed. Please restart the demo server.");
+                return;
+            }
+
+            const data = await res.json();
+            console.log("Guest Auth Data:", data);
+
+            if (data.status === 'success') {
+                localStorage.setItem('sv_api_key', data.api_key);
+                this.setAuthenticated(true);
+                this.pollState();
+            } else {
+                alert("Guest Login Failed: " + (data.message || "Unknown error"));
+            }
+        } catch (e) {
+            console.error("Guest Auth Error:", e);
+            alert("Connection Error: Could not reach bypass endpoint.");
+        }
+    }
+
+    logout() {
+        this.setAuthenticated(false);
+    }
+
+    copyApiKey() {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (apiKey) {
+            navigator.clipboard.writeText(apiKey);
+            const btn = document.getElementById('copy-api-btn');
+            const originalText = btn.innerText;
+            btn.innerText = 'COPIED!';
+            btn.classList.replace('bg-sky-500', 'bg-emerald-500');
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.classList.replace('bg-emerald-500', 'bg-sky-500');
+            }, 2000);
+        }
     }
 
     init() {
@@ -58,6 +223,10 @@ class GameClient {
         this.renderer.domElement.addEventListener('click', (e) => this.onWorldClick(e));
     }
 
+    onWorldClick(event) {
+        // Raycasting for hex selection could be implemented here
+    }
+
     qToCoord(q, r) {
         const size = 1;
         const x = size * (3 / 2 * q);
@@ -75,10 +244,19 @@ class GameClient {
 
         if (terrain === 'OBSTACLE') color = 0x334155;
         if (terrain === 'STATION') color = 0x1e1b4b;
-        if (resource === 'ORE') {
-            color = 0x475569;
-            emissive = 0x38bdf8;
-            emissiveIntensity = 0.2;
+
+        if (resource) {
+            if (resource === 'IRON_ORE' || resource === 'ORE') {
+                color = 0x475569;
+                emissive = 0xb45309;
+            } else if (resource === 'COBALT_ORE') {
+                color = 0x334155;
+                emissive = 0x06b6d4;
+            } else if (resource === 'GOLD_ORE') {
+                color = 0x422006;
+                emissive = 0xfacc15;
+            }
+            emissiveIntensity = 0.4;
         }
 
         if (is_station) {
@@ -101,19 +279,6 @@ class GameClient {
         mesh.position.set(x, 0, z);
         mesh.rotation.y = Math.PI / 6;
 
-        // Add station marker (small floating diamond)
-        if (is_station) {
-            const boxGeo = new THREE.OctahedronGeometry(0.3);
-            const boxMat = new THREE.MeshStandardMaterial({ color: 0x818cf8, emissive: 0x818cf8, emissiveIntensity: 1 });
-            const box = new THREE.Mesh(boxGeo, boxMat);
-            box.position.y = 1;
-            mesh.add(box);
-
-            // Label sprite (simulation)
-            console.log(`Placed ${station_type} at ${q},${r}`);
-        }
-
-        // Add subtle wireframe accent
         const edges = new THREE.EdgesGeometry(geometry);
         const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.1 }));
         mesh.add(line);
@@ -122,12 +287,11 @@ class GameClient {
         this.hexes.set(`${q},${r}`, mesh);
     }
 
-    updateAgent(agentData) {
+    updateAgentMesh(agentData) {
         let mesh = this.agents.get(agentData.id);
         const { x, z } = this.qToCoord(agentData.q, agentData.r);
 
         if (!mesh) {
-            // Create sleek pyramid for agent
             const geometry = new THREE.ConeGeometry(0.5, 1, 4);
             const material = new THREE.MeshStandardMaterial({
                 color: 0x38bdf8,
@@ -139,21 +303,22 @@ class GameClient {
             this.agents.set(agentData.id, mesh);
         }
 
-        // Smooth move
         mesh.position.lerp(new THREE.Vector3(x, 0.6, z), 0.1);
         mesh.rotation.y += 0.01;
-
-        if (this.selectedAgentId === agentData.id) {
-            this.updateUI(agentData);
-        }
     }
 
-    updateUI(agent) {
+    updateGlobalUI(stats) {
+        document.getElementById('stat-agents').innerText = stats.total_agents || 0;
+        document.getElementById('stat-market').innerText = stats.market_listings || 0;
+    }
+
+    updatePrivateUI(agent) {
         const sidebar = document.getElementById('agent-detail');
         sidebar.style.opacity = '1';
 
         document.getElementById('agent-name').innerText = agent.name;
-        document.getElementById('agent-id').innerText = `#000${agent.id}`;
+        document.getElementById('agent-id').innerText = `#${agent.id.toString().padStart(4, '0')}`;
+        document.getElementById('api-key-display').innerText = agent.api_key;
 
         const hpPct = (agent.structure / agent.max_structure) * 100;
         document.getElementById('hp-bar').style.width = `${hpPct}%`;
@@ -164,13 +329,13 @@ class GameClient {
         document.getElementById('energy-text').innerText = `${agent.capacitor}/100`;
 
         const invList = document.getElementById('inventory-list');
-        if (agent.inventory.length === 0) {
-            invList.innerHTML = '<p class="text-xs text-slate-600 italic">No cargo detected.</p>';
+        if (!agent.inventory || agent.inventory.length === 0) {
+            invList.innerHTML = '<p class="text-[10px] text-slate-600 italic">No cargo bay activity.</p>';
         } else {
             invList.innerHTML = agent.inventory.map(i => `
                 <div class="flex justify-between items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800">
-                    <span class="text-xs uppercase tracking-tight text-slate-300 font-semibold">${i.type.replace('_', ' ')}</span>
-                    <span class="orbitron text-sky-400 text-xs">${i.quantity}</span>
+                    <span class="text-[10px] uppercase tracking-tight text-slate-300 font-semibold">${i.type.replace('_', ' ')}</span>
+                    <span class="orbitron text-sky-400 text-[10px]">${i.quantity}</span>
                 </div>
             `).join('');
         }
@@ -178,8 +343,18 @@ class GameClient {
 
     async pollState() {
         try {
-            const resp = await fetch('/state');
-            const data = await resp.json();
+            const apiKey = localStorage.getItem('sv_api_key');
+            const headers = apiKey ? { 'X-API-KEY': apiKey } : {};
+
+            const [stateResp, statsResp] = await Promise.all([
+                fetch('/state'),
+                fetch('/api/global_stats')
+            ]);
+
+            const data = await stateResp.json();
+            const stats = await statsResp.json();
+
+            this.updateGlobalUI(stats);
 
             // Render World
             data.world.forEach(hex => {
@@ -190,12 +365,16 @@ class GameClient {
 
             // Render Agents
             data.agents.forEach(agent => {
-                this.updateAgent(agent);
+                this.updateAgentMesh(agent);
             });
 
-            // If no agent selected, select the first one by default
-            if (!this.selectedAgentId && data.agents.length > 0) {
-                this.selectedAgentId = data.agents[0].id;
+            // If logged in, poll my own details
+            if (apiKey) {
+                const myAgentResp = await fetch('/api/my_agent', { headers });
+                const myAgentData = await myAgentResp.json();
+                if (myAgentData.status !== 'error') {
+                    this.updatePrivateUI(myAgentData);
+                }
             }
 
         } catch (e) {
@@ -209,8 +388,10 @@ class GameClient {
 
     animate() {
         requestAnimationFrame(() => this.animate());
-        this.controls.update();
-        this.renderer.render(this.scene, this.camera);
+        if (this.controls) this.controls.update();
+        if (this.renderer && this.scene && this.camera) {
+            this.renderer.render(this.scene, this.camera);
+        }
     }
 }
 

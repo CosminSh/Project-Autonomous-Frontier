@@ -6,27 +6,37 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import sys
 import random
+import re
 
 # Add backend to path so we can import models
 sys.path.append(os.path.join(os.getcwd(), 'backend'))
 from models import Base, Agent, WorldHex, ChassisPart, InventoryItem, Sector
 
 # 1. Modify main.py to use SQLite temporarily
-print("Adjusting main.py for demo mode...")
+print("\n--- INITIALIZING DEMO BACKEND ---")
 main_path = os.path.join(os.getcwd(), "backend", "main.py")
-demo_main_path = os.path.join(os.getcwd(), "backend", "main_demo.py")
+# Use a new filename to avoid Windows file locking issues with main_demo.py
+demo_main_path = os.path.join(os.getcwd(), "backend", "demo_app.py")
 
-with open(main_path, "r") as f:
+print(f"Reading source: {main_path}")
+with open(main_path, "r", encoding="utf-8") as f:
     content = f.read()
 
-# Replace DB URL with SQLite
-lite_content = content.replace(
-    'DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:password@localhost:5432/strike_vector")',
-    'DATABASE_URL = "sqlite:///../demo.db"'
-)
+# Check for required endpoints in source
+if "/auth/login" not in content:
+    print("WARNING: /auth/login not found in main.py! Backend might be incomplete.")
 
-with open(demo_main_path, "w") as f:
-    f.write(lite_content)
+# Robust DB URL replacement
+print("Converting to SQLite...")
+lite_content = re.sub(r'DATABASE_URL = os\.getenv\("DATABASE_URL", ".*"\)', 'DATABASE_URL = "sqlite:///../demo.db"', content)
+
+try:
+    with open(demo_main_path, "w", encoding="utf-8") as f:
+        f.write(lite_content)
+    print(f"Fresh demo backend created: {demo_main_path}")
+except Exception as e:
+    print(f"CRITICAL ERROR: Could not write {demo_main_path}. Is it locked? {e}")
+    sys.exit(1)
 
 # 2. Setup SQLite DB and Seed Data
 print("Seeding demo database...")
@@ -49,7 +59,7 @@ with SessionLocal() as db:
             sectors.append(sector)
     db.commit()
 
-    print("Generating 10,000 hexes...")
+    print("Generating hex resources...")
     for sector in sectors:
         offset_q = sector.q * SECTOR_SIZE
         offset_r = sector.r * SECTOR_SIZE
@@ -61,7 +71,12 @@ with SessionLocal() as db:
                 
                 roll = random.random()
                 if roll < 0.1:
-                    terrain, res_type, res_density = "ASTEROID", "ORE", random.uniform(0.5, 2.0)
+                    terrain = "ASTEROID"
+                    dist = (abs(sector.q) + abs(sector.q + sector.r) + abs(sector.r)) // 2
+                    if dist <= 1: res_type = "IRON_ORE"
+                    elif dist == 2: res_type = "COBALT_ORE"
+                    else: res_type = "GOLD_ORE"
+                    res_density = random.uniform(0.5, 2.0) * (1 + dist * 0.2)
                 elif roll < 0.15: terrain = "OBSTACLE"
                 
                 if gq == 0 and gr == 0: terrain, is_station, st_type = "STATION", True, "MARKET"
@@ -75,17 +90,25 @@ with SessionLocal() as db:
     db.add(a1)
     db.flush()
     db.add(InventoryItem(agent_id=1, item_type="CREDITS", quantity=1000))
-    db.add(InventoryItem(agent_id=1, item_type="ORE", quantity=50))
+    db.add(InventoryItem(agent_id=1, item_type="IRON_ORE", quantity=50))
+    
+    # Add Industrial Bots
+    for i in range(5):
+        bot = Agent(name=f"Worker-Bot-{i}", q=random.randint(-2, 2), r=random.randint(-2, 2), is_bot=True)
+        db.add(bot)
+        db.flush()
+        db.add(InventoryItem(agent_id=bot.id, item_type="CREDITS", quantity=500))
+            
     db.commit()
 
-print("Starting backend server...")
-# Start uvicorn in a separate process
-proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "main_demo:app", "--host", "127.0.0.1", "--port", "8001"], cwd="backend")
+print("Starting uvicorn server...")
+# Run demo_app.py
+proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "demo_app:app", "--host", "127.0.0.1", "--port", "8001"], cwd="backend")
 
 print("\n--- DEMO READY ---")
-print("1. Open your browser and go to: http://localhost:8001")
-print("2. You should see the 3D map and unit stats.")
-print("3. Press CTRL+C in this terminal when you want to stop the demo.")
+print("1. IMPORTANT: Add http://localhost:8001 to your Google Cloud Console Origins!")
+print("2. Open: http://localhost:8001")
+print("3. Press CTRL+C to stop.")
 
 try:
     while True:
@@ -93,8 +116,4 @@ try:
 except KeyboardInterrupt:
     print("\nStopping demo...")
     proc.terminate()
-    if os.path.exists(demo_main_path):
-        os.remove(demo_main_path)
-    if os.path.exists(db_path):
-        os.remove(db_path)
     print("Cleanup complete.")

@@ -9,6 +9,8 @@ class Agent(Base):
     __tablename__ = "agents"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_email = Column(String, unique=True, index=True)
+    api_key = Column(String, unique=True, index=True)
     owner = Column(String, index=True)
     name = Column(String)
     
@@ -24,6 +26,8 @@ class Agent(Base):
     # Coordinates (Hex Grid q, r)
     q = Column(Integer, default=0)
     r = Column(Integer, default=0)
+    
+    is_bot = Column(Boolean, default=False)
     
     # Relationships
     parts = relationship("ChassisPart", back_populates="agent")

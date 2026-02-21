@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STRIKE-VECTOR | Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            background-color: #050507;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .glass {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .neon-text {
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+
+        .neon-border {
+            border-color: rgba(56, 189, 248, 0.4);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-950 min-h-screen p-6">
+    <header class="flex justify-between items-center mb-8">
+        <div class="glass p-4 rounded-xl border-l-4 border-l-sky-500 neon-border">
+            <h1 class="orbitron text-xl font-bold tracking-widest text-sky-400 neon-text">COMMAND CENTER</h1>
+            <p id="player-name" class="text-[10px] text-slate-500 mt-1 uppercase tracking-tighter">AUTHENTICATED USER:
+                ???</p>
+        </div>
+        <button onclick="logout()"
+            class="glass px-6 py-2 rounded-lg text-xs hover:bg-slate-800 transition-colors">DISCONNECT</button>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Left: Agent Status & Onboarding -->
+        <div class="space-y-8">
+            <section class="glass rounded-2xl p-6 border-t-4 border-t-sky-500">
+                <h2 class="orbitron text-sm text-sky-400 mb-6 uppercase tracking-widest">Agent Telemetry</h2>
+                <div class="space-y-6">
+                    <div class="flex justify-between items-end">
+                        <span id="agent-display-name" class="orbitron text-2xl">UNIT-1</span>
+                        <span id="agent-coords" class="text-xs font-mono text-slate-500 tracking-tight">Q:0, R:0</span>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-[10px] uppercase mb-1">
+                                <span>Structure</span>
+                                <span id="hp-text">0/0</span>
+                            </div>
+                            <div class="h-2 w-full bg-slate-900 rounded-full overflow-hidden">
+                                <div id="hp-bar" class="h-full bg-emerald-500 transition-all duration-500"
+                                    style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-[10px] uppercase mb-1">
+                                <span>Capacitor</span>
+                                <span id="energy-text">0/0</span>
+                            </div>
+                            <div class="h-2 w-full bg-slate-900 rounded-full overflow-hidden">
+                                <div id="energy-bar" class="h-full bg-sky-500 transition-all duration-500"
+                                    style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="glass rounded-2xl p-6 border-t-4 border-t-amber-500">
+                <h2 class="orbitron text-sm text-amber-400 mb-4 uppercase tracking-widest">API Onboarding</h2>
+                <p class="text-[11px] text-slate-400 mb-4">Control your agent via Python scripts. Your unique API key is
+                    below:</p>
+                <div
+                    class="bg-black/40 p-3 rounded-lg border border-slate-800 font-mono text-xs text-amber-200 break-all mb-4">
+                    <code id="api-key-display">Generating...</code>
+                </div>
+                <div class="bg-slate-900 p-4 rounded-xl">
+                    <h3 class="text-[10px] text-slate-500 uppercase mb-2">Example Script</h3>
+                    <pre class="text-[9px] text-sky-300 overflow-x-auto">
+import requests
+API_KEY = "YOUR_KEY"
+URL = "http://localhost:8001/intent"
+
+def move(q, r):
+  requests.post(URL, json={
+    "action_type": "MOVE",
+    "data": {"target_q": q, "target_r": r}
+  }, headers={"X-API-KEY": API_KEY})
+</pre>
+                </div>
+            </section>
+        </div>
+
+        <!-- Middle: Gear & Cargo -->
+        <div class="space-y-8">
+            <section class="glass rounded-2xl p-6 border-t-4 border-t-emerald-500">
+                <h2 class="orbitron text-sm text-emerald-400 mb-6 uppercase tracking-widest">Cargo Bay</h2>
+                <div id="inventory-list" class="grid grid-cols-2 gap-4 max-h-96 overflow-y-auto custom-scrollbar pr-2">
+                    <!-- Items populating here -->
+                </div>
+            </section>
+
+            <section class="glass rounded-2xl p-6 border-t-4 border-t-indigo-500">
+                <h2 class="orbitron text-sm text-indigo-400 mb-6 uppercase tracking-widest">Chassis Modules</h2>
+                <div id="parts-list" class="space-y-3">
+                    <!-- Parts populating here -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Right: Market Hub -->
+        <div class="space-y-8">
+            <section class="glass rounded-2xl p-6 border-t-4 border-t-rose-500 min-h-[600px] flex flex-column">
+                <h2 class="orbitron text-sm text-rose-400 mb-6 uppercase tracking-widest">Auction House</h2>
+                <div class="flex-grow space-y-4 overflow-y-auto custom-scrollbar pr-2" id="market-list">
+                    <!-- Listings -->
+                    <p class="text-xs text-slate-600 italic">Connecting to trade network...</p>
+                </div>
+                <div class="mt-6 pt-6 border-t border-slate-800">
+                    <button
+                        class="w-full py-3 bg-rose-600/20 border border-rose-500/40 rounded-xl text-rose-100 text-xs font-bold hover:bg-rose-600/40 transition-all uppercase tracking-widest">Create
+                        Listing</button>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+
+</html>

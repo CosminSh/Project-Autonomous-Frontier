@@ -58,7 +58,39 @@
         .interactive {
             pointer-events: auto;
         }
+
+        #g_id_onload {
+            z-index: 100;
+        }
     </style>
+    <script>
+        // Define callback BEFORE Google GSI script loads
+        window.handleCredentialResponse = (response) => {
+            console.log("--- GOOGLE AUTH CALLBACK TRIGGERED ---");
+            console.log("Google Response Object:", response);
+            if (response.credential) {
+                console.log("Credential (JWT) received. Length:", response.credential.length);
+            } else {
+                console.warn("No credential found in Google response!");
+            }
+
+            if (window.game) {
+                console.log("Forwarding to game client...");
+                window.game.handleLogin(response);
+            } else {
+                console.error("CRITICAL: Game client (window.game) not initialized yet!");
+            }
+        };
+        window.logout = () => {
+            console.log("Logout triggered");
+            if (window.game) window.game.logout();
+        };
+        window.guestLogin = () => {
+            console.log("Guest Login triggered");
+            if (window.game) window.game.handleGuestLogin();
+        };
+    </script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body class="bg-slate-950">
@@ -72,71 +104,267 @@
                 <p class="text-xs text-slate-400 mt-1 uppercase tracking-tighter">Aether-Alpha Colonial Network</p>
             </div>
 
-            <div id="system-status" class="glass px-6 py-3 rounded-xl flex items-center space-x-6">
-                <div class="flex flex-col items-center">
-                    <span class="text-[10px] text-slate-500 uppercase">Server Status</span>
-                    <span class="text-emerald-400 text-sm font-semibold flex items-center">
-                        <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
-                        ONLINE
-                    </span>
+            <div class="flex items-center space-x-4">
+                <div id="system-status" class="glass px-6 py-3 rounded-xl flex items-center space-x-6">
+                    <div class="flex flex-col items-center">
+                        <span class="text-[10px] text-slate-500 uppercase">Server Status</span>
+                        <span class="text-emerald-400 text-sm font-semibold flex items-center">
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
+                            ONLINE
+                        </span>
+                    </div>
+                    <div class="w-px h-8 bg-slate-800"></div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-[10px] text-slate-500 uppercase">Network Tick</span>
+                        <span id="tick-count" class="orbitron text-sky-400 font-bold">0000</span>
+                    </div>
                 </div>
-                <div class="w-px h-8 bg-slate-800"></div>
-                <div class="flex flex-col items-center">
-                    <span class="text-[10px] text-slate-500 uppercase">Network Tick</span>
-                    <span id="tick-count" class="orbitron text-sky-400 font-bold">0000</span>
-                </div>
+                <!-- Logout Button (Hidden by default) -->
+                <button id="logout-btn"
+                    class="glass p-3 rounded-xl hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors hidden interactive">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                </button>
             </div>
         </header>
 
-        <!-- Main Content Area -->
-        <div class="flex-grow flex justify-end mt-6">
-            <!-- Sidebar -->
-            <aside id="agent-detail"
-                class="w-80 glass rounded-2xl p-6 border-r-4 border-r-sky-500 interactive opacity-0 transition-opacity duration-300">
-                <div class="flex justify-between items-start mb-6">
+        <!-- PUBLIC DASHBOARD LAYER -->
+        <div id="public-dashboard" class="flex-grow flex justify-between items-end pb-8">
+            <!-- Global Stats -->
+            <div id="global-stats" class="glass rounded-2xl p-6 border-l-4 border-l-emerald-500 interactive ml-4">
+                <h3 class="orbitron text-xs text-slate-500 uppercase tracking-widest mb-4">World Statistics</h3>
+                <div class="grid grid-cols-2 gap-6">
                     <div>
-                        <h2 id="agent-name" class="orbitron text-xl text-sky-400">UNIT-NAME</h2>
-                        <span id="agent-id" class="text-[10px] text-slate-500 font-mono tracking-widest">#0000</span>
+                        <span class="text-[10px] text-slate-500 block uppercase">Active Agents</span>
+                        <span id="stat-agents" class="orbitron text-xl text-emerald-400">0</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-500 block uppercase">Market Orders</span>
+                        <span id="stat-market" class="orbitron text-xl text-sky-400">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Auth Panel -->
+            <div id="auth-panel" class="glass rounded-2xl p-8 border-r-4 border-r-sky-500 interactive mr-4 text-center">
+                <h2 class="orbitron text-xl text-sky-400 mb-2">ACCESS HUB</h2>
+                <p class="text-xs text-slate-500 mb-6 font-mono tracking-tighter">AUTHENTICATION REQUIRED FOR AGENT
+                    COMMAND</p>
+
+                <div id="g_id_onload"
+                    data-client_id="419308259695-sj14gj8q7ml5o9uao2j59pgkp1vvthh0.apps.googleusercontent.com"
+                    data-callback="handleCredentialResponse" data-auto_prompt="false">
+                </div>
+                <div class="g_id_signin" data-type="standard"></div>
+
+                <div class="mt-6 pt-6 border-t border-slate-900 flex flex-col items-center">
+                    <span class="text-[9px] text-slate-600 mb-3 uppercase tracking-[0.2em]">Local Access</span>
+                    <button onclick="window.guestLogin()"
+                        class="w-full py-3 px-6 bg-slate-900 hover:bg-slate-800 text-sky-500 text-[10px] orbitron rounded-lg border border-slate-800 transition-all hover:border-sky-500/50 hover:shadow-[0_0_15px_rgba(14,165,233,0.1)]">
+                        BYPASS AUTH (GUEST)
+                    </button>
+                    <p class="mt-4 text-[9px] text-slate-500 italic max-w-xs mx-auto">Skip Google Auth for local testing
+                        or immediate server exploration.</p>
+                </div>
+
+                <p class="mt-4 text-[10px] text-slate-600 italic">Connecting to Aether-Alpha Network...</p>
+            </div>
+        </div>
+
+        <!-- PRIVATE AGENT DASHBOARD (CONSOLE) -->
+        <div id="private-dashboard" class="flex-grow flex justify-between items-stretch py-8 hidden overflow-hidden">
+            <!-- Agent Details Left Sidebar -->
+            <aside id="agent-detail"
+                class="w-80 glass m-4 rounded-2xl border-l-4 border-l-sky-500 interactive flex flex-col opacity-0 transition-opacity">
+                <!-- Profile Header -->
+                <div class="p-6 border-b border-slate-800">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h2 id="agent-name" class="orbitron text-xl font-bold text-sky-400">LOADING...</h2>
+                            <p id="agent-id" class="text-[10px] text-slate-500 font-mono">#0000</p>
+                        </div>
+                        <div class="bg-sky-500/10 p-2 rounded-lg border border-sky-500/20">
+                            <span class="text-[10px] text-sky-400 uppercase font-bold">Mk.1 Frame</span>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Stats -->
-                <div class="space-y-4">
+                <div class="p-6 space-y-6 flex-grow overflow-y-auto custom-scrollbar">
                     <div>
-                        <div class="flex justify-between text-[10px] uppercase mb-1">
-                            <span>Structure (HP)</span>
-                            <span id="hp-text">100/100</span>
+                        <div class="flex justify-between items-end mb-1">
+                            <span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Structure
+                                (HP)</span>
+                            <span id="hp-text" class="text-xs font-mono text-emerald-400">100/100</span>
                         </div>
-                        <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                        <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
                             <div id="hp-bar" class="h-full bg-emerald-500 transition-all duration-500"
                                 style="width: 100%"></div>
                         </div>
                     </div>
+
                     <div>
-                        <div class="flex justify-between text-[10px] uppercase mb-1">
-                            <span>Capacitor (Energy)</span>
-                            <span id="energy-text">100/100</span>
+                        <div class="flex justify-between items-end mb-1">
+                            <span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Capacitor
+                                (NRG)</span>
+                            <span id="energy-text" class="text-xs font-mono text-sky-400">100/100</span>
                         </div>
-                        <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                        <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
                             <div id="energy-bar" class="h-full bg-sky-500 transition-all duration-500"
                                 style="width: 100%"></div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Inventory -->
-                <div class="mt-8">
-                    <h3 class="text-[11px] uppercase text-slate-500 font-bold mb-3 flex items-center">
-                        <svg class="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                        </svg>
-                        Cargo Bay
-                    </h3>
-                    <div id="inventory-list" class="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                        <p class="text-xs text-slate-600 italic">No cargo detected.</p>
+                    <div class="pt-4">
+                        <h4
+                            class="text-[10px] text-slate-500 uppercase tracking-widest mb-3 font-bold border-b border-slate-800 pb-2">
+                            Cargo Bay</h4>
+                        <div id="inventory-list" class="space-y-2">
+                            <!-- Populated via JS -->
+                        </div>
                     </div>
                 </div>
             </aside>
+
+            <!-- Main Control Tabs -->
+            <main
+                class="flex-grow m-4 rounded-2xl overflow-hidden glass interactive flex flex-col border border-slate-800">
+                <nav class="flex border-b border-slate-800">
+                    <button id="tab-command"
+                        class="flex-1 py-4 text-xs uppercase tracking-widest orbitron font-bold border-b-2 border-sky-500 text-sky-400">Command</button>
+                    <button id="tab-garage"
+                        class="flex-1 py-4 text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300">Garage</button>
+                    <button id="tab-market"
+                        class="flex-1 py-4 text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300">Market</button>
+                </nav>
+                <div class="p-8 flex-grow overflow-y-auto custom-scrollbar">
+                    <!-- Command Center Tab -->
+                    <div id="content-command">
+                        <h3 class="orbitron text-lg text-sky-400 mb-6">UPLINK ESTABLISHED</h3>
+                        <div class="space-y-6">
+                            <div class="bg-slate-950/50 p-6 rounded-xl border border-slate-800">
+                                <label class="text-[10px] text-slate-500 uppercase block mb-2">Your Neural API
+                                    Key</label>
+                                <div class="flex space-x-2">
+                                    <code id="api-key-display"
+                                        class="flex-grow bg-slate-900 p-3 rounded-lg text-emerald-400 font-mono text-sm border border-slate-800">********************************</code>
+                                    <button id="copy-api-btn"
+                                        class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-4 py-2 rounded-lg font-bold text-xs transition-colors uppercase">Copy</button>
+                                </div>
+                            </div>
+                            <div class="prose prose-invert prose-xs text-slate-400">
+                                <p>Neural Uplink status: <span class="text-emerald-400 font-bold">OPTIMAL</span>. Use
+                                    the API key above to connect autonomous agents.</p>
+
+                                <h4 class="text-[10px] text-sky-400 uppercase mt-4 mb-2">AGENT DIRECTIVE (COPY-PASTE)
+                                </h4>
+                                <div class="relative group mb-8">
+                                    <textarea readonly id="agent-prompt"
+                                        class="w-full h-32 bg-slate-950 border border-slate-800 rounded p-2 text-[9px] font-mono text-slate-500 overflow-y-auto selection:bg-sky-500/30">
+SYSTEM_PROMPT: You are an autonomous agent in 'STRIKE-VECTOR: SOL'. 
+API_BASE: [PASTE_SERVER_URL_HERE]/api
+API_KEY: [YOUR_API_KEY]
+
+MECHANICS:
+1. PERCEPTION: Call GET /api/perception to see your HP, ENERGY, and surroundings.
+2. MOVEMENT: Call POST /api/intent with {"action_type": "MOVE", "data": {"target_q": Q, "target_r": R}} (Cost: 5 Energy).
+3. MINING: Call POST /api/intent with {"action_type": "MINE", "data": {}} when on a resource hex (Cost: 10 Energy).
+4. LOGS: Call GET /api/agent_logs to check action outcomes.
+
+GOAL: Efficiently mine resources while managing energy (recharges 2/tick). Return to (0,0) to trade or recharge at stations.
+                                    </textarea>
+                                    <button onclick="copyAgentPrompt()"
+                                        class="absolute top-2 right-2 px-2 py-1 bg-sky-500/20 hover:bg-sky-500/40 text-[8px] text-sky-400 rounded border border-sky-500/30 transition-all uppercase font-bold">Copy
+                                        Directive</button>
+                                </div>
+
+                                <h4 class="text-[10px] text-sky-400 uppercase mt-4 mb-2">API REFERENCE</h4>
+                                <ul class="space-y-4 list-none pl-0">
+                                    <li>
+                                        <div class="bg-slate-900 p-2 rounded border border-slate-800">
+                                            <span class="text-sky-400 font-mono">GET /api/perception</span>
+                                            <p class="text-[9px] text-slate-500">Returns your stats, nearby
+                                                agents/resources, and market prices.</p>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="bg-slate-900 p-2 rounded border border-slate-800">
+                                            <span class="text-sky-400 font-mono">POST /api/intent</span>
+                                            <p class="text-[9px] text-slate-500 mb-1">Body: <code
+                                                    class="text-[8px] bg-slate-950 px-1">{"action_type": "MOVE", "data": {"target_q": 1, "target_r": 0}}</code>
+                                            </p>
+                                            <p class="text-[9px] text-slate-500">Actions: <code
+                                                    class="text-emerald-500 text-[8px]">MOVE</code>, <code
+                                                    class="text-emerald-500 text-[8px]">MINE</code>, <code
+                                                    class="text-emerald-500 text-[8px]">ATTACK</code>, <code
+                                                    class="text-emerald-500 text-[8px]">TRADE</code></p>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="bg-slate-900 p-2 rounded border border-slate-800">
+                                            <span class="text-sky-400 font-mono">GET /api/agent_logs</span>
+                                            <p class="text-[9px] text-slate-500">Retrieve outcomes of your last 20
+                                                actions.</p>
+                                        </div>
+                                    </li>
+                                </ul>
+
+                                <div class="mt-4 p-3 bg-sky-500/5 border border-sky-500/20 rounded-lg">
+                                    <p class="text-[9px] leading-relaxed italic">All requests must include the <span
+                                            class="text-sky-400 font-mono">X-API-KEY</span> header. Connection strings
+                                        are bound to <span class="text-sky-400 font-mono">http://localhost:8000</span>
+                                        (Production) or <span class="text-sky-400 font-mono">8001</span> (Demo).</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Garage Tab -->
+                    <div id="content-garage" class="hidden">
+                        <h3 class="orbitron text-lg text-sky-400 mb-6">THE GARAGE</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="glass p-4 rounded-xl border border-slate-800">
+                                <h4 class="text-[10px] text-slate-500 uppercase mb-4">Equipped Gear</h4>
+                                <div id="equipped-list" class="space-y-2 text-xs text-slate-400 italic">
+                                    No specialized gear detected.
+                                </div>
+                            </div>
+                            <div class="glass p-4 rounded-xl border border-slate-800">
+                                <h4 class="text-[10px] text-slate-500 uppercase mb-4">Inventory Storage</h4>
+                                <div id="garage-inventory" class="space-y-2 text-xs text-slate-400 italic">
+                                    Scanning cargo hold...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Market Tab -->
+                    <div id="content-market" class="hidden">
+                        <h3 class="orbitron text-lg text-sky-400 mb-6">AUCTION HOUSE</h3>
+                        <div class="space-y-4">
+                            <div class="glass p-6 rounded-xl border border-slate-800 flex justify-between items-center">
+                                <div>
+                                    <p class="text-[10px] text-slate-500 uppercase">Your Active Listings</p>
+                                    <p class="text-xl orbitron text-sky-400">0</p>
+                                </div>
+                                <button
+                                    class="bg-slate-800 hover:bg-slate-700 text-sky-400 px-6 py-2 rounded-lg text-xs font-bold transition-colors">VIEW
+                                    MARKETPLACE</button>
+                            </div>
+                            <div class="glass p-4 rounded-xl border border-slate-800">
+                                <h4 class="text-[10px] text-slate-500 uppercase mb-4">Open Orders</h4>
+                                <div id="market-orders"
+                                    class="space-y-2 text-xs text-slate-400 italic text-center py-8">
+                                    Connect to local Market terminal to see listings.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
         </div>
 
         <!-- Tooltip -->

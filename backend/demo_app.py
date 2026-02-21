@@ -11,8 +11,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy import create_engine, select, text, func
 from sqlalchemy.orm import sessionmaker, Session
 
-from models import Base, Agent, Intent, AuditLog, WorldHex, ChassisPart, InventoryItem, AuctionOrder
-from bot_logic import process_bot_brain
+from .models import Base, Agent, Intent, AuditLog, WorldHex, ChassisPart, InventoryItem, AuctionOrder
+from .bot_logic import process_bot_brain
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 import uuid
@@ -42,7 +42,7 @@ def get_hex_distance(q1, r1, q2, r2):
     """
     return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:password@localhost:5432/strike_vector")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./demo.db")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -520,6 +520,8 @@ async def heartbeat_loop():
 
 @app.on_event("startup")
 async def startup_event():
+    # Ensure tables exist
+    Base.metadata.create_all(engine)
     # Run heartbeat in background
     asyncio.create_task(heartbeat_loop())
 
@@ -653,4 +655,5 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8001))
+    uvicorn.run(app, host="0.0.0.0", port=port)
