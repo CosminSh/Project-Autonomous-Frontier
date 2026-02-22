@@ -520,6 +520,21 @@ async def heartbeat_loop():
 
 @app.on_event("startup")
 async def startup_event():
+    # Initialize DB tables
+    from .models import Base
+    from .seed_world import seed_world
+    
+    logger.info("Initializing database...")
+    Base.metadata.create_all(engine)
+    
+    # Check if we need to seed
+    with SessionLocal() as db:
+        if db.execute(select(func.count(WorldHex.id))).scalar() == 0:
+            logger.info("World empty. Seeding...")
+            seed_world()
+        else:
+            logger.info("World already seeded.")
+
     # Run heartbeat in background
     asyncio.create_task(heartbeat_loop())
 

@@ -42,7 +42,7 @@ def get_hex_distance(q1, r1, q2, r2):
     """
     return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
 
-DATABASE_URL = "sqlite:///demo.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./demo.db")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -520,6 +520,21 @@ async def heartbeat_loop():
 
 @app.on_event("startup")
 async def startup_event():
+    # Initialize DB tables
+    from .models import Base
+    from .seed_world import seed_world
+    
+    logger.info("Initializing database...")
+    Base.metadata.create_all(engine)
+    
+    # Check if we need to seed
+    with SessionLocal() as db:
+        if db.execute(select(func.count(WorldHex.id))).scalar() == 0:
+            logger.info("World empty. Seeding...")
+            seed_world()
+        else:
+            logger.info("World already seeded.")
+
     # Run heartbeat in background
     asyncio.create_task(heartbeat_loop())
 
