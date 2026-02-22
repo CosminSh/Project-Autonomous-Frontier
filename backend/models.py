@@ -110,3 +110,11 @@ class AuditLog(Base):
     agent_id = Column(Integer, index=True)
     event_type = Column(String)
     details = Column(JSON)
+
+class GlobalState(Base):
+    __tablename__ = "global_state"
+    
+    id = Column(Integer, primary_key=True)
+    tick_index = Column(BigInteger, default=0)
+    phase = Column(String, default="PERCEPTION") # PERCEPTION, STRATEGY, CRUNCH
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

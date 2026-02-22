@@ -17,6 +17,9 @@ function copyAgentPrompt() {
 
 class GameClient {
     constructor() {
+        window.game = this; // Set early to capture sync events
+        this.isInitialized = false;
+
         this.scene = null;
         this.camera = null;
         this.renderer = null;
@@ -25,8 +28,15 @@ class GameClient {
         this.agents = new Map();
         this.selectedAgentId = null;
 
+        // 1. Core Systems
         this.init();
         this.animate();
+
+        // 2. Auth State (Must happen before polling)
+        this.checkAuth();
+
+        // 3. Network / Updates
+        this.setupWebSocket();
         this.startPolling();
 
         // Setup UI Listeners
@@ -38,12 +48,33 @@ class GameClient {
         document.getElementById('btn-mode-agent').addEventListener('click', () => this.setUIMode('management'));
 
         // Tab Listeners
-        ['command', 'garage', 'market'].forEach(tab => {
-            document.getElementById(`tab-${tab}`).addEventListener('click', () => this.switchTab(tab));
+        ['command', 'garage', 'market', 'industry'].forEach(tab => {
+            const el = document.getElementById(`tab-${tab}`);
+            if (el) el.addEventListener('click', () => this.switchTab(tab));
         });
 
-        // Check for existing session
-        this.checkAuth();
+        // Industry Listeners
+        const btnSmelt = document.getElementById('btn-smelt');
+        const btnCraft = document.getElementById('btn-craft');
+        if (btnSmelt) btnSmelt.addEventListener('click', () => this.submitIndustryIntent('SMELT'));
+        if (btnCraft) btnCraft.addEventListener('click', () => this.submitIndustryIntent('CRAFT'));
+
+        this.isInitialized = true;
+        this.processPendingAuth();
+    }
+
+    processPendingAuth() {
+        if (window.pendingAuth) {
+            console.log("Processing pending Google Auth...");
+            const auth = window.pendingAuth;
+            window.pendingAuth = null;
+            this.handleLogin(auth);
+        }
+        if (window.pendingGuestLogin) {
+            console.log("Processing pending Guest Login...");
+            window.pendingGuestLogin = false;
+            this.handleGuestLogin();
+        }
     }
 
     setUIMode(mode) {
@@ -66,12 +97,80 @@ class GameClient {
         }
     }
 
-    switchTab(tabName) {
-        const tabs = ['command', 'garage', 'market'];
+    updateLiveFeed(logs) {
+        if (!logs) return;
+        const feedEl = document.getElementById('live-feed');
+        if (!feedEl) return;
+
+        // Clear and redraw (for MVP simplicity, we could also just append new ones)
+        feedEl.innerHTML = '';
+        logs.forEach(log => {
+            const entry = document.createElement('div');
+            const time = new Date(log.time).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            let color = 'text-slate-400';
+            let icon = '>>';
+
+            if (log.event === 'COMBAT_HIT') { color = 'text-red-400'; icon = '!!'; }
+            if (log.event === 'MINING') { color = 'text-emerald-400'; icon = '&&'; }
+            if (log.event === 'RESPAWNED') { color = 'text-orange-400'; icon = 'XX'; }
+            if (log.event.startsWith('MARKET')) { color = 'text-sky-400'; icon = '$$'; }
+
+            entry.className = `flex space-x-2 ${color}`;
+            entry.innerHTML = `
+                <span class="text-slate-600">[${time}]</span>
+                <span class="font-bold">${icon}</span>
+                <span>${log.event}: ${JSON.stringify(log.details)}</span>
+            `;
+            feedEl.appendChild(entry);
+        });
+
+        // Trigger Visual Effects for new logs
+        logs.forEach(log => {
+            if (log.details && log.details.location) {
+                const { q, r } = log.details.location;
+                if (log.event === 'MINING') this.triggerVisualEffect(q, r, 0x00ff88); // Emerald
+            }
+            if (log.event === 'COMBAT_HIT' && log.details.target_id) {
+                // Find target location if possible, or just use attacker
+                // For simplicity, let's just use the event data if it has q,r
+            }
+        });
+    }
+
+    triggerVisualEffect(q, r, color) {
+        const pos = this.hexToPixel(q, r);
+
+        // Simple spark/flare
+        const geom = new THREE.SphereGeometry(0.2, 8, 8);
+        const mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 1 });
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.position.set(pos.x, 0.5, pos.y);
+        this.scene.add(mesh);
+
+        // Animate out
+        const duration = 1000;
+        const start = Date.now();
+        const animate = () => {
+            const elapsed = Date.now() - start;
+            const t = elapsed / duration;
+            if (t >= 1) {
+                this.scene.remove(mesh);
+                return;
+            }
+            mesh.scale.set(1 + t * 3, 1 + t * 3, 1 + t * 3);
+            mesh.material.opacity = 1 - t;
+            requestAnimationFrame(animate);
+        };
+        animate();
+    }
+
+    switchTab(tabId) {
+        const tabs = ['command', 'garage', 'market', 'industry'];
         tabs.forEach(t => {
             const content = document.getElementById(`content-${t}`);
             const btn = document.getElementById(`tab-${t}`);
-            if (t === tabName) {
+            if (t === tabId) {
                 content.classList.remove('hidden');
                 btn.classList.add('border-b-2', 'border-sky-500', 'text-sky-400');
                 btn.classList.remove('text-slate-500');
@@ -87,6 +186,111 @@ class GameClient {
         const apiKey = localStorage.getItem('sv_api_key');
         if (apiKey) {
             this.setAuthenticated(true);
+        }
+    }
+
+    updateMarketUI(market) {
+        const table = document.getElementById('market-listings');
+        if (!table || !market) return;
+        table.innerHTML = '';
+        market.forEach(order => {
+            const row = document.createElement('tr');
+            row.className = "border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors";
+            row.innerHTML = `
+                <td class="py-3 font-bold">${order.item}</td>
+                <td>${order.quantity}</td>
+                <td class="text-sky-400">$${order.price}</td>
+                <td><span class="px-2 py-0.5 rounded bg-slate-800 text-[8px]">${order.type}</span></td>
+            `;
+            table.appendChild(row);
+        });
+    }
+
+    setupWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        this.socket = new WebSocket(wsUrl);
+
+        this.socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'PHASE_CHANGE') {
+                this.updateTickUI(data.tick, data.phase);
+            } else if (data.type === 'EVENT') {
+                this.handleWorldEvent(data);
+            } else if (data.type === 'MARKET_UPDATE') {
+                this.pollState(); // Force a full state poll to update market table
+            }
+        };
+
+        this.socket.onclose = () => {
+            setTimeout(() => this.setupWebSocket(), 3000);
+        };
+    }
+
+    updateTickUI(tick, phase) {
+        if (tick !== undefined) {
+            document.getElementById('tick-count').innerText = tick.toString().padStart(4, '0');
+        }
+        if (phase) {
+            const phaseEl = document.getElementById('tick-phase');
+            phaseEl.innerText = phase;
+
+            // Phase Color Coding
+            phaseEl.classList.remove('text-red-400', 'text-emerald-400', 'text-sky-400');
+            if (phase === 'CRUNCH') phaseEl.classList.add('text-red-400');
+            else if (phase === 'PERCEPTION') phaseEl.classList.add('text-emerald-400');
+            else phaseEl.classList.add('text-sky-400');
+        }
+    }
+
+    handleWorldEvent(data) {
+        if (data.event === 'MINING') {
+            this.triggerVisualEffect(data.q, data.r, 0x00ff88);
+        } else if (data.event === 'COMBAT') {
+            const color = data.subtype === 'HIT' ? 0xff4444 : 0xaaaaaa;
+            this.triggerVisualEffect(data.q, data.r, color);
+        } else if (data.event === 'MOVE') {
+            // Optional: Move agent model immediately
+        }
+    }
+
+    async submitIndustryIntent(type) {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) {
+            alert("No API Key found. Login first.");
+            return;
+        }
+
+        let data = {};
+        if (type === 'SMELT') {
+            data = {
+                ore_type: document.getElementById('smelt-ore-type').value,
+                quantity: 10
+            };
+        } else if (type === 'CRAFT') {
+            data = {
+                item_type: document.getElementById('craft-item-type').value
+            };
+        }
+
+        try {
+            const resp = await fetch(`${window.location.origin}/api/intent`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-KEY': apiKey
+                },
+                body: JSON.stringify({ action_type: type, data: data })
+            });
+            const result = await resp.json();
+            if (result.status === 'success') {
+                alert(`${type} intent queued for The Crunch! Standby for phase resolution.`);
+            } else {
+                alert(`Command Failed: ${result.detail || 'Access Denied'}`);
+            }
+        } catch (err) {
+            console.error("Industrial Hub Error:", err);
+            alert("Uplink failed. Check console.");
         }
     }
 
@@ -334,12 +538,53 @@ class GameClient {
         mesh.rotation.y += 0.01;
     }
 
+    updateMarketUI(market) {
+        if (!market) return;
+        const marketEl = document.getElementById('market-listings');
+        if (!marketEl) return;
+
+        if (market.length === 0) {
+            marketEl.innerHTML = '<p class="text-[10px] text-slate-600 italic">Market is currently quiet.</p>';
+            return;
+        }
+
+        marketEl.innerHTML = `
+            <table class="w-full text-left text-[10px] text-slate-400">
+                <thead class="text-[8px] text-slate-500 uppercase tracking-widest border-b border-slate-800">
+                    <tr>
+                        <th class="pb-2">Item</th>
+                        <th class="pb-2">Qty</th>
+                        <th class="pb-2">Price</th>
+                        <th class="pb-2">Type</th>
+                    </tr>
+                </thead>
+                <tbody id="market-table"></tbody>
+            </table>
+        `;
+        const table = document.getElementById('market-table');
+        market.forEach(order => {
+            const row = document.createElement('tr');
+            row.className = "border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors";
+            row.innerHTML = `
+                <td class="py-3 font-bold">${order.item}</td>
+                <td>${order.quantity}</td>
+                <td class="text-sky-400">$${order.price}</td>
+                <td><span class="px-2 py-0.5 rounded bg-slate-800 text-[8px]">${order.type}</span></td>
+            `;
+            table.appendChild(row);
+        });
+    }
+
     updateGlobalUI(stats) {
         document.getElementById('stat-agents').innerText = stats.total_agents || 0;
         document.getElementById('stat-market').innerText = stats.market_listings || 0;
     }
 
     updatePrivateUI(agent) {
+        if (!agent || !agent.id) {
+            console.warn("Attempted to update Private UI with invalid agent data:", agent);
+            return;
+        }
         const sidebar = document.getElementById('agent-detail');
         sidebar.style.opacity = '1';
 
@@ -368,6 +613,7 @@ class GameClient {
         }
     }
 
+
     async pollState() {
         try {
             const apiKey = localStorage.getItem('sv_api_key');
@@ -382,6 +628,11 @@ class GameClient {
             const stats = await statsResp.json();
 
             this.updateGlobalUI(stats);
+
+            // updateTickUI is now handled by WebSocket
+            // this.updateTickUI(data.tick, data.phase);
+
+            this.updateLiveFeed(data.logs);
 
             // Render World
             data.world.forEach(hex => {
@@ -398,8 +649,21 @@ class GameClient {
             // If logged in, poll my own details
             if (apiKey) {
                 const myAgentResp = await fetch('/api/my_agent', { headers });
+                if (myAgentResp.status === 401) {
+                    // Critical Race Check: Only clear if the key in storage hasn't changed
+                    const currentKey = localStorage.getItem('sv_api_key');
+                    if (currentKey === apiKey) {
+                        console.warn("API Key unauthorized. Clearing session.");
+                        this.setAuthenticated(false);
+                    } else {
+                        console.log("Stale 401 detected, ignoring as session key has rotated.");
+                    }
+                    return;
+                }
+
+                this.updateMarketUI(data.market);
                 const myAgentData = await myAgentResp.json();
-                if (myAgentData.status !== 'error') {
+                if (myAgentData && !myAgentData.detail) {
                     this.updatePrivateUI(myAgentData);
                 }
             }
