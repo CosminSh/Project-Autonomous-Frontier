@@ -42,7 +42,7 @@ def get_hex_distance(q1, r1, q2, r2):
     """
     return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./demo.db")
+DATABASE_URL = "sqlite:///demo.db"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -520,8 +520,6 @@ async def heartbeat_loop():
 
 @app.on_event("startup")
 async def startup_event():
-    # Ensure tables exist
-    Base.metadata.create_all(engine)
     # Run heartbeat in background
     asyncio.create_task(heartbeat_loop())
 
@@ -655,5 +653,4 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8001))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

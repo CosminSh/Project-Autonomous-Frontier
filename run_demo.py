@@ -28,7 +28,7 @@ if "/auth/login" not in content:
 
 # Robust DB URL replacement
 print("Converting to SQLite...")
-lite_content = re.sub(r'DATABASE_URL = os\.getenv\("DATABASE_URL", ".*"\)', 'DATABASE_URL = "sqlite:///../demo.db"', content)
+lite_content = re.sub(r'DATABASE_URL = os\.getenv\("DATABASE_URL", ".*"\)', 'DATABASE_URL = "sqlite:///demo.db"', content)
 
 try:
     with open(demo_main_path, "w", encoding="utf-8") as f:
@@ -102,8 +102,8 @@ with SessionLocal() as db:
     db.commit()
 
 print("Starting uvicorn server...")
-# Run demo_app.py
-proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "demo_app:app", "--host", "127.0.0.1", "--port", "8001"], cwd="backend")
+# Run backend.demo_app from project root
+proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.demo_app:app", "--host", "127.0.0.1", "--port", "8001"])
 
 print("\n--- DEMO READY ---")
 print("1. IMPORTANT: Add http://localhost:8001 to your Google Cloud Console Origins!")

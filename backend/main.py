@@ -11,8 +11,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy import create_engine, select, text, func
 from sqlalchemy.orm import sessionmaker, Session
 
-from models import Base, Agent, Intent, AuditLog, WorldHex, ChassisPart, InventoryItem, AuctionOrder
-from bot_logic import process_bot_brain
+from .models import Base, Agent, Intent, AuditLog, WorldHex, ChassisPart, InventoryItem, AuctionOrder
+from .bot_logic import process_bot_brain
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 import uuid

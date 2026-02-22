@@ -2,7 +2,7 @@ import requests
 import time
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Agent, ChassisPart, WorldHex, AuctionOrder, Intent, AuditLog
+from .models import Agent, ChassisPart, WorldHex, AuctionOrder, Intent, AuditLog
 
 DATABASE_URL = "postgresql://admin:password@localhost:5432/strike_vector"
 engine = create_engine(DATABASE_URL)
