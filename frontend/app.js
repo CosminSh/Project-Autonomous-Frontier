@@ -33,6 +33,10 @@ class GameClient {
         document.getElementById('logout-btn').addEventListener('click', () => this.logout());
         document.getElementById('copy-api-btn').addEventListener('click', () => this.copyApiKey());
 
+        // Mode Switcher Listeners
+        document.getElementById('btn-mode-world').addEventListener('click', () => this.setUIMode('world'));
+        document.getElementById('btn-mode-agent').addEventListener('click', () => this.setUIMode('management'));
+
         // Tab Listeners
         ['command', 'garage', 'market'].forEach(tab => {
             document.getElementById(`tab-${tab}`).addEventListener('click', () => this.switchTab(tab));
@@ -40,6 +44,26 @@ class GameClient {
 
         // Check for existing session
         this.checkAuth();
+    }
+
+    setUIMode(mode) {
+        const privateLayer = document.getElementById('private-dashboard');
+        const btnWorld = document.getElementById('btn-mode-world');
+        const btnAgent = document.getElementById('btn-mode-agent');
+
+        if (mode === 'world') {
+            privateLayer.classList.add('hidden');
+            btnWorld.classList.add('bg-sky-500', 'text-slate-950');
+            btnWorld.classList.remove('text-slate-400');
+            btnAgent.classList.remove('bg-sky-500', 'text-slate-950');
+            btnAgent.classList.add('text-slate-400');
+        } else {
+            privateLayer.classList.remove('hidden');
+            btnAgent.classList.add('bg-sky-500', 'text-slate-950');
+            btnAgent.classList.remove('text-slate-400');
+            btnWorld.classList.remove('bg-sky-500', 'text-slate-950');
+            btnWorld.classList.add('text-slate-400');
+        }
     }
 
     switchTab(tabName) {
@@ -67,17 +91,20 @@ class GameClient {
     }
 
     setAuthenticated(isAuthenticated) {
-        const publicLayer = document.getElementById('public-dashboard');
+        const authPanel = document.getElementById('auth-panel');
         const privateLayer = document.getElementById('private-dashboard');
         const logoutBtn = document.getElementById('logout-btn');
+        const modeSwitcher = document.getElementById('mode-switcher');
 
         if (isAuthenticated) {
-            publicLayer.classList.add('hidden');
-            privateLayer.classList.remove('hidden');
+            authPanel.classList.add('hidden');
+            modeSwitcher.classList.remove('hidden');
             logoutBtn.classList.remove('hidden');
+            this.setUIMode('management'); // Default to management view on login
             document.getElementById('agent-detail').style.opacity = '1';
         } else {
-            publicLayer.classList.remove('hidden');
+            authPanel.classList.remove('hidden');
+            modeSwitcher.classList.add('hidden');
             privateLayer.classList.add('hidden');
             logoutBtn.classList.add('hidden');
             document.getElementById('agent-detail').style.opacity = '0';

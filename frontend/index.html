@@ -105,6 +105,15 @@
             </div>
 
             <div class="flex items-center space-x-4">
+                <!-- Mode Switcher (Hidden until login) -->
+                <div id="mode-switcher"
+                    class="hidden flex items-center bg-slate-900/50 p-1 rounded-xl border border-slate-800 interactive">
+                    <button id="btn-mode-world"
+                        class="px-4 py-2 rounded-lg text-[10px] orbitron font-bold transition-all text-slate-400 hover:text-sky-400">WORLD</button>
+                    <button id="btn-mode-agent"
+                        class="px-4 py-2 rounded-lg text-[10px] orbitron font-bold transition-all bg-sky-500 text-slate-950">MANAGEMENT</button>
+                </div>
+
                 <div id="system-status" class="glass px-6 py-3 rounded-xl flex items-center space-x-6">
                     <div class="flex flex-col items-center">
                         <span class="text-[10px] text-slate-500 uppercase">Server Status</span>
@@ -131,9 +140,9 @@
             </div>
         </header>
 
-        <!-- PUBLIC DASHBOARD LAYER -->
-        <div id="public-dashboard" class="flex-grow flex justify-between items-end pb-8">
-            <!-- Global Stats -->
+        <!-- DASHBOARD LAYER -->
+        <div class="flex-grow flex justify-between items-end pb-8">
+            <!-- Global Stats (Always Visible) -->
             <div id="global-stats" class="glass rounded-2xl p-6 border-l-4 border-l-emerald-500 interactive ml-4">
                 <h3 class="orbitron text-xs text-slate-500 uppercase tracking-widest mb-4">World Statistics</h3>
                 <div class="grid grid-cols-2 gap-6">
@@ -148,7 +157,7 @@
                 </div>
             </div>
 
-            <!-- Auth Panel -->
+            <!-- Auth Panel (Hidden after login) -->
             <div id="auth-panel" class="glass rounded-2xl p-8 border-r-4 border-r-sky-500 interactive mr-4 text-center">
                 <h2 class="orbitron text-xl text-sky-400 mb-2">ACCESS HUB</h2>
                 <p class="text-xs text-slate-500 mb-6 font-mono tracking-tighter">AUTHENTICATION REQUIRED FOR AGENT
