@@ -203,6 +203,57 @@ async def global_stats(db: Session = Depends(get_db)):
         "status": "online"
     }
 
+@app.get("/api/commands")
+async def get_commands():
+    """Returns all available agent commands and their syntax."""
+    return {
+        "commands": [
+            {
+                "type": "MOVE",
+                "description": "Move your agent to an adjacent hex.",
+                "payload": {"target_q": "int", "target_r": "int"},
+                "cost": MOVE_ENERGY_COST
+            },
+            {
+                "type": "MINE",
+                "description": "Extract resources from the current hex. Requires Drill part.",
+                "payload": {},
+                "cost": MINE_ENERGY_COST
+            },
+            {
+                "type": "ATTACK",
+                "description": "Engage another agent in combat.",
+                "payload": {"target_id": "int"},
+                "cost": ATTACK_ENERGY_COST
+            },
+            {
+                "type": "LIST",
+                "description": "List an item on the Auction House (must be at a Market station).",
+                "payload": {"item_type": "str", "price": "int", "quantity": "int"},
+                "cost": 0
+            },
+            {
+                "type": "BUY",
+                "description": "Purchase an item from the Auction House (must be at a Market station).",
+                "payload": {"item_type": "str", "max_price": "int"},
+                "cost": 0
+            },
+            {
+                "type": "SMELT",
+                "description": "Refine ore into ingots (must be at a Smelter station).",
+                "payload": {"ore_type": "str", "quantity": "int"},
+                "cost": 0
+            },
+            {
+                "type": "CRAFT",
+                "description": "Assemble components into parts (must be at a Crafter station).",
+                "payload": {"item_type": "str"},
+                "cost": 0
+            }
+        ],
+        "note": "All commands are executed during the CRUNCH phase. Submit via POST /api/intent"
+    }
+
 @app.post("/auth/guest")
 async def guest_login(db: Session = Depends(get_db)):
     """Bypass Auth for local testing. Returns the first player agent's key."""

@@ -284,7 +284,9 @@
                                 <p>Neural Uplink status: <span class="text-emerald-400 font-bold">OPTIMAL</span>. Use
                                     the API key above to connect autonomous agents.</p>
                                 <!-- (Simplifying here to avoid over-viewing, keeping placeholders for the prose content) -->
-                                <p>Refer to the <span class="text-sky-400 font-mono">AGENT DIRECTIVE</span> for
+                                <p>Refer to the <button id="open-directive-btn"
+                                        class="text-sky-400 font-mono hover:underline transition-all cursor-pointer interactive">AGENT
+                                        DIRECTIVE</button> for
                                     integration details.</p>
                             </div>
                         </div>
@@ -370,7 +372,105 @@
         <div id="hex-coords" class="font-mono text-sky-400">Q:0, R:0</div>
         <div id="hex-type" class="text-slate-400">Perimeter</div>
     </div>
-    </main>
+
+    <!-- Agent Directive Modal -->
+    <div id="directive-modal" class="fixed inset-0 z-[100] flex items-center justify-center hidden interactive">
+        <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" id="modal-overlay"></div>
+        <div
+            class="glass w-full max-w-2xl max-h-[80vh] rounded-2xl border-t-4 border-t-sky-500 overflow-hidden flex flex-col relative z-10 m-4">
+            <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <h2 class="orbitron text-xl font-bold text-sky-400">AGENT DIRECTIVE: ALPHA-1</h2>
+                <button id="close-directive-btn"
+                    class="text-slate-500 hover:text-white transition-colors cursor-pointer">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-8 overflow-y-auto custom-scrollbar space-y-8">
+                <!-- Direct API Link Section -->
+                <div class="bg-sky-500/10 p-4 rounded-xl border border-sky-500/20">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="text-sky-400 font-bold orbitron text-xs uppercase tracking-widest">Dynamic
+                                Command Reference</h4>
+                            <p class="text-[10px] text-slate-400 mt-1">Direct endpoint for automated agent parsing.</p>
+                        </div>
+                        <a href="/api/commands" target="_blank"
+                            class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-4 py-2 rounded-lg font-bold text-[10px] orbitron transition-all">OPEN
+                            API</a>
+                    </div>
+                </div>
+
+                <section>
+                    <h3 class="orbitron text-sm text-sky-400 mb-4 border-b border-slate-800 pb-2">1. NEURAL UPLINK</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">Agents connect via the <span
+                            class="text-emerald-400">REST API</span> and receive state updates through the <span
+                            class="text-sky-400">Neural WebSocket</span>. Authentication requires your unique <span
+                            class="font-mono text-slate-200">X-API-KEY</span>.</p>
+                    <div class="mt-4 grid grid-cols-2 gap-4">
+                        <div class="glass p-3 rounded-lg border border-slate-800">
+                            <span class="text-[9px] text-slate-500 uppercase block mb-1">HTTP Endpoint</span>
+                            <code class="text-[10px] text-sky-400 font-mono"
+                                id="server-url-display">http://localhost:8000</code>
+                        </div>
+                        <div class="glass p-3 rounded-lg border border-slate-800">
+                            <span class="text-[9px] text-slate-500 uppercase block mb-1">WebSocket</span>
+                            <code class="text-[10px] text-sky-400 font-mono"
+                                id="ws-url-display">ws://localhost:8000/ws</code>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3 class="orbitron text-sm text-sky-400 mb-4 border-b border-slate-800 pb-2">2. THE TICK PHASE</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed mb-4">The world operates in discrete cycles.
+                        Synchronize your agent logic with the server phase:</p>
+                    <div class="space-y-3">
+                        <div class="flex items-start space-x-3">
+                            <span
+                                class="text-[10px] font-bold text-sky-500 bg-sky-500/10 px-2 py-1 rounded">PERCEPTION</span>
+                            <p class="text-[10px] text-slate-500 italic flex-grow">Fetch world state via <code
+                                    class="text-slate-300">/api/perception</code>.</p>
+                        </div>
+                        <div class="flex items-start space-x-3">
+                            <span
+                                class="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded">STRATEGY</span>
+                            <p class="text-[10px] text-slate-500 italic flex-grow">Calculate moves and submit intentions
+                                via <code class="text-slate-300">/api/intent</code>.</p>
+                        </div>
+                        <div class="flex items-start space-x-3">
+                            <span
+                                class="text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded">CRUNCH</span>
+                            <p class="text-[10px] text-slate-500 italic flex-grow">Server resolves all intents. No new
+                                commands accepted.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3 class="orbitron text-sm text-sky-400 mb-4 border-b border-slate-800 pb-2">3. BOOTSTRAPPING</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed mb-4">Copy the full system directive to initialize
+                        your LLM-based agent or specialized bot.</p>
+                    <div class="relative group">
+                        <textarea id="agent-prompt" readonly
+                            class="w-full h-32 bg-slate-950 p-4 rounded-xl border border-slate-800 text-[10px] font-mono text-slate-500 focus:outline-none focus:border-sky-500 transition-all"></textarea>
+                        <button onclick="window.copyAgentPrompt()"
+                            class="absolute top-2 right-2 bg-slate-900 border border-slate-800 hover:border-sky-500 text-sky-500 px-3 py-1 rounded text-[10px] orbitron transition-all cursor-pointer">COPY
+                            DIRECTIVE</button>
+                    </div>
+                </section>
+            </div>
+
+            <div class="p-6 bg-slate-900/30 border-t border-slate-800 flex justify-end">
+                <button id="close-directive-btn-footer"
+                    class="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs orbitron transition-all cursor-pointer">ACKNOWLEDGE</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Three.js Bundle via CDN -->
     <script type="importmap">

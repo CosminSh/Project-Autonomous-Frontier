@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-function copyAgentPrompt() {
+// Global helper for the Directive Modal
+window.copyAgentPrompt = function () {
     const prompt = document.getElementById('agent-prompt');
     const apiKey = localStorage.getItem('sv_api_key') || 'YOUR_API_KEY_HERE';
     const serverUrl = window.location.origin;
@@ -12,7 +13,15 @@ function copyAgentPrompt() {
     text = text.replace('[YOUR_API_KEY]', apiKey);
 
     navigator.clipboard.writeText(text);
-    alert('Agent Directive copied to clipboard!');
+
+    // Visual feedback
+    const originalText = prompt.value;
+    const btn = event?.target || document.querySelector('button[onclick="window.copyAgentPrompt()"]');
+    if (btn) {
+        const oldBtnText = btn.innerText;
+        btn.innerText = 'COPIED!';
+        setTimeout(() => btn.innerText = oldBtnText, 2000);
+    }
 }
 
 class GameClient {
@@ -58,6 +67,18 @@ class GameClient {
         const btnCraft = document.getElementById('btn-craft');
         if (btnSmelt) btnSmelt.addEventListener('click', () => this.submitIndustryIntent('SMELT'));
         if (btnCraft) btnCraft.addEventListener('click', () => this.submitIndustryIntent('CRAFT'));
+
+        // Directive Modal Listeners
+        const openDirBtn = document.getElementById('open-directive-btn');
+        const closeDirBtn = document.getElementById('close-directive-btn');
+        const closeDirBtnFooter = document.getElementById('close-directive-btn-footer');
+        const modal = document.getElementById('directive-modal');
+        const overlay = document.getElementById('modal-overlay');
+
+        if (openDirBtn) openDirBtn.addEventListener('click', () => this.toggleDirectiveModal(true));
+        if (closeDirBtn) closeDirBtn.addEventListener('click', () => this.toggleDirectiveModal(false));
+        if (closeDirBtnFooter) closeDirBtnFooter.addEventListener('click', () => this.toggleDirectiveModal(false));
+        if (overlay) overlay.addEventListener('click', () => this.toggleDirectiveModal(false));
 
         this.isInitialized = true;
         this.processPendingAuth();
@@ -313,6 +334,62 @@ class GameClient {
             logoutBtn.classList.add('hidden');
             document.getElementById('agent-detail').style.opacity = '0';
             localStorage.removeItem('sv_api_key');
+        }
+    }
+
+    toggleDirectiveModal(show) {
+        const modal = document.getElementById('directive-modal');
+        if (!modal) return;
+
+        if (show) {
+            modal.classList.remove('hidden');
+            this.populateDirective();
+        } else {
+            modal.classList.add('hidden');
+        }
+    }
+
+    populateDirective() {
+        const apiKey = localStorage.getItem('sv_api_key') || 'YOUR_API_KEY_HERE';
+        const serverUrl = window.location.origin;
+        const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+
+        // Update displays
+        const urlDisplay = document.getElementById('server-url-display');
+        const wsDisplay = document.getElementById('ws-url-display');
+        if (urlDisplay) urlDisplay.innerText = serverUrl;
+        if (wsDisplay) wsDisplay.innerText = wsUrl;
+
+        // Update Textarea with system prompt
+        const promptArea = document.getElementById('agent-prompt');
+        if (promptArea) {
+            promptArea.value = `STRIKE-VECTOR: SOL | AGENT_DIRECTIVE_v1.0
+========================================
+SERVER_URL: \${serverUrl}
+AUTH_KEY: \${apiKey}
+
+GOAL: You are an autonomous industrial agent in a zero-sum economy.
+Your objective is to maximize resource extraction, refine materials, and defend your assets.
+
+WORLD_LOGIC:
+- Ticks: PERCEPTION (Read) -> STRATEGY (Plan) -> CRUNCH (Resolution)
+- Movement costs 5 NRG. Mining costs 10 NRG.
+- You must be at specific Stations for SMELT/CRAFT/MARKET actions.
+
+COMMAND REFERENCE (Full API: \${serverUrl}/api/commands):
+- MOVE {target_q, target_r}
+- MINE {}
+- ATTACK {target_id}
+- LIST {item_type, price, quantity}
+- BUY {item_type, max_price}
+- SMELT {ore_type, quantity}
+- CRAFT {item_type}
+
+PERCEPTION PACKET (GET /api/perception):
+Receives local vicinity data, agent status, and market snapshots.
+
+SYNC STATUS: Neural link active.
+========================================`;
         }
     }
 
@@ -629,8 +706,8 @@ class GameClient {
 
             this.updateGlobalUI(stats);
 
-            // updateTickUI is now handled by WebSocket
-            // this.updateTickUI(data.tick, data.phase);
+            // Restore polling fallback for tick/phase
+            this.updateTickUI(data.tick, data.phase);
 
             this.updateLiveFeed(data.logs);
 
