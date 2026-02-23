@@ -79,3 +79,51 @@ def move_towards(db, agent, target_q, target_r, current_tick):
         action_type="MOVE",
         data={"target_q": best_hex[0], "target_r": best_hex[1]}
     ))
+
+def process_feral_brain(db, agent: Agent, current_tick: int):
+    """
+    Feral AI logic:
+    1. Scan for nearby PLAYER agents (Radius 2).
+    2. If found, ATTACK.
+    3. If not found, MOVE randomly.
+    """
+    # 1. Scan for players
+    players = db.execute(select(Agent).where(
+        Agent.id != agent.id,
+        Agent.is_bot == False,
+        Agent.is_feral == False
+    )).scalars().all()
+    
+    nearby_players = [p for p in players if get_hex_distance(agent.q, agent.r, p.q, p.r) <= 2]
+    
+    if nearby_players:
+        # Sort by distance
+        target = min(nearby_players, key=lambda p: get_hex_distance(agent.q, agent.r, p.q, p.r))
+        dist = get_hex_distance(agent.q, agent.r, target.q, target.r)
+        
+        if dist <= 1:
+            # Attack!
+            db.add(Intent(
+                agent_id=agent.id,
+                tick_index=current_tick + 1,
+                action_type="ATTACK",
+                data={"target_id": target.id}
+            ))
+            return
+        else:
+            # Move towards player
+            move_towards(db, agent, target.q, target.r, current_tick)
+            return
+
+    # 2. No players nearby, move randomly
+    neighbors = [
+        (agent.q + 1, agent.r), (agent.q + 1, agent.r - 1), (agent.q, agent.r - 1),
+        (agent.q - 1, agent.r), (agent.q - 1, agent.r + 1), (agent.q, agent.r + 1)
+    ]
+    target_q, target_r = random.choice(neighbors)
+    db.add(Intent(
+        agent_id=agent.id,
+        tick_index=current_tick + 1,
+        action_type="MOVE",
+        data={"target_q": target_q, "target_r": target_r}
+    ))

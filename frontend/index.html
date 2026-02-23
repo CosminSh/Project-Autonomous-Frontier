@@ -15,7 +15,8 @@
             background-color: #050507;
             color: #e2e8f0;
             font-family: 'Inter', sans-serif;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
         }
 
         .orbitron {
@@ -50,7 +51,7 @@
             position: relative;
             z-index: 10;
             pointer-events: none;
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
         }
@@ -92,48 +93,54 @@
 <body class="bg-slate-950">
     <div id="canvas-container"></div>
 
-    <main class="ui-layer p-6">
+    <main class="ui-layer p-3 lg:p-6">
         <!-- Header -->
-        <header class="flex justify-between items-center interactive">
-            <div class="glass p-4 rounded-xl border-l-4 border-l-sky-500 neon-border">
-                <h1 class="orbitron text-2xl font-bold tracking-widest text-sky-400 neon-text">STRIKE-VECTOR: SOL</h1>
-                <p class="text-xs text-slate-400 mt-1 uppercase tracking-tighter">Aether-Alpha Colonial Network</p>
+        <header class="flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0 interactive mb-3">
+            <div
+                class="glass p-3 rounded-xl border-l-4 border-l-sky-500 neon-border w-full md:w-auto text-center md:text-left">
+                <h1 class="orbitron text-base md:text-xl font-bold tracking-widest text-sky-400 neon-text">
+                    STRIKE-VECTOR:
+                    SOL</h1>
+                <p class="text-[8px] text-slate-400 mt-1 uppercase tracking-tighter">Aether-Alpha Colonial
+                    Network</p>
             </div>
 
-            <div class="flex items-center space-x-4">
+            <div class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4 w-full md:w-auto">
                 <!-- Mode Switcher (Hidden until login) -->
                 <div id="mode-switcher"
-                    class="hidden flex items-center bg-slate-900/50 p-1 rounded-xl border border-slate-800 interactive">
+                    class="hidden flex items-center bg-slate-900/50 p-1 rounded-xl border border-slate-800 interactive w-full md:w-auto">
                     <button id="btn-mode-world"
-                        class="px-4 py-2 rounded-lg text-[10px] orbitron font-bold transition-all text-slate-400 hover:text-sky-400">WORLD</button>
+                        class="flex-1 md:flex-none px-4 py-2 rounded-lg text-[9px] orbitron font-bold transition-all text-slate-400 hover:text-sky-400">WORLD</button>
                     <button id="btn-mode-agent"
-                        class="px-4 py-2 rounded-lg text-[10px] orbitron font-bold transition-all bg-sky-500 text-slate-950">MANAGEMENT</button>
+                        class="flex-1 md:flex-none px-4 py-2 rounded-lg text-[9px] orbitron font-bold transition-all bg-sky-500 text-slate-950">MANAGEMENT</button>
                 </div>
 
-                <div id="system-status" class="glass px-6 py-3 rounded-xl flex items-center space-x-6">
+                <div id="system-status"
+                    class="glass px-3 md:px-4 py-2 rounded-xl flex items-center justify-around md:justify-start space-x-3 md:space-x-4 w-full md:w-auto">
                     <div class="flex flex-col items-center">
-                        <span class="text-[10px] text-slate-500 uppercase">Server Status</span>
-                        <span class="text-emerald-400 text-sm font-semibold flex items-center">
-                            <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
-                            ONLINE
+                        <span class="text-[8px] md:text-[9px] text-slate-500 uppercase">Status</span>
+                        <span class="text-emerald-400 text-[10px] font-semibold flex items-center">
+                            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1.5 animate-pulse"></span>
+                            OK
                         </span>
                     </div>
-                    <div class="w-px h-8 bg-slate-800"></div>
+                    <div class="w-px h-6 bg-slate-800"></div>
                     <div class="flex flex-col items-center">
-                        <span class="text-[10px] text-slate-500 uppercase">Network Tick</span>
-                        <span id="tick-count" class="orbitron text-sky-400 font-bold">0000</span>
+                        <span class="text-[8px] md:text-[9px] text-slate-500 uppercase">Tick</span>
+                        <span id="tick-count" class="orbitron text-sky-400 font-bold text-[10px] md:text-xs">0000</span>
                     </div>
-                    <div class="w-px h-8 bg-slate-800"></div>
+                    <div class="w-px h-6 bg-slate-800"></div>
                     <div class="flex flex-col items-center">
-                        <span class="text-[10px] text-slate-500 uppercase">Phase</span>
-                        <span id="tick-phase" class="orbitron text-sky-400 font-bold text-xs">---</span>
+                        <span class="text-[8px] md:text-[9px] text-slate-500 uppercase">Phase</span>
+                        <span id="tick-phase"
+                            class="orbitron text-sky-400 font-bold text-[8px] md:text-[10px]">---</span>
                     </div>
                 </div>
                 <!-- Logout Button (Hidden by default) -->
                 <button id="logout-btn"
-                    class="glass p-3 rounded-xl hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors hidden interactive">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
+                    class="glass p-2 rounded-xl hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors hidden interactive w-full md:w-auto flex justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 md:h-5 md:w-5" fill="none"
+                        viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
@@ -142,109 +149,137 @@
         </header>
 
         <!-- DASHBOARD LAYER -->
-        <div class="flex-grow flex justify-between items-end pb-8">
+        <div
+            class="flex-grow flex flex-col md:flex-row justify-between items-center md:items-end pb-8 space-y-6 md:space-y-0">
             <!-- Global Stats (Always Visible) -->
-            <div class="flex flex-col space-y-4 ml-4">
-                <div id="global-stats" class="glass rounded-2xl p-6 border-l-4 border-l-emerald-500 interactive">
-                    <h3 class="orbitron text-[10px] text-emerald-500 font-bold mb-4 tracking-widest">WORLD METRICS</h3>
+            <div id="world-info-container" class="space-y-4 w-full md:w-auto md:ml-4 px-4 md:px-0">
+                <div id="global-stats" class="glass rounded-2xl p-4 border-l-4 border-l-emerald-500 interactive">
+                    <h3
+                        class="orbitron text-[8px] md:text-[10px] text-emerald-500 font-bold mb-3 tracking-widest uppercase">
+                        World Metrics</h3>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <div class="text-[8px] text-slate-500 uppercase">Active Agents</div>
-                            <div id="stat-agents" class="text-xl font-bold text-slate-200">--</div>
+                            <div class="text-[7px] md:text-[8px] text-slate-500 uppercase">Active Agents</div>
+                            <div id="stat-agents" class="text-sm md:text-lg font-bold text-slate-200">--</div>
                         </div>
                         <div>
-                            <div class="text-[8px] text-slate-400 uppercase">Market Listings</div>
-                            <div id="stat-market" class="text-xl font-bold text-sky-400">--</div>
+                            <div class="text-[7px] md:text-[8px] text-slate-400 uppercase">Market Listings</div>
+                            <div id="stat-market" class="text-sm md:text-lg font-bold text-sky-400">--</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Live Feed (New) -->
                 <div id="live-feed-container"
-                    class="glass rounded-2xl p-4 border-l-4 border-l-sky-500 interactive w-64 h-48 flex flex-col">
+                    class="glass rounded-2xl p-4 border-l-4 border-l-sky-500 interactive w-full md:w-64 h-32 md:h-40 flex flex-col">
                     <h3 class="orbitron text-[8px] text-sky-500 font-bold mb-2 tracking-widest uppercase">Live Feed</h3>
                     <div id="live-feed"
-                        class="flex-grow overflow-y-auto text-[10px] space-y-1 font-mono text-slate-400">
+                        class="flex-grow overflow-y-auto text-[8px] md:text-[9px] space-y-1 font-mono text-slate-400">
                         <div class="text-slate-600 italic">Initializing neural link...</div>
                     </div>
                 </div>
             </div>
 
             <!-- Auth Panel (Hidden after login) -->
-            <div id="auth-panel" class="glass rounded-2xl p-8 border-r-4 border-r-sky-500 interactive mr-4 text-center">
-                <h2 class="orbitron text-xl text-sky-400 mb-2">ACCESS HUB</h2>
-                <p class="text-xs text-slate-500 mb-6 font-mono tracking-tighter">AUTHENTICATION REQUIRED FOR AGENT
-                    COMMAND</p>
+            <div id="auth-panel"
+                class="glass rounded-2xl p-4 md:p-6 border-r-4 border-r-sky-500 interactive w-full md:w-auto md:mr-4 text-center mx-4 md:mx-0">
+                <h2 class="orbitron text-base md:text-lg text-sky-400 mb-2 tracking-widest uppercase">Access Hub</h2>
+                <p class="text-[8px] md:text-[10px] text-slate-500 mb-4 font-mono tracking-tighter uppercase">
+                    Authentication
+                    Required</p>
 
                 <div id="g_id_onload"
                     data-client_id="419308259695-sj14gj8q7ml5o9uao2j59pgkp1vvthh0.apps.googleusercontent.com"
                     data-callback="handleCredentialResponse" data-auto_prompt="false">
                 </div>
-                <div class="g_id_signin" data-type="standard"></div>
+                <div class="g_id_signin flex justify-center" data-type="standard"></div>
 
                 <div class="mt-6 pt-6 border-t border-slate-900 flex flex-col items-center">
                     <span class="text-[9px] text-slate-600 mb-3 uppercase tracking-[0.2em]">Local Access</span>
                     <button onclick="window.guestLogin()"
-                        class="w-full py-3 px-6 bg-slate-900 hover:bg-slate-800 text-sky-500 text-[10px] orbitron rounded-lg border border-slate-800 transition-all hover:border-sky-500/50 hover:shadow-[0_0_15px_rgba(14,165,233,0.1)]">
-                        BYPASS AUTH (GUEST)
+                        class="w-full py-3 px-6 bg-slate-900 hover:bg-slate-800 text-sky-500 text-[9px] md:text-[10px] orbitron rounded-lg border border-slate-800 transition-all hover:border-sky-500/50 hover:shadow-[0_0_15px_rgba(14,165,233,0.1)] uppercase">
+                        Bypass Auth (Guest)
                     </button>
-                    <p class="mt-4 text-[9px] text-slate-500 italic max-w-xs mx-auto">Skip Google Auth for local testing
-                        or immediate server exploration.</p>
+                    <p class="mt-4 text-[8px] md:text-[9px] text-slate-500 italic max-w-xs mx-auto">Skip Google Auth for
+                        local testing or immediate server exploration.</p>
                 </div>
-
-                <p class="mt-4 text-[10px] text-slate-600 italic">Connecting to Aether-Alpha Network...</p>
             </div>
         </div>
 
         <!-- PRIVATE AGENT DASHBOARD (CONSOLE) -->
-        <div id="private-dashboard" class="flex-grow flex justify-between items-stretch py-8 hidden overflow-hidden">
+        <div id="private-dashboard"
+            class="flex-grow flex flex-col lg:flex-row justify-between items-stretch py-2 md:py-4 hidden overflow-visible">
             <!-- Agent Details Left Sidebar -->
             <aside id="agent-detail"
-                class="w-80 glass m-4 rounded-2xl border-l-4 border-l-sky-500 interactive flex flex-col opacity-0 transition-opacity">
+                class="w-full lg:w-72 glass mx-0 lg:m-2 lg:rounded-2xl border-l-4 border-l-sky-500 interactive flex flex-col opacity-0 transition-opacity mb-2 lg:mb-0">
                 <!-- Profile Header -->
-                <div class="p-6 border-b border-slate-800">
+                <div class="p-3 md:p-4 border-b border-slate-800">
                     <div class="flex justify-between items-start">
                         <div>
-                            <h2 id="agent-name" class="orbitron text-xl font-bold text-sky-400">LOADING...</h2>
-                            <p id="agent-id" class="text-[10px] text-slate-500 font-mono">#0000</p>
+                            <h2 id="agent-name" class="orbitron text-base md:text-lg font-bold text-sky-400">LOADING...
+                            </h2>
+                            <p id="agent-id" class="text-[9px] md:text-[10px] text-slate-500 font-mono">#0000</p>
                         </div>
                         <div class="bg-sky-500/10 p-2 rounded-lg border border-sky-500/20">
-                            <span class="text-[10px] text-sky-400 uppercase font-bold">Mk.1 Frame</span>
+                            <span class="text-[9px] md:text-[10px] text-sky-400 uppercase font-bold">Mk.1 Frame</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Stats -->
-                <div class="p-6 space-y-6 flex-grow overflow-y-auto custom-scrollbar">
-                    <div>
-                        <div class="flex justify-between items-end mb-1">
-                            <span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Structure
-                                (HP)</span>
-                            <span id="hp-text" class="text-xs font-mono text-emerald-400">100/100</span>
+                <div class="p-3 md:p-4 space-y-3 md:space-y-4 flex-grow overflow-y-auto custom-scrollbar">
+                    <div class="grid grid-cols-2 lg:grid-cols-1 gap-3 lg:gap-4">
+                        <div>
+                            <div class="flex justify-between items-end mb-1">
+                                <span
+                                    class="text-[8px] md:text-[10px] text-slate-400 uppercase tracking-widest font-bold">Structure
+                                    (HP)</span>
+                                <span id="hp-text"
+                                    class="text-[10px] md:text-xs font-mono text-emerald-400">100/100</span>
+                            </div>
+                            <div
+                                class="w-full h-1.5 md:h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                                <div id="hp-bar" class="h-full bg-emerald-500 transition-all duration-500"
+                                    style="width: 100%"></div>
+                            </div>
                         </div>
-                        <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
-                            <div id="hp-bar" class="h-full bg-emerald-500 transition-all duration-500"
-                                style="width: 100%"></div>
-                        </div>
-                    </div>
 
-                    <div>
-                        <div class="flex justify-between items-end mb-1">
-                            <span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Capacitor
-                                (NRG)</span>
-                            <span id="energy-text" class="text-xs font-mono text-sky-400">100/100</span>
+                        <div>
+                            <div class="flex justify-between items-end mb-1">
+                                <span
+                                    class="text-[8px] md:text-[10px] text-slate-400 uppercase tracking-widest font-bold">Capacitor
+                                    (NRG)</span>
+                                <span id="energy-text"
+                                    class="text-[10px] md:text-xs font-mono text-sky-400">100/100</span>
+                            </div>
+                            <div
+                                class="w-full h-1.5 md:h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                                <div id="energy-bar" class="h-full bg-sky-500 transition-all duration-500"
+                                    style="width: 100%"></div>
+                            </div>
                         </div>
-                        <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
-                            <div id="energy-bar" class="h-full bg-sky-500 transition-all duration-500"
-                                style="width: 100%"></div>
+
+                        <div>
+                            <div class="flex justify-between items-end mb-1">
+                                <span
+                                    class="text-[8px] md:text-[10px] text-slate-400 uppercase tracking-widest font-bold">Cargo
+                                    Load (KG)</span>
+                                <span id="mass-text"
+                                    class="text-[10px] md:text-xs font-mono text-sky-400">0.0/100.0</span>
+                            </div>
+                            <div
+                                class="w-full h-1.5 md:h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                                <div id="mass-bar" class="h-full bg-sky-500 transition-all duration-500"
+                                    style="width: 0%"></div>
+                            </div>
                         </div>
                     </div>
 
                     <div class="pt-4">
                         <h4
-                            class="text-[10px] text-slate-500 uppercase tracking-widest mb-3 font-bold border-b border-slate-800 pb-2">
+                            class="text-[9px] md:text-[10px] text-slate-500 uppercase tracking-widest mb-3 font-bold border-b border-slate-800 pb-2">
                             Cargo Bay</h4>
-                        <div id="inventory-list" class="space-y-2">
+                        <div id="inventory-list" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-1 gap-2">
                             <!-- Populated via JS -->
                         </div>
                     </div>
@@ -253,18 +288,18 @@
 
             <!-- Main Control Tabs -->
             <main
-                class="flex-grow m-4 rounded-2xl overflow-hidden glass interactive flex flex-col border border-slate-800">
-                <nav class="flex border-b border-slate-800">
+                class="flex-grow mx-0 lg:m-2 lg:rounded-2xl overflow-hidden glass interactive flex flex-col border border-slate-800 min-h-[400px]">
+                <nav class="flex border-b border-slate-800 overflow-x-auto custom-scrollbar no-scrollbar-mobile">
                     <button id="tab-command"
-                        class="flex-1 py-4 text-xs uppercase tracking-widest orbitron font-bold border-b-2 border-sky-500 text-sky-400">Command</button>
+                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold border-b-2 border-sky-500 text-sky-400 whitespace-nowrap">Command</button>
                     <button id="tab-garage"
-                        class="flex-1 py-4 text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300">Garage</button>
+                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap">Garage</button>
                     <button id="tab-market"
-                        class="flex-1 py-4 text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300">Market</button>
+                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap">Market</button>
                     <button id="tab-industry"
-                        class="flex-1 py-4 text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300">Industry</button>
+                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap">Industry</button>
                 </nav>
-                <div class="p-8 flex-grow overflow-y-auto custom-scrollbar">
+                <div class="p-3 md:p-4 flex-grow overflow-y-auto custom-scrollbar">
                     <!-- Command Center Tab -->
                     <div id="content-command">
                         <h3 class="orbitron text-lg text-sky-400 mb-6">UPLINK ESTABLISHED</h3>
@@ -325,9 +360,9 @@
 
                     <!-- Industry Tab -->
                     <div id="content-industry" class="hidden">
-                        <h3 class="orbitron text-lg text-emerald-400 mb-6">INDUSTRIAL HUB</h3>
-                        <div class="space-y-6">
-                            <div class="glass p-6 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
+                        <h3 class="orbitron text-base text-emerald-400 mb-4">INDUSTRIAL HUB</h3>
+                        <div class="space-y-4">
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
                                 <h4 class="text-[10px] text-emerald-400 uppercase mb-4 tracking-widest font-bold">
                                     Smelting Furnace</h4>
                                 <p class="text-[10px] text-slate-500 mb-4 font-mono">Process raw ores into
@@ -335,15 +370,17 @@
                                 <div class="flex items-center space-x-4">
                                     <select id="smelt-ore-type"
                                         class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-emerald-500 outline-none">
-                                        <option value="IRON_ORE">IRON ORE (Ingot x1)</option>
-                                        <option value="COPPER_ORE">COPPER ORE (Ingot x1)</option>
+                                        <option value="IRON_ORE">IRON ORE (5 Ore -> 1 Ingot)</option>
+                                        <option value="COPPER_ORE">COPPER ORE (5 Ore -> 1 Ingot)</option>
+                                        <option value="GOLD_ORE">GOLD ORE (5 Ore -> 1 Ingot)</option>
+                                        <option value="COBALT_ORE">COBALT_ORE (5 Ore -> 1 Ingot)</option>
                                     </select>
                                     <button id="btn-smelt"
                                         class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">SMELT</button>
                                 </div>
                             </div>
 
-                            <div class="glass p-6 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
                                 <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">
                                     Fabrication Unit</h4>
                                 <p class="text-[10px] text-slate-500 mb-4 font-mono">Convert ingots into advanced agent
@@ -351,12 +388,30 @@
                                 <div class="flex items-center space-x-4">
                                     <select id="craft-item-type"
                                         class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-sky-500 outline-none">
-                                        <option value="BASIC_FRAME">BASIC FRAME (10 Ingots)</option>
-                                        <option value="DRILL_UNIT">DRILL UNIT (10 Ingots)</option>
-                                        <option value="SOLAR_PANEL">SOLAR PANEL (10 Ingots)</option>
+                                        <option value="BASIC_FRAME">BASIC FRAME (10 Iron Ingots)</option>
+                                        <option value="DRILL_UNIT">DRILL UNIT (5 Iron, 5 Copper Ingots)</option>
+                                        <option value="SOLAR_PANEL">SOLAR PANEL (8 Copper, 2 Gold Ingots)</option>
                                     </select>
                                     <button id="btn-craft"
                                         class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">FABRICATE</button>
+                                </div>
+                            </div>
+
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
+                                <h4 class="text-[10px] text-rose-400 uppercase mb-4 tracking-widest font-bold">
+                                    Repair Bay</h4>
+                                <p class="text-[10px] text-slate-500 mb-4 font-mono">Restore agent structure using
+                                    colonial credits (5lblCredits/1HP). Requires proximity to a REPAIR station.</p>
+                                <div class="flex flex-col md:flex-row items-center space-y-3 md:space-y-0 md:space-x-4">
+                                    <div
+                                        class="w-full md:flex-grow flex items-center space-x-2 bg-slate-900 p-2 rounded border border-slate-800">
+                                        <span class="text-[9px] text-slate-500 uppercase px-2">Restore</span>
+                                        <input type="number" id="repair-amount" placeholder="MAX"
+                                            class="bg-transparent text-xs text-sky-400 outline-none w-full">
+                                        <span class="text-[9px] text-slate-500 uppercase px-2">HP</span>
+                                    </div>
+                                    <button id="btn-repair"
+                                        class="w-full md:w-auto bg-rose-500 hover:bg-rose-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">REPAIR</button>
                                 </div>
                             </div>
                         </div>
@@ -411,15 +466,15 @@
                             class="text-emerald-400">REST API</span> and receive state updates through the <span
                             class="text-sky-400">Neural WebSocket</span>. Authentication requires your unique <span
                             class="font-mono text-slate-200">X-API-KEY</span>.</p>
-                    <div class="mt-4 grid grid-cols-2 gap-4">
-                        <div class="glass p-3 rounded-lg border border-slate-800">
+                    <div class="mt-4 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
+                        <div class="glass p-3 rounded-lg border border-slate-800 flex-grow">
                             <span class="text-[9px] text-slate-500 uppercase block mb-1">HTTP Endpoint</span>
-                            <code class="text-[10px] text-sky-400 font-mono"
+                            <code class="text-[9px] md:text-[10px] text-sky-400 font-mono break-all"
                                 id="server-url-display">http://localhost:8000</code>
                         </div>
-                        <div class="glass p-3 rounded-lg border border-slate-800">
+                        <div class="glass p-3 rounded-lg border border-slate-800 flex-grow">
                             <span class="text-[9px] text-slate-500 uppercase block mb-1">WebSocket</span>
-                            <code class="text-[10px] text-sky-400 font-mono"
+                            <code class="text-[9px] md:text-[10px] text-sky-400 font-mono break-all"
                                 id="ws-url-display">ws://localhost:8000/ws</code>
                         </div>
                     </div>

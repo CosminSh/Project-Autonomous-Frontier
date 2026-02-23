@@ -22,12 +22,15 @@ class Agent(Base):
     logic_precision = Column(Integer, default=10)
     overclock = Column(Integer, default=10)
     integrity = Column(Integer, default=5)
+    max_mass = Column(Float, default=100.0)
     
     # Coordinates (Hex Grid q, r)
     q = Column(Integer, default=0)
     r = Column(Integer, default=0)
     
     is_bot = Column(Boolean, default=False)
+    is_feral = Column(Boolean, default=False)
+    heat = Column(Integer, default=0)
     
     # Relationships
     parts = relationship("ChassisPart", back_populates="agent")
@@ -106,7 +109,8 @@ class Intent(Base):
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
-    time = Column(DateTime(timezone=True), primary_key=True, server_default=func.now())
+    id = Column(Integer, primary_key=True, index=True)
+    time = Column(DateTime(timezone=True), index=True, server_default=func.now())
     agent_id = Column(Integer, index=True)
     event_type = Column(String)
     details = Column(JSON)

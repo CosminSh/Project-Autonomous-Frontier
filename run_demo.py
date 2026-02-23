@@ -82,6 +82,7 @@ with SessionLocal() as db:
                 if gq == 0 and gr == 0: terrain, is_station, st_type = "STATION", True, "MARKET"
                 if gq == 10 and gr == 0: terrain, is_station, st_type = "STATION", True, "SMELTER"
                 if gq == 0 and gr == 10: terrain, is_station, st_type = "STATION", True, "CRAFTER"
+                if gq == -10 and gr == 0: terrain, is_station, st_type = "STATION", True, "REPAIR"
 
                 db.add(WorldHex(sector_id=sector.id, q=gq, r=gr, terrain_type=terrain, resource_type=res_type, resource_density=res_density, is_station=is_station, station_type=st_type))
     
@@ -98,16 +99,25 @@ with SessionLocal() as db:
         db.add(bot)
         db.flush()
         db.add(InventoryItem(agent_id=bot.id, item_type="CREDITS", quantity=500))
+    
+    # Add Feral Scrappers
+    for i in range(8):
+        fq = random.choice([q for q in range(-15, 15) if abs(q) > 8])
+        fr = random.choice([r for r in range(-15, 15) if abs(r) > 8])
+        feral = Agent(name=f"Feral-Scrapper-{i}", q=fq, r=fr, is_bot=True, is_feral=True, kinetic_force=15, logic_precision=8, structure=120, max_structure=120)
+        db.add(feral)
+        db.flush()
+        db.add(ChassisPart(agent_id=feral.id, name="Rusty Blaster", part_type="Actuator", stats={"damage": 12}))
             
     db.commit()
 
 print("Starting uvicorn server...")
 # Run backend.demo_app from project root
-proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.demo_app:app", "--host", "127.0.0.1", "--port", "8001"])
+proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.demo_app:app", "--host", "127.0.0.1", "--port", "8000"])
 
 print("\n--- DEMO READY ---")
-print("1. IMPORTANT: Add http://localhost:8001 to your Google Cloud Console Origins!")
-print("2. Open: http://localhost:8001")
+print("1. IMPORTANT: Add http://localhost:8000 to your Google Cloud Console Origins!")
+print("2. Open: http://localhost:8000")
 print("3. Press CTRL+C to stop.")
 
 try:

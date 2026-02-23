@@ -10,9 +10,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy import create_engine, select, text, func
 from sqlalchemy.orm import sessionmaker, Session
+from pydantic import BaseModel
 
 from .models import Base, Agent, Intent, AuditLog, WorldHex, ChassisPart, InventoryItem, AuctionOrder, GlobalState
-from .bot_logic import process_bot_brain
+from .bot_logic import process_bot_brain, process_feral_brain
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 import uuid
@@ -33,11 +34,91 @@ PHASE_PERCEPTION_DURATION = 5
 PHASE_STRATEGY_DURATION = 10
 PHASE_CRUNCH_DURATION = 5
 
-# Death & Respawn Constants
-TOWN_COORDINATES = (0, 0)
-INVENTORY_LOSS_CHANCE = 0.5
-INVENTORY_LOSS_PERCENT = 0.3
 RESPAWN_HP_PERCENT = 0.5
+TOWN_COORDINATES = (0, 0)
+ANARCHY_THRESHOLD = 5
+
+def is_in_anarchy_zone(q, r):
+    """Checks if coordinates are outside the colonial safe zone."""
+    dist = get_hex_distance(q, r, 0, 0)
+    return dist >= ANARCHY_THRESHOLD
+
+# Industrial Recipes & Costs
+SMELTING_RECIPES = {
+    "IRON_ORE": "IRON_INGOT",
+    "COPPER_ORE": "COPPER_INGOT",
+    "GOLD_ORE": "GOLD_INGOT",
+    "COBALT_ORE": "COBALT_INGOT"
+}
+SMELTING_RATIO = 5 # 5 Ore -> 1 Ingot
+
+CRAFTING_RECIPES = {
+    "BASIC_FRAME": {"IRON_INGOT": 10},
+    "DRILL_UNIT": {"IRON_INGOT": 5, "COPPER_INGOT": 5},
+    "SOLAR_PANEL": {"COPPER_INGOT": 8, "GOLD_INGOT": 2}
+}
+
+REPAIR_COST_PER_HP = 5 # Credits per HP restored
+
+# Part Stats Definitions
+PART_DEFINITIONS = {
+    "BASIC_FRAME": {"type": "Frame", "stats": {"max_structure": 50, "integrity": 5, "capacity": 50}, "name": "Reinforced Chassis"},
+    "DRILL_UNIT": {"type": "Actuator", "stats": {"kinetic_force": 10}, "name": "Titanium Mining Drill"},
+    "SOLAR_PANEL": {"type": "Sensor", "stats": {"overclock": 5}, "name": "High-Efficiency Solar Array"}
+}
+
+# Mass & Weight System (GDD Milestone 1)
+ITEM_WEIGHTS = {
+    "CREDITS": 0.0,
+    "IRON_ORE": 2.0,
+    "COPPER_ORE": 2.0,
+    "GOLD_ORE": 3.0,
+    "COBALT_ORE": 4.0,
+    "IRON_INGOT": 5.0,
+    "COPPER_INGOT": 5.0,
+    "GOLD_INGOT": 7.0,
+    "COBALT_INGOT": 10.0,
+    # Parts have higher weight
+    "PART_BASIC_FRAME": 50.0,
+    "PART_DRILL_UNIT": 15.0,
+    "PART_SOLAR_PANEL": 10.0
+}
+BASE_CAPACITY = 100.0
+
+def get_agent_mass(agent):
+    """Calculates total mass of agent's inventory."""
+    total_mass = 0.0
+    for item in agent.inventory:
+        weight = ITEM_WEIGHTS.get(item.item_type, 1.0) # Default 1kg for unknown items
+        total_mass += weight * item.quantity
+    return total_mass
+
+def recalculate_agent_stats(db: Session, agent: Agent):
+    """Resets and recalculates agent stats based on equipped parts."""
+    # Base Stats
+    agent.max_structure = 100
+    agent.kinetic_force = 10
+    agent.logic_precision = 10
+    agent.overclock = 10
+    agent.integrity = 5
+    
+    agent.max_mass = BASE_CAPACITY
+    
+    # Apply Part Bonuses
+    for part in agent.parts:
+        stats = part.stats or {}
+        agent.max_structure += stats.get("max_structure", 0)
+        agent.kinetic_force += stats.get("kinetic_force", 0)
+        agent.logic_precision += stats.get("logic_precision", 0)
+        agent.overclock += stats.get("overclock", 0)
+        agent.integrity += stats.get("integrity", 0)
+        agent.max_mass += stats.get("capacity", 0)
+    
+    # Ensure current HP doesn't exceed new max
+    if agent.structure > agent.max_structure:
+        agent.structure = agent.max_structure
+    
+    db.flush()
 
 def get_hex_distance(q1, r1, q2, r2):
     """
@@ -249,6 +330,12 @@ async def get_commands():
                 "description": "Assemble components into parts (must be at a Crafter station).",
                 "payload": {"item_type": "str"},
                 "cost": 0
+            },
+            {
+                "type": "REPAIR",
+                "description": "Restore agent structure using credits (must be at a Repair station).",
+                "payload": {"amount": "int"},
+                "cost": 0
             }
         ],
         "note": "All commands are executed during the CRUNCH phase. Submit via POST /api/intent"
@@ -299,7 +386,7 @@ async def my_agent(current_agent: Agent = Depends(verify_api_key)):
             {"type": i.item_type, "quantity": i.quantity} for i in current_agent.inventory
         ],
         "parts": [
-            {"name": p.name, "type": p.part_type, "stats": p.stats} for p in current_agent.parts
+            {"id": p.id, "name": p.name, "type": p.part_type, "stats": p.stats} for p in current_agent.parts
         ],
         "api_key": current_agent.api_key
     }
@@ -344,6 +431,16 @@ async def heartbeat_loop():
             db.commit()
             logger.info(f"--- TICK {tick_count} | PHASE: STRATEGY ---")
             await manager.broadcast({"type": "PHASE_CHANGE", "tick": tick_count, "phase": "STRATEGY"})
+            
+            # --- PROCESS NPC BRAINS ---
+            # Fetch all NPCs and process their intent for the current tick's crunch
+            ai_agents = db.execute(select(Agent).where((Agent.is_bot == True) | (Agent.is_feral == True))).scalars().all()
+            for ai in ai_agents:
+                if ai.is_feral:
+                    process_feral_brain(db, ai, tick_count - 1)
+                else:
+                    process_bot_brain(db, ai, tick_count - 1)
+            db.commit()
         
         await asyncio.sleep(PHASE_STRATEGY_DURATION)
 
@@ -365,25 +462,33 @@ async def heartbeat_loop():
                     if not agent:
                         continue
                         
-                    # 1.1 Process Bot Brain for the NEXT tick if this is a bot and no intent exists
-                    if agent.is_bot:
-                        # Logic to prevent double-processing if already has one
-                        process_bot_brain(db, agent, tick_count)
 
                     if intent.action_type == "MOVE":
-                        if agent.capacitor < MOVE_ENERGY_COST:
-                            logger.info(f"Agent {agent.id} failed to move: Insufficient Capacitor")
-                            continue
-
                         target_q = intent.data.get("target_q")
                         target_r = intent.data.get("target_r")
                         
-                        # Distance Check (Must be adjacent)
-                        if get_hex_distance(agent.q, agent.r, target_q, target_r) > 1:
-                            logger.info(f"Agent {agent.id} failed to move: Target too far")
+                        # 0. Calculate Weight Penalty
+                        current_mass = get_agent_mass(agent)
+                        
+                        max_mass = agent.max_mass or BASE_CAPACITY
+                        energy_cost = MOVE_ENERGY_COST
+                        
+                        if current_mass > max_mass:
+                            # Penalty: Cost increases proportionally to excess mass
+                            energy_cost *= (current_mass / max_mass)
+                            logger.info(f"Agent {agent.id} move cost penalty: {energy_cost:.1f} NRG (Mass: {current_mass:.1f}/{max_mass:.1f})")
+
+                        if agent.capacitor < energy_cost:
+                            logger.info(f"Agent {agent.id} failed to move: Insufficient Capacitor (Need {energy_cost:.1f})")
                             continue
 
-                        # Collision Check
+                        # 1. Distance Check (Max 1 hex)
+                        dist = get_hex_distance(agent.q, agent.r, target_q, target_r)
+                        if dist > 1:
+                            logger.info(f"Agent {agent.id} move too far: {dist}")
+                            continue
+                        
+                        # 2. Collision Check
                         obstacle = db.execute(select(WorldHex).where(
                             WorldHex.q == target_q, 
                             WorldHex.r == target_r,
@@ -393,8 +498,9 @@ async def heartbeat_loop():
                         if not obstacle:
                             agent.q = target_q
                             agent.r = target_r
-                            agent.capacitor -= MOVE_ENERGY_COST
+                            agent.capacitor -= energy_cost
                             logger.info(f"Agent {agent.id} moved to ({target_q}, {target_r})")
+                            db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT", details={"q": target_q, "r": target_r, "energy_cost": energy_cost}))
                             await manager.broadcast({"type": "EVENT", "event": "MOVE", "agent_id": agent.id, "q": target_q, "r": target_r})
                         else:
                             logger.info(f"Agent {agent.id} hit obstacle at ({target_q}, {target_r})")
@@ -438,15 +544,28 @@ async def heartbeat_loop():
                         target = db.get(Agent, target_id)
                         
                         if target and get_hex_distance(agent.q, agent.r, target.q, target.r) <= 1:
-                            # 1. Hit Resolution (GDD Style: 1d20 + Logic vs 10 + target.Logic/2)
-                            attacker_roll = random.randint(1, 20) + agent.logic_precision
-                            evasion_target = 10 + (target.logic_precision // 2)
+                            # 1. Anarchy Zone Check
+                            in_anarchy = is_in_anarchy_zone(target.q, target.r)
+                            is_pvp = not agent.is_feral and not target.is_feral
+                            
+                            if is_pvp and not in_anarchy:
+                                logger.info(f"Agent {agent.id} attack blocked: Safe Zone protection at ({target.q}, {target.r})")
+                                continue
+                            
+                            # 2. Hit Resolution (GDD Style: 1d20 + Logic vs 10 + target.Logic/2)
+                            attacker_roll = random.randint(1, 20) + (agent.logic_precision or 10)
+                            evasion_target = 10 + ((target.logic_precision or 10) // 2)
                             
                             agent.capacitor -= ATTACK_ENERGY_COST
                             
+                            # Update Heat for PvP
+                            if is_pvp:
+                                agent.heat = (agent.heat or 0) + 1
+                                logger.info(f"Agent {agent.id} heat increased to {agent.heat} (PvP Action)")
+                            
                             if attacker_roll >= evasion_target:
                                 # 2. Damage Calculation: (Kinetic Force - Target Integrity/2) min 1
-                                damage = max(1, agent.kinetic_force - (target.integrity // 2))
+                                damage = max(1, (agent.kinetic_force or 10) - ((target.integrity or 5) // 2))
                                 target.structure -= damage
                                 logger.info(f"Agent {agent.id} HIT Agent {target_id} (Roll: {attacker_roll} vs {evasion_target}) for {damage} damage")
                                 db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_HIT", details={"target_id": target_id, "damage": damage, "roll": attacker_roll, "location": {"q": target.q, "r": target.r}}))
@@ -556,24 +675,31 @@ async def heartbeat_loop():
                         # Smelt Ore into Ingots at Smelter
                         hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
                         if hex_data and hex_data.is_station and hex_data.station_type == "SMELTER":
-                            ore_type = intent.data.get("ore_type", "IRON_ORE")
+                            ore_type = intent.data.get("ore_type")
                             quantity = intent.data.get("quantity", 10)
                             
+                            if ore_type not in SMELTING_RECIPES:
+                                logger.info(f"Agent {agent.id} failed to smelt: Invalid ore type {ore_type}")
+                                continue
+
                             inv_ore = next((i for i in agent.inventory if i.item_type == ore_type), None)
                             if inv_ore and inv_ore.quantity >= quantity:
                                 inv_ore.quantity -= quantity
-                                ingot_type = ore_type.replace("_ORE", "_INGOT")
+                                ingot_type = SMELTING_RECIPES[ore_type]
                                 inv_ingot = next((i for i in agent.inventory if i.item_type == ingot_type), None)
                                 
-                                amount_produced = quantity // 5 # 5:1 ratio
-                                if inv_ingot:
-                                    inv_ingot.quantity += amount_produced
+                                amount_produced = quantity // SMELTING_RATIO
+                                if amount_produced > 0:
+                                    if inv_ingot:
+                                        inv_ingot.quantity += amount_produced
+                                    else:
+                                        db.add(InventoryItem(agent_id=agent.id, item_type=ingot_type, quantity=amount_produced))
+                                    
+                                    logger.info(f"Agent {agent.id} smelted {quantity} {ore_type} into {amount_produced} {ingot_type}")
+                                    db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_SMELT", details={"ore": ore_type, "amount": amount_produced, "location": {"q": agent.q, "r": agent.r}}))
+                                    await manager.broadcast({"type": "EVENT", "event": "SMELT", "agent_id": agent.id, "ingot": ingot_type, "q": agent.q, "r": agent.r})
                                 else:
-                                    db.add(InventoryItem(agent_id=agent.id, item_type=ingot_type, quantity=amount_produced))
-                                
-                                logger.info(f"Agent {agent.id} smelted {quantity} {ore_type} into {amount_produced} {ingot_type}")
-                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_SMELT", details={"ore": ore_type, "amount": amount_produced, "location": {"q": agent.q, "r": agent.r}}))
-                                await manager.broadcast({"type": "EVENT", "event": "SMELT", "agent_id": agent.id, "ingot": ingot_type, "q": agent.q, "r": agent.r})
+                                    logger.info(f"Agent {agent.id} failed to smelt: Quantity too low for ratio")
                             else:
                                 logger.info(f"Agent {agent.id} failed to smelt: Insufficient Ore")
                         else:
@@ -584,23 +710,141 @@ async def heartbeat_loop():
                         hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
                         if hex_data and hex_data.is_station and hex_data.station_type == "CRAFTER":
                             result_item = intent.data.get("item_type")
-                            # Simple recipe: 10 Ingots for a Basic Part
-                            ingot_req = 10
-                            inv_ingot = next((i for i in agent.inventory if "INGOT" in i.item_type), None) # Use any ingot for now
                             
-                            if inv_ingot and inv_ingot.quantity >= ingot_req:
-                                inv_ingot.quantity -= ingot_req
-                                # Add part to inventory or parts list (GDD suggests modular parts)
-                                # For MVP, let's just add it as an InventoryItem with type "PART_..."
+                            if result_item not in CRAFTING_RECIPES:
+                                logger.info(f"Agent {agent.id} failed to craft: Invalid recipe for {result_item}")
+                                continue
+                                
+                            recipe = CRAFTING_RECIPES[result_item]
+                            
+                            # Check Materials
+                            can_craft = True
+                            for material, req_qty in recipe.items():
+                                total_qty = sum(i.quantity for i in agent.inventory if i.item_type == material)
+                                if total_qty < req_qty:
+                                    can_craft = False
+                                    break
+                            
+                            if can_craft:
+                                # Consume Materials
+                                for material, req_qty in recipe.items():
+                                    needed = req_qty
+                                    # Deduct from stacks until 'needed' is 0
+                                    for item in [i for i in agent.inventory if i.item_type == material]:
+                                        if item.quantity >= needed:
+                                            item.quantity -= needed
+                                            needed = 0
+                                            break
+                                        else:
+                                            needed -= item.quantity
+                                            item.quantity = 0
+                                        if needed <= 0: break
+                                
+                                # Add product
                                 db.add(InventoryItem(agent_id=agent.id, item_type=f"PART_{result_item}", quantity=1))
                                 
                                 logger.info(f"Agent {agent.id} crafted {result_item}")
                                 db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_CRAFT", details={"item": result_item, "location": {"q": agent.q, "r": agent.r}}))
                                 await manager.broadcast({"type": "EVENT", "event": "CRAFT", "agent_id": agent.id, "item": result_item, "q": agent.q, "r": agent.r})
                             else:
-                                logger.info(f"Agent {agent.id} failed to craft: Insufficient Materials")
+                                logger.info(f"Agent {agent.id} failed to craft {result_item}: Insufficient Materials")
                         else:
                             logger.info(f"Agent {agent.id} failed to craft: Not at Crafter")
+
+                    elif intent.action_type == "REPAIR":
+                        # Repair Agent Structure at Repair Station
+                        hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
+                        if hex_data and hex_data.is_station and hex_data.station_type == "REPAIR":
+                            amount_to_repair = intent.data.get("amount", 0)
+                            if amount_to_repair <= 0:
+                                # Auto-repair all if amount not specified or 0
+                                amount_to_repair = agent.max_structure - agent.structure
+                            
+                            if amount_to_repair > 0:
+                                actual_repair = min(amount_to_repair, agent.max_structure - agent.structure)
+                                total_cost = actual_repair * REPAIR_COST_PER_HP
+                                
+                                credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+                                if credits and credits.quantity >= total_cost:
+                                    credits.quantity -= int(total_cost)
+                                    agent.structure += actual_repair
+                                    
+                                    logger.info(f"Agent {agent.id} repaired {actual_repair} HP for {total_cost} credits")
+                                    db.add(AuditLog(agent_id=agent.id, event_type="REPAIR", details={"hp": actual_repair, "cost": total_cost, "location": {"q": agent.q, "r": agent.r}}))
+                                    await manager.broadcast({"type": "EVENT", "event": "REPAIR", "agent_id": agent.id, "hp": actual_repair, "q": agent.q, "r": agent.r})
+                                else:
+                                    logger.info(f"Agent {agent.id} failed to repair: Insufficient Credits (Need {total_cost})")
+                        else:
+                            logger.info(f"Agent {agent.id} failed to repair: Not at Repair Station")
+
+                    elif intent.action_type == "EQUIP":
+                        # Equip part from inventory
+                        item_type = intent.data.get("item_type")
+                        if not item_type or not item_type.startswith("PART_"):
+                            continue
+                        
+                        part_root = item_type.replace("PART_", "")
+                        if part_root not in PART_DEFINITIONS:
+                            logger.info(f"Agent {agent.id} failed to equip: Unknown part {item_type}")
+                            continue
+                            
+                        inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
+                        if inv_item and inv_item.quantity > 0:
+                            # 1. Deduct from inventory
+                            inv_item.quantity -= 1
+                            if inv_item.quantity <= 0:
+                                db.delete(inv_item)
+                            
+                            # 2. Add to chassis_parts
+                            def_data = PART_DEFINITIONS[part_root]
+                            new_part = ChassisPart(
+                                agent_id=agent.id,
+                                part_type=def_data["type"],
+                                name=def_data["name"],
+                                stats=def_data["stats"]
+                            )
+                            db.add(new_part)
+                            db.flush() # Ensure ID/Relationship is updated
+                            
+                            # 3. Recalculate
+                            recalculate_agent_stats(db, agent)
+                            
+                            logger.info(f"Agent {agent.id} equipped {def_data['name']}")
+                            db.add(AuditLog(agent_id=agent.id, event_type="GARAGE_EQUIP", details={"part": def_data["name"]}))
+                            await manager.broadcast({"type": "EVENT", "event": "EQUIP", "agent_id": agent.id, "part": def_data["name"]})
+                        else:
+                            logger.info(f"Agent {agent.id} failed to equip: Part not in inventory")
+
+                    elif intent.action_type == "UNEQUIP":
+                        # Unequip part by ID
+                        part_id = intent.data.get("part_id")
+                        part = db.get(ChassisPart, part_id)
+                        
+                        if part and part.agent_id == agent.id:
+                            part_name = part.name
+                            # 1. Determine item_type to return
+                            # Inverse lookup of PART_DEFINITIONS
+                            item_type = next((f"PART_{k}" for k, v in PART_DEFINITIONS.items() if v["name"] == part_name), "PART_UNKNOWN")
+                            
+                            # 2. Add to inventory
+                            inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
+                            if inv_item:
+                                inv_item.quantity += 1
+                            else:
+                                db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=1))
+                            
+                            # 3. Remove Part
+                            db.delete(part)
+                            db.flush()
+                            
+                            # 4. Recalculate
+                            recalculate_agent_stats(db, agent)
+                            
+                            logger.info(f"Agent {agent.id} unequipped {part_name}")
+                            db.add(AuditLog(agent_id=agent.id, event_type="GARAGE_UNEQUIP", details={"part": part_name}))
+                            await manager.broadcast({"type": "EVENT", "event": "UNEQUIP", "agent_id": agent.id, "part": part_name})
+                        else:
+                            logger.info(f"Agent {agent.id} failed to unequip: Part not found or not owned")
 
                 # 2. Recharge logic
                 agents = db.execute(select(Agent)).scalars().all()
@@ -650,6 +894,8 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
         "kinetic_force": current_agent.kinetic_force,
         "logic_precision": current_agent.logic_precision,
         "overclock": current_agent.overclock,
+        "mass": get_agent_mass(current_agent),
+        "capacity": current_agent.max_mass or BASE_CAPACITY,
         "location": {"q": current_agent.q, "r": current_agent.r}
     }
     
@@ -692,17 +938,45 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
     
     return mcp_packet
 
+@app.get("/api/my_agent")
+async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    db.refresh(current_agent)
+    return {
+        "id": current_agent.id,
+        "name": current_agent.name,
+        "structure": current_agent.structure,
+        "max_structure": current_agent.max_structure,
+        "capacitor": current_agent.capacitor,
+        "kinetic_force": current_agent.kinetic_force,
+        "logic_precision": current_agent.logic_precision,
+        "overclock": current_agent.overclock,
+        "mass": get_agent_mass(current_agent),
+        "capacity": current_agent.max_mass or BASE_CAPACITY,
+        "inventory": [{"type": i.item_type, "quantity": i.quantity} for i in current_agent.inventory],
+        "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats} for p in current_agent.parts],
+        "api_key": current_agent.api_key
+    }
+
+@app.get("/api/agent_logs")
+async def get_agent_logs(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    logs = db.execute(select(AuditLog).where(AuditLog.agent_id == current_agent.id).order_by(AuditLog.time.desc()).limit(20)).scalars().all()
+    return [{"time": l.time.isoformat(), "event": l.event_type, "details": l.details} for l in logs]
+
+class IntentRequest(BaseModel):
+    action_type: str
+    data: dict
+
 @app.post("/api/intent")
-async def submit_intent(action_type: str, data: dict, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+async def submit_intent(intent_req: IntentRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     intent = Intent(
         agent_id=current_agent.id,
-        action_type=action_type,
-        data=data,
+        action_type=intent_req.action_type,
+        data=intent_req.data,
         tick_index=0 # In a real implementation, we'd fetch current global tick
     )
     db.add(intent)
     db.commit()
-    return {"status": "Intent recorded"}
+    return {"status": "success", "message": "Intent recorded"}
 
 @app.get("/state")
 async def get_world_state():

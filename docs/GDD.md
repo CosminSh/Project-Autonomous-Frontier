@@ -35,15 +35,25 @@ Agents are built from physical parts socketed into a Modular Chassis.
 *   **Overclock (INT):** Enhances electronic warfare and energy weapons.
 *   **Integrity (Armor):** Flat reduction of incoming physical damage.
 
-## 4. The Professional Ecosystem
-The economy is a "Four-Pillar" interdependent system.
+## 4. Player Archetypes & Mission Profiles
+The economy is a multi-polarized interdependent system. Each path offers a unique gameplay loop and progression.
 
-| Profession | Operations | Key Challenge | End-Product |
+| Archetype | Operations | Key Challenge | Needed Tech |
 | :--- | :--- | :--- | :--- |
-| Miner | Extraction in the Wilds. | Risk/Reward & Load Capacity. | Raw Ore |
-| Hunter | PvE Bossing & PvP Escort. | Tactical Combat Logic. | Legacy Circuits |
-| Smelter | City-based Shopkeeper. | Market Arbitrage & Undercutting. | Industrial Ingots |
-| Crafter | Gear Manufacturer. | Recipe Optimization (Stat-maxing). | Modular Parts |
+| **Miner** | Extraction in the Wilds. | Risk vs. Load Capacity. | High-Torque Drills, Cargo Pods. |
+| **Crafter** | Gear Manufacturer. | Recipe Stat-maxing. | High-Precision Fabricators. |
+| **Hunter** | PvE Bossing & Salvaging. | Combat Logic & Durability. | Kinetic Blasters, Armor Plating. |
+| **Pirate** | PvP Raiding in Deep Wilds. | Heat Management & Evasion. | Stealth Cores, Jamming Sensors. |
+| **Bounty Hunter** | Pirate Interdiction. | Tracking & Burst Damage. | Long-Range Scanners, Harpoons. |
+| **Trader** | Market Arbitrage. | Timing & Data Analysis. | High-Bandwidth Uplinks. |
+
+### 4.1 Archetype Details
+*   **Miner**: Focuses on "The Scramble." Must balance the weight of ore against propulsion efficiency.
+*   **Crafter**: The backbone of the Hub. Licenses industrial slots to run 24/7 fabrication units.
+*   **Hunter**: Cleanses the Perimeter of Feral Scrappers (AI) to collect "Legacy Circuits" for advanced crafting.
+*   **Pirate**: Operates in "Anarchy Zones" (Deep Wilds). Gains high rewards but suffers "Heat" which enables Bounty Hunters to strike anywhere without penalty.
+*   **Bounty Hunter**: The server's immune system. Collects $NEURAL rewards for neutralizing high-heat Pirates.
+*   **Trader**: Plays the Auction House. Profits from the spread between raw ore and refined ingots across different Colony cities.
 
 ## 5. Technical Architecture: Dual-Sync
 The game operates on two timelines to balance "snappiness" with "strategy."
@@ -90,6 +100,28 @@ Battles use a D20-style resolution during "The Crunch."
 *   **Data:** PostgreSQL + TimescaleDB (Historical logs for strategy analysis).
 *   **Interface:** MCP (Model Context Protocol).
 *   **UI:** Next.js Dashboard + Three.js 3D Visualizer.
+
+## 10. Gap Analysis & Future Implementation
+To fully realize these archetypes, the following functionalities must be developed:
+
+### 10.1 Core Mechanical Gaps
+| Category | Missing Feature | Purpose |
+| :--- | :--- | :--- |
+| **Miner** | Inventory Weight (Kg) | Makes "Miner" loadout decisions critical. Heavy ore reduces move speed. |
+| **Trader** | Market Sniping Logic | Automated "BUY" orders that trigger at specific price points. |
+| **Hunter** | NPC Feral Scrappers | AI entities that roam the Wilds and Perimeter, providing PvE loot drops. |
+| **Pirate** | Heat / Bounty System | Flagging killer agents. High-heat = visible on map & lucrative bounty. |
+| **Pirate** | Deep Wilds (Anarchy) | World areas where Colony Turrets do not retaliate against attackers. |
+| **Crafter** | Industrial Licensing | Player-owned Hub slots for passive 24/7 fabrication. |
+
+### 10.2 Milestone 1: "The Scramble"
+*   **Implement Weight**: Add `total_weight` calculation to `Agent` based on inventory items.
+*   **Feral AI**: Create a `FeralScrapper` table and simple "random-walk-and-attack" logic in the heartbeat.
+*   **Anarchy Zones**: Define Hex coordinates that ignore "City Turret" protection logic.
+
+### 10.3 Milestone 2: "Colonial Order"
+*   **Bounty Board**: A global list of high-heat agents with automated $NEURAL payouts.
+*   **Auto-Trader**: Enable agents to set "Standing Orders" that resolve instantly when a price match occurs.
 
 ---
 **Final Vision Summary**

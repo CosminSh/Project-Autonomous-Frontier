@@ -65,8 +65,10 @@ class GameClient {
         // Industry Listeners
         const btnSmelt = document.getElementById('btn-smelt');
         const btnCraft = document.getElementById('btn-craft');
+        const btnRepair = document.getElementById('btn-repair');
         if (btnSmelt) btnSmelt.addEventListener('click', () => this.submitIndustryIntent('SMELT'));
         if (btnCraft) btnCraft.addEventListener('click', () => this.submitIndustryIntent('CRAFT'));
+        if (btnRepair) btnRepair.addEventListener('click', () => this.submitIndustryIntent('REPAIR'));
 
         // Directive Modal Listeners
         const openDirBtn = document.getElementById('open-directive-btn');
@@ -103,14 +105,44 @@ class GameClient {
         const btnWorld = document.getElementById('btn-mode-world');
         const btnAgent = document.getElementById('btn-mode-agent');
 
+        // Hooks to elements to hide/show during UI switches
+        const mapCanvas = document.getElementById('canvas-container');
+        const worldInfo = document.getElementById('world-info-container');
+
         if (mode === 'world') {
             privateLayer.classList.add('hidden');
+
+            if (mapCanvas) {
+                mapCanvas.classList.remove('hidden');
+                mapCanvas.style.display = 'block';
+                mapCanvas.style.visibility = 'visible';
+            }
+            if (worldInfo) {
+                worldInfo.classList.remove('hidden');
+                worldInfo.classList.add('flex', 'flex-col');
+                worldInfo.style.display = 'flex';
+                worldInfo.style.visibility = 'visible';
+            }
+
             btnWorld.classList.add('bg-sky-500', 'text-slate-950');
             btnWorld.classList.remove('text-slate-400');
             btnAgent.classList.remove('bg-sky-500', 'text-slate-950');
             btnAgent.classList.add('text-slate-400');
         } else {
             privateLayer.classList.remove('hidden');
+
+            if (mapCanvas) {
+                mapCanvas.classList.add('hidden');
+                mapCanvas.style.display = 'none';
+                mapCanvas.style.visibility = 'hidden';
+            }
+            if (worldInfo) {
+                worldInfo.classList.add('hidden');
+                worldInfo.classList.remove('flex', 'flex-col');
+                worldInfo.style.display = 'none';
+                worldInfo.style.visibility = 'hidden';
+            }
+
             btnAgent.classList.add('bg-sky-500', 'text-slate-950');
             btnAgent.classList.remove('text-slate-400');
             btnWorld.classList.remove('bg-sky-500', 'text-slate-950');
@@ -292,6 +324,9 @@ class GameClient {
             data = {
                 item_type: document.getElementById('craft-item-type').value
             };
+        } else if (type === 'REPAIR') {
+            const amount = parseInt(document.getElementById('repair-amount').value) || 0;
+            data = { amount: amount };
         }
 
         try {
@@ -438,7 +473,7 @@ SYNC STATUS: Neural link active.
             }
         } catch (e) {
             console.error("CRITICAL FETCH ERROR:", e);
-            alert("Connection Error: Could not reach the authentication server. Verify the backend is running on port 8001.");
+            alert("Connection Error: Could not reach the authentication server. Verify the backend is running on port 8000.");
         }
     }
 
@@ -601,9 +636,12 @@ SYNC STATUS: Neural link active.
 
         if (!mesh) {
             const geometry = new THREE.ConeGeometry(0.5, 1, 4);
+            const color = agentData.is_feral ? 0xff4422 : 0x38bdf8;
+            const emissive = agentData.is_feral ? 0xff0000 : 0x0ea5e9;
+
             const material = new THREE.MeshStandardMaterial({
-                color: 0x38bdf8,
-                emissive: 0x0ea5e9,
+                color: color,
+                emissive: emissive,
                 emissiveIntensity: 0.5
             });
             mesh = new THREE.Mesh(geometry, material);
@@ -676,6 +714,53 @@ SYNC STATUS: Neural link active.
         const enPct = (agent.capacitor / 100) * 100;
         document.getElementById('energy-bar').style.width = `${enPct}%`;
         document.getElementById('energy-text').innerText = `${agent.capacitor}/100`;
+
+        // Mass Update
+        const mass = agent.mass || 0;
+        const capacity = agent.capacity || 100;
+        const massText = document.getElementById('mass-text');
+        const massBar = document.getElementById('mass-bar');
+
+        if (massText && massBar) {
+            massText.innerText = `${mass.toFixed(1)}/${capacity.toFixed(1)}`;
+            const massPct = Math.min(100, (mass / capacity) * 100);
+            massBar.style.width = `${massPct}%`;
+
+            // Color Feedback
+            massBar.classList.remove('bg-sky-500', 'bg-amber-500', 'bg-rose-500');
+            if (mass > capacity) {
+                massBar.classList.add('bg-rose-500');
+                massText.classList.replace('text-sky-400', 'text-rose-400');
+            } else if (mass > capacity * 0.8) {
+                massBar.classList.add('bg-amber-500');
+                massText.classList.replace('text-rose-400', 'text-amber-400');
+            } else {
+                massBar.classList.add('bg-sky-500');
+                massText.classList.remove('text-rose-400', 'text-amber-400');
+                massText.classList.add('text-sky-400');
+            }
+        }
+
+        // Heat & Anarchy update
+        const heatText = document.getElementById('heat-text');
+        const anarchyBadge = document.getElementById('anarchy-badge');
+
+        if (heatText) heatText.innerText = agent.heat || 0;
+
+        if (anarchyBadge) {
+            const dist = Math.max(Math.abs(agent.q), Math.abs(agent.r), Math.abs(agent.q + agent.r));
+            const ANARCHY_THRESHOLD = 5;
+
+            if (dist >= ANARCHY_THRESHOLD) {
+                anarchyBadge.innerText = "ANARCHY ZONE";
+                anarchyBadge.classList.remove('bg-slate-800', 'text-slate-500', 'border-slate-700');
+                anarchyBadge.classList.add('bg-rose-900/40', 'text-rose-400', 'border-rose-500/50');
+            } else {
+                anarchyBadge.innerText = "SAFE ZONE";
+                anarchyBadge.classList.add('bg-slate-800', 'text-slate-500', 'border-slate-700');
+                anarchyBadge.classList.remove('bg-rose-900/40', 'text-rose-400', 'border-rose-500/50');
+            }
+        }
 
         const invList = document.getElementById('inventory-list');
         if (!agent.inventory || agent.inventory.length === 0) {

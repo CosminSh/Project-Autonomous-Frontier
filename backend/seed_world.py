@@ -12,6 +12,8 @@ SECTOR_SIZE = 20
 GRID_SIZE = 5 # 5x5 sectors
 
 def seed_world():
+    print("Dropping and recreating all tables...")
+    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     db = SessionLocal()
     
@@ -81,6 +83,12 @@ def seed_world():
                     is_station = True
                     st_type = "CRAFTER"
                     terrain = "STATION"
+
+                # Repair at (-10, 0)
+                if gq == -10 and gr == 0:
+                    is_station = True
+                    st_type = "REPAIR"
+                    terrain = "STATION"
                 
                 db.add(WorldHex(
                     sector_id=sector.id,
@@ -112,6 +120,26 @@ def seed_world():
             db.add(InventoryItem(agent_id=bot.id, item_type="CREDITS", quantity=500))
             # Give them a drill so they can mine
             db.add(ChassisPart(agent_id=bot.id, name="Industrial Drill", part_type="Actuator", stats={"power": 10}))
+            
+        # Add Feral Scrappers
+        for i in range(8):
+            # Spawn at distance > 8
+            fq = random.choice([q for q in range(-15, 15) if abs(q) > 8])
+            fr = random.choice([r for r in range(-15, 15) if abs(r) > 8])
+            
+            feral = Agent(
+                name=f"Feral-Scrapper-{i}", 
+                q=fq, r=fr, 
+                is_bot=True, 
+                is_feral=True,
+                kinetic_force=15, # Stronger than average
+                logic_precision=8, # Less accurate
+                structure=120,    # Tougher
+                max_structure=120
+            )
+            db.add(feral)
+            db.flush()
+            db.add(ChassisPart(agent_id=feral.id, name="Rusty Blaster", part_type="Actuator", stats={"damage": 12}))
             
     db.commit()
     print("World seeding complete!")
