@@ -86,7 +86,7 @@ class WorldHex(Base):
 class AuctionOrder(Base):
     __tablename__ = "auction_house"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     item_type = Column(String, index=True) # Raw Ore, Refined Ingot
     order_type = Column(String) # BUY, SELL
     quantity = Column(Integer)
@@ -122,3 +122,18 @@ class GlobalState(Base):
     tick_index = Column(BigInteger, default=0)
     phase = Column(String, default="PERCEPTION") # PERCEPTION, STRATEGY, CRUNCH
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+class Bounty(Base):
+    __tablename__ = "bounties"
+    id = Column(Integer, primary_key=True, index=True)
+    target_id = Column(Integer, ForeignKey("agents.id"))
+    reward = Column(Float)
+    issuer = Column(String, default="Colonial Administration")
+    is_open = Column(Boolean, default=True)
+
+class LootDrop(Base):
+    __tablename__ = "loot_drops"
+    id = Column(Integer, primary_key=True, index=True)
+    q = Column(Integer, index=True)
+    r = Column(Integer, index=True)
+    item_type = Column(String)
+    quantity = Column(Integer)

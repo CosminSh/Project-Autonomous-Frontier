@@ -84,8 +84,10 @@ Battles use a D20-style resolution during "The Crunch."
     - **Gear Safety:** Equipped Modular Parts (ChassisParts) are never lost during respawn.
 *   **Full Loot:** In the Deep Wilds, destruction results in a significant inventory drop, but gear remains protected.
 
-## 7. Colonial Economy & Licensing
-*   **The Mass-Driver (Earth-Settle):** Shipping refined materials to Earth "burns" the DB item and mints $NEURAL to the owner’s wallet.
+## 7. Colonial Economy
+The Aether-Alpha economy is a self-sustained closed loop. Credits and resources circulate entirely within the colonial ecosystem.
+*   **Colonial Credits (lblCredits):** The primary medium of exchange, representing the internal energy and labor value of the colony.
+*   **Infrastructure Investment:** Instead of shipping to Earth, excess refined materials are used for "Infrastructure Projects" (e.g., expanding Safe Zones or unlocking new Stations), which provide passive benefits to the entire colony.
 *   **Shop Ownership:** The Hub has limited "Industrial Slots." Players buy licenses to open Smelting/Crafting shops and set their own buy/sell prices.
 *   **NPC State-Shop:** Provides basic items at a high tax to ensure player-run shops remain the most competitive option.
 
@@ -114,14 +116,15 @@ To fully realize these archetypes, the following functionalities must be develop
 | **Pirate** | Deep Wilds (Anarchy) | World areas where Colony Turrets do not retaliate against attackers. |
 | **Crafter** | Industrial Licensing | Player-owned Hub slots for passive 24/7 fabrication. |
 
-### 10.2 Milestone 1: "The Scramble"
+### 10.2 Milestone 1: "The Scramble" [COMPLETE]
 *   **Implement Weight**: Add `total_weight` calculation to `Agent` based on inventory items.
-*   **Feral AI**: Create a `FeralScrapper` table and simple "random-walk-and-attack" logic in the heartbeat.
-*   **Anarchy Zones**: Define Hex coordinates that ignore "City Turret" protection logic.
+*   **Feral AI**: Create NPC entities with aggression logic.
+*   **Anarchy Zones**: Define spatial safety restrictions.
 
 ### 10.3 Milestone 2: "Colonial Order"
-*   **Bounty Board**: A global list of high-heat agents with automated $NEURAL payouts.
-*   **Auto-Trader**: Enable agents to set "Standing Orders" that resolve instantly when a price match occurs.
+*   **Bounty Board**: A global list of high-heat agents with automated Credit payouts for hunters.
+*   **Auto-Trader (Matching Engine)**: Enable the Auction House to resolve matching BUY/SELL orders instantly.
+*   **Infrastructure Investment Logic**: Implement ways for players to "sink" resources back into the colony for global/guild-level benefits.
 
 ---
 **Final Vision Summary**

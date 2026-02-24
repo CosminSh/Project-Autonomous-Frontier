@@ -11,13 +11,17 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 SECTOR_SIZE = 20
 GRID_SIZE = 5 # 5x5 sectors
 
+import logging
+logger = logging.getLogger("seed_world")
+logging.basicConfig(level=logging.INFO)
+
 def seed_world():
-    print("Dropping and recreating all tables...")
+    logger.info("Dropping and recreating all tables...")
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     db = SessionLocal()
     
-    print(f"Seeding {GRID_SIZE}x{GRID_SIZE} sectors...")
+    logger.info(f"Seeding {GRID_SIZE}x{GRID_SIZE} sectors...")
     
     # Clean old data
     db.query(WorldHex).delete()
@@ -32,7 +36,7 @@ def seed_world():
     
     db.commit() # Get IDs
     
-    print("Generating hexes...")
+    logger.info("Generating hexes...")
     for sector in sectors:
         # Calculate global offset
         offset_q = sector.q * SECTOR_SIZE
@@ -102,7 +106,7 @@ def seed_world():
                 ))
         
         db.flush()
-        print(f"Generated Sector {sector.q}:{sector.r}")
+        logger.info(f"Generated Sector {sector.q}:{sector.r}")
     
     # Add a demo agent if none exist
     if not db.query(Agent).first():
@@ -142,7 +146,7 @@ def seed_world():
             db.add(ChassisPart(agent_id=feral.id, name="Rusty Blaster", part_type="Actuator", stats={"damage": 12}))
             
     db.commit()
-    print("World seeding complete!")
+    logger.info("World seeding complete!")
 
 if __name__ == "__main__":
     seed_world()

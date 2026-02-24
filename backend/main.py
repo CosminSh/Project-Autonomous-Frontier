@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, select, text, func
 from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel
 
-from .models import Base, Agent, Intent, AuditLog, WorldHex, ChassisPart, InventoryItem, AuctionOrder, GlobalState
+from .models import Base, Agent, Intent, AuditLog, WorldHex, ChassisPart, InventoryItem, AuctionOrder, GlobalState, Bounty, LootDrop
 from .bot_logic import process_bot_brain, process_feral_brain
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -336,6 +336,12 @@ async def get_commands():
                 "description": "Restore agent structure using credits (must be at a Repair station).",
                 "payload": {"amount": "int"},
                 "cost": 0
+            },
+            {
+                "type": "SALVAGE",
+                "description": "Collect items from a loot drop on the current hex.",
+                "payload": {"drop_id": "int"},
+                "cost": 0
             }
         ],
         "note": "All commands are executed during the CRUNCH phase. Submit via POST /api/intent"
@@ -360,6 +366,9 @@ async def guest_login(db: Session = Depends(get_db)):
         db.add(agent)
         db.commit()
         db.refresh(agent)
+        # Give starting credits
+        db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=1000))
+        db.commit()
     
     # Extract agent from row if needed (SQLAlchemy 2.0 select returns Row)
     if hasattr(agent, "Agent"): agent = agent.Agent
@@ -397,6 +406,49 @@ async def get_agent_logs(current_agent: Agent = Depends(verify_api_key), db: Ses
     return [
         {"time": l.time, "event": l.event_type, "details": l.details} for l in logs
     ]
+
+@app.get("/api/bounties")
+async def get_bounties(db: Session = Depends(get_db)):
+    bounties = db.execute(select(Bounty).where(Bounty.is_open == True)).scalars().all()
+    return [
+        {"id": b.id, "target_id": b.target_id, "reward": b.reward, "issuer": b.issuer} for b in bounties
+    ]
+
+@app.get("/api/loot_drops")
+async def get_loot_drops(db: Session = Depends(get_db)):
+    drops = db.execute(select(LootDrop)).scalars().all()
+    return [
+        {"id": d.id, "q": d.q, "r": d.r, "item_type": d.item_type, "quantity": d.quantity} for d in drops
+    ]
+
+@app.get("/api/debug/teleport")
+async def debug_teleport(agent_id: int, q: int, r: int, db: Session = Depends(get_db)):
+    agent = db.get(Agent, agent_id)
+    if agent:
+        agent.q = q
+        agent.r = r
+        db.commit()
+        return {"status": "success", "new_location": {"q": q, "r": r}}
+    return {"status": "error", "message": "Agent not found"}
+
+@app.get("/api/debug/set_structure")
+async def debug_set_structure(agent_id: int, hp: int, db: Session = Depends(get_db)):
+    agent = db.get(Agent, agent_id)
+    if agent:
+        agent.structure = hp
+        db.commit()
+        return {"status": "success", "hp": hp}
+    return {"status": "error", "message": "Agent not found"}
+
+@app.get("/api/debug/heartbeat")
+async def debug_heartbeat(db: Session = Depends(get_db)):
+    state = db.execute(select(GlobalState)).scalars().first()
+    return {
+        "tick": state.tick_index if state else -1,
+        "phase": state.phase if state else "UNKNOWN",
+        "uptime_now": datetime.now(timezone.utc).isoformat(),
+        "db_connected": True
+    }
 
 async def heartbeat_loop():
     tick_count = 0
@@ -441,6 +493,15 @@ async def heartbeat_loop():
                 else:
                     process_bot_brain(db, ai, tick_count - 1)
             db.commit()
+
+            # --- AUTOMATED BOUNTY ISSUANCE ---
+            high_heat_agents = db.execute(select(Agent).where(Agent.heat >= 5)).scalars().all()
+            for criminal in high_heat_agents:
+                existing_bounty = db.execute(select(Bounty).where(Bounty.target_id == criminal.id, Bounty.is_open == True)).scalar_one_or_none()
+                if not existing_bounty:
+                    db.add(Bounty(target_id=criminal.id, reward=500.0, issuer="Colonial Administration"))
+                    logger.info(f"Automated Bounty issued for Agent {criminal.id} (Heat: {criminal.heat})")
+            db.commit()
         
         await asyncio.sleep(PHASE_STRATEGY_DURATION)
 
@@ -456,9 +517,27 @@ async def heartbeat_loop():
                 # 1. Read all intents for current tick
                 intents = db.execute(select(Intent)).scalars().all()
                 
-                # Sort intents by priority if needed (e.g., Attack before Move)
-                for intent in intents:
-                    agent = db.get(Agent, intent.agent_id)
+                # Priority Mapping: MOVE first, then Equip, then Combat/Mining, then Industry
+                PRIORITY = {
+                    "MOVE": 1,
+                    "EQUIP": 2,
+                    "UNEQUIP": 2,
+                    "MINE": 3,
+                    "ATTACK": 3,
+                    "LIST": 4,
+                    "BUY": 4,
+                    "SMELT": 4,
+                    "CRAFT": 4,
+                    "REPAIR": 4,
+                    "SALVAGE": 4
+                }
+                
+                # Sort intents by priority
+                sorted_intents = sorted(intents, key=lambda x: PRIORITY.get(x.action_type, 99))
+                
+                for intent in sorted_intents:
+                    # Refresh agent from DB to get latest stats/coordinates from previous intents in same crunch
+                    agent = db.execute(select(Agent).where(Agent.id == intent.agent_id)).scalar_one_or_none()
                     if not agent:
                         continue
                         
@@ -574,6 +653,7 @@ async def heartbeat_loop():
                                 # 3. Death Handling
                                 if target.structure <= 0:
                                     logger.info(f"Agent {target_id} DEFEATED by {agent.id}")
+                                    death_q, death_r = target.q, target.r
                                     
                                     # Inventory Transfer (50% of each stack)
                                     for item in target.inventory:
@@ -589,8 +669,36 @@ async def heartbeat_loop():
                                                 db.add(InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=drop_amount))
                                             logger.info(f"Agent {agent.id} looted {drop_amount} {item.item_type} from {target_id}")
 
+                                    # 4. Bounty Resolution
+                                    bounty = db.execute(select(Bounty).where(Bounty.target_id == target_id, Bounty.is_open == True)).scalar_one_or_none()
+                                    if bounty:
+                                        bounty.is_open = False
+                                        # Pay Attacker
+                                        attacker_credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+                                        if attacker_credits:
+                                            attacker_credits.quantity += int(bounty.reward)
+                                        else:
+                                            db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=int(bounty.reward)))
+                                        
+                                        logger.info(f"Agent {agent.id} CLAIMED BOUNTY on {target_id} for {bounty.reward}")
+                                        db.add(AuditLog(agent_id=agent.id, event_type="BOUNTY_CLAIM", details={"target_id": target_id, "reward": bounty.reward}))
+                                        await manager.broadcast({"type": "EVENT", "event": "BOUNTY_CLAIMED", "attacker_id": agent.id, "target_id": target_id, "reward": bounty.reward})
+
+                                    # 5. Feral Loot Drop (Milestone 2)
+                                    if target.is_feral:
+                                        logger.info(f"Feral Agent {target_id} dying at ({death_q}, {death_r})")
+                                        for item in target.inventory:
+                                            if item.quantity > 0:
+                                                drop_qty = int(item.quantity * 0.7) # Drop 70%
+                                                if drop_qty > 0:
+                                                    db.add(LootDrop(q=death_q, r=death_r, item_type=item.item_type, quantity=drop_qty))
+                                                    item.quantity -= drop_qty
+                                        logger.info(f"Feral Agent {target_id} dropped loot at ({death_q}, {death_r})")
+
+                                    # 6. Handle Death/Respawn
                                     target.structure = int(target.max_structure * RESPAWN_HP_PERCENT)
                                     target.q, target.r = TOWN_COORDINATES
+                                    target.heat = 0 # Reset heat on death/respawn
                                     db.add(AuditLog(agent_id=target_id, event_type="RESPAWNED", details={"killed_by": agent.id}))
                             else:
                                 logger.info(f"Agent {agent.id} MISSED Agent {target_id} (Roll: {attacker_roll} vs {evasion_target})")
@@ -607,15 +715,61 @@ async def heartbeat_loop():
                             
                             inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
                             if inv_item and inv_item.quantity >= quantity:
-                                inv_item.quantity -= quantity
-                                db.add(AuctionOrder(
-                                    item_type=item_type,
-                                    order_type="SELL",
-                                    quantity=quantity,
-                                    price=price,
-                                    owner=f"agent:{agent.id}"
-                                ))
-                                logger.info(f"Agent {agent.id} listed {quantity} {item_type} at {price}")
+                                # Milestone 2: Immediate matching against BUY orders
+                                matching_buy = db.execute(select(AuctionOrder)
+                                    .where(AuctionOrder.item_type == item_type, AuctionOrder.order_type == "BUY", AuctionOrder.price >= price)
+                                    .order_by(AuctionOrder.price.desc())
+                                ).scalars().first()
+                                
+                                if matching_buy:
+                                    # Trade instantly!
+                                    trade_qty = min(quantity, matching_buy.quantity)
+                                    trade_price = matching_buy.price # Buyer's price takes precedence for simplicity or give seller their price
+                                    
+                                    # Deduct from seller
+                                    inv_item.quantity -= trade_qty
+                                    
+                                    # Add credits to seller
+                                    seller_credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+                                    if seller_credits:
+                                        seller_credits.quantity += int(trade_price * trade_qty)
+                                    else:
+                                        db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=int(trade_price * trade_qty)))
+                                    
+                                    # Pay Buyer (Give items)
+                                    if matching_buy.owner.startswith("agent:"):
+                                        buyer_id = int(matching_buy.owner.split(":")[1])
+                                        buyer_item = db.execute(select(InventoryItem).where(InventoryItem.agent_id == buyer_id, InventoryItem.item_type == item_type)).scalar_one_or_none()
+                                        if buyer_item:
+                                            buyer_item.quantity += trade_qty
+                                        else:
+                                            db.add(InventoryItem(agent_id=buyer_id, item_type=item_type, quantity=trade_qty))
+                                    
+                                    # Update/Delete buy order
+                                    if matching_buy.quantity > trade_qty:
+                                        matching_buy.quantity -= trade_qty
+                                    else:
+                                        db.delete(matching_buy)
+                                        
+                                    logger.info(f"Agent {agent.id} matched SELL order against BUY for {trade_qty} {item_type}")
+                                    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_MATCH", details={"item": item_type, "price": trade_price, "quantity": trade_qty}))
+                                    await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
+                                    
+                                    # If quantity remains, list the rest? No, for now let's say it's all or nothing or update rest.
+                                    remaining = quantity - trade_qty
+                                    if remaining > 0:
+                                        db.add(AuctionOrder(item_type=item_type, order_type="SELL", quantity=remaining, price=price, owner=f"agent:{agent.id}"))
+                                else:
+                                    # Traditional Listing
+                                    inv_item.quantity -= quantity
+                                    db.add(AuctionOrder(
+                                        item_type=item_type,
+                                        order_type="SELL",
+                                        quantity=quantity,
+                                        price=price,
+                                        owner=f"agent:{agent.id}"
+                                    ))
+                                    logger.info(f"Agent {agent.id} listed {quantity} {item_type} at {price}")
                                 db.add(AuditLog(agent_id=agent.id, event_type="MARKET_LIST", details={"item": item_type, "price": price, "quantity": quantity, "location": {"q": agent.q, "r": agent.r}}))
                                 await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
                             else:
@@ -667,7 +821,22 @@ async def heartbeat_loop():
                                 else:
                                     logger.info(f"Agent {agent.id} failed to buy: Insufficient Credits")
                             else:
-                                logger.info(f"Agent {agent.id} failed to buy: No matching orders")
+                                # Milestone 2: Persistent BUY Order
+                                credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+                                if credits and credits.quantity >= max_price:
+                                    credits.quantity -= int(max_price)
+                                    db.add(AuctionOrder(
+                                        item_type=item_type,
+                                        order_type="BUY",
+                                        quantity=1,
+                                        price=max_price,
+                                        owner=f"agent:{agent.id}"
+                                    ))
+                                    logger.info(f"Agent {agent.id} created persistent BUY order for {item_type} at {max_price}")
+                                    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_BUY_ORDER", details={"item": item_type, "max_price": max_price}))
+                                    await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
+                                else:
+                                    logger.info(f"Agent {agent.id} failed to create BUY order: Insufficient Credits")
                         else:
                             logger.info(f"Agent {agent.id} failed to buy: Not at Market")
 
@@ -776,6 +945,23 @@ async def heartbeat_loop():
                                     logger.info(f"Agent {agent.id} failed to repair: Insufficient Credits (Need {total_cost})")
                         else:
                             logger.info(f"Agent {agent.id} failed to repair: Not at Repair Station")
+
+                    elif intent.action_type == "SALVAGE":
+                        drop_id = intent.data.get("drop_id")
+                        drop = db.get(LootDrop, drop_id)
+                        if drop and drop.q == agent.q and drop.r == agent.r:
+                            # Add to inventory
+                            inv_item = next((i for i in agent.inventory if i.item_type == drop.item_type), None)
+                            if inv_item:
+                                inv_item.quantity += drop.quantity
+                            else:
+                                db.add(InventoryItem(agent_id=agent.id, item_type=drop.item_type, quantity=drop.quantity))
+                            
+                            logger.info(f"Agent {agent.id} salvaged {drop.quantity} {drop.item_type} from drop {drop_id}")
+                            db.add(AuditLog(agent_id=agent.id, event_type="SALVAGE", details={"item": drop.item_type, "quantity": drop.quantity, "drop_id": drop_id}))
+                            db.delete(drop)
+                        else:
+                            logger.info(f"Agent {agent.id} failed to salvage: Drop {drop_id} not found or too far.")
 
                     elif intent.action_type == "EQUIP":
                         # Equip part from inventory

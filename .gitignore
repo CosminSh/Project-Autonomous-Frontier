@@ -18,3 +18,6 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Generated
+backend/demo_app.py
