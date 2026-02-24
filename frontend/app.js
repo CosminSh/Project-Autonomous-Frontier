@@ -57,7 +57,7 @@ class GameClient {
         document.getElementById('btn-mode-agent').addEventListener('click', () => this.setUIMode('management'));
 
         // Tab Listeners
-        ['command', 'garage', 'market', 'industry', 'about'].forEach(tab => {
+        ['command', 'garage', 'market', 'industry'].forEach(tab => {
             const el = document.getElementById(`tab-${tab}`);
             if (el) el.addEventListener('click', () => this.switchTab(tab));
         });
@@ -219,7 +219,7 @@ class GameClient {
     }
 
     switchTab(tabId) {
-        const tabs = ['command', 'garage', 'market', 'industry', 'about'];
+        const tabs = ['command', 'garage', 'market', 'industry'];
         tabs.forEach(t => {
             const content = document.getElementById(`content-${t}`);
             const btn = document.getElementById(`tab-${t}`);

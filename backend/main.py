@@ -1495,6 +1495,10 @@ if os.path.exists(frontend_path):
     async def get_dashboard():
         return FileResponse(os.path.join(frontend_path, "dashboard.html"))
 
+    @app.get("/about")
+    async def get_about():
+        return FileResponse(os.path.join(frontend_path, "about.html"))
+
     @app.get("/")
     async def read_index():
         return FileResponse(os.path.join(frontend_path, "index.html"))
