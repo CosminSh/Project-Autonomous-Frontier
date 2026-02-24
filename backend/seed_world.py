@@ -2,7 +2,7 @@ import os
 import random
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from .models import Base, Sector, WorldHex, Agent, InventoryItem, ChassisPart
+from models import Base, Sector, WorldHex, Agent, InventoryItem, ChassisPart
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./strike_vector.db")
 engine = create_engine(DATABASE_URL)
