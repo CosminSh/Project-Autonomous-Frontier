@@ -13,5 +13,5 @@ COPY . .
 ENV PORT=8001
 ENV DATABASE_URL=sqlite:///./demo_cloud.db
 
-# Start the application using the backend.demo_app module
-CMD uvicorn backend.demo_app:app --host 0.0.0.0 --port $PORT
+# Start the application using the backend.main module
+CMD uvicorn backend.main:app --host 0.0.0.0 --port $PORT
