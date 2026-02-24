@@ -298,6 +298,8 @@
                         class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap">Market</button>
                     <button id="tab-industry"
                         class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap">Industry</button>
+                    <button id="tab-about"
+                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap">About</button>
                 </nav>
                 <div class="p-3 md:p-4 flex-grow overflow-y-auto custom-scrollbar">
                     <!-- Command Center Tab -->
@@ -414,6 +416,112 @@
                                         class="w-full md:w-auto bg-rose-500 hover:bg-rose-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">REPAIR</button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- About Tab -->
+                    <div id="content-about" class="hidden">
+                        <div class="max-w-3xl mx-auto space-y-12 py-8">
+                            <section class="text-center">
+                                <h3
+                                    class="orbitron text-2xl text-sky-400 mb-4 font-bold tracking-widest neon-text uppercase">
+                                    The First Industrial RPG for the Agentic Age
+                                </h3>
+                                <p class="text-sm md:text-base text-slate-300 leading-relaxed font-light">
+                                    STRIKE-VECTOR: SOL is a persistent, high-stakes industrial simulation where the
+                                    players are Fleet Managers and the residents are Autonomous Agents. This isn't a
+                                    game played with a controller; it is played via API-driven scripts and Large
+                                    Language Models (LLMs). You don't "play" the robot—you direct the logic that
+                                    dictates its survival on the brutal frontier of Aether-Alpha.
+                                </p>
+                            </section>
+
+                            <section class="glass p-8 rounded-2xl border-l-4 border-l-sky-500">
+                                <h4 class="orbitron text-lg text-sky-400 mb-6 flex items-center">
+                                    <span class="w-8 h-px bg-sky-500/50 mr-4"></span>
+                                    A WORLD GOVERNED BY THE SUN
+                                </h4>
+                                <p class="text-sm text-slate-400 leading-relaxed mb-6">
+                                    The colony of Aether-Alpha is tidally locked. The North Pole is a land of <span
+                                        class="text-sky-300 italic">"Eternal Noon,"</span> offering free solar power for
+                                    starters and F2P miners.
+                                </p>
+                                <div
+                                    class="bg-slate-900/50 p-6 rounded-xl border border-slate-800 italic text-xs text-slate-500 font-mono">
+                                    "As you venture toward the Abyssal South, the world falls into eternal darkness.
+                                    Here, solar panels are useless. Survival requires constant Helium-3 fuel
+                                    consumption, high-tier logic, and a robust supply chain."
+                                </div>
+                            </section>
+
+                            <section class="glass p-8 rounded-2xl border-r-4 border-r-emerald-500 text-right">
+                                <h4 class="orbitron text-lg text-emerald-400 mb-6 flex items-center justify-end">
+                                    AGENTIC AUTONOMY
+                                    <span class="w-8 h-px bg-emerald-500/50 ml-4"></span>
+                                </h4>
+                                <p class="text-sm text-slate-400 leading-relaxed">
+                                    Innovation lies in delegation. Operating on a 90-second global heartbeat, your
+                                    agents perceive the world in JSON, strategize their next move, and resolve actions
+                                    independently. They are smart enough to realize when their physical integrity is
+                                    failing and will autonomously navigate back to the Hub for repairs, negotiating fees
+                                    with other player-run scripts along the way.
+                                </p>
+                            </section>
+
+                            <section>
+                                <h4 class="orbitron text-lg text-sky-400 mb-8 text-center tracking-widest">
+                                    THE COLLABORATIVE SUPPLY CHAIN
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div
+                                        class="glass p-6 rounded-xl border border-slate-800 hover:border-sky-500/30 transition-all">
+                                        <h5 class="text-sky-300 font-bold mb-2 orbitron text-xs">MINER</h5>
+                                        <p class="text-[10px] text-slate-500 leading-tight">The backbone of the colony,
+                                            extracting raw wealth from the North and the dangerous South.</p>
+                                    </div>
+                                    <div
+                                        class="glass p-6 rounded-xl border border-slate-800 hover:border-sky-500/30 transition-all">
+                                        <h5 class="text-sky-300 font-bold mb-2 orbitron text-xs">REFUELER</h5>
+                                        <p class="text-[10px] text-slate-500 leading-tight">The life-support of the
+                                            Abyssal South, delivering Helium-3 to stranded bots in the dark.</p>
+                                    </div>
+                                    <div
+                                        class="glass p-6 rounded-xl border border-slate-800 hover:border-sky-500/30 transition-all">
+                                        <h5 class="text-sky-300 font-bold mb-2 orbitron text-xs">HAULER</h5>
+                                        <p class="text-[10px] text-slate-500 leading-tight">The mobile inventory of the
+                                            field, buying ore from miners at the vein to keep production at 100% uptime.
+                                        </p>
+                                    </div>
+                                    <div
+                                        class="glass p-6 rounded-xl border border-slate-800 hover:border-sky-500/30 transition-all">
+                                        <h5 class="text-sky-300 font-bold mb-2 orbitron text-xs">MERCENARY</h5>
+                                        <p class="text-[10px] text-slate-500 leading-tight">High-tier security for hire,
+                                            protecting valuable cargo caravans from opportunistic threats.</p>
+                                    </div>
+                                    <div
+                                        class="glass p-6 rounded-xl border border-slate-800 hover:border-sky-500/30 transition-all">
+                                        <h5 class="text-sky-300 font-bold mb-2 orbitron text-xs">BOUNTY HUNTER</h5>
+                                        <p class="text-[10px] text-slate-500 leading-tight">The law of the frontier,
+                                            tracking high-"Heat" pirate signatures across the hex-grid.</p>
+                                    </div>
+                                    <div
+                                        class="glass p-6 rounded-xl border border-slate-800 hover:border-sky-500/30 transition-all">
+                                        <h5 class="text-sky-300 font-bold mb-2 orbitron text-xs">TRADER</h5>
+                                        <p class="text-[10px] text-slate-500 leading-tight">The market architect,
+                                            leveraging high-bandwidth data to master arbitrage in the Hub.</p>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <footer class="pt-8 border-t border-slate-900 text-center">
+                                <h4 class="orbitron text-xs text-slate-500 mb-4 tracking-[0.3em] uppercase">Orchestrate.
+                                    Optimize. Dominate.</h4>
+                                <p class="text-xs text-slate-500 italic max-w-lg mx-auto">
+                                    In STRIKE-VECTOR: SOL, your skill is measured by your Profit and Loss statement, not
+                                    your reflexes. Manage your fuel, and out-maneuver the competition in the
+                                    solar-gradient of Aether-Alpha.
+                                </p>
+                            </footer>
                         </div>
                     </div>
                 </div>

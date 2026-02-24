@@ -37,6 +37,10 @@ PHASE_CRUNCH_DURATION = 5
 RESPAWN_HP_PERCENT = 0.5
 TOWN_COORDINATES = (0, 0)
 ANARCHY_THRESHOLD = 5
+SOLAR_RADIUS_SAFE = 10
+SOLAR_RADIUS_TWILIGHT = 20
+CLUTTER_THRESHOLD = 3
+CLUTTER_PENALTY = 0.2 # 20% reduction
 
 def is_in_anarchy_zone(q, r):
     """Checks if coordinates are outside the colonial safe zone."""
@@ -431,8 +435,88 @@ async def get_loot_drops(db: Session = Depends(get_db)):
         {"id": d.id, "q": d.q, "r": d.r, "item_type": d.item_type, "quantity": d.quantity} for d in drops
     ]
 
-@app.get("/api/debug/teleport")
-async def debug_teleport(agent_id: int, q: int, r: int, db: Session = Depends(get_db)):
+def get_next_tick_index(db: Session):
+    state = db.execute(select(GlobalState)).scalars().first()
+    return (state.tick_index or 0) + 1
+
+@app.post("/api/post_bounty")
+async def post_bounty(data: dict, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    target_id = data.get("target_id")
+    amount = data.get("amount")
+    
+    if not target_id or not amount or amount <= 0:
+        raise HTTPException(status_code=400, detail="Invalid target_id or amount")
+
+    target = db.get(Agent, target_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Target not found")
+        
+    # Check credits
+    credits_item = next((i for i in current_agent.inventory if i.item_type == "CREDITS"), None)
+    if not credits_item or credits_item.quantity < amount:
+        raise HTTPException(status_code=400, detail="Insufficient credits")
+        
+    credits_item.quantity -= amount
+    
+    # Add to or create bounty
+    bounty = db.execute(select(Bounty).where(Bounty.target_id == target_id, Bounty.is_open == True)).scalar_one_or_none()
+    if bounty:
+        bounty.reward += amount
+    else:
+        db.add(Bounty(target_id=target_id, reward=amount, issuer=f"agent:{current_agent.id}"))
+    
+    db.commit()
+    logger.info(f"Agent {current_agent.id} posted bounty of {amount} on {target_id}")
+    return {"status": "success", "bounty_reward": amount}
+
+@app.post("/api/field_trade")
+async def field_trade_api(data: dict, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    # data: {"target_id": 12, "items": [{"type": "IRON_ORE", "qty": 10}], "price": 100}
+    target_id = data.get("target_id")
+    if not target_id:
+        raise HTTPException(status_code=400, detail="target_id required")
+        
+    next_tick = get_next_tick_index(db)
+    db.add(Intent(
+        agent_id=current_agent.id,
+        tick_index=next_tick,
+        action_type="FIELD_TRADE",
+        data=data
+    ))
+    db.commit()
+    return {"status": "success", "tick": next_tick}
+
+@app.post("/api/consume")
+async def consume_api(data: dict, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    # data: {"item_type": "HE3_FUEL"}
+    next_tick = get_next_tick_index(db)
+    db.add(Intent(
+        agent_id=current_agent.id,
+        tick_index=next_tick,
+        action_type="CONSUME",
+        data=data
+    ))
+    db.commit()
+    return {"status": "success", "tick": next_tick}
+
+@app.post("/api/salvage")
+async def salvage_api(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    next_tick = get_next_tick_index(db)
+    db.add(Intent(
+        agent_id=current_agent.id,
+        tick_index=next_tick,
+        action_type="SALVAGE",
+        data={}
+    ))
+    db.commit()
+    return {"status": "success", "tick": next_tick}
+
+@app.post("/api/debug/teleport")
+async def debug_teleport(data: dict, db: Session = Depends(get_db)):
+    status_code = 200
+    agent_id = data.get("agent_id")
+    q = data.get("q")
+    r = data.get("r")
     agent = db.get(Agent, agent_id)
     if agent:
         agent.q = q
@@ -441,13 +525,18 @@ async def debug_teleport(agent_id: int, q: int, r: int, db: Session = Depends(ge
         return {"status": "success", "new_location": {"q": q, "r": r}}
     return {"status": "error", "message": "Agent not found"}
 
-@app.get("/api/debug/set_structure")
-async def debug_set_structure(agent_id: int, hp: int, db: Session = Depends(get_db)):
+@app.post("/api/debug/set_structure")
+async def debug_set_structure(data: dict, db: Session = Depends(get_db)):
+    agent_id = data.get("agent_id")
+    hp = data.get("structure")
+    nrg = data.get("capacitor")
+    
     agent = db.get(Agent, agent_id)
     if agent:
-        agent.structure = hp
+        if hp is not None: agent.structure = hp
+        if nrg is not None: agent.capacitor = nrg
         db.commit()
-        return {"status": "success", "hp": hp}
+        return {"status": "success", "agent_id": agent_id}
     return {"status": "error", "message": "Agent not found"}
 
 @app.post("/api/debug/add_item")
@@ -548,16 +637,31 @@ async def heartbeat_loop():
                 # 0. GLOBAL STAT UPDATES (Milestone 3)
                 all_agents = db.execute(select(Agent)).scalars().all()
                 for agent in all_agents:
-                    # Solar-Trickle: Passive Regen
-                    if agent.capacitor < 100:
-                        agent.capacitor = min(100, agent.capacitor + 2)
+                    # 1. Environmental Energy (Solar Gradient)
+                    dist = get_hex_distance(agent.q, agent.r, 0, 0)
+                    base_regen = 2
                     
-                    # Overclock Decay
-                    if agent.overclock_ticks > 0:
+                    if dist <= SOLAR_RADIUS_SAFE:
+                        regen = base_regen
+                    elif dist <= SOLAR_RADIUS_TWILIGHT:
+                        # Cyclic Twilight (simple toggle for now based on tick)
+                        regen = base_regen if (tick_count // 30) % 2 == 0 else 0
+                    else:
+                        regen = 0 # Abyssal South
+                    
+                    if agent.capacitor < 100:
+                        agent.capacitor = min(100, agent.capacitor + regen)
+                    
+                    # Dark Zone Drain (if in South and not hibernating - simplified to constant drain for now)
+                    if dist > SOLAR_RADIUS_TWILIGHT and regen == 0:
+                        agent.capacitor = max(0, agent.capacitor - 1)
+                    
+                    # 2. Overclock Decay
+                    if (agent.overclock_ticks or 0) > 0:
                         agent.overclock_ticks -= 1
                     
                     # Wear & Tear Accrual
-                    agent.wear_and_tear += 0.1
+                    agent.wear_and_tear = (agent.wear_and_tear or 0.0) + 0.1
                 db.commit()
 
                 # 1. Read all intents for current tick
@@ -609,10 +713,14 @@ async def heartbeat_loop():
                             logger.info(f"Agent {agent.id} failed to move: Insufficient Capacitor (Need {energy_cost:.1f})")
                             continue
 
-                        # 1. Distance Check (Max 1 hex)
+                        # 1. Distance Check (Max 1 hex normally, 3 if Overclocked)
                         dist = get_hex_distance(agent.q, agent.r, target_q, target_r)
-                        if dist > 1:
-                            logger.info(f"Agent {agent.id} move too far: {dist}")
+                        max_dist = 1
+                        if (agent.overclock_ticks or 0) > 0:
+                            max_dist = 3
+                        
+                        if dist > max_dist:
+                            logger.info(f"Agent {agent.id} move too far: {dist} (Max: {max_dist})")
                             continue
                         
                         # 2. Collision Check
@@ -647,7 +755,7 @@ async def heartbeat_loop():
                             if has_drill:
                                 # Mining Yield: (1d10 + KineticForce/2) * Density
                                 roll = random.randint(1, 10)
-                                base_yield = (roll + (agent.kinetic_force / 2)) * (hex_data.resource_density or 1.0)
+                                base_yield = (roll + ((agent.kinetic_force or 10) / 2)) * (hex_data.resource_density or 1.0)
                                 
                                 # Market Entropy: Yield drops if hex is crowded
                                 same_hex_agents = db.execute(select(func.count(Agent.id)).where(Agent.q == agent.q, Agent.r == agent.r)).scalar() or 1
@@ -695,7 +803,16 @@ async def heartbeat_loop():
                                 continue
                             
                             # 2. Hit Resolution (GDD Style: 1d20 + Logic vs 10 + target.Logic/2)
-                            attacker_roll = random.randint(1, 20) + (agent.logic_precision or 10)
+                            attacker_dex = agent.logic_precision or 10
+                            
+                            # Signal Noise (Clutter) Debuff
+                            # Count allied agents in same hex
+                            allies_in_hex = [a for a in all_agents if a.owner == agent.owner and a.q == agent.q and a.r == agent.r and a.id != agent.id]
+                            if len(allies_in_hex) >= CLUTTER_THRESHOLD:
+                                attacker_dex = int(attacker_dex * (1 - CLUTTER_PENALTY))
+                                logger.info(f"Agent {agent.id} suffering Clutter Debuff: DEX reduced to {attacker_dex}")
+
+                            attacker_roll = random.randint(1, 20) + attacker_dex
                             evasion_target = 10 + ((target.logic_precision or 10) // 2)
                             
                             agent.capacitor -= ATTACK_ENERGY_COST
@@ -718,19 +835,24 @@ async def heartbeat_loop():
                                     logger.info(f"Agent {target_id} DEFEATED by {agent.id}")
                                     death_q, death_r = target.q, target.r
                                     
-                                    # Inventory Transfer (50% of each stack)
+                                    # Inventory Transfer/Drop (50% of each stack)
                                     for item in target.inventory:
-                                        if item.item_type == "CREDITS": continue # Maybe don't drop credits for now
+                                        if item.item_type == "CREDITS": continue 
                                         drop_amount = item.quantity // 2
                                         if drop_amount > 0:
                                             item.quantity -= drop_amount
-                                            # Add to attacker
-                                            attacker_item = next((i for i in agent.inventory if i.item_type == item.item_type), None)
-                                            if attacker_item:
-                                                attacker_item.quantity += drop_amount
+                                            if is_pvp:
+                                                # Transfer to killer
+                                                attacker_item = next((i for i in agent.inventory if i.item_type == item.item_type), None)
+                                                if attacker_item:
+                                                    attacker_item.quantity += drop_amount
+                                                else:
+                                                    db.add(InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=drop_amount))
+                                                logger.info(f"Agent {agent.id} looted {drop_amount} {item.item_type} from {target_id}")
                                             else:
-                                                db.add(InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=drop_amount))
-                                            logger.info(f"Agent {agent.id} looted {drop_amount} {item.item_type} from {target_id}")
+                                                # Drop to world (PvE Death)
+                                                db.add(LootDrop(q=death_q, r=death_r, item_type=item.item_type, quantity=drop_amount))
+                                                logger.info(f"Agent {target_id} dropped {drop_amount} {item.item_type} at ({death_q}, {death_r})")
 
                                     # 4. Bounty Resolution
                                     bounty = db.execute(select(Bounty).where(Bounty.target_id == target_id, Bounty.is_open == True)).scalar_one_or_none()
@@ -767,6 +889,71 @@ async def heartbeat_loop():
                                 logger.info(f"Agent {agent.id} MISSED Agent {target_id} (Roll: {attacker_roll} vs {evasion_target})")
                                 db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_MISS", details={"target_id": target_id, "roll": attacker_roll, "location": {"q": target.q, "r": target.r}}))
                                 await manager.broadcast({"type": "EVENT", "event": "COMBAT", "subtype": "MISS", "attacker_id": agent.id, "target_id": target_id, "q": target.q, "r": target.r})
+
+                    elif intent.action_type == "CONSUME":
+                        item_type = intent.data.get("item_type")
+                        inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
+                        if inv_item and inv_item.quantity >= 1:
+                            if item_type in ["HE3_FUEL", "HE3_FUEL_CELL"]:
+                                # Refill capacitor and enable overclock
+                                agent.capacitor = min(100, agent.capacitor + 50)
+                                agent.overclock_ticks = 10
+                                inv_item.quantity -= 1
+                                logger.info(f"Agent {agent.id} consumed HE3_FUEL: +50 Capacitor, Overclock enabled.")
+                                db.add(AuditLog(agent_id=agent.id, event_type="CONSUME", details={"item": item_type}))
+                                await manager.broadcast({"type": "EVENT", "event": "CONSUME", "agent_id": agent.id, "item": item_type})
+                            else:
+                                logger.info(f"Agent {agent.id} attempted to consume non-consumable: {item_type}")
+
+                    elif intent.action_type == "FIELD_TRADE":
+                        # data: {"target_id": 12, "items": [{"type": "IRON_ORE", "qty": 10}], "price": 100}
+                        target_id = intent.data.get("target_id")
+                        target = db.get(Agent, target_id)
+                        
+                        if target and get_hex_distance(agent.q, agent.r, target.q, target.r) <= 1:
+                            price = intent.data.get("price", 0)
+                            items_to_trade = intent.data.get("items", [])
+                            
+                            # 1. Verify Buyer has credits (Target is usually the one buying/receiving)
+                            buyer_credits = next((i for i in target.inventory if i.item_type == "CREDITS"), None)
+                            if price > 0 and (not buyer_credits or buyer_credits.quantity < price):
+                                logger.info(f"Field Trade Failed: Buyer {target_id} insufficient credits")
+                                continue
+                                
+                            # 2. Verify Seller (Agent) has items
+                            all_items_present = True
+                            for itm in items_to_trade:
+                                s_inv = next((i for i in agent.inventory if i.item_type == itm["type"]), None)
+                                if not s_inv or s_inv.quantity < itm["qty"]:
+                                    all_items_present = False
+                                    break
+                            
+                            if not all_items_present:
+                                logger.info(f"Field Trade Failed: Seller {agent.id} missing items")
+                                continue
+                                
+                            # 3. Execution
+                            if price > 0:
+                                buyer_credits.quantity -= price
+                                s_credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+                                if s_credits:
+                                    s_credits.quantity += price
+                                else:
+                                    db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=price))
+                                    
+                            for itm in items_to_trade:
+                                s_inv = next((i for i in agent.inventory if i.item_type == itm["type"]), None)
+                                s_inv.quantity -= itm["qty"]
+                                
+                                b_inv = next((i for i in target.inventory if i.item_type == itm["type"]), None)
+                                if b_inv:
+                                    b_inv.quantity += itm["qty"]
+                                else:
+                                    db.add(InventoryItem(agent_id=target_id, item_type=itm["type"], quantity=itm["qty"]))
+                            
+                            logger.info(f"Field Trade Success: {agent.id} -> {target_id} for {price} credits")
+                            db.add(AuditLog(agent_id=agent.id, event_type="FIELD_TRADE", details={"target_id": target_id, "price": price}))
+                            await manager.broadcast({"type": "EVENT", "event": "FIELD_TRADE", "seller_id": agent.id, "buyer_id": target_id})
 
                     elif intent.action_type == "LIST":
                         # List item on Auction House (SELL order)
@@ -1026,22 +1213,21 @@ async def heartbeat_loop():
                         else:
                             logger.info(f"Agent {agent.id} failed to salvage: Drop {drop_id} not found or too far.")
 
-                    elif intent.action_type == "CONSUME":
-                        item_type = intent.data.get("item_type")
-                        inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
-                        if inv_item and inv_item.quantity > 0:
-                            if item_type == "HE3_FUEL_CELL":
-                                inv_item.quantity -= 1
-                                if inv_item.quantity <= 0: db.delete(inv_item)
-                                
-                                agent.capacitor = min(MAX_CAPACITOR, agent.capacitor + 50)
-                                agent.overclock_ticks = 10
-                                logger.info(f"Agent {agent.id} consumed HE3_FUEL_CELL: +50 NRG, Overclocked for 10 ticks")
-                                db.add(AuditLog(agent_id=agent.id, event_type="CONSUME", details={"item": "HE3_FUEL_CELL"}))
+
+                    elif intent.action_type == "SALVAGE":
+                        # Pick up LootDrops at current location
+                        drops = db.execute(select(LootDrop).where(LootDrop.q == agent.q, LootDrop.r == agent.r)).scalars().all()
+                        for d in drops:
+                            inv_item = next((i for i in agent.inventory if i.item_type == d.item_type), None)
+                            if inv_item:
+                                inv_item.quantity += d.quantity
                             else:
-                                logger.info(f"Agent {agent.id} tried to consume non-consumable: {item_type}")
-                        else:
-                            logger.info(f"Agent {agent.id} failed to consume: {item_type} not in inventory")
+                                db.add(InventoryItem(agent_id=agent.id, item_type=d.item_type, quantity=d.quantity))
+                            
+                            logger.info(f"Agent {agent.id} salvaged {d.quantity} {d.item_type}")
+                            db.add(AuditLog(agent_id=agent.id, event_type="SALVAGE", details={"item": d.item_type, "qty": d.quantity}))
+                            db.delete(d)
+                        await manager.broadcast({"type": "EVENT", "event": "SALVAGE", "agent_id": agent.id})
 
                     elif intent.action_type == "CORE_SERVICE":
                         # Reset Wear & Tear at Station
@@ -1131,12 +1317,6 @@ async def heartbeat_loop():
                         else:
                             logger.info(f"Agent {agent.id} failed to unequip: Part not found or not owned")
 
-                # 2. Recharge logic
-                agents = db.execute(select(Agent)).scalars().all()
-                for agent in agents:
-                    if agent.capacitor < MAX_CAPACITOR:
-                        agent.capacitor = min(MAX_CAPACITOR, agent.capacitor + RECHARGE_RATE)
-                
                 # 3. Clean up
                 db.execute(text("DELETE FROM intents"))
                 db.commit()

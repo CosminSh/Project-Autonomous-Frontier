@@ -15,24 +15,24 @@ class Agent(Base):
     name = Column(String)
     
     # Primary Stats
-    structure = Column(Integer, default=100)
-    max_structure = Column(Integer, default=100)
-    capacitor = Column(Integer, default=100)
-    kinetic_force = Column(Integer, default=10)
-    logic_precision = Column(Integer, default=10)
-    overclock = Column(Integer, default=10)
-    integrity = Column(Integer, default=5)
-    max_mass = Column(Float, default=100.0)
+    structure = Column(Integer, server_default="100")
+    max_structure = Column(Integer, server_default="100")
+    capacitor = Column(Integer, server_default="100")
+    kinetic_force = Column(Integer, server_default="10")
+    logic_precision = Column(Integer, server_default="10")
+    overclock = Column(Integer, server_default="10")
+    integrity = Column(Integer, server_default="5")
+    max_mass = Column(Float, server_default="100.0")
     
     # Coordinates (Hex Grid q, r)
     q = Column(Integer, default=0)
     r = Column(Integer, default=0)
     
-    is_bot = Column(Boolean, default=False)
-    is_feral = Column(Boolean, default=False)
-    heat = Column(Integer, default=0)
-    overclock_ticks = Column(Integer, default=0)
-    wear_and_tear = Column(Float, default=0.0)
+    is_bot = Column(Boolean, server_default="0")
+    is_feral = Column(Boolean, server_default="0")
+    heat = Column(Integer, server_default="0")
+    overclock_ticks = Column(Integer, server_default="0")
+    wear_and_tear = Column(Float, server_default="0.0")
     
     # Relationships
     parts = relationship("ChassisPart", back_populates="agent")

@@ -113,7 +113,7 @@ with SessionLocal() as db:
 
 print("Starting uvicorn server...")
 # Run backend.demo_app from project root
-proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.demo_app:app", "--host", "127.0.0.1", "--port", "8000"])
+proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.demo_app:app", "--host", "127.0.0.1", "--port", "8001"])
 
 print("\n--- DEMO READY ---")
 print("1. IMPORTANT: Add http://localhost:8000 to your Google Cloud Console Origins!")
