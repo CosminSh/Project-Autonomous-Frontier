@@ -16,10 +16,15 @@ logger = logging.getLogger("seed_world")
 logging.basicConfig(level=logging.INFO)
 
 def seed_world():
-    logger.info("Dropping and recreating all tables...")
-    Base.metadata.drop_all(engine)
+    logger.info("Initializing tables (if not exist)...")
     Base.metadata.create_all(engine)
     db = SessionLocal()
+    
+    # Check if we already have data
+    if db.query(WorldHex).count() > 0:
+        logger.info("World already seeded. Skipping...")
+        db.close()
+        return
     
     logger.info(f"Seeding {GRID_SIZE}x{GRID_SIZE} sectors...")
     

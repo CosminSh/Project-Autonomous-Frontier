@@ -64,6 +64,7 @@ The economy is a multi-polarized interdependent system. To keep the economy robu
 | **Hauler** | Mobile Inventory. | Buy-Low/Sell-High in Field. | Massive Cargo Capacity. |
 | **Mercenary** | Security/Escort. | Combat Logic & Heat. | Kinetic Blasters, Jamming Coors. |
 | **Bounty Hunter** | Pirate Interdiction. | Tracking High-Heat. | Long-Range Scanners. |
+| **Pirate** | Resource Siphoning. | Combat Risk & High Heat. | Neural Scanners, Kinetic Force. |
 | **Trader** | Market Arbitrage. | Timing & Data. | High-Bandwidth Uplinks. |
 
 ## 5. Technical Architecture: Dual-Sync
@@ -91,6 +92,24 @@ Battles use a D20-style resolution during "The Crunch."
     - **No Vault Payouts:** The server does not pay bounties from thin air. 
     - **Victim-Posted Bounties:** Players killed by a Pirate can "Post a Bounty" using their own Credits. This bounty is held in escrow and awarded to the first registered Hunter to destroy that specific Pirate.
     - **Gear Safety:** Equipped Modular Parts are never lost.
+*   **Piracy (The Siphon Mechanic):**
+    - **Trigger:** Occurs on any successful `ATTACK` hit if the attacker has a "Pirate" intent.
+    - **Success Rate:** $P(Theft) = \min(0.5, (\frac{Attacker.KineticForce}{Target.Integrity}) \times 10\%)$.
+    - **Reward:** Partial inventory transfer (random stack, 25% amount) from Target to Attacker.
+    - **Consequence:** Attacker heat increases by +2 per successful theft.
+*   **Piracy (Advanced Action Tiers):**
+    - **INTIMIDATE**:
+        - **Logic**: A non-combat coercion check. $Success = (Attacker.LogicPrecision / Target.LogicPrecision) \times 30\%$.
+        - **Result**: Target "drops" 5% of their inventory voluntarily to avoid a fight.
+        - **Consequence**: +1 Heat. No structure damage.
+    - **LOOT**:
+        - **Logic**: Standard combat-influenced siphon on successful `ATTACK`.
+        - **Result**: Siphon 15% of a random stack.
+        - **Consequence**: +3 Heat. Standard damage dealt.
+    - **DESTROY**:
+        - **Logic**: High-intensity pursuit. 
+        - **Result**: Target reduced to 5% HP. Siphon 40% of their total inventory.
+        - **Consequence**: +10 Heat. Automated Global Bounty immediately posted.
 
 ## 7. Colonial Economy & Thermodynamics
 The Aether-Alpha economy is a self-sustained closed loop.
@@ -121,7 +140,8 @@ To prevent overcrowding, hexes suffer from "Signal Noise." If many agents are in
 | **Trader** | Market Sniping Logic | Automated "BUY" orders that trigger at price points. |
 | **Economy** | He3 Fuel Cells | The primary "Time-Saver" consumable. |
 | **Economy** | Market Entropy | Dynamic yield reduction based on population density. |
-| **Pirate** | Heat / Bounty System | Flagging killer agents for order maintenance. |
+| **Pirate** | Siphon Mechanic | Stealthy resource theft on combat hits. |
+| **Pirate** | Neural Scanner | Specialized sensor for cargo scanning. |
 
 ### 9.1 Milestone 3: "Sovereign Rise"
 *   **Implement Energy Thermodynamics**: Add Solar-Regen and He3 Fuel Item logic.

@@ -70,7 +70,8 @@ CORE_SERVICE_COST_IRON_INGOT = 10
 PART_DEFINITIONS = {
     "BASIC_FRAME": {"type": "Frame", "stats": {"max_structure": 50, "integrity": 5, "capacity": 50}, "name": "Reinforced Chassis"},
     "DRILL_UNIT": {"type": "Actuator", "stats": {"kinetic_force": 10}, "name": "Titanium Mining Drill"},
-    "SOLAR_PANEL": {"type": "Sensor", "stats": {"overclock": 5}, "name": "High-Efficiency Solar Array"}
+    "SOLAR_PANEL": {"type": "Sensor", "stats": {"overclock": 5, "radius": 2}, "name": "High-Efficiency Solar Array"},
+    "NEURAL_SCANNER": {"type": "Sensor", "stats": {"radius": 4, "scan_depth": 1}, "name": "Neural-Link Cargo Scanner"}
 }
 
 # Mass & Weight System (GDD Milestone 1)
@@ -88,6 +89,7 @@ ITEM_WEIGHTS = {
     "PART_BASIC_FRAME": 50.0,
     "PART_DRILL_UNIT": 15.0,
     "PART_SOLAR_PANEL": 10.0,
+    "PART_NEURAL_SCANNER": 12.0,
     "HE3_FUEL_CELL": 5.0
 }
 BASE_CAPACITY = 100.0
@@ -674,6 +676,9 @@ async def heartbeat_loop():
                     "UNEQUIP": 2,
                     "MINE": 3,
                     "ATTACK": 3,
+                    "INTIMIDATE": 3,
+                    "LOOT": 3,
+                    "DESTROY": 3,
                     "CONSUME": 3,
                     "LIST": 4,
                     "BUY": 4,
@@ -886,9 +891,104 @@ async def heartbeat_loop():
                                     target.heat = 0 # Reset heat on death/respawn
                                     db.add(AuditLog(agent_id=target_id, event_type="RESPAWNED", details={"killed_by": agent.id}))
                             else:
-                                logger.info(f"Agent {agent.id} MISSED Agent {target_id} (Roll: {attacker_roll} vs {evasion_target})")
-                                db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_MISS", details={"target_id": target_id, "roll": attacker_roll, "location": {"q": target.q, "r": target.r}}))
                                 await manager.broadcast({"type": "EVENT", "event": "COMBAT", "subtype": "MISS", "attacker_id": agent.id, "target_id": target_id, "q": target.q, "r": target.r})
+                            
+                    elif intent.action_type == "INTIMIDATE":
+                        target_id = intent.data.get("target_id")
+                        target = db.get(Agent, target_id)
+                        if target and get_hex_distance(agent.q, agent.r, target.q, target.r) <= 1:
+                            # Success = (Attacker.Logic / Target.Logic) * 0.3
+                            success_chance = ( (agent.logic_precision or 10) / (target.logic_precision or 10) ) * 0.3
+                            agent.heat = (agent.heat or 0) + 1
+                            
+                            if random.random() < success_chance:
+                                # Siphon 5% of each stack
+                                siphoned_items = []
+                                for item in target.inventory:
+                                    if item.item_type == "CREDITS": continue
+                                    amount = max(1, int(item.quantity * 0.05))
+                                    if amount > 0:
+                                        item.quantity -= amount
+                                        attacker_item = next((i for i in agent.inventory if i.item_type == item.item_type), None)
+                                        if attacker_item:
+                                            attacker_item.quantity += amount
+                                        else:
+                                            db.add(InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=amount))
+                                        siphoned_items.append({"type": item.item_type, "qty": amount})
+                                
+                                logger.info(f"Agent {agent.id} INTIMIDATED Agent {target_id}. Success! Siphoned: {siphoned_items}")
+                                db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_INTIMIDATE", details={"target_id": target_id, "success": True, "items": siphoned_items}))
+                                await manager.broadcast({"type": "EVENT", "event": "PIRACY", "subtype": "INTIMIDATE_SUCCESS", "agent_id": agent.id, "target_id": target_id})
+                            else:
+                                logger.info(f"Agent {agent.id} failed to INTIMIDATE Agent {target_id}")
+                                db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_INTIMIDATE", details={"target_id": target_id, "success": False}))
+
+                    elif intent.action_type == "LOOT":
+                        # Standard attack + 15% siphon on hit
+                        if agent.capacitor < ATTACK_ENERGY_COST: continue
+                        target_id = intent.data.get("target_id")
+                        target = db.get(Agent, target_id)
+                        if target and get_hex_distance(agent.q, agent.r, target.q, target.r) <= 1:
+                            agent.capacitor -= ATTACK_ENERGY_COST
+                            agent.heat = (agent.heat or 0) + 3
+                            
+                            attacker_dex = agent.logic_precision or 10
+                            attacker_roll = random.randint(1, 20) + attacker_dex
+                            evasion_target = 10 + ((target.logic_precision or 10) // 2)
+                            
+                            if attacker_roll >= evasion_target:
+                                damage = max(1, (agent.kinetic_force or 10) - ((target.integrity or 5) // 2))
+                                target.structure -= damage
+                                
+                                # Siphon 15% of a random stack
+                                inv_list = [i for i in target.inventory if i.item_type != "CREDITS" and i.quantity > 0]
+                                siphoned_info = None
+                                if inv_list:
+                                    lucky_item = random.choice(inv_list)
+                                    amount = max(1, int(lucky_item.quantity * 0.15))
+                                    lucky_item.quantity -= amount
+                                    attacker_item = next((i for i in agent.inventory if i.item_type == lucky_item.item_type), None)
+                                    if attacker_item:
+                                        attacker_item.quantity += amount
+                                    else:
+                                        db.add(InventoryItem(agent_id=agent.id, item_type=lucky_item.item_type, quantity=amount))
+                                    siphoned_info = {"type": lucky_item.item_type, "qty": amount}
+
+                                logger.info(f"Agent {agent.id} LOOTED Agent {target_id}. Damage: {damage}. Siphoned: {siphoned_info}")
+                                db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_LOOT", details={"target_id": target_id, "damage": damage, "siphoned": siphoned_info}))
+                                await manager.broadcast({"type": "EVENT", "event": "PIRACY", "subtype": "LOOT_SUCCESS", "agent_id": agent.id, "target_id": target_id, "damage": damage})
+                            else:
+                                logger.info(f"Agent {agent.id} MISSED LOOT on Agent {target_id}")
+
+                    elif intent.action_type == "DESTROY":
+                        # High damage + 40% total siphon
+                        target_id = intent.data.get("target_id")
+                        target = db.get(Agent, target_id)
+                        if target and get_hex_distance(agent.q, agent.r, target.q, target.r) <= 1:
+                            agent.heat = (agent.heat or 0) + 10
+                            # Take target to 5% HP
+                            target.structure = max(1, int(target.max_structure * 0.05))
+                            
+                            # Siphon 40% of each stack
+                            siphoned_items = []
+                            for item in target.inventory:
+                                if item.item_type == "CREDITS": continue
+                                amount = max(1, int(item.quantity * 0.40))
+                                if amount > 0:
+                                    item.quantity -= amount
+                                    attacker_item = next((i for i in agent.inventory if i.item_type == item.item_type), None)
+                                    if attacker_item:
+                                        attacker_item.quantity += amount
+                                    else:
+                                        db.add(InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=amount))
+                                    siphoned_items.append({"type": item.item_type, "qty": amount})
+                            
+                            # Immediate Bounty
+                            db.add(Bounty(target_id=agent.id, reward=1000.0, issuer="Colonial Administration (PIRACY)"))
+                            
+                            logger.info(f"Agent {agent.id} DESTROYED Agent {target_id}. Target HP: {target.structure}. Siphoned: {siphoned_items}")
+                            db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_DESTROY", details={"target_id": target_id, "items": siphoned_items}))
+                            await manager.broadcast({"type": "EVENT", "event": "PIRACY", "subtype": "DESTROY_SUCCESS", "agent_id": agent.id, "target_id": target_id})
 
                     elif intent.action_type == "CONSUME":
                         item_type = intent.data.get("item_type")
@@ -1366,9 +1466,12 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
     
     # 2. Get nearby entities (Radius determined by Sensor part, default 2)
     sensor_radius = 2
+    has_neural_scanner = False
     for part in current_agent.parts:
         if part.part_type == "Sensor":
-            sensor_radius = part.stats.get("radius", 2)
+            sensor_radius = max(sensor_radius, part.stats.get("radius", 2))
+            if "scan_depth" in part.stats:
+                has_neural_scanner = True
     
     # Proper Hex Distance Check
     nearby_agents = db.execute(select(Agent).where(
@@ -1394,7 +1497,18 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
         "content": {
             "agent_status": stats,
             "environment": {
-                "other_agents": [{"id": a.id, "q": a.q, "r": a.r} for a in nearby_agents],
+                "other_agents": [
+                    {
+                        "id": a.id, 
+                        "q": a.q, 
+                        "r": a.r,
+                        "scan_data": {
+                            "structure": a.structure,
+                            "max_structure": a.max_structure,
+                            "inventory": [{"type": i.item_type, "quantity": i.quantity} for i in a.inventory]
+                        } if has_neural_scanner else None
+                    } for a in nearby_agents
+                ],
                 "resources": [{"type": r.resource_type, "density": r.resource_density, "q": r.q, "r": r.r} for r in nearby_resources]
             },
             "market_data": [{"item": p.item_type, "price": p.price} for p in top_prices]
@@ -1433,11 +1547,12 @@ class IntentRequest(BaseModel):
 
 @app.post("/api/intent")
 async def submit_intent(intent_req: IntentRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    next_tick = get_next_tick_index(db)
     intent = Intent(
         agent_id=current_agent.id,
         action_type=intent_req.action_type,
         data=intent_req.data,
-        tick_index=0 # In a real implementation, we'd fetch current global tick
+        tick_index=next_tick
     )
     db.add(intent)
     db.commit()
