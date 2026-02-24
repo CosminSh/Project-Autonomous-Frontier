@@ -31,6 +31,8 @@ class Agent(Base):
     is_bot = Column(Boolean, default=False)
     is_feral = Column(Boolean, default=False)
     heat = Column(Integer, default=0)
+    overclock_ticks = Column(Integer, default=0)
+    wear_and_tear = Column(Float, default=0.0)
     
     # Relationships
     parts = relationship("ChassisPart", back_populates="agent")

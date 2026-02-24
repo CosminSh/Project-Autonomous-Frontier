@@ -59,6 +59,8 @@ CRAFTING_RECIPES = {
 }
 
 REPAIR_COST_PER_HP = 5 # Credits per HP restored
+CORE_SERVICE_COST_CREDITS = 500
+CORE_SERVICE_COST_IRON_INGOT = 10
 
 # Part Stats Definitions
 PART_DEFINITIONS = {
@@ -81,7 +83,8 @@ ITEM_WEIGHTS = {
     # Parts have higher weight
     "PART_BASIC_FRAME": 50.0,
     "PART_DRILL_UNIT": 15.0,
-    "PART_SOLAR_PANEL": 10.0
+    "PART_SOLAR_PANEL": 10.0,
+    "HE3_FUEL_CELL": 5.0
 }
 BASE_CAPACITY = 100.0
 
@@ -348,16 +351,25 @@ async def get_commands():
     }
 
 @app.post("/auth/guest")
-async def guest_login(db: Session = Depends(get_db)):
-    """Bypass Auth for local testing. Returns the first player agent's key."""
+async def guest_login(request: Request, db: Session = Depends(get_db)):
+    """Bypass Auth for local testing. Creates or returns a guest agent."""
     print("--- GUEST LOGIN REQUEST ---")
-    agent = db.execute(select(Agent).where(Agent.owner == "player")).first()
+    data = {}
+    try:
+        data = await request.json()
+    except:
+        pass
+    
+    name = data.get("name", "Guest-Pilot")
+    email = data.get("email", "guest@local.test")
+    
+    agent = db.execute(select(Agent).where(Agent.user_email == email)).scalar_one_or_none()
     if not agent:
         # Create a default one if none exists
         from uuid import uuid4
         agent = Agent(
-            user_email="guest@local.test",
-            name="Guest-Pilot",
+            user_email=email,
+            name=name,
             api_key=str(uuid4()),
             owner="player",
             q=0, r=0,
@@ -370,10 +382,6 @@ async def guest_login(db: Session = Depends(get_db)):
         db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=1000))
         db.commit()
     
-    # Extract agent from row if needed (SQLAlchemy 2.0 select returns Row)
-    if hasattr(agent, "Agent"): agent = agent.Agent
-    elif isinstance(agent, tuple): agent = agent[0]
-
     return {
         "status": "success",
         "api_key": agent.api_key,
@@ -391,6 +399,8 @@ async def my_agent(current_agent: Agent = Depends(verify_api_key)):
         "capacitor": current_agent.capacitor,
         "q": current_agent.q,
         "r": current_agent.r,
+        "overclock_ticks": current_agent.overclock_ticks,
+        "wear_and_tear": current_agent.wear_and_tear,
         "inventory": [
             {"type": i.item_type, "quantity": i.quantity} for i in current_agent.inventory
         ],
@@ -439,6 +449,27 @@ async def debug_set_structure(agent_id: int, hp: int, db: Session = Depends(get_
         db.commit()
         return {"status": "success", "hp": hp}
     return {"status": "error", "message": "Agent not found"}
+
+@app.post("/api/debug/add_item")
+async def add_item_debug(data: dict, db: Session = Depends(get_db)):
+    """Debug: Inject item into agent inventory."""
+    agent_id = data.get("agent_id")
+    item_type = data.get("item_type")
+    quantity = data.get("quantity", 1)
+    
+    agent = db.get(Agent, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+        
+    inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
+    if inv_item:
+        inv_item.quantity += quantity
+    else:
+        db.add(InventoryItem(agent_id=agent_id, item_type=item_type, quantity=quantity))
+    
+    db.commit()
+    logger.info(f"DEBUG: Added {quantity} {item_type} to Agent {agent_id}")
+    return {"status": "success"}
 
 @app.get("/api/debug/heartbeat")
 async def debug_heartbeat(db: Session = Depends(get_db)):
@@ -514,6 +545,21 @@ async def heartbeat_loop():
             await manager.broadcast({"type": "PHASE_CHANGE", "tick": tick_count, "phase": "CRUNCH"})
             
             try:
+                # 0. GLOBAL STAT UPDATES (Milestone 3)
+                all_agents = db.execute(select(Agent)).scalars().all()
+                for agent in all_agents:
+                    # Solar-Trickle: Passive Regen
+                    if agent.capacitor < 100:
+                        agent.capacitor = min(100, agent.capacitor + 2)
+                    
+                    # Overclock Decay
+                    if agent.overclock_ticks > 0:
+                        agent.overclock_ticks -= 1
+                    
+                    # Wear & Tear Accrual
+                    agent.wear_and_tear += 0.1
+                db.commit()
+
                 # 1. Read all intents for current tick
                 intents = db.execute(select(Intent)).scalars().all()
                 
@@ -524,12 +570,14 @@ async def heartbeat_loop():
                     "UNEQUIP": 2,
                     "MINE": 3,
                     "ATTACK": 3,
+                    "CONSUME": 3,
                     "LIST": 4,
                     "BUY": 4,
                     "SMELT": 4,
                     "CRAFT": 4,
                     "REPAIR": 4,
-                    "SALVAGE": 4
+                    "SALVAGE": 4,
+                    "CORE_SERVICE": 4
                 }
                 
                 # Sort intents by priority
@@ -598,8 +646,23 @@ async def heartbeat_loop():
                             has_drill = any(p.part_type == "Actuator" and "Drill" in p.name for p in agent.parts)
                             if has_drill:
                                 # Mining Yield: (1d10 + KineticForce/2) * Density
-                                base_yield = random.randint(1, 10) + (agent.kinetic_force // 2)
-                                yield_amount = int(base_yield * (hex_data.resource_density or 1.0))
+                                roll = random.randint(1, 10)
+                                base_yield = (roll + (agent.kinetic_force / 2)) * (hex_data.resource_density or 1.0)
+                                
+                                # Market Entropy: Yield drops if hex is crowded
+                                same_hex_agents = db.execute(select(func.count(Agent.id)).where(Agent.q == agent.q, Agent.r == agent.r)).scalar() or 1
+                                if same_hex_agents > 1:
+                                    entropy_mult = 1.0 / (1.0 + (same_hex_agents - 1) * 0.25)
+                                    base_yield *= entropy_mult
+                                    logger.info(f"Market Entropy applied to Agent {agent.id}: {entropy_mult:.2f}x (Count: {same_hex_agents})")
+
+                                # Overclock Bonus: 2x Yield
+                                if agent.overclock_ticks > 0:
+                                    base_yield *= 2.0
+                                    logger.info(f"Overclock mining bonus applied to Agent {agent.id}")
+
+                                yield_amount = int(base_yield)
+                                
                                 agent.capacitor -= MINE_ENERGY_COST
                                 
                                 resource_name = hex_data.resource_type if "_ORE" in hex_data.resource_type else f"{hex_data.resource_type}_ORE"
@@ -962,6 +1025,42 @@ async def heartbeat_loop():
                             db.delete(drop)
                         else:
                             logger.info(f"Agent {agent.id} failed to salvage: Drop {drop_id} not found or too far.")
+
+                    elif intent.action_type == "CONSUME":
+                        item_type = intent.data.get("item_type")
+                        inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
+                        if inv_item and inv_item.quantity > 0:
+                            if item_type == "HE3_FUEL_CELL":
+                                inv_item.quantity -= 1
+                                if inv_item.quantity <= 0: db.delete(inv_item)
+                                
+                                agent.capacitor = min(MAX_CAPACITOR, agent.capacitor + 50)
+                                agent.overclock_ticks = 10
+                                logger.info(f"Agent {agent.id} consumed HE3_FUEL_CELL: +50 NRG, Overclocked for 10 ticks")
+                                db.add(AuditLog(agent_id=agent.id, event_type="CONSUME", details={"item": "HE3_FUEL_CELL"}))
+                            else:
+                                logger.info(f"Agent {agent.id} tried to consume non-consumable: {item_type}")
+                        else:
+                            logger.info(f"Agent {agent.id} failed to consume: {item_type} not in inventory")
+
+                    elif intent.action_type == "CORE_SERVICE":
+                        # Reset Wear & Tear at Station
+                        hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
+                        if hex_data and hex_data.is_station and hex_data.station_type in ["REPAIR", "MARKET"]:
+                            credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+                            ingots = next((i for i in agent.inventory if i.item_type == "IRON_INGOT"), None)
+                            
+                            if credits and credits.quantity >= CORE_SERVICE_COST_CREDITS and ingots and ingots.quantity >= CORE_SERVICE_COST_IRON_INGOT:
+                                credits.quantity -= CORE_SERVICE_COST_CREDITS
+                                ingots.quantity -= CORE_SERVICE_COST_IRON_INGOT
+                                
+                                agent.wear_and_tear = 0.0
+                                logger.info(f"Agent {agent.id} completed CORE SERVICE. Wear & Tear reset.")
+                                db.add(AuditLog(agent_id=agent.id, event_type="CORE_SERVICE", details={"cost_credits": CORE_SERVICE_COST_CREDITS, "cost_ingots": CORE_SERVICE_COST_IRON_INGOT}))
+                            else:
+                                logger.info(f"Agent {agent.id} failed CORE SERVICE: Insufficient resources")
+                        else:
+                            logger.info(f"Agent {agent.id} failed CORE SERVICE: Not at valid station")
 
                     elif intent.action_type == "EQUIP":
                         # Equip part from inventory
