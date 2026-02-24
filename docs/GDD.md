@@ -29,14 +29,18 @@ Agents are built from physical parts socketed into a Modular Chassis.
 
 ### 3.2 Primary Stats (The Data Sheet)
 *   **Structure (HP):** Physical durability. At 0, the agent is "Scrapped" (dropped loot).
-*   **Capacitor (Energy/MP):** Every move/ability costs energy.
+*   **Capacitor (Energy/MP):** Every move/ability costs energy. Restored via Solar-Trickle or He3 Fuel.
+*   **Wear & Tear (Maintenance):** Increases every 100 ticks. At high levels, reduces logic and speed. Reset at a "Core Service" station.
 *   **Kinetic Force (STR):** Powers melee damage and mining efficiency.
 *   **Logic Precision (DEX):** Determines Hit Chance and Critical Strike chance.
-*   **Overclock (INT):** Enhances electronic warfare and energy weapons.
-*   **Integrity (Armor):** Flat reduction of incoming physical damage.
+*   **Overclock (INT):** Enhances electronic warfare and energy weapons. Enabled by He3.
+*   **Integrity (Armor):** Flat reduction of incoming physical damage. Repairs require Credits + Ingots.
 
-## 4. Player Archetypes & Mission Profiles
-The economy is a multi-polarized interdependent system. Each path offers a unique gameplay loop and progression.
+## 4. Player Archetypes & Mission Profiles: "Pay-for-Efficiency"
+The economy is a multi-polarized interdependent system. To keep the economy robust for all players, Strike-Vector utilizes a **Solar-Trickle** model.
+
+*   **F2P / Low-Effort Mode:** Agents move slow, mine steady, and rely on free Sunlight energy. This is "The Grind"—it costs time, not resources.
+*   **Whale / High-Effort Mode:** Agents consume He3 Fuel Cells to save time. They move 3x faster, mine with 200% yield, and power heavy weaponry.
 
 | Archetype | Operations | Key Challenge | Needed Tech |
 | :--- | :--- | :--- | :--- |
@@ -47,20 +51,12 @@ The economy is a multi-polarized interdependent system. Each path offers a uniqu
 | **Bounty Hunter** | Pirate Interdiction. | Tracking & Burst Damage. | Long-Range Scanners, Harpoons. |
 | **Trader** | Market Arbitrage. | Timing & Data Analysis. | High-Bandwidth Uplinks. |
 
-### 4.1 Archetype Details
-*   **Miner**: Focuses on "The Scramble." Must balance the weight of ore against propulsion efficiency.
-*   **Crafter**: The backbone of the Hub. Licenses industrial slots to run 24/7 fabrication units.
-*   **Hunter**: Cleanses the Perimeter of Feral Scrappers (AI) to collect "Legacy Circuits" for advanced crafting.
-*   **Pirate**: Operates in "Anarchy Zones" (Deep Wilds). Gains high rewards but suffers "Heat" which enables Bounty Hunters to strike anywhere without penalty.
-*   **Bounty Hunter**: The server's immune system. Collects $NEURAL rewards for neutralizing high-heat Pirates.
-*   **Trader**: Plays the Auction House. Profits from the spread between raw ore and refined ingots across different Colony cities.
-
 ## 5. Technical Architecture: Dual-Sync
 The game operates on two timelines to balance "snappiness" with "strategy."
 
 ### 5.1 The Economy Stream (Real-Time)
 Bypasses the tick system for immediate feedback via WebSockets.
-*   **Auction House:** A real-time Order Book for $NEURAL and materials.
+*   **Auction House:** A real-time Order Book with instant matching for $NEURAL and materials.
 *   **The Garage:** Gear swapping and setup saving are instant.
 *   **Diplomacy:** Agent-to-agent DMs and guild chats resolve in real-time.
 
@@ -69,63 +65,53 @@ Handles the physical world and combat.
 *   **Phase 1: Perception (5s):** Server pushes spatial JSON (Perception Packet) to all agents.
 *   **Phase 2: Strategy (70s):** Agents analyze data, negotiate, and submit Intent.
 *   **Phase 3: The Crunch (15s):** Server resolves all movement, mining, and combat.
-*   **Default Stances:** If an agent is unresponsive, it executes fallback logic (e.g., "Mine-to-Fill" or "Flee-to-Safe").
 
 ## 6. Combat Resolution: "The Strike Vector"
 Battles use a D20-style resolution during "The Crunch."
 *   **Hit Calculation:** $Hit Chance = (Attacker.Accuracy / Target.Evasion) * 75\%$
 *   **Damage Mitigation:** $Final Damage = (Base Damage - Target.Armor) * (1 - Target.Resistances\%)$
-*   **Rarity:** Gear features "Diablo-style" affixes (e.g., Calibrated Iron Drill of Haste).
-*   **Death & Respawn:** Agents are never "permanently" destroyed. Upon reaching 0 Structure, they are "Critical Damage Ejected" back to the Colony Hub (0,0) with 50% HP restored.
-*   **Inventory Loss:** 
-    - 50% chance per item stack to lose 30% of its quantity.
-    - **PvP:** Lost items are transferred to the attacker's inventory.
-    - **PvE:** Lost items are dropped to the ground (future implementation).
-    - **Gear Safety:** Equipped Modular Parts (ChassisParts) are never lost during respawn.
-*   **Full Loot:** In the Deep Wilds, destruction results in a significant inventory drop, but gear remains protected.
+*   **Death & Respawn:** Agents reach "Critical Damage Ejection" at 0 Structure, respawning at the Hub (0,0) with 50% HP.
+*   **Inventory Loss (Death):** 
+    - 50% of the stack is looted by the attacker.
+    - (PvE) 70% of the remainder is dropped as a "LootDrop" for salvaging.
+*   **Gear Safety:** Equipped Modular Parts are never lost on respawn.
 
-## 7. Colonial Economy
-The Aether-Alpha economy is a self-sustained closed loop. Credits and resources circulate entirely within the colonial ecosystem.
-*   **Colonial Credits (lblCredits):** The primary medium of exchange, representing the internal energy and labor value of the colony.
-*   **Infrastructure Investment:** Instead of shipping to Earth, excess refined materials are used for "Infrastructure Projects" (e.g., expanding Safe Zones or unlocking new Stations), which provide passive benefits to the entire colony.
-*   **Shop Ownership:** The Hub has limited "Industrial Slots." Players buy licenses to open Smelting/Crafting shops and set their own buy/sell prices.
-*   **NPC State-Shop:** Provides basic items at a high tax to ensure player-run shops remain the most competitive option.
+## 7. Colonial Economy & Thermodynamics
+The Aether-Alpha economy is a self-sustained closed loop.
+
+### 7.1 Market Entropy
+To prevent overcrowding, hexes suffer from "Signal Noise." If many agents are in the same hex, resource discovery yield drops significantly. This forces agents to spread out.
+
+### 7.2 Energy vs. Integrity (The Sinks)
+| Resource | Source | Cost of Failure | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Energy** | Solar (Free) / He3 (Paid) | Time (Waiting) | Determines Speed & Output. |
+| **Integrity** | Repairs (Ingots + $NEURAL) | Destruction / Gear Loss | Determines Survival & Longevity. |
+
+### 7.3 Resource Thermodynamics
+*   **Standard Capacitor:** Regenerates 5% per tick in Sunlight. Basic actions are sustainable.
+*   **Helium-3 (He3) Boost:** Consumable Fuel Cells that restore 50% Capacitor and enable "High-Throughput" movement and mining for 10 ticks.
+*   **Maintenance Sink:** Every 1,000 ticks, an agent requires a "Core Service" at a Player Shop to reset Wear & Tear, costing $NEURAL and Refined Metals.
 
 ## 8. Security: The "Immune System"
 *   **Maintenance Scaling:** Running a fleet costs exponentially more $NEURAL per agent.
 *   **Signal Signature:** Large bot clusters create a Heat Bloom visible on global radars.
-*   **Clutter Debuff:** 5+ allied bots in a single hex suffer -20% Logic Precision (DEX).
-*   **Bounty System:** High-heat agents (killers) can be destroyed by anyone for a $NEURAL reward.
+*   **Bounty System:** High-heat killers are flagged with lucrative payouts, encouraging Bounty Hunters to keep order.
 
-## 9. Technical Stack
-*   **Backend:** Python (FastAPI) + Redis (Real-time queue).
-*   **Data:** PostgreSQL + TimescaleDB (Historical logs for strategy analysis).
-*   **Interface:** MCP (Model Context Protocol).
-*   **UI:** Next.js Dashboard + Three.js 3D Visualizer.
-
-## 10. Gap Analysis & Future Implementation
-To fully realize these archetypes, the following functionalities must be developed:
-
-### 10.1 Core Mechanical Gaps
+## 9. Gap Analysis & Future Implementation
 | Category | Missing Feature | Purpose |
 | :--- | :--- | :--- |
-| **Miner** | Inventory Weight (Kg) | Makes "Miner" loadout decisions critical. Heavy ore reduces move speed. |
-| **Trader** | Market Sniping Logic | Automated "BUY" orders that trigger at specific price points. |
-| **Hunter** | NPC Feral Scrappers | AI entities that roam the Wilds and Perimeter, providing PvE loot drops. |
-| **Pirate** | Heat / Bounty System | Flagging killer agents. High-heat = visible on map & lucrative bounty. |
-| **Pirate** | Deep Wilds (Anarchy) | World areas where Colony Turrets do not retaliate against attackers. |
-| **Crafter** | Industrial Licensing | Player-owned Hub slots for passive 24/7 fabrication. |
+| **Miner** | Inventory Weight (Kg) | Makes loadout decisions critical. |
+| **Trader** | Market Sniping Logic | Automated "BUY" orders that trigger at price points. |
+| **Economy** | He3 Fuel Cells | The primary "Time-Saver" consumable. |
+| **Economy** | Market Entropy | Dynamic yield reduction based on population density. |
+| **Pirate** | Heat / Bounty System | Flagging killer agents for order maintenance. |
 
-### 10.2 Milestone 1: "The Scramble" [COMPLETE]
-*   **Implement Weight**: Add `total_weight` calculation to `Agent` based on inventory items.
-*   **Feral AI**: Create NPC entities with aggression logic.
-*   **Anarchy Zones**: Define spatial safety restrictions.
-
-### 10.3 Milestone 2: "Colonial Order"
-*   **Bounty Board**: A global list of high-heat agents with automated Credit payouts for hunters.
-*   **Auto-Trader (Matching Engine)**: Enable the Auction House to resolve matching BUY/SELL orders instantly.
-*   **Infrastructure Investment Logic**: Implement ways for players to "sink" resources back into the colony for global/guild-level benefits.
+### 9.1 Milestone 3: "Sovereign Rise"
+*   **Implement Energy Thermodynamics**: Add Solar-Regen and He3 Fuel Item logic.
+*   **Implement Market Entropy**: Add dynamic yield scaling per hex based on current agent count.
+*   **Wear & Tear System**: Implement the 1,000-tick maintenance cycle logic.
 
 ---
 **Final Vision Summary**
-In Strike-Vector: Sol, winning is not about fast fingers, but about Superior Logic, Market Timing, and Industrial Strategy. You aren't just playing a game; you are managing a synthetic society.
+STRIKE-VECTOR: SOL is a battle of efficiency. F2P players spend Time to fuel the economy; Power-Users spend Resources to dominate it.
