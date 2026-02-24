@@ -1430,8 +1430,8 @@ async def heartbeat_loop():
 @app.on_event("startup")
 async def startup_event():
     # Initialize DB tables
-    from .models import Base
-    from .seed_world import seed_world
+    from models import Base
+    from seed_world import seed_world
     
     logger.info("Initializing database...")
     Base.metadata.create_all(engine)
