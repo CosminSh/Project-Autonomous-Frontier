@@ -1,6 +1,6 @@
 import random
 from sqlalchemy import select
-from .models import Agent, WorldHex, Intent, InventoryItem, AuditLog
+from models import Agent, WorldHex, Intent, InventoryItem, AuditLog
 
 def get_hex_distance(q1, r1, q2, r2):
     return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
