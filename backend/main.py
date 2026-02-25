@@ -1858,6 +1858,7 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
         "name": current_agent.name,
         "structure": current_agent.structure,
         "capacitor": current_agent.capacitor,
+        "wear_and_tear": current_agent.wear_and_tear or 0.0,
         "kinetic_force": current_agent.kinetic_force,
         "logic_precision": current_agent.logic_precision,
         "overclock": current_agent.overclock,
@@ -1896,7 +1897,26 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
         AuctionOrder.order_type == "SELL"
     ).order_by(AuctionOrder.price.asc()).limit(3)).scalars().all()
     
-    # 5. MCP Format
+    # 5. System Advisories (Proactive Health)
+    system_advisories = []
+    wear = current_agent.wear_and_tear or 0.0
+    if wear > 50.0:
+        repair_station = discovery.get("REPAIR") or discovery.get("MARKET")
+        loc_str = f"at ({repair_station['q']}, {repair_station['r']})" if repair_station else "at a REPAIR station (0,0)"
+        severity = "WARNING" if wear < 100.0 else "CRITICAL"
+        system_advisories.append({
+            "type": "SYSTEM_DEGRADATION",
+            "severity": severity,
+            "wear_level": f"{wear:.1f}%",
+            "message": f"Critical System Wear detected. Your efficiency is reduced. Perform a CORE_SERVICE {loc_str}.",
+            "requirements": {
+                "credits": CORE_SERVICE_COST_CREDITS,
+                "items": {"IRON_INGOT": CORE_SERVICE_COST_IRON_INGOT}
+            },
+            "help": "Navigate to the coordinates provided and submit a CORE_SERVICE intent to restore your systems."
+        })
+
+    # 6. MCP Format
     state = db.execute(select(GlobalState)).scalars().first()
     
     mcp_packet = {
@@ -1911,6 +1931,7 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
                 "navigation_hint": "MOVE is limited to 1 hex (3 if Overclocked). Long-distance travel requires multi-tick pathfinding where your agent submits incremental MOVE intents."
             },
             "agent_status": {**stats, "energy_regen": RECHARGE_RATE},
+            "system_advisories": system_advisories,
             "discovery": discovery,
             "environment": {
                 "other_agents": [
