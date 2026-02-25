@@ -131,7 +131,7 @@ def seed_world():
             db.flush()
             db.add(InventoryItem(agent_id=bot.id, item_type="CREDITS", quantity=500))
             # Give them a drill so they can mine
-            db.add(ChassisPart(agent_id=bot.id, name="Industrial Drill", part_type="Actuator", stats={"power": 10}))
+            db.add(ChassisPart(agent_id=bot.id, name="Industrial Drill", part_type="Actuator", stats={"kinetic_force": 10}))
             
         # Add Feral Scrappers
         for i in range(8):
@@ -151,7 +151,7 @@ def seed_world():
             )
             db.add(feral)
             db.flush()
-            db.add(ChassisPart(agent_id=feral.id, name="Rusty Blaster", part_type="Actuator", stats={"damage": 12}))
+            db.add(ChassisPart(agent_id=feral.id, name="Rusty Blaster", part_type="Actuator", stats={"kinetic_force": 12, "logic_precision": -2}))
             
     db.commit()
     logger.info("World seeding complete!")

@@ -70,7 +70,7 @@ CORE_SERVICE_COST_IRON_INGOT = 10
 # Part Stats Definitions
 PART_DEFINITIONS = {
     "BASIC_FRAME": {"type": "Frame", "stats": {"max_structure": 50, "integrity": 5, "capacity": 50}, "name": "Reinforced Chassis"},
-    "DRILL_UNIT": {"type": "Actuator", "stats": {"kinetic_force": 10}, "name": "Titanium Mining Drill"},
+    "DRILL_UNIT": {"type": "Actuator", "stats": {"kinetic_force": 8, "logic_precision": -2}, "name": "Titanium Mining Drill"},
     "SOLAR_PANEL": {"type": "Sensor", "stats": {"overclock": 5, "radius": 2}, "name": "High-Efficiency Solar Array"},
     "NEURAL_SCANNER": {"type": "Sensor", "stats": {"radius": 4, "scan_depth": 1}, "name": "Neural-Link Cargo Scanner"}
 }
