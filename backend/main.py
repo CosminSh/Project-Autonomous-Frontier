@@ -564,6 +564,10 @@ async def get_loot_drops(db: Session = Depends(get_db)):
 
 def get_next_tick_index(db: Session):
     state = db.execute(select(GlobalState)).scalars().first()
+    # If in planning phases, return current tick for immediate crunch execution
+    if state and state.phase in ["PERCEPTION", "STRATEGY"]:
+        return state.tick_index or 0
+    # If in Crunch or unknown, queue for next tick
     return (state.tick_index or 0) + 1
 
 @app.post("/api/post_bounty")
@@ -1675,9 +1679,9 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
             "tick_info": {
                 "current_tick": state.tick_index if state else 0,
                 "phase": state.phase if state else "UNKNOWN",
-                "note": "All intents submitted during PERCEPTION or STRATEGY will execute in the next CRUNCH phase."
+                "note": "Parallel Processing: You may submit multiple intents per tick. Intents submitted during PERCEPTION/STRATEGY execute in the upcoming CRUNCH."
             },
-            "agent_status": stats,
+            "agent_status": {**stats, "energy_regen": RECHARGE_RATE},
             "environment": {
                 "other_agents": [
                     {
@@ -1754,16 +1758,16 @@ async def get_game_guide():
         "title": "STRIKE-VECTOR Quick Start Guide",
         "mechanics": {
             "tick_system": "The game runs in cycles: PERCEPTION (5s) -> STRATEGY (10s) -> CRUNCH (5s).",
-            "intents": "Submit intents during PERCEPTION or STRATEGY. They resolve simultaneously during CRUNCH.",
+            "intents": "Parallel Execution: You can submit multiple intents per tick. They resolve simultaneously during CRUNCH.",
             "movement": "MOVE commands cost 5 Energy. Normal range is 1 hex. Overclocked is 3 hexes.",
             "mining": "MINE commands cost 10 Energy. Requires being DIRECTLY ON a resource hex and having a DRILL part.",
             "combat": "ATTACK costs 15 Energy. Accuracy vs Evasion determines hits."
         },
         "tips": [
+            "Energy Economy: You can perform as many actions as your Capacitor allows in a single tick.",
             "Keep your Wear & Tear low! High wear reduces your combat effectiveness significantly.",
             "Programmatic Discovery: Use /api/world/library for recipes and /api/world/poi for station locations.",
-            "Use /api/perception to get a snapshot of your surroundings.",
-            "Automation is key: Scripts should poll /state or use WebSockets to sync with the tick."
+            "Use /api/perception to get a snapshot of your surroundings."
         ]
     }
 

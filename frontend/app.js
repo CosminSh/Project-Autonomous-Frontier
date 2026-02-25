@@ -830,7 +830,7 @@ SYNC STATUS: Neural link active.
         // Energy
         const enPct = (agent.capacitor / 100) * 100;
         document.getElementById('energy-bar').style.width = `${enPct}%`;
-        document.getElementById('energy-text').innerText = `${agent.capacitor}/100`;
+        document.getElementById('energy-text').innerText = `${agent.capacitor}/100 (+2)`;
 
         // Mass Update
         const mass = agent.mass || 0;
