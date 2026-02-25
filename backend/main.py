@@ -1698,8 +1698,9 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
     has_neural_scanner = False
     for part in current_agent.parts:
         if part.part_type == "Sensor":
-            sensor_radius = max(sensor_radius, part.stats.get("radius", 2))
-            if "scan_depth" in part.stats:
+            p_stats = part.stats or {}
+            sensor_radius = max(sensor_radius, p_stats.get("radius", 2))
+            if "scan_depth" in p_stats:
                 has_neural_scanner = True
     
     # Proper Hex Distance Check
@@ -1749,7 +1750,6 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
                     {
                         "type": h.resource_type or "POI", 
                         "station": h.station_type,
-                        "name": h.station_name,
                         "density": h.resource_density, 
                         "q": h.q, "r": h.r
                     } for h in nearby_hexes
