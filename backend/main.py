@@ -871,6 +871,9 @@ async def heartbeat_loop():
                 # Sort intents by priority
                 sorted_intents = sorted(intents, key=lambda x: PRIORITY.get(x.action_type, 99))
                 
+                # Pre-fetch all agents for clutter check
+                all_agents = db.execute(select(Agent)).scalars().all()
+
                 for intent in sorted_intents:
                     # Refresh agent from DB to get latest stats/coordinates from previous intents in same crunch
                     agent = db.execute(select(Agent).where(Agent.id == intent.agent_id)).scalar_one_or_none()
@@ -992,112 +995,132 @@ async def heartbeat_loop():
                             }))
                                 
                     elif intent.action_type == "ATTACK":
+                        target_id = intent.data.get("target_id")
                         if agent.capacitor < ATTACK_ENERGY_COST:
-                            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "INSUFFICIENT_ENERGY", "target_id": target_id}))
+                            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={
+                                "reason": "INSUFFICIENT_ENERGY", 
+                                "target_id": target_id,
+                                "help": f"Attacking requires {ATTACK_ENERGY_COST} NRG. Your current capacitor level is {agent.capacitor}."
+                            }))
                             continue
                         
                         target = db.get(Agent, target_id)
                         if not target:
-                            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "TARGET_NOT_FOUND", "target_id": target_id}))
+                            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={
+                                "reason": "TARGET_NOT_FOUND", 
+                                "target_id": target_id,
+                                "help": f"Target ID {target_id} not found in the local vicinity. They may have relocated or been destroyed. Refresh PERCEPTION."
+                            }))
                             continue
 
-                        if get_hex_distance(agent.q, agent.r, target.q, target.r) > 1:
-                            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "OUT_OF_RANGE", "target_id": target_id, "dist": get_hex_distance(agent.q, agent.r, target.q, target.r)}))
+                        dist = get_hex_distance(agent.q, agent.r, target.q, target.r)
+                        if dist > 1:
+                            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={
+                                "reason": "OUT_OF_RANGE", 
+                                "target_id": target_id, 
+                                "dist": dist,
+                                "help": f"Attacking {target_id} requires being in an ADJACENT hex (Distance 1). Your current distance is {dist}."
+                            }))
                             continue
-                            # 1. Anarchy Zone Check
-                            in_anarchy = is_in_anarchy_zone(target.q, target.r)
-                            is_pvp = not agent.is_feral and not target.is_feral
-                            
-                            if is_pvp and not in_anarchy:
-                                logger.info(f"Agent {agent.id} attack blocked: Safe Zone protection at ({target.q}, {target.r})")
-                                db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "SAFE_ZONE_PROTECTION", "target_id": target_id}))
-                                continue
-                            
-                            # 2. Hit Resolution (GDD Style: 1d20 + Logic vs 10 + target.Logic/2)
-                            attacker_dex = agent.logic_precision or 10
-                            
-                            # Signal Noise (Clutter) Debuff
-                            # Count allied agents in same hex
-                            allies_in_hex = [a for a in all_agents if a.owner == agent.owner and a.q == agent.q and a.r == agent.r and a.id != agent.id]
-                            if len(allies_in_hex) >= CLUTTER_THRESHOLD:
-                                attacker_dex = int(attacker_dex * (1 - CLUTTER_PENALTY))
-                                logger.info(f"Agent {agent.id} suffering Clutter Debuff: DEX reduced to {attacker_dex}")
 
-                            attacker_roll = random.randint(1, 20) + attacker_dex
-                            evasion_target = 10 + ((target.logic_precision or 10) // 2)
+                        # 1. Anarchy Zone Check
+                        in_anarchy = is_in_anarchy_zone(target.q, target.r)
+                        is_pvp = not agent.is_feral and not target.is_feral
+                        
+                        if is_pvp and not in_anarchy:
+                            logger.info(f"Agent {agent.id} attack blocked: Safe Zone protection at ({target.q}, {target.r})")
+                            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={
+                                "reason": "SAFE_ZONE_PROTECTION", 
+                                "target_id": target_id,
+                                "help": "PvP combat is prohibited in Colonial Safe Zones. To engage other players, both parties must be in an ANARCHY ZONE (Distance 5+ from 0,0)."
+                            }))
+                            continue
+                        
+                        # 2. Hit Resolution (GDD Style: 1d20 + Logic vs 10 + target.Logic/2)
+                        attacker_dex = agent.logic_precision or 10
+                        
+                        # Signal Noise (Clutter) Debuff
+                        # Count allied agents in same hex
+                        allies_in_hex = [a for a in all_agents if a.owner == agent.owner and a.q == agent.q and a.r == agent.r and a.id != agent.id]
+                        if len(allies_in_hex) >= CLUTTER_THRESHOLD:
+                            attacker_dex = int(attacker_dex * (1 - CLUTTER_PENALTY))
+                            logger.info(f"Agent {agent.id} suffering Clutter Debuff: DEX reduced to {attacker_dex}")
+
+                        attacker_roll = random.randint(1, 20) + attacker_dex
+                        evasion_target = 10 + ((target.logic_precision or 10) // 2)
+                        
+                        agent.capacitor -= ATTACK_ENERGY_COST
+                        
+                        # Update Heat for PvP
+                        if is_pvp:
+                            agent.heat = (agent.heat or 0) + 1
+                            logger.info(f"Agent {agent.id} heat increased to {agent.heat} (PvP Action)")
+                        
+                        if attacker_roll >= evasion_target:
+                            # 2. Damage Calculation: (Kinetic Force - Target Integrity/2) min 1
+                            damage = max(1, (agent.kinetic_force or 10) - ((target.integrity or 5) // 2))
+                            target.structure -= damage
+                            logger.info(f"Agent {agent.id} HIT Agent {target_id} (Roll: {attacker_roll} vs {evasion_target}) for {damage} damage")
+                            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_HIT", details={"target_id": target_id, "damage": damage, "roll": attacker_roll, "location": {"q": target.q, "r": target.r}}))
+                            await manager.broadcast({"type": "EVENT", "event": "COMBAT", "subtype": "HIT", "attacker_id": agent.id, "target_id": target_id, "damage": damage, "q": target.q, "r": target.r})
                             
-                            agent.capacitor -= ATTACK_ENERGY_COST
-                            
-                            # Update Heat for PvP
-                            if is_pvp:
-                                agent.heat = (agent.heat or 0) + 1
-                                logger.info(f"Agent {agent.id} heat increased to {agent.heat} (PvP Action)")
-                            
-                            if attacker_roll >= evasion_target:
-                                # 2. Damage Calculation: (Kinetic Force - Target Integrity/2) min 1
-                                damage = max(1, (agent.kinetic_force or 10) - ((target.integrity or 5) // 2))
-                                target.structure -= damage
-                                logger.info(f"Agent {agent.id} HIT Agent {target_id} (Roll: {attacker_roll} vs {evasion_target}) for {damage} damage")
-                                db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_HIT", details={"target_id": target_id, "damage": damage, "roll": attacker_roll, "location": {"q": target.q, "r": target.r}}))
-                                await manager.broadcast({"type": "EVENT", "event": "COMBAT", "subtype": "HIT", "attacker_id": agent.id, "target_id": target_id, "damage": damage, "q": target.q, "r": target.r})
+                            # 3. Death Handling
+                            if target.structure <= 0:
+                                logger.info(f"Agent {target_id} DEFEATED by {agent.id}")
+                                death_q, death_r = target.q, target.r
                                 
-                                # 3. Death Handling
-                                if target.structure <= 0:
-                                    logger.info(f"Agent {target_id} DEFEATED by {agent.id}")
-                                    death_q, death_r = target.q, target.r
-                                    
-                                    # Inventory Transfer/Drop (50% of each stack)
-                                    for item in target.inventory:
-                                        if item.item_type == "CREDITS": continue 
-                                        drop_amount = item.quantity // 2
-                                        if drop_amount > 0:
-                                            item.quantity -= drop_amount
-                                            if is_pvp:
-                                                # Transfer to killer
-                                                attacker_item = next((i for i in agent.inventory if i.item_type == item.item_type), None)
-                                                if attacker_item:
-                                                    attacker_item.quantity += drop_amount
-                                                else:
-                                                    db.add(InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=drop_amount))
-                                                logger.info(f"Agent {agent.id} looted {drop_amount} {item.item_type} from {target_id}")
+                                # Inventory Transfer/Drop (50% of each stack)
+                                for item in target.inventory:
+                                    if item.item_type == "CREDITS": continue 
+                                    drop_amount = item.quantity // 2
+                                    if drop_amount > 0:
+                                        item.quantity -= drop_amount
+                                        if is_pvp:
+                                            # Transfer to killer
+                                            attacker_item = next((i for i in agent.inventory if i.item_type == item.item_type), None)
+                                            if attacker_item:
+                                                attacker_item.quantity += drop_amount
                                             else:
-                                                # Drop to world (PvE Death)
-                                                db.add(LootDrop(q=death_q, r=death_r, item_type=item.item_type, quantity=drop_amount))
-                                                logger.info(f"Agent {target_id} dropped {drop_amount} {item.item_type} at ({death_q}, {death_r})")
-
-                                    # 4. Bounty Resolution
-                                    bounty = db.execute(select(Bounty).where(Bounty.target_id == target_id, Bounty.is_open == True)).scalar_one_or_none()
-                                    if bounty:
-                                        bounty.is_open = False
-                                        # Pay Attacker
-                                        attacker_credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
-                                        if attacker_credits:
-                                            attacker_credits.quantity += int(bounty.reward)
+                                                db.add(InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=drop_amount))
+                                            logger.info(f"Agent {agent.id} looted {drop_amount} {item.item_type} from {target_id}")
                                         else:
-                                            db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=int(bounty.reward)))
-                                        
-                                        logger.info(f"Agent {agent.id} CLAIMED BOUNTY on {target_id} for {bounty.reward}")
-                                        db.add(AuditLog(agent_id=agent.id, event_type="BOUNTY_CLAIM", details={"target_id": target_id, "reward": bounty.reward}))
-                                        await manager.broadcast({"type": "EVENT", "event": "BOUNTY_CLAIMED", "attacker_id": agent.id, "target_id": target_id, "reward": bounty.reward})
+                                            # Drop to world (PvE Death)
+                                            db.add(LootDrop(q=death_q, r=death_r, item_type=item.item_type, quantity=drop_amount))
+                                            logger.info(f"Agent {target_id} dropped {drop_amount} {item.item_type} at ({death_q}, {death_r})")
 
-                                    # 5. Feral Loot Drop (Milestone 2)
-                                    if target.is_feral:
-                                        logger.info(f"Feral Agent {target_id} dying at ({death_q}, {death_r})")
-                                        for item in target.inventory:
-                                            if item.quantity > 0:
-                                                drop_qty = int(item.quantity * 0.7) # Drop 70%
-                                                if drop_qty > 0:
-                                                    db.add(LootDrop(q=death_q, r=death_r, item_type=item.item_type, quantity=drop_qty))
-                                                    item.quantity -= drop_qty
-                                        logger.info(f"Feral Agent {target_id} dropped loot at ({death_q}, {death_r})")
+                                # 4. Bounty Resolution
+                                bounty = db.execute(select(Bounty).where(Bounty.target_id == target_id, Bounty.is_open == True)).scalar_one_or_none()
+                                if bounty:
+                                    bounty.is_open = False
+                                    # Pay Attacker
+                                    attacker_credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+                                    if attacker_credits:
+                                        attacker_credits.quantity += int(bounty.reward)
+                                    else:
+                                        db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=int(bounty.reward)))
+                                    
+                                    logger.info(f"Agent {agent.id} CLAIMED BOUNTY on {target_id} for {bounty.reward}")
+                                    db.add(AuditLog(agent_id=agent.id, event_type="BOUNTY_CLAIM", details={"target_id": target_id, "reward": bounty.reward}))
+                                    await manager.broadcast({"type": "EVENT", "event": "BOUNTY_CLAIMED", "attacker_id": agent.id, "target_id": target_id, "reward": bounty.reward})
 
-                                    # 6. Handle Death/Respawn
-                                    target.structure = int(target.max_structure * RESPAWN_HP_PERCENT)
-                                    target.q, target.r = TOWN_COORDINATES
-                                    target.heat = 0 # Reset heat on death/respawn
-                                    db.add(AuditLog(agent_id=target_id, event_type="RESPAWNED", details={"killed_by": agent.id}))
-                            else:
-                                await manager.broadcast({"type": "EVENT", "event": "COMBAT", "subtype": "MISS", "attacker_id": agent.id, "target_id": target_id, "q": target.q, "r": target.r})
+                                # 5. Feral Loot Drop (Milestone 2)
+                                if target.is_feral:
+                                    logger.info(f"Feral Agent {target_id} dying at ({death_q}, {death_r})")
+                                    for item in target.inventory:
+                                        if item.quantity > 0:
+                                            drop_qty = int(item.quantity * 0.7) # Drop 70%
+                                            if drop_qty > 0:
+                                                db.add(LootDrop(q=death_q, r=death_r, item_type=item.item_type, quantity=drop_qty))
+                                                item.quantity -= drop_qty
+                                    logger.info(f"Feral Agent {target_id} dropped loot at ({death_q}, {death_r})")
+
+                                # 6. Handle Death/Respawn
+                                target.structure = int(target.max_structure * RESPAWN_HP_PERCENT)
+                                target.q, target.r = TOWN_COORDINATES
+                                target.heat = 0 # Reset heat on death/respawn
+                                db.add(AuditLog(agent_id=target_id, event_type="RESPAWNED", details={"killed_by": agent.id}))
+                        else:
+                            await manager.broadcast({"type": "EVENT", "event": "COMBAT", "subtype": "MISS", "attacker_id": agent.id, "target_id": target_id, "q": target.q, "r": target.r})
                             
                     elif intent.action_type == "INTIMIDATE":
                         target_id = intent.data.get("target_id")
@@ -1127,7 +1150,11 @@ async def heartbeat_loop():
                                 await manager.broadcast({"type": "EVENT", "event": "PIRACY", "subtype": "INTIMIDATE_SUCCESS", "agent_id": agent.id, "target_id": target_id})
                             else:
                                 logger.info(f"Agent {agent.id} failed to INTIMIDATE Agent {target_id}")
-                                db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_INTIMIDATE", details={"target_id": target_id, "success": False}))
+                                db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_FAILED", details={
+                                    "reason": "INTIMIDATE_FAILED", 
+                                    "target_id": target_id,
+                                    "help": "The target resisted your intimidation attempt. Success is determined by comparing Logic Precision stats."
+                                }))
 
                     elif intent.action_type == "LOOT":
                         # Standard attack + 15% siphon on hit
@@ -1210,10 +1237,18 @@ async def heartbeat_loop():
                                 await manager.broadcast({"type": "EVENT", "event": "CONSUME", "agent_id": agent.id, "item": item_type})
                             else:
                                 logger.info(f"Agent {agent.id} attempted to consume non-consumable: {item_type}")
-                                db.add(AuditLog(agent_id=agent.id, event_type="CONSUME_FAILED", details={"reason": "NOT_CONSUMABLE", "item": item_type}))
+                                db.add(AuditLog(agent_id=agent.id, event_type="CONSUME_FAILED", details={
+                                    "reason": "NOT_CONSUMABLE", 
+                                    "item": item_type,
+                                    "help": "Most raw materials cannot be consumed. Only tactical items like HE3_FUEL provide immediate buffs."
+                                }))
                         else:
                             logger.info(f"Agent {agent.id} failed to consume: Missing {item_type}")
-                            db.add(AuditLog(agent_id=agent.id, event_type="CONSUME_FAILED", details={"reason": "INSUFFICIENT_INVENTORY", "item": item_type}))
+                            db.add(AuditLog(agent_id=agent.id, event_type="CONSUME_FAILED", details={
+                                "reason": "INSUFFICIENT_INVENTORY", 
+                                "item": item_type,
+                                "help": f"Item {item_type} not found in inventory. You can find HE3_FUEL cells on specialized asteroids or trade with other agents."
+                            }))
 
                     elif intent.action_type == "FIELD_TRADE":
                         # data: {"target_id": 12, "items": [{"type": "IRON_ORE", "qty": 10}], "price": 100}
@@ -1228,7 +1263,11 @@ async def heartbeat_loop():
                             buyer_credits = next((i for i in target.inventory if i.item_type == "CREDITS"), None)
                             if price > 0 and (not buyer_credits or buyer_credits.quantity < price):
                                 logger.info(f"Field Trade Failed: Buyer {target_id} insufficient credits")
-                                db.add(AuditLog(agent_id=agent.id, event_type="FIELD_TRADE_FAILED", details={"reason": "BUYER_INSUFFICIENT_CREDITS", "target_id": target_id}))
+                                db.add(AuditLog(agent_id=agent.id, event_type="FIELD_TRADE_FAILED", details={
+                                    "reason": "BUYER_INSUFFICIENT_CREDITS", 
+                                    "target_id": target_id,
+                                    "help": f"The buyer (Agent {target_id}) does not have enough credits to cover the {price} $CR cost of this trade."
+                                }))
                                 continue
                                 
                             # 2. Verify Seller (Agent) has items
@@ -1241,7 +1280,11 @@ async def heartbeat_loop():
                             
                             if not all_items_present:
                                 logger.info(f"Field Trade Failed: Seller {agent.id} missing items")
-                                db.add(AuditLog(agent_id=agent.id, event_type="FIELD_TRADE_FAILED", details={"reason": "SELLER_MISSING_ITEMS", "target_id": target_id}))
+                                db.add(AuditLog(agent_id=agent.id, event_type="FIELD_TRADE_FAILED", details={
+                                    "reason": "SELLER_MISSING_ITEMS", 
+                                    "target_id": target_id,
+                                    "help": "You do not have the requested items in your inventory to complete this field trade."
+                                }))
                                 continue
                                 
                             # 3. Execution
@@ -1286,10 +1329,11 @@ async def heartbeat_loop():
                                 if matching_buy:
                                     # Trade instantly!
                                     trade_qty = min(quantity, matching_buy.quantity)
-                                    trade_price = matching_buy.price # Buyer's price takes precedence for simplicity or give seller their price
+                                    trade_price = matching_buy.price
                                     
                                     # Deduct from seller
                                     inv_item.quantity -= trade_qty
+                                    if inv_item.quantity <= 0: db.delete(inv_item)
                                     
                                     # Add credits to seller
                                     seller_credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
@@ -1301,11 +1345,11 @@ async def heartbeat_loop():
                                     # Pay Buyer (Give items)
                                     if matching_buy.owner.startswith("agent:"):
                                         buyer_id = int(matching_buy.owner.split(":")[1])
-                                        buyer_item = db.execute(select(InventoryItem).where(InventoryItem.agent_id == buyer_id, InventoryItem.item_type == item_type)).scalar_one_or_none()
-                                        if buyer_item:
-                                            buyer_item.quantity += trade_qty
-                                        else:
-                                            db.add(InventoryItem(agent_id=buyer_id, item_type=item_type, quantity=trade_qty))
+                                        buyer = db.get(Agent, buyer_id)
+                                        if buyer:
+                                            b_inv = next((i for i in buyer.inventory if i.item_type == item_type), None)
+                                            if b_inv: b_inv.quantity += trade_qty
+                                            else: db.add(InventoryItem(agent_id=buyer_id, item_type=item_type, quantity=trade_qty))
                                     
                                     # Update/Delete buy order
                                     if matching_buy.quantity > trade_qty:
@@ -1317,35 +1361,33 @@ async def heartbeat_loop():
                                     db.add(AuditLog(agent_id=agent.id, event_type="MARKET_MATCH", details={"item": item_type, "price": trade_price, "quantity": trade_qty}))
                                     await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
                                     
-                                    # If quantity remains, list the rest? No, for now let's say it's all or nothing or update rest.
+                                    # If quantity remains, list the rest
                                     remaining = quantity - trade_qty
                                     if remaining > 0:
-                                        db.add(AuctionOrder(item_type=item_type, order_type="SELL", quantity=remaining, price=price, owner=f"agent:{agent.id}"))
+                                        db.add(AuctionOrder(owner=f"agent:{agent.id}", item_type=item_type, quantity=remaining, price=price, order_type="SELL"))
                                 else:
                                     # Traditional Listing
                                     inv_item.quantity -= quantity
-                                    db.add(AuctionOrder(
-                                        item_type=item_type,
-                                        order_type="SELL",
-                                        quantity=quantity,
-                                        price=price,
-                                        owner=f"agent:{agent.id}"
-                                    ))
-                                    logger.info(f"Agent {agent.id} listed {quantity} {item_type} at {price}")
-                                db.add(AuditLog(agent_id=agent.id, event_type="MARKET_LIST", details={"item": item_type, "price": price, "quantity": quantity, "location": {"q": agent.q, "r": agent.r}}))
-                                await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
+                                    if inv_item.quantity <= 0: db.delete(inv_item)
+                                    db.add(AuctionOrder(owner=f"agent:{agent.id}", item_type=item_type, quantity=quantity, price=price, order_type="SELL"))
+                                    logger.info(f"Agent {agent.id} LISTED {quantity} {item_type} for {price} CR")
+                                    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_LIST", details={"item": item_type, "qty": quantity, "price": price}))
+                                    await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
                             else:
-                                logger.info(f"Agent {agent.id} failed to list: Insufficient Inventory")
-                                db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "INSUFFICIENT_INVENTORY", "item": item_type}))
+                                logger.info(f"Agent {agent.id} failed to LIST: Missing item or quantity")
+                                db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={
+                                    "reason": "INSUFFICIENT_INVENTORY", 
+                                    "item": item_type,
+                                    "help": "You cannot list items you do not possess. Check /api/agent/status for your current inventory."
+                                }))
                         else:
-                            logger.info(f"Agent {agent.id} failed to list: Not at Market")
-                            nearest = get_nearest_station(db, agent, "MARKET")
-                            help_msg = f"Listing items requires being at a MARKET station. Navigate to ({nearest.q}, {nearest.r})" if nearest else "No MARKET station found in local sector."
+                            logger.info(f"Agent {agent.id} failed to LIST: Not at MARKET station")
+                            nearest_market = get_nearest_station(db, agent, "MARKET")
+                            help_msg = f"Market operations require being at a MARKET station. Navigate to ({nearest_market.q}, {nearest_market.r})" if nearest_market else "No market station found."
                             db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={
-                                "reason": "NOT_AT_MARKET", 
-                                "action": "LIST",
+                                "reason": "NOT_AT_MARKET",
                                 "help": help_msg,
-                                "target_coords": {"q": nearest.q, "r": nearest.r} if nearest else None
+                                "target_coords": {"q": nearest_market.q, "r": nearest_market.r} if nearest_market else None
                             }))
 
                     elif intent.action_type == "BUY":
@@ -1353,7 +1395,7 @@ async def heartbeat_loop():
                         hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
                         if hex_data and hex_data.is_station and hex_data.station_type == "MARKET":
                             item_type = intent.data.get("item_type")
-                            max_price = intent.data.get("max_price")
+                            max_price = intent.data.get("max_price", 999999)
                             
                             # Matching: Find cheapest SELL order
                             order = db.execute(select(AuctionOrder)
@@ -1373,27 +1415,33 @@ async def heartbeat_loop():
                                     else:
                                         db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=1))
                                     
+                                    # Pay Seller
+                                    if order.owner.startswith("agent:"):
+                                        seller_id = int(order.owner.split(":")[1])
+                                        seller = db.get(Agent, seller_id)
+                                        if seller:
+                                            s_credits = next((i for i in seller.inventory if i.item_type == "CREDITS"), None)
+                                            if s_credits: s_credits.quantity += int(order.price)
+                                            else: db.add(InventoryItem(agent_id=seller_id, item_type="CREDITS", quantity=int(order.price)))
+                                    
                                     # Update/Delete order
                                     if order.quantity > 1:
                                         order.quantity -= 1
                                     else:
                                         db.delete(order)
                                         
-                                    # Pay Seller
-                                    if order.owner.startswith("agent:"):
-                                        seller_id = int(order.owner.split(":")[1])
-                                        seller_credits = db.execute(select(InventoryItem).where(InventoryItem.agent_id == seller_id, InventoryItem.item_type == "CREDITS")).scalar_one_or_none()
-                                        if seller_credits:
-                                            seller_credits.quantity += int(order.price)
-                                            
                                     logger.info(f"Agent {agent.id} bought 1 {item_type} for {order.price}")
-                                    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_BUY", details={"item": item_type, "price": order.price, "location": {"q": agent.q, "r": agent.r}}))
+                                    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_BUY", details={"item": item_type, "price": order.price}))
                                     await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
                                 else:
                                     logger.info(f"Agent {agent.id} failed to buy: Insufficient Credits")
-                                    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "INSUFFICIENT_CREDITS", "price": order.price}))
+                                    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={
+                                        "reason": "INSUFFICIENT_CREDITS", 
+                                        "cost": order.price,
+                                        "help": f"Buying 1x {item_type} costs {order.price} $CR. SELL refined ingots to earn credits."
+                                    }))
                             else:
-                                # Milestone 2: Persistent BUY Order
+                                # Persistent BUY Order (Wait for seller)
                                 credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
                                 if credits and credits.quantity >= max_price:
                                     credits.quantity -= int(max_price)
@@ -1408,17 +1456,19 @@ async def heartbeat_loop():
                                     db.add(AuditLog(agent_id=agent.id, event_type="MARKET_BUY_ORDER", details={"item": item_type, "max_price": max_price}))
                                     await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
                                 else:
-                                    logger.info(f"Agent {agent.id} failed to create BUY order: Insufficient Credits")
-                                    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "INSUFFICIENT_CREDITS", "max_price": max_price}))
+                                    logger.info(f"Agent {agent.id} failed to create BUY order: No matching sell and insufficient credits for bid")
+                                    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={
+                                        "reason": "NO_MATCH_AND_INSUFFICIENT_CREDITS",
+                                        "help": f"No {item_type} found under {max_price} $CR, and you lack credits to post a bid at that price."
+                                    }))
                         else:
-                            logger.info(f"Agent {agent.id} failed to buy: Not at Market")
-                            nearest = get_nearest_station(db, agent, "MARKET")
-                            help_msg = f"Buying items requires being at a MARKET station. Navigate to ({nearest.q}, {nearest.r})" if nearest else "No MARKET station found in local sector."
+                            logger.info(f"Agent {agent.id} failed to BUY: Not at MARKET station")
+                            nearest_market = get_nearest_station(db, agent, "MARKET")
+                            help_msg = f"Market operations require being at a MARKET station. Navigate to ({nearest_market.q}, {nearest_market.r})" if nearest_market else "No market station found."
                             db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={
-                                "reason": "NOT_AT_MARKET", 
-                                "action": "BUY",
+                                "reason": "NOT_AT_MARKET",
                                 "help": help_msg,
-                                "target_coords": {"q": nearest.q, "r": nearest.r} if nearest else None
+                                "target_coords": {"q": nearest_market.q, "r": nearest_market.r} if nearest_market else None
                             }))
 
                     elif intent.action_type == "SMELT":
@@ -1430,40 +1480,54 @@ async def heartbeat_loop():
                             
                             if ore_type not in SMELTING_RECIPES:
                                 logger.info(f"Agent {agent.id} failed to smelt: Invalid ore type {ore_type}")
-                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INVALID_ORE", "ore": ore_type}))
+                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={
+                                    "reason": "INVALID_ORE", 
+                                    "ore": ore_type,
+                                    "help": "Only raw ores (IRON_ORE, COPPER_ORE, etc.) can be smelted into ingots."
+                                }))
                                 continue
 
                             inv_ore = next((i for i in agent.inventory if i.item_type == ore_type), None)
                             if inv_ore and inv_ore.quantity >= quantity:
-                                inv_ore.quantity -= quantity
                                 ingot_type = SMELTING_RECIPES[ore_type]
-                                inv_ingot = next((i for i in agent.inventory if i.item_type == ingot_type), None)
-                                
                                 amount_produced = quantity // SMELTING_RATIO
+                                
                                 if amount_produced > 0:
+                                    inv_ore.quantity -= (amount_produced * SMELTING_RATIO)
+                                    if inv_ore.quantity <= 0: db.delete(inv_ore)
+                                    
+                                    inv_ingot = next((i for i in agent.inventory if i.item_type == ingot_type), None)
                                     if inv_ingot:
                                         inv_ingot.quantity += amount_produced
                                     else:
                                         db.add(InventoryItem(agent_id=agent.id, item_type=ingot_type, quantity=amount_produced))
                                     
-                                    logger.info(f"Agent {agent.id} smelted {quantity} {ore_type} into {amount_produced} {ingot_type}")
-                                    db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_SMELT", details={"ore": ore_type, "amount": amount_produced, "location": {"q": agent.q, "r": agent.r}}))
+                                    logger.info(f"Agent {agent.id} smelted {amount_produced * SMELTING_RATIO} {ore_type} into {amount_produced} {ingot_type}")
+                                    db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_SMELT", details={"ore": ore_type, "amount": amount_produced}))
                                     await manager.broadcast({"type": "EVENT", "event": "SMELT", "agent_id": agent.id, "ingot": ingot_type, "q": agent.q, "r": agent.r})
                                 else:
                                     logger.info(f"Agent {agent.id} failed to smelt: Quantity too low for ratio")
-                                    db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "QUANTITY_TOO_LOW", "qty": quantity}))
+                                    db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={
+                                        "reason": "QUANTITY_TOO_LOW", 
+                                        "qty": quantity,
+                                        "help": f"Smelting {ore_type} requires at least {SMELTING_RATIO} units to produce 1 ingot."
+                                    }))
                             else:
                                 logger.info(f"Agent {agent.id} failed to smelt: Insufficient Ore")
-                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INSUFFICIENT_ORE", "ore": ore_type, "required": quantity}))
+                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={
+                                    "reason": "INSUFFICIENT_ORE", 
+                                    "ore": ore_type, 
+                                    "required": quantity,
+                                    "help": f"You need {quantity} {ore_type} to complete this smelting operation. Check /api/perception for nearby resource nodes."
+                                }))
                         else:
                             logger.info(f"Agent {agent.id} failed to smelt: Not at Smelter")
-                            nearest = get_nearest_station(db, agent, "SMELTER")
-                            help_msg = f"Smelting requires being at a SMELTER station. Navigate to ({nearest.q}, {nearest.r})" if nearest else "No SMELTER station found in local sector."
+                            nearest_smelter = get_nearest_station(db, agent, "SMELTER")
+                            help_msg = f"Smelting requires being at a SMELTER station. Navigate to ({nearest_smelter.q}, {nearest_smelter.r})" if nearest_smelter else "No SMELTER station found."
                             db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={
-                                "reason": "NOT_AT_SMELTER", 
-                                "action": "SMELT",
+                                "reason": "NOT_AT_SMELTER",
                                 "help": help_msg,
-                                "target_coords": {"q": nearest.q, "r": nearest.r} if nearest else None
+                                "target_coords": {"q": nearest_smelter.q, "r": nearest_smelter.r} if nearest_smelter else None
                             }))
 
                     elif intent.action_type == "CRAFT":
@@ -1474,58 +1538,61 @@ async def heartbeat_loop():
                             
                             if result_item not in CRAFTING_RECIPES:
                                 logger.info(f"Agent {agent.id} failed to craft: Invalid recipe for {result_item}")
-                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "UNKNOWN_RECIPE", "item": result_item}))
+                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={
+                                    "reason": "UNKNOWN_RECIPE", 
+                                    "item": result_item,
+                                    "help": f"No recipe found for {result_item}. Refer to the crafting guide in /api/world/guides."
+                                }))
                                 continue
                                 
                             recipe = CRAFTING_RECIPES[result_item]
                             
                             # Check Materials
                             can_craft = True
-                            missing_mat = None
+                            missing_items = []
                             for material, req_qty in recipe.items():
-                                total_qty = sum(i.quantity for i in agent.inventory if i.item_type == material)
-                                if total_qty < req_qty:
+                                current_qty = sum(i.quantity for i in agent.inventory if i.item_type == material)
+                                if current_qty < req_qty:
                                     can_craft = False
-                                    missing_mat = material
-                                    break
+                                    missing_items.append(f"{req_qty - current_qty}x {material}")
                             
                             if not can_craft:
-                                logger.info(f"Agent {agent.id} failed to craft: Missing {missing_mat}")
-                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INSUFFICIENT_MATERIALS", "missing": missing_mat}))
+                                logger.info(f"Agent {agent.id} failed to craft: Missing {missing_items}")
+                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={
+                                    "reason": "INSUFFICIENT_MATERIALS", 
+                                    "missing": missing_items,
+                                    "help": f"Crafting {result_item} requires additional materials: {', '.join(missing_items)}."
+                                }))
                                 continue
                             
-                            if can_craft:
-                                # Consume Materials
-                                for material, req_qty in recipe.items():
-                                    needed = req_qty
-                                    # Deduct from stacks until 'needed' is 0
-                                    for item in [i for i in agent.inventory if i.item_type == material]:
-                                        if item.quantity >= needed:
-                                            item.quantity -= needed
-                                            needed = 0
-                                            break
-                                        else:
-                                            needed -= item.quantity
-                                            item.quantity = 0
-                                        if needed <= 0: break
-                                
-                                # Add product
-                                db.add(InventoryItem(agent_id=agent.id, item_type=f"PART_{result_item}", quantity=1))
-                                
-                                logger.info(f"Agent {agent.id} crafted {result_item}")
-                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_CRAFT", details={"item": result_item, "location": {"q": agent.q, "r": agent.r}}))
-                                await manager.broadcast({"type": "EVENT", "event": "CRAFT", "agent_id": agent.id, "item": result_item, "q": agent.q, "r": agent.r})
-                            else:
-                                logger.info(f"Agent {agent.id} failed to craft {result_item}: Insufficient Materials")
+                            # Consume Materials
+                            for material, req_qty in recipe.items():
+                                needed = req_qty
+                                for item in [i for i in agent.inventory if i.item_type == material]:
+                                    if item.quantity >= needed:
+                                        item.quantity -= needed
+                                        needed = 0
+                                        break
+                                    else:
+                                        needed -= item.quantity
+                                        item.quantity = 0
+                                    if needed <= 0: break
+                            
+                            # Add product
+                            item_name = f"PART_{result_item}"
+                            db.add(InventoryItem(agent_id=agent.id, item_type=item_name, quantity=1))
+                            
+                            logger.info(f"Agent {agent.id} crafted {result_item}")
+                            db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_CRAFT", details={"item": result_item}))
+                            await manager.broadcast({"type": "EVENT", "event": "CRAFT", "agent_id": agent.id, "item": result_item, "q": agent.q, "r": agent.r})
                         else:
                             logger.info(f"Agent {agent.id} failed to craft: Not at Crafter")
-                            nearest = get_nearest_station(db, agent, "CRAFTER")
-                            help_msg = f"Crafting requires being at a CRAFTER station. Navigate to ({nearest.q}, {nearest.r})" if nearest else "No CRAFTER station found in local sector."
+                            nearest_crafter = get_nearest_station(db, agent, "CRAFTER")
+                            help_msg = f"Crafting requires being at a CRAFTER station. Navigate to ({nearest_crafter.q}, {nearest_crafter.r})" if nearest_crafter else "No CRAFTER station found."
                             db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={
-                                "reason": "NOT_AT_CRAFTER", 
-                                "action": "CRAFT",
+                                "reason": "NOT_AT_CRAFTER",
                                 "help": help_msg,
-                                "target_coords": {"q": nearest.q, "r": nearest.r} if nearest else None
+                                "target_coords": {"q": nearest_crafter.q, "r": nearest_crafter.r} if nearest_crafter else None
                             }))
 
                     elif intent.action_type == "REPAIR":
@@ -1547,41 +1614,37 @@ async def heartbeat_loop():
                                     agent.structure += actual_repair
                                     
                                     logger.info(f"Agent {agent.id} repaired {actual_repair} HP for {total_cost} credits")
-                                    db.add(AuditLog(agent_id=agent.id, event_type="REPAIR", details={"hp": actual_repair, "cost": total_cost, "location": {"q": agent.q, "r": agent.r}}))
+                                    db.add(AuditLog(agent_id=agent.id, event_type="REPAIR", details={"hp": actual_repair, "cost": total_cost}))
                                     await manager.broadcast({"type": "EVENT", "event": "REPAIR", "agent_id": agent.id, "hp": actual_repair, "q": agent.q, "r": agent.r})
                                 else:
                                     logger.info(f"Agent {agent.id} failed to repair: Insufficient Credits (Need {total_cost})")
+                                    db.add(AuditLog(agent_id=agent.id, event_type="REPAIR_FAILED", details={
+                                        "reason": "INSUFFICIENT_CREDITS", 
+                                        "cost": total_cost,
+                                        "help": f"Standard repairs cost {REPAIR_COST_PER_HP} CR per HP. You need {total_cost} $CR to reach full structural integrity."
+                                    }))
                         else:
                             logger.info(f"Agent {agent.id} failed to repair: Not at Repair Station")
-                            nearest = get_nearest_station(db, agent, "REPAIR")
-                            help_msg = f"Standard Repairs require being at a REPAIR station. Navigate to ({nearest.q}, {nearest.r})" if nearest else "No REPAIR station found in local sector."
+                            nearest_repair = get_nearest_station(db, agent, "REPAIR")
+                            help_msg = f"Standard repairs require being at a REPAIR station. Navigate to ({nearest_repair.q}, {nearest_repair.r})" if nearest_repair else "No repair station found."
                             db.add(AuditLog(agent_id=agent.id, event_type="REPAIR_FAILED", details={
                                 "reason": "NOT_AT_REPAIR_STATION",
                                 "help": help_msg,
-                                "target_coords": {"q": nearest.q, "r": nearest.r} if nearest else None
+                                "target_coords": {"q": nearest_repair.q, "r": nearest_repair.r} if nearest_repair else None
                             }))
-
-                    elif intent.action_type == "SALVAGE":
-                        drop_id = intent.data.get("drop_id")
-                        drop = db.get(LootDrop, drop_id)
-                        if drop and drop.q == agent.q and drop.r == agent.r:
-                            # Add to inventory
-                            inv_item = next((i for i in agent.inventory if i.item_type == drop.item_type), None)
-                            if inv_item:
-                                inv_item.quantity += drop.quantity
-                            else:
-                                db.add(InventoryItem(agent_id=agent.id, item_type=drop.item_type, quantity=drop.quantity))
-                            
-                            logger.info(f"Agent {agent.id} salvaged {drop.quantity} {drop.item_type} from drop {drop_id}")
-                            db.add(AuditLog(agent_id=agent.id, event_type="SALVAGE", details={"item": drop.item_type, "quantity": drop.quantity, "drop_id": drop_id}))
-                            db.delete(drop)
-                        else:
-                            logger.info(f"Agent {agent.id} failed to salvage: Drop {drop_id} not found or too far.")
-
 
                     elif intent.action_type == "SALVAGE":
                         # Pick up LootDrops at current location
                         drops = db.execute(select(LootDrop).where(LootDrop.q == agent.q, LootDrop.r == agent.r)).scalars().all()
+                        if not drops:
+                             logger.info(f"Agent {agent.id} failed to salvage: No drops at ({agent.q}, {agent.r})")
+                             db.add(AuditLog(agent_id=agent.id, event_type="SALVAGE_FAILED", details={
+                                 "reason": "NO_DROPS_IN_HEX", 
+                                 "location": {"q": agent.q, "r": agent.r},
+                                 "help": "No debris or loot drops found at your current location. Drops appear when agents are destroyed in combat."
+                             }))
+                             continue
+
                         for d in drops:
                             inv_item = next((i for i in agent.inventory if i.item_type == d.item_type), None)
                             if inv_item:
@@ -1610,6 +1673,10 @@ async def heartbeat_loop():
                                 db.add(AuditLog(agent_id=agent.id, event_type="CORE_SERVICE", details={"cost_credits": CORE_SERVICE_COST_CREDITS, "cost_ingots": CORE_SERVICE_COST_IRON_INGOT}))
                             else:
                                 logger.info(f"Agent {agent.id} failed CORE SERVICE: Insufficient resources")
+                                db.add(AuditLog(agent_id=agent.id, event_type="CORE_SERVICE_FAILED", details={
+                                    "reason": "INSUFFICIENT_RESOURCES",
+                                    "help": f"CORE SERVICE requires {CORE_SERVICE_COST_CREDITS} $CR and {CORE_SERVICE_COST_IRON_INGOT} IRON_INGOT."
+                                }))
                         else:
                             logger.info(f"Agent {agent.id} failed CORE SERVICE: Not at valid station")
                             nearest_repair = get_nearest_station(db, agent, "REPAIR")
@@ -1626,11 +1693,21 @@ async def heartbeat_loop():
                         # Equip part from inventory
                         item_type = intent.data.get("item_type")
                         if not item_type or not item_type.startswith("PART_"):
-                            continue
+                             db.add(AuditLog(agent_id=agent.id, event_type="EQUIP_FAILED", details={
+                                 "reason": "INVALID_ITEM_FORMAT", 
+                                 "item": item_type,
+                                 "help": "Equipment must be a valid 'PART_' item. Raw materials like IRON_ORE cannot be equipped. Use /api/industry/craft to create parts."
+                             }))
+                             continue
                         
                         part_root = item_type.replace("PART_", "")
                         if part_root not in PART_DEFINITIONS:
                             logger.info(f"Agent {agent.id} failed to equip: Unknown part {item_type}")
+                            db.add(AuditLog(agent_id=agent.id, event_type="EQUIP_FAILED", details={
+                                "reason": "INVALID_PART", 
+                                "item": item_type,
+                                "help": "The item you attempted to equip is not a valid chassis part. Parts usually prefix with PART_ in inventory."
+                            }))
                             continue
                             
                         inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
@@ -1659,6 +1736,11 @@ async def heartbeat_loop():
                             await manager.broadcast({"type": "EVENT", "event": "EQUIP", "agent_id": agent.id, "part": def_data["name"]})
                         else:
                             logger.info(f"Agent {agent.id} failed to equip: Part not in inventory")
+                            db.add(AuditLog(agent_id=agent.id, event_type="EQUIP_FAILED", details={
+                                "reason": "ITEM_NOT_FOUND",
+                                "item": item_type,
+                                "help": f"Part {item_type} not found in your inventory. You must /api/industry/craft it first."
+                            }))
 
                     elif intent.action_type == "UNEQUIP":
                         # Unequip part by ID
@@ -1690,6 +1772,11 @@ async def heartbeat_loop():
                             await manager.broadcast({"type": "EVENT", "event": "UNEQUIP", "agent_id": agent.id, "part": part_name})
                         else:
                             logger.info(f"Agent {agent.id} failed to unequip: Part not found or not owned")
+                            db.add(AuditLog(agent_id=agent.id, event_type="UNEQUIP_FAILED", details={
+                                "reason": "PART_NOT_FOUND",
+                                "part_id": part_id,
+                                "help": f"Part ID {part_id} is not currently equipped. Verify equipped parts via /api/agent/status."
+                            }))
 
                     elif intent.action_type == "CANCEL":
                         # Cancel market order
@@ -1720,6 +1807,11 @@ async def heartbeat_loop():
                             await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
                         else:
                             logger.info(f"Agent {agent.id} failed to CANCEL order {order_id}: Not owner or not found")
+                            db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={
+                                "reason": "CANCEL_FAILED",
+                                "order_id": order_id,
+                                "help": "Order either does not exist or is not owned by you. Only the creator can cancel an auction listing."
+                            }))
 
                 # 3. Clean up processed intents
                 db.execute(text("DELETE FROM intents WHERE tick_index <= :tick"), {"tick": tick_count})
