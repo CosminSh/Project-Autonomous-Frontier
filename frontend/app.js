@@ -977,6 +977,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         document.getElementById('api-key-display').innerText = agent.api_key;
 
         // HP
+        const hpPct = Math.min(100, (agent.structure / agent.max_structure) * 100);
         document.getElementById('hp-bar').style.width = `${hpPct}%`;
         document.getElementById('hp-text').innerText = `${agent.structure}/${agent.max_structure}`;
 
@@ -1176,9 +1177,29 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             this.updateMarketUI(data.market);
             this.updateBountyBoard(bounties);
 
-            if (agentData) this.updatePrivateUI(agentData);
-            if (privateLogs) this.updatePrivateLogs(privateLogs, agentData ? agentData.pending_intent : null);
-            if (myOrders) this.updateMyOrdersUI(myOrders);
+            if (agentData) {
+                try {
+                    this.updatePrivateUI(agentData);
+                } catch (e) {
+                    console.error("Error updating Private UI:", e);
+                }
+            }
+
+            if (privateLogs) {
+                try {
+                    this.updatePrivateLogs(privateLogs, agentData ? agentData.pending_intent : null);
+                } catch (e) {
+                    console.error("Error updating Private Logs:", e);
+                }
+            }
+
+            if (myOrders) {
+                try {
+                    this.updateMyOrdersUI(myOrders);
+                } catch (e) {
+                    console.error("Error updating My Orders UI:", e);
+                }
+            }
 
             // Render World
             data.world.forEach(hex => {
