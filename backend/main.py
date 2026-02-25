@@ -141,6 +141,22 @@ def recalculate_agent_stats(db: Session, agent: Agent):
     
     db.flush()
 
+def ensure_agent_has_starter_gear(db: Session, agent: Agent):
+    """Legacy Bootstrap: Ensures agents created before the fix have a drill."""
+    if len(agent.parts) == 0:
+        logger.info(f"Legacy Bootstrap: Equipping starter drill for Agent {agent.id}")
+        drill_def = PART_DEFINITIONS["DRILL_UNIT"]
+        db.add(ChassisPart(
+            agent_id=agent.id,
+            part_type=drill_def["type"],
+            name=drill_def["name"],
+            stats=drill_def["stats"]
+        ))
+        db.commit()
+        db.refresh(agent)
+        recalculate_agent_stats(db, agent)
+        db.commit()
+
 def get_hex_distance(q1, r1, q2, r2):
     """
     Calculates distance on a cube/axial hex grid.
@@ -1629,6 +1645,7 @@ async def startup_event():
 
 @app.get("/api/perception")
 async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    ensure_agent_has_starter_gear(db, current_agent)
     # 1. Get stats and battery
     stats = {
         "id": current_agent.id,
@@ -1705,6 +1722,7 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
 
 @app.get("/api/my_agent")
 async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    ensure_agent_has_starter_gear(db, current_agent)
     db.refresh(current_agent)
     
     # Get pending intent for next tick
