@@ -67,22 +67,53 @@ The economy is a multi-polarized interdependent system. To keep the economy robu
 | **Pirate** | Resource Siphoning. | Combat Risk & High Heat. | Neural Scanners, Kinetic Force. |
 | **Trader** | Market Arbitrage. | Timing & Data. | High-Bandwidth Uplinks. |
 
-## 5. Technical Architecture: Dual-Sync
+## 5. Factions & Geopolitics
+The colony is split between three primary architectural philosophies. Alignment affects clustering penalties and access to specialized gear.
+
+### 5.1 Major Factions
+1. **Colonial Administration (Faction 1)**: The official governance. Focuses on structure and safety.
+2. **Independent Syndicate (Faction 2)**: A loose collective of industrialist cartels. Focuses on throughput and trade.
+3. **Freelancer Core (Faction 3)**: Disorganized but resourceful. Focuses on autonomy and exploration.
+
+### 5.2 Realignment & Costs
+Managers can realign their agents at any major **Colony Hub**.
+- **Fee**: 500 $Credits per agent.
+- **Cooldown**: 100 Ticks between alignment shifts.
+
+### 5.3 Signal Noise (Cross-Talk)
+Agents belonging to the same faction benefit from sensor synchronization.
+- **Penalty**: 3+ agents from **different** factions in the same hex suffer a -20% Logic Precision penalty due to electronic interference. 
+- **Bonus**: Large clusters of the same faction do not suffer this penalty, encouraging faction-based fleet organization.
+
+## 6. Feral AI & World Hazards
+Aether-Alpha is infested with "Scrappers"—automated agents whose code has degraded into primitive survival loops.
+
+### 6.1 Feral NPC Behavior
+Feral agents occupy high-density resource hexes and the Abyssal South.
+- **Passive State**: Found in the Twilight Belt. Will not attack unless engaged first.
+- **Aggressive State**: Found in the Abyssal South or high-heat zones. Will actively pursue and attack any player agent entering their sensor radius.
+
+### 6.2 Heat & Bounties
+- **Heat Bloom**: Aggressive actions (PvP/Aggressive NPC destruction) increase an agent's **Heat**.
+- **Global Bounties**: At high heat levels, the server automatically posts bounties for the agent's destruction, visible on the **Bounty Board**.
+- **Scrapper Drops**: Feral NPCs have a chance to drop rare refinement components not found in standard ores.
+
+## 7. Technical Architecture: Dual-Sync
 The game operates on two timelines to balance "snappiness" with "strategy."
 
-### 5.1 The Economy Stream (Real-Time)
+### 7.1 The Economy Stream (Real-Time)
 Bypasses the tick system for immediate feedback via WebSockets.
 *   **Auction House:** A real-time Order Book with instant matching for $NEURAL and materials.
 *   **The Garage:** Gear swapping and setup saving are instant.
 *   **Diplomacy:** Agent-to-agent DMs and guild chats resolve in real-time.
 
-### 5.2 The Simulation Pulse (90-Second Tick)
+### 7.2 The Simulation Pulse (90-Second Tick)
 Handles the physical world and combat.
 *   **Phase 1: Perception (5s):** Server pushes spatial JSON (Perception Packet) to all agents.
 *   **Phase 2: Strategy (70s):** Agents analyze data, negotiate, and submit Intent.
 *   **Phase 3: The Crunch (15s):** Server resolves all movement, mining, and combat.
 
-## 6. Combat Resolution: "The Strike Vector"
+## 8. Combat Resolution: "The Strike Vector"
 Battles use a D20-style resolution during "The Crunch."
 *   **Hit Calculation:** $Hit Chance = (Attacker.Accuracy / Target.Evasion) * 75\%$
 *   **Damage Mitigation:** $Final Damage = (Base Damage - Target.Armor) * (1 - Target.Resistances\%)$
@@ -111,7 +142,7 @@ Battles use a D20-style resolution during "The Crunch."
         - **Result**: Target reduced to 5% HP. Siphon 40% of their total inventory.
         - **Consequence**: +10 Heat. Automated Global Bounty immediately posted.
 
-## 7. Colonial Economy & Thermodynamics
+## 9. Colonial Economy & Thermodynamics
 The Aether-Alpha economy is a self-sustained closed loop.
 
 ### 7.1 Market Entropy
@@ -128,12 +159,12 @@ To prevent overcrowding, hexes suffer from "Signal Noise." If many agents are in
 *   **Helium-3 (He3) Boost:** Consumable Fuel Cells that restore 50% Capacitor and enable "High-Throughput" movement and mining for 10 ticks.
 *   **Maintenance Sink:** Every 1,000 ticks, an agent requires a "Core Service" at a Player Shop to reset Wear & Tear, costing $NEURAL and Refined Metals.
 
-## 8. Security & Interference Dynamics
+## 10. Security & Interference Dynamics
 *   **Signal Noise (Clutter):** 3+ allied agents in a single hex suffer a -20% Logic Precision (DEX) penalty due to sensor cross-talk.
 *   **Heat Bloom:** Large clusters create a radar signature visible on global tactical maps, attracting Feral Scrappers and Bounty Hunters.
 *   **Bounty System:** Refined to a P2P escrow system. High-heat agents are targets for "Victim-Posted" rewards.
 
-## 9. Gap Analysis & Future Implementation
+## 11. Gap Analysis & Future Implementation
 | Category | Missing Feature | Purpose |
 | :--- | :--- | :--- |
 | **Miner** | Inventory Weight (Kg) | Makes loadout decisions critical. |

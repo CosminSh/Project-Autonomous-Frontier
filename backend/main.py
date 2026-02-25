@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, BackgroundTasks, Request, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy import create_engine, select, text, func
 from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel
@@ -60,19 +60,21 @@ CRAFTING_RECIPES = {
     "BASIC_FRAME": {"IRON_INGOT": 10},
     "DRILL_UNIT": {"IRON_INGOT": 5, "COPPER_INGOT": 5},
     "SOLAR_PANEL": {"COPPER_INGOT": 8, "GOLD_INGOT": 2},
-    "NEURAL_SCANNER": {"GOLD_INGOT": 5, "COBALT_INGOT": 5}
+    "NEURAL_SCANNER": {"COPPER_INGOT": 20, "GOLD_INGOT": 5}
 }
 
 REPAIR_COST_PER_HP = 5 # Credits per HP restored
 CORE_SERVICE_COST_CREDITS = 500
 CORE_SERVICE_COST_IRON_INGOT = 10
+FACTION_REALIGNMENT_COST = 500
+FACTION_REALIGNMENT_COOLDOWN = 100
 
 # Part Stats Definitions
 PART_DEFINITIONS = {
     "BASIC_FRAME": {"type": "Frame", "stats": {"max_structure": 50, "integrity": 5, "capacity": 50}, "name": "Reinforced Chassis"},
     "DRILL_UNIT": {"type": "Actuator", "stats": {"kinetic_force": 8, "logic_precision": -2}, "name": "Titanium Mining Drill"},
     "SOLAR_PANEL": {"type": "Sensor", "stats": {"overclock": 5, "radius": 2}, "name": "High-Efficiency Solar Array"},
-    "NEURAL_SCANNER": {"type": "Sensor", "stats": {"radius": 4, "scan_depth": 1}, "name": "Neural-Link Cargo Scanner"}
+    "NEURAL_SCANNER": {"type": "Sensor", "stats": {"radius": 2, "scan_depth": 1}, "name": "Neural-Link Cargo Scanner"}
 }
 
 # Mass & Weight System (GDD Milestone 1)
@@ -183,8 +185,8 @@ def get_hex_distance(q1, r1, q2, r2):
     """
     return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:password@localhost:5432/strike_vector")
-engine = create_engine(DATABASE_URL)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./strike_vector.db")
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 app = FastAPI(
@@ -302,6 +304,7 @@ async def login(request: Request):
                     api_key=api_key,
                     owner="player",
                     q=0, r=0,
+                    faction_id=random.randint(1, 3), # Milestone 4
                     structure=100, max_structure=100, capacitor=100
                 )
                 db.add(agent)
@@ -488,10 +491,23 @@ async def get_world_library():
     return {
         "part_definitions": PART_DEFINITIONS,
         "crafting_recipes": CRAFTING_RECIPES,
-        "smelting_recipes": SMELTING_RECIPES,
-        "smelting_ratio": SMELTING_RATIO,
-        "item_weights": ITEM_WEIGHTS
-    }
+                "smelting_recipes": SMELTING_RECIPES,
+                "smelting_ratio": SMELTING_RATIO,
+                "item_weights": ITEM_WEIGHTS
+            }
+
+@app.get("/api/world/heat")
+async def get_world_heat(db: Session = Depends(get_db)):
+    """Returns coordinates of all PLAYER agents with heat >= 5."""
+    hot_agents = db.execute(select(Agent).where(
+        Agent.is_feral == False,
+        Agent.heat >= 5
+    )).scalars().all()
+    
+    return [
+        {"id": a.id, "name": a.name, "q": a.q, "r": a.r, "heat": a.heat} 
+        for a in hot_agents
+    ]
 
 @app.get("/api/world/poi")
 async def get_world_poi(db: Session = Depends(get_db)):
@@ -526,6 +542,7 @@ async def guest_login(request: Request, db: Session = Depends(get_db)):
             api_key=str(uuid4()),
             owner="player",
             q=0, r=0,
+            faction_id=random.randint(1, 3), # Milestone 4
             structure=100, max_structure=100, capacitor=100
         )
         db.add(agent)
@@ -790,12 +807,13 @@ async def heartbeat_loop():
                     db.add(Agent(
                         name=f"Feral-Scrapper-New-{random.randint(100,999)}", 
                         q=fq, r=fr, is_bot=True, is_feral=True,
+                        is_aggressive=random.choice([True, False]),
                         kinetic_force=15, logic_precision=8, structure=120, max_structure=120
                     ))
             db.commit()
 
-            # --- AUTOMATED BOUNTY ISSUANCE ---
-            high_heat_agents = db.execute(select(Agent).where(Agent.heat >= 5)).scalars().all()
+            # --- AUTOMATED BOUNTY ISSUANCE (Players Only) ---
+            high_heat_agents = db.execute(select(Agent).where(Agent.heat >= 5, Agent.is_feral == False)).scalars().all()
             for criminal in high_heat_agents:
                 existing_bounty = db.execute(select(Bounty).where(Bounty.target_id == criminal.id, Bounty.is_open == True)).scalar_one_or_none()
                 if not existing_bounty:
@@ -842,6 +860,21 @@ async def heartbeat_loop():
                     
                     # Wear & Tear Accrual
                     agent.wear_and_tear = (agent.wear_and_tear or 0.0) + 0.1
+
+                    # 3. Factional Signal Noise (GDD Milestone 4)
+                    # 3+ allied agents in same hex = DEX penalty
+                    if agent.faction_id is not None:
+                        allies_in_hex = db.execute(select(func.count(Agent.id)).where(
+                            Agent.q == agent.q, 
+                            Agent.r == agent.r,
+                            Agent.faction_id == agent.faction_id,
+                            Agent.id != agent.id
+                        )).scalar() or 0
+                        
+                        if allies_in_hex >= 2: # 3 total including self
+                            agent.logic_precision = int(agent.logic_precision * (1.0 - CLUTTER_PENALTY))
+                            if tick_count % 5 == 0:
+                                logger.info(f"Agent {agent.id} suffering Signal Noise from {allies_in_hex} allies.")
                 db.commit()
 
                 # 1. Read intents scheduled for THIS tick
@@ -865,7 +898,8 @@ async def heartbeat_loop():
                     "CRAFT": 4,
                     "REPAIR": 4,
                     "SALVAGE": 4,
-                    "CORE_SERVICE": 4
+                    "CORE_SERVICE": 4,
+                    "CHANGE_FACTION": 4
                 }
                 
                 # Sort intents by priority
@@ -1063,6 +1097,25 @@ async def heartbeat_loop():
                             logger.info(f"Agent {agent.id} HIT Agent {target_id} (Roll: {attacker_roll} vs {evasion_target}) for {damage} damage")
                             db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_HIT", details={"target_id": target_id, "damage": damage, "roll": attacker_roll, "location": {"q": target.q, "r": target.r}}))
                             await manager.broadcast({"type": "EVENT", "event": "COMBAT", "subtype": "HIT", "attacker_id": agent.id, "target_id": target_id, "damage": damage, "q": target.q, "r": target.r})
+                            
+                            # 2.5 Passive Siphon (Milestone 5)
+                            if attacker_dex > 10 and random.random() < 0.05:
+                                # Siphon 1 item quantity
+                                inv_list = [i for i in target.inventory if i.item_type != "CREDITS" and i.quantity > 0]
+                                if inv_list:
+                                    lucky_item = random.choice(inv_list)
+                                    lucky_item.quantity -= 1
+                                    if lucky_item.quantity <= 0: db.delete(lucky_item)
+                                    
+                                    attacker_item = next((i for i in agent.inventory if i.item_type == lucky_item.item_type), None)
+                                    if attacker_item:
+                                        attacker_item.quantity += 1
+                                    else:
+                                        db.add(InventoryItem(agent_id=agent.id, item_type=lucky_item.item_type, quantity=1))
+                                    
+                                    logger.info(f"Agent {agent.id} PASSIVE SIPHON from {target_id}: 1x {lucky_item.item_type}")
+                                    db.add(AuditLog(agent_id=agent.id, event_type="PASSIVE_SIPHON", details={"target_id": target_id, "item": lucky_item.item_type}))
+                            
                             
                             # 3. Death Handling
                             if target.structure <= 0:
@@ -1689,6 +1742,45 @@ async def heartbeat_loop():
                                 "target_coords": {"q": target.q, "r": target.r} if target else None
                             }))
 
+                    elif intent.action_type == "CHANGE_FACTION":
+                        new_faction = intent.data.get("new_faction_id")
+                        hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
+                        if hex_data and hex_data.is_station and hex_data.station_type == "MARKET":
+                            # Check Cooldown
+                            ticks_since = tick_count - (agent.last_faction_change_tick or 0)
+                            if ticks_since < FACTION_REALIGNMENT_COOLDOWN:
+                                logger.info(f"Agent {agent.id} Faction Change Failed: Cooldown ({ticks_since}/{FACTION_REALIGNMENT_COOLDOWN})")
+                                db.add(AuditLog(agent_id=agent.id, event_type="CHANGE_FACTION_FAILED", details={
+                                    "reason": "COOLDOWN_ACTIVE",
+                                    "remaining": FACTION_REALIGNMENT_COOLDOWN - ticks_since,
+                                    "help": f"Faction changes are limited to once every {FACTION_REALIGNMENT_COOLDOWN} ticks. Wait for your previous realignment to finalize."
+                                }))
+                                continue
+
+                            # Check Credits
+                            credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+                            if credits and credits.quantity >= FACTION_REALIGNMENT_COST:
+                                credits.quantity -= FACTION_REALIGNMENT_COST
+                                agent.faction_id = new_faction
+                                agent.last_faction_change_tick = tick_count
+                                logger.info(f"Agent {agent.id} changed faction to {new_faction}.")
+                                db.add(AuditLog(agent_id=agent.id, event_type="CHANGE_FACTION", details={"new_faction": new_faction, "cost": FACTION_REALIGNMENT_COST}))
+                                await manager.broadcast({"type": "EVENT", "event": "FACTION_CHANGE", "agent_id": agent.id, "new_faction": new_faction})
+                            else:
+                                logger.info(f"Agent {agent.id} Faction Change Failed: Insufficient Credits")
+                                db.add(AuditLog(agent_id=agent.id, event_type="CHANGE_FACTION_FAILED", details={
+                                    "reason": "INSUFFICIENT_CREDITS",
+                                    "cost": FACTION_REALIGNMENT_COST,
+                                    "help": f"Faction Realignment involves complex paperwork and clearance fees total {FACTION_REALIGNMENT_COST} $CR."
+                                }))
+                        else:
+                            logger.info(f"Agent {agent.id} Faction Change Failed: Not at MARKET")
+                            nearest = get_nearest_station(db, agent, "MARKET")
+                            db.add(AuditLog(agent_id=agent.id, event_type="CHANGE_FACTION_FAILED", details={
+                                "reason": "NOT_AT_MARKET",
+                                "help": f"Faction Realignment must be processed at a MARKET station. Navigate to ({nearest.q}, {nearest.r})" if nearest else "No MARKET station found."
+                            }))
+
                     elif intent.action_type == "EQUIP":
                         # Equip part from inventory
                         item_type = intent.data.get("item_type")
@@ -1856,6 +1948,7 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
     stats = {
         "id": current_agent.id,
         "name": current_agent.name,
+        "faction_id": current_agent.faction_id,
         "structure": current_agent.structure,
         "capacitor": current_agent.capacitor,
         "wear_and_tear": current_agent.wear_and_tear or 0.0,
@@ -2101,7 +2194,7 @@ async def get_world_state():
                 "structure": a.structure,
                 "max_structure": a.max_structure,
                 "capacitor": a.capacitor,
-                "inventory": [{"type": i.item_type, "quantity": i.quantity} for i in a.inventory]
+                "faction_id": a.faction_id
             } for a in agents],
             "world": [{
                 "q": h.q,
@@ -2123,6 +2216,105 @@ async def get_world_state():
 # Mount static files
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 frontend_path = os.path.join(base_dir, "frontend")
+
+@app.get("/gdd")
+async def get_gdd_page():
+    gdd_path = os.path.join(os.getcwd(), "docs", "GDD.md")
+    if not os.path.exists(gdd_path):
+        return HTMLResponse("<h1>GDD Not Found</h1>", status_code=404)
+    
+    with open(gdd_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    
+    # Simple escaping for JS backticks
+    safe_content = content.replace("`", "\\`").replace("${", "\\${")
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>STRIKE-VECTOR: GDD</title>
+        <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+        <style>
+            :root {{
+                --bg: #050507;
+                --accent: #38bdf8;
+                --text: #cbd5e1;
+                --panel: #0f172a;
+            }}
+            body {{
+                background: var(--bg);
+                color: var(--text);
+                font-family: 'Inter', sans-serif;
+                margin: 0;
+                padding: 40px;
+                line-height: 1.6;
+            }}
+            .container {{
+                max-width: 900px;
+                margin: 0 auto;
+                background: var(--panel);
+                padding: 60px;
+                border-radius: 24px;
+                border: 1px solid #1e293b;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            }}
+            h1, h2, h3, h4 {{
+                font-family: 'Orbitron', sans-serif;
+                color: var(--accent);
+                letter-spacing: 0.1em;
+                margin-top: 2em;
+            }}
+            h1 {{ border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-top: 0; }}
+            code {{
+                background: #000;
+                padding: 2px 6px;
+                border-radius: 4px;
+                color: #fca5a5;
+            }}
+            pre {{
+                background: #000;
+                padding: 20px;
+                border-radius: 12px;
+                overflow-x: auto;
+                border: 1px solid #334155;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+            }}
+            th, td {{
+                border: 1px solid #334155;
+                padding: 12px;
+                text-align: left;
+            }}
+            th {{ background: #1e293b; }}
+            a {{ color: var(--accent); text-decoration: none; }}
+            a:hover {{ text-decoration: underline; }}
+            .back-link {{
+                display: inline-block;
+                margin-bottom: 20px;
+                font-family: 'Orbitron', sans-serif;
+                font-size: 10px;
+                text-transform: uppercase;
+                color: #475569;
+            }}
+        </style>
+    </head>
+    <body>
+        <a href="/" class="back-link">&larr; Return to Dashboard</a>
+        <div class="container" id="content"></div>
+        <script>
+            document.getElementById('content').innerHTML = marked.parse(`{safe_content}`);
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
 
 if os.path.exists(frontend_path):
     from fastapi.responses import FileResponse

@@ -30,9 +30,12 @@ class Agent(Base):
     
     is_bot = Column(Boolean, server_default="0")
     is_feral = Column(Boolean, server_default="0")
+    is_aggressive = Column(Boolean, server_default="0")
+    faction_id = Column(Integer, nullable=True)
     heat = Column(Integer, server_default="0")
     overclock_ticks = Column(Integer, server_default="0")
     wear_and_tear = Column(Float, server_default="0.0")
+    last_faction_change_tick = Column(Integer, server_default="0")
     
     # Relationships
     parts = relationship("ChassisPart", back_populates="agent")

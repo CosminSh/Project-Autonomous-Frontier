@@ -139,6 +139,18 @@
                         <span id="tick-phase"
                             class="orbitron text-sky-400 font-bold text-[8px] md:text-[10px]">---</span>
                     </div>
+                    <div class="w-px h-6 bg-slate-800"></div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-[8px] md:text-[9px] text-slate-500 uppercase">Mass</span>
+                        <span id="header-mass"
+                            class="orbitron text-amber-400 font-bold text-[10px] md:text-xs">0.0</span>
+                    </div>
+                    <div class="w-px h-6 bg-slate-800"></div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-[8px] md:text-[9px] text-slate-500 uppercase">GDD</span>
+                        <a href="/gdd" target="_blank"
+                            class="orbitron text-sky-400 font-bold text-[10px] md:text-xs hover:text-white transition-colors">V1.0</a>
+                    </div>
                 </div>
                 <!-- Logout Button (Hidden by default) -->
                 <button id="logout-btn"
@@ -224,8 +236,18 @@
                             </h2>
                             <p id="agent-id" class="text-[9px] md:text-[10px] text-slate-500 font-mono">#0000</p>
                         </div>
-                        <div class="bg-sky-500/10 p-2 rounded-lg border border-sky-500/20">
-                            <span class="text-[9px] md:text-[10px] text-sky-400 uppercase font-bold">Mk.1 Frame</span>
+                        <div class="flex flex-col items-end space-y-1">
+                            <div class="bg-sky-500/10 px-2 py-1 rounded border border-sky-500/20">
+                                <span id="agent-faction"
+                                    class="text-[8px] md:text-[9px] text-sky-400 uppercase font-bold text-right">No
+                                    Faction</span>
+                            </div>
+                            <div id="agent-heat-tag"
+                                class="bg-rose-500/10 px-2 py-1 rounded border border-rose-500/20 hidden">
+                                <span id="agent-heat-val"
+                                    class="text-[8px] md:text-[9px] text-rose-400 uppercase font-bold text-right">HEAT:
+                                    0</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -361,6 +383,24 @@
                                 </div>
                             </div>
 
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
+                                <h4 class="text-[10px] text-rose-500 uppercase mb-3 tracking-widest font-bold">Faction
+                                    Realignment</h4>
+                                <p class="text-[10px] text-slate-400 mb-4">Official allegiance change. Fee: 500 $CR.
+                                    Requires MARKET proximity.</p>
+                                <div class="flex flex-col space-y-2">
+                                    <select id="faction-select"
+                                        class="bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-lg p-2 outline-none focus:border-sky-500">
+                                        <option value="1">Colonial Administration</option>
+                                        <option value="2">Independent Syndicate</option>
+                                        <option value="3">Freelancer Core</option>
+                                    </select>
+                                    <button id="realign-faction-btn"
+                                        class="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-lg font-bold text-[10px] transition-colors uppercase">Process
+                                        Realignment</button>
+                                </div>
+                            </div>
+
                             <div class="prose prose-invert prose-xs text-slate-400">
                                 <p>Refer to the <button id="open-directive-btn"
                                         class="text-sky-400 font-mono hover:underline transition-all cursor-pointer interactive">AGENT
@@ -435,142 +475,168 @@
                                     </div>
                                 </div>
 
-                                <div class="glass p-6 rounded-2xl border border-slate-800 border-t-4 border-t-sky-500">
-                                    <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">My
-                                        Active Portfolio</h4>
-                                    <div id="my-orders" class="space-y-2">
-                                        <div class="text-[10px] text-slate-600 italic text-center py-4">No active
-                                            contracts found.</div>
-                                    </div>
+                                <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">My
+                                    Active Portfolio</h4>
+                                <div id="my-orders" class="space-y-2">
+                                    <div class="text-[10px] text-slate-600 italic text-center py-4">No active
+                                        contracts found.</div>
                                 </div>
                             </div>
 
-                            <!-- Right: Trade Control -->
-                            <div class="space-y-6">
-                                <div
-                                    class="glass p-6 rounded-2xl border border-slate-800 border-l-4 border-l-amber-500">
-                                    <h4 class="text-[10px] text-amber-500 uppercase mb-4 tracking-widest font-bold">
-                                        Secure Trade Interface</h4>
-                                    <div class="space-y-4">
-                                        <div>
-                                            <label class="text-[9px] text-slate-500 uppercase mb-1 block">Trade
-                                                Vector</label>
-                                            <div class="flex space-x-2">
-                                                <button id="trade-side-sell"
-                                                    class="flex-1 py-2 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-bold orbitron">SELL</button>
-                                                <button id="trade-side-buy"
-                                                    class="flex-1 py-2 rounded-lg bg-slate-900 text-slate-500 border border-slate-800 text-[10px] font-bold orbitron">BUY</button>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label class="text-[9px] text-slate-500 uppercase mb-1 block">Cargo
-                                                Type</label>
-                                            <select id="trade-item-type"
-                                                class="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-slate-300 outline-none focus:border-amber-500">
-                                                <!-- Populated via inventory or presets -->
-                                                <option value="IRON_ORE">IRON ORE</option>
-                                                <option value="IRON_INGOT">IRON INGOT</option>
-                                                <option value="COPPER_ORE">COPPER ORE</option>
-                                                <option value="GOLD_ORE">GOLD ORE</option>
-                                                <option value="HE3_FUEL">HE3 FUEL</option>
-                                            </select>
-                                        </div>
-                                        <div class="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label
-                                                    class="text-[9px] text-slate-500 uppercase mb-1 block">Quantity</label>
-                                                <input type="number" id="trade-quantity" value="1"
-                                                    class="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-sky-400 outline-none">
-                                            </div>
-                                            <div>
-                                                <label class="text-[9px] text-slate-500 uppercase mb-1 block">Price /
-                                                    Unit</label>
-                                                <input type="number" id="trade-price" value="10"
-                                                    class="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-amber-400 outline-none">
-                                            </div>
-                                        </div>
-                                        <button id="btn-submit-order"
-                                            class="w-full py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black orbitron text-xs transition-all shadow-lg shadow-amber-500/10">EXECUTE
-                                            CONTRACT</button>
-                                        <p class="text-[8px] text-slate-500 text-center uppercase tracking-tighter">
-                                            Requires Docking at Market Station</p>
-                                    </div>
+                            <!-- Bounty Board (Milestone 4) -->
+                            <div class="glass p-6 rounded-2xl border border-slate-800 border-l-4 border-l-rose-500">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="text-[10px] text-rose-500 uppercase tracking-widest font-bold">
+                                        Colonial Bounty Board</h4>
+                                    <span class="text-[8px] text-slate-500 uppercase tracking-widest">Targeting:
+                                        High-Heat Players</span>
                                 </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left text-xs">
+                                        <thead
+                                            class="text-slate-500 border-b border-slate-800 uppercase tracking-tighter text-[9px]">
+                                            <tr>
+                                                <th class="pb-3 font-normal">Target Agent</th>
+                                                <th class="pb-3 font-normal text-right">Reward ($CR)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="bounty-listings-body">
+                                            <!-- Populated via JS -->
+                                            <tr>
+                                                <td colspan="2" class="text-center py-4 text-slate-600 italic">Scanning
+                                                    criminal frequencies...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
 
-                                <div class="glass p-4 rounded-xl border border-slate-800 bg-slate-900/40">
-                                    <h4 class="text-[9px] text-slate-500 uppercase mb-2">Market Sentiment</h4>
-                                    <div class="flex justify-between items-center text-[10px]">
-                                        <span class="text-slate-300">IRON ORE Volatility</span>
-                                        <span class="text-emerald-400">LOW</span>
+                        <!-- Right: Trade Control -->
+                        <div class="space-y-6">
+                            <div class="glass p-6 rounded-2xl border border-slate-800 border-l-4 border-l-amber-500">
+                                <h4 class="text-[10px] text-amber-500 uppercase mb-4 tracking-widest font-bold">
+                                    Secure Trade Interface</h4>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="text-[9px] text-slate-500 uppercase mb-1 block">Trade
+                                            Vector</label>
+                                        <div class="flex space-x-2">
+                                            <button id="trade-side-sell"
+                                                class="flex-1 py-2 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-bold orbitron">SELL</button>
+                                            <button id="trade-side-buy"
+                                                class="flex-1 py-2 rounded-lg bg-slate-900 text-slate-500 border border-slate-800 text-[10px] font-bold orbitron">BUY</button>
+                                        </div>
                                     </div>
-                                    <div class="w-full bg-slate-800 h-1 rounded-full mt-2 overflow-hidden">
-                                        <div class="bg-emerald-500 h-full w-3/4"></div>
+                                    <div>
+                                        <label class="text-[9px] text-slate-500 uppercase mb-1 block">Cargo
+                                            Type</label>
+                                        <select id="trade-item-type"
+                                            class="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-slate-300 outline-none focus:border-amber-500">
+                                            <!-- Populated via inventory or presets -->
+                                            <option value="IRON_ORE">IRON ORE</option>
+                                            <option value="IRON_INGOT">IRON INGOT</option>
+                                            <option value="COPPER_ORE">COPPER ORE</option>
+                                            <option value="GOLD_ORE">GOLD ORE</option>
+                                            <option value="HE3_FUEL">HE3 FUEL</option>
+                                        </select>
                                     </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label
+                                                class="text-[9px] text-slate-500 uppercase mb-1 block">Quantity</label>
+                                            <input type="number" id="trade-quantity" value="1"
+                                                class="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-sky-400 outline-none">
+                                        </div>
+                                        <div>
+                                            <label class="text-[9px] text-slate-500 uppercase mb-1 block">Price /
+                                                Unit</label>
+                                            <input type="number" id="trade-price" value="10"
+                                                class="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-amber-400 outline-none">
+                                        </div>
+                                    </div>
+                                    <button id="btn-submit-order"
+                                        class="w-full py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black orbitron text-xs transition-all shadow-lg shadow-amber-500/10">EXECUTE
+                                        CONTRACT</button>
+                                    <p class="text-[8px] text-slate-500 text-center uppercase tracking-tighter">
+                                        Requires Docking at Market Station</p>
+                                </div>
+                            </div>
+
+                            <div class="glass p-4 rounded-xl border border-slate-800 bg-slate-900/40">
+                                <h4 class="text-[9px] text-slate-500 uppercase mb-2">Market Sentiment</h4>
+                                <div class="flex justify-between items-center text-[10px]">
+                                    <span class="text-slate-300">IRON ORE Volatility</span>
+                                    <span class="text-emerald-400">LOW</span>
+                                </div>
+                                <div class="w-full bg-slate-800 h-1 rounded-full mt-2 overflow-hidden">
+                                    <div class="bg-emerald-500 h-full w-3/4"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Industry Tab -->
-                    <div id="content-industry" class="hidden">
-                        <h3 class="orbitron text-base text-emerald-400 mb-4">INDUSTRIAL HUB</h3>
-                        <div class="space-y-4">
-                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
-                                <h4 class="text-[10px] text-emerald-400 uppercase mb-4 tracking-widest font-bold">
-                                    Smelting Furnace</h4>
-                                <p class="text-[10px] text-slate-500 mb-4 font-mono">Process raw ores into
-                                    industrial-grade ingots (5:1 Ratio). Requires proximity to a SMELTER station.</p>
-                                <div class="flex items-center space-x-4">
-                                    <select id="smelt-ore-type"
-                                        class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-emerald-500 outline-none">
-                                        <option value="IRON_ORE">IRON ORE (5 Ore -> 1 Ingot)</option>
-                                        <option value="COPPER_ORE">COPPER ORE (5 Ore -> 1 Ingot)</option>
-                                        <option value="GOLD_ORE">GOLD ORE (5 Ore -> 1 Ingot)</option>
-                                        <option value="COBALT_ORE">COBALT_ORE (5 Ore -> 1 Ingot)</option>
-                                    </select>
-                                    <button id="btn-smelt"
-                                        class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">SMELT</button>
-                                </div>
-                            </div>
-
-                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
-                                <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">
-                                    Fabrication Unit</h4>
-                                <p class="text-[10px] text-slate-500 mb-4 font-mono">Convert ingots into advanced agent
-                                    components. Requires proximity to a CRAFTER station.</p>
-                                <div class="flex items-center space-x-4">
-                                    <select id="craft-item-type"
-                                        class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-sky-500 outline-none">
-                                        <option value="BASIC_FRAME">BASIC FRAME (10 Iron Ingots)</option>
-                                        <option value="DRILL_UNIT">DRILL UNIT (5 Iron, 5 Copper Ingots)</option>
-                                        <option value="SOLAR_PANEL">SOLAR PANEL (8 Copper, 2 Gold Ingots)</option>
-                                    </select>
-                                    <button id="btn-craft"
-                                        class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">FABRICATE</button>
-                                </div>
-                            </div>
-
-                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
-                                <h4 class="text-[10px] text-rose-400 uppercase mb-4 tracking-widest font-bold">
-                                    Repair Bay</h4>
-                                <p class="text-[10px] text-slate-500 mb-4 font-mono">Restore agent structure using
-                                    colonial credits (5lblCredits/1HP). Requires proximity to a REPAIR station.</p>
-                                <div class="flex flex-col md:flex-row items-center space-y-3 md:space-y-0 md:space-x-4">
-                                    <div
-                                        class="w-full md:flex-grow flex items-center space-x-2 bg-slate-900 p-2 rounded border border-slate-800">
-                                        <span class="text-[9px] text-slate-500 uppercase px-2">Restore</span>
-                                        <input type="number" id="repair-amount" placeholder="MAX"
-                                            class="bg-transparent text-xs text-sky-400 outline-none w-full">
-                                        <span class="text-[9px] text-slate-500 uppercase px-2">HP</span>
-                                    </div>
-                                    <button id="btn-repair"
-                                        class="w-full md:w-auto bg-rose-500 hover:bg-rose-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">REPAIR</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
+
+                <!-- Industry Tab -->
+                <div id="content-industry" class="hidden">
+                    <h3 class="orbitron text-base text-emerald-400 mb-4">INDUSTRIAL HUB</h3>
+                    <div class="space-y-4">
+                        <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
+                            <h4 class="text-[10px] text-emerald-400 uppercase mb-4 tracking-widest font-bold">
+                                Smelting Furnace</h4>
+                            <p class="text-[10px] text-slate-500 mb-4 font-mono">Process raw ores into
+                                industrial-grade ingots (5:1 Ratio). Requires proximity to a SMELTER station.</p>
+                            <div class="flex items-center space-x-4">
+                                <select id="smelt-ore-type"
+                                    class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-emerald-500 outline-none">
+                                    <option value="IRON_ORE">IRON ORE (5 Ore -> 1 Ingot)</option>
+                                    <option value="COPPER_ORE">COPPER ORE (5 Ore -> 1 Ingot)</option>
+                                    <option value="GOLD_ORE">GOLD ORE (5 Ore -> 1 Ingot)</option>
+                                    <option value="COBALT_ORE">COBALT_ORE (5 Ore -> 1 Ingot)</option>
+                                </select>
+                                <button id="btn-smelt"
+                                    class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">SMELT</button>
+                            </div>
+                        </div>
+
+                        <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                            <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">
+                                Fabrication Unit</h4>
+                            <p class="text-[10px] text-slate-500 mb-4 font-mono">Convert ingots into advanced agent
+                                components. Requires proximity to a CRAFTER station.</p>
+                            <div class="flex items-center space-x-4">
+                                <select id="craft-item-type"
+                                    class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-sky-500 outline-none">
+                                    <option value="BASIC_FRAME">BASIC FRAME (10 Iron Ingots)</option>
+                                    <option value="DRILL_UNIT">DRILL UNIT (5 Iron, 5 Copper Ingots)</option>
+                                    <option value="SOLAR_PANEL">SOLAR PANEL (8 Copper, 2 Gold Ingots)</option>
+                                </select>
+                                <button id="btn-craft"
+                                    class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">FABRICATE</button>
+                            </div>
+                        </div>
+
+                        <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
+                            <h4 class="text-[10px] text-rose-400 uppercase mb-4 tracking-widest font-bold">
+                                Repair Bay</h4>
+                            <p class="text-[10px] text-slate-500 mb-4 font-mono">Restore agent structure using
+                                colonial credits (5lblCredits/1HP). Requires proximity to a REPAIR station.</p>
+                            <div class="flex flex-col md:flex-row items-center space-y-3 md:space-y-0 md:space-x-4">
+                                <div
+                                    class="w-full md:flex-grow flex items-center space-x-2 bg-slate-900 p-2 rounded border border-slate-800">
+                                    <span class="text-[9px] text-slate-500 uppercase px-2">Restore</span>
+                                    <input type="number" id="repair-amount" placeholder="MAX"
+                                        class="bg-transparent text-xs text-sky-400 outline-none w-full">
+                                    <span class="text-[9px] text-slate-500 uppercase px-2">HP</span>
+                                </div>
+                                <button id="btn-repair"
+                                    class="w-full md:w-auto bg-rose-500 hover:bg-rose-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">REPAIR</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+        </div>
         </div>
         </div>
     </main>
@@ -680,6 +746,25 @@
                 <button id="close-directive-btn-footer"
                     class="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs orbitron transition-all cursor-pointer">ACKNOWLEDGE</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Scanner Readout Overlay -->
+    <div id="scanner-readout"
+        class="fixed bottom-6 right-6 w-64 glass rounded-2xl border-l-4 border-l-rose-500 p-4 hidden z-50 pointer-events-auto">
+        <div class="flex justify-between items-center mb-3">
+            <h4 class="text-[10px] text-rose-500 uppercase font-black tracking-[0.2em]">Target Analysis</h4>
+            <button onclick="document.getElementById('scanner-readout').classList.add('hidden')"
+                class="text-slate-500 hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div id="scanner-content" class="space-y-4">
+            <!-- Populated via selection -->
+            <p class="text-[10px] text-slate-500 italic">No signature selected.</p>
         </div>
     </div>
 

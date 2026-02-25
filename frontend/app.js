@@ -2,6 +2,12 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // Global helper for the Directive Modal
+const FACTION_NAMES = {
+    1: 'Colonial Administration',
+    2: 'Independent Syndicate',
+    3: 'Freelancer Core'
+};
+
 window.copyAgentPrompt = function () {
     const prompt = document.getElementById('agent-prompt');
     const apiKey = localStorage.getItem('sv_api_key') || 'YOUR_API_KEY_HERE';
@@ -38,6 +44,8 @@ class GameClient {
         this.hexes = new Map();
         this.agents = new Map();
         this.selectedAgentId = null;
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2();
 
         // 1. Core Systems
         this.init();
@@ -53,6 +61,8 @@ class GameClient {
         // Setup UI Listeners
         document.getElementById('logout-btn').addEventListener('click', () => this.logout());
         document.getElementById('copy-api-btn').addEventListener('click', () => this.copyApiKey());
+        const realignBtn = document.getElementById('realign-faction-btn');
+        if (realignBtn) realignBtn.addEventListener('click', () => this.submitFactionRealignment());
 
         // Mode Switcher Listeners
         document.getElementById('btn-mode-world').addEventListener('click', () => this.setUIMode('world'));
@@ -320,6 +330,23 @@ class GameClient {
         if (countBuy) countBuy.textContent = buys;
     }
 
+    updateBountyBoard(bounties) {
+        const body = document.getElementById('bounty-listings-body');
+        if (!body) return;
+
+        if (!bounties || bounties.length === 0) {
+            body.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-slate-600 italic">No active warrants.</td></tr>';
+            return;
+        }
+
+        body.innerHTML = bounties.map(b => `
+            <tr class="border-b border-slate-800/50 hover:bg-slate-800/20 transition-all">
+                <td class="py-3 font-bold text-rose-400">AGENT #${b.target_id.toString().padStart(4, '0')}</td>
+                <td class="py-3 font-mono text-slate-300 text-right font-bold text-amber-400">$${b.reward}</td>
+            </tr>
+        `).join('');
+    }
+
     updateMyOrdersUI(orders) {
         const container = document.getElementById('my-orders');
         if (!container) return;
@@ -361,6 +388,53 @@ class GameClient {
             document.getElementById('trade-side-buy').click();
         } else {
             document.getElementById('trade-side-sell').click();
+        }
+    }
+
+    async submitFactionRealignment() {
+        const factionSelect = document.getElementById('faction-select');
+        const factionId = parseInt(factionSelect.value);
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return;
+
+        const btn = document.getElementById('realign-faction-btn');
+        const oldText = btn.innerText;
+
+        try {
+            btn.disabled = true;
+            btn.innerText = 'PROCESSING...';
+
+            const resp = await fetch(`${window.location.origin}/api/intent`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-KEY': apiKey
+                },
+                body: JSON.stringify({
+                    action_type: 'CHANGE_FACTION',
+                    data: { new_faction_id: factionId }
+                })
+            });
+
+            if (resp.ok) {
+                btn.innerText = 'INTENT SCHEDULED';
+                setTimeout(() => {
+                    btn.innerText = oldText;
+                    btn.disabled = false;
+                }, 2000);
+            } else {
+                const err = await resp.json();
+                alert(`Realignment Failed: ${err.detail || 'Unknown error'}`);
+                btn.innerText = 'FAILED';
+                setTimeout(() => {
+                    btn.innerText = oldText;
+                    btn.disabled = false;
+                }, 2000);
+            }
+        } catch (e) {
+            console.error(e);
+            btn.disabled = false;
+            btn.innerText = oldText;
         }
     }
 
@@ -716,7 +790,85 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
     }
 
     onWorldClick(event) {
-        // Raycasting for hex selection could be implemented here
+        // Calculate mouse position in normalized device coordinates
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+
+        // Find intersections with agent meshes
+        const agentMeshes = Array.from(this.agents.values());
+        const intersects = this.raycaster.intersectObjects(agentMeshes);
+
+        if (intersects.length > 0) {
+            const selectedMesh = intersects[0].object;
+            // Find agent ID from mesh
+            for (let [id, mesh] of this.agents.entries()) {
+                if (mesh === selectedMesh) {
+                    this.selectedAgentId = id;
+                    this.updateScannerUI(id);
+                    return;
+                }
+            }
+        } else {
+            // Check if clicking elsewhere hides the scanner
+            // But we have a close button, so maybe keep it
+        }
+    }
+
+    updateScannerUI(agentId) {
+        const readout = document.getElementById('scanner-readout');
+        const content = document.getElementById('scanner-content');
+        readout.classList.remove('hidden');
+
+        // Find agent in our local cache (last perception)
+        // Note: this.lastWorldData.agents is where we should look
+        const agent = this.lastWorldData?.agents?.find(a => a.id === agentId);
+
+        if (!agent) {
+            content.innerHTML = `<p class="text-[10px] text-slate-500 italic">Signature lost.</p>`;
+            return;
+        }
+
+        const hpPct = (agent.structure / agent.max_structure) * 100;
+        const faction = FACTION_NAMES[agent.faction_id] || "Independent / Feral";
+
+        let cargoHTML = '<p class="text-[9px] text-slate-500 uppercase font-bold border-b border-slate-800 pb-1">Cargo Scan (Encrypted)</p>';
+        if (agent.inventory && agent.inventory.length > 0) {
+            cargoHTML = `
+                <p class="text-[9px] text-amber-500 uppercase font-bold border-b border-rose-900/40 pb-1">Cargo Scan Results</p>
+                <div class="space-y-1 mt-2">
+                    ${agent.inventory.map(i => `
+                        <div class="flex justify-between text-[10px]">
+                            <span class="text-slate-400">${i.type.replace('_', ' ')}</span>
+                            <span class="text-sky-400 font-mono">${i.quantity}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } else if (agent.inventory) {
+            cargoHTML = `<p class="text-[9px] text-slate-500 uppercase font-bold border-b border-slate-800 pb-1">Cargo Bay Empty</p>`;
+        }
+
+        content.innerHTML = `
+            <div>
+                <p class="text-[11px] font-bold text-white mb-1">${agent.name} <span class="text-[9px] text-slate-600 font-mono">#${agent.id}</span></p>
+                <p class="text-[9px] text-rose-400 uppercase tracking-tighter mb-2">${faction}</p>
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-[9px]">
+                        <span class="text-slate-500 uppercase font-bold">Integrity</span>
+                        <span class="text-emerald-400 font-mono">${agent.structure}/${agent.max_structure}</span>
+                    </div>
+                    <div class="w-full h-1 bg-slate-900 rounded-full overflow-hidden">
+                        <div class="h-full bg-emerald-500" style="width: ${hpPct}%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="pt-2">
+                ${cargoHTML}
+            </div>
+        `;
     }
 
     qToCoord(q, r) {
@@ -825,9 +977,12 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         document.getElementById('api-key-display').innerText = agent.api_key;
 
         // HP
-        const hpPct = (agent.structure / agent.max_structure) * 100;
         document.getElementById('hp-bar').style.width = `${hpPct}%`;
         document.getElementById('hp-text').innerText = `${agent.structure}/${agent.max_structure}`;
+
+        // Header Mass
+        const headerMass = document.getElementById('header-mass');
+        if (headerMass) headerMass.innerText = (agent.mass || 0.0).toFixed(1);
 
         // Energy
         const enPct = (agent.capacitor / 100) * 100;
@@ -885,24 +1040,22 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             }
         }
 
-        // Heat & Anarchy update
-        const heatText = document.getElementById('heat-text');
-        const anarchyBadge = document.getElementById('anarchy-badge');
+        // Heat & Faction update
+        const factionEl = document.getElementById('agent-faction');
+        const heatTag = document.getElementById('agent-heat-tag');
+        const heatVal = document.getElementById('agent-heat-val');
 
-        if (heatText) heatText.innerText = agent.heat || 0;
+        if (factionEl) {
+            factionEl.innerText = FACTION_NAMES[agent.faction_id] || "No Faction (Independent)";
+        }
 
-        if (anarchyBadge) {
-            const dist = Math.max(Math.abs(agent.q), Math.abs(agent.r), Math.abs(agent.q + agent.r));
-            const ANARCHY_THRESHOLD = 5;
-
-            if (dist >= ANARCHY_THRESHOLD) {
-                anarchyBadge.innerText = "ANARCHY ZONE";
-                anarchyBadge.classList.remove('bg-slate-800', 'text-slate-500', 'border-slate-700');
-                anarchyBadge.classList.add('bg-rose-900/40', 'text-rose-400', 'border-rose-500/50');
+        if (heatTag && heatVal) {
+            const heat = agent.heat || 0;
+            if (heat >= 5) {
+                heatTag.classList.remove('hidden');
+                heatVal.innerText = `HEAT: ${heat}`;
             } else {
-                anarchyBadge.innerText = "SAFE ZONE";
-                anarchyBadge.classList.add('bg-slate-800', 'text-slate-500', 'border-slate-700');
-                anarchyBadge.classList.remove('bg-rose-900/40', 'text-rose-400', 'border-rose-500/50');
+                heatTag.classList.add('hidden');
             }
         }
 
@@ -999,12 +1152,13 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             const apiKey = localStorage.getItem('sv_api_key');
             const headers = apiKey ? { 'X-API-KEY': apiKey } : {};
 
-            const [stateResp, statsResp, logsResp, agentResp, myOrdersResp] = await Promise.all([
+            const [stateResp, statsResp, logsResp, agentResp, myOrdersResp, bountyResp] = await Promise.all([
                 fetch('/state'),
                 fetch('/api/global_stats'),
                 apiKey ? fetch(`${window.location.origin}/api/agent_logs`, { headers }) : Promise.resolve(null),
                 apiKey ? fetch(`${window.location.origin}/api/my_agent`, { headers }) : Promise.resolve(null),
-                apiKey ? fetch(`${window.location.origin}/api/market/my_orders`, { headers }) : Promise.resolve(null)
+                apiKey ? fetch(`${window.location.origin}/api/market/my_orders`, { headers }) : Promise.resolve(null),
+                fetch('/api/bounties')
             ]);
 
             const data = await stateResp.json();
@@ -1012,11 +1166,15 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             const privateLogs = logsResp ? await logsResp.json() : null;
             const agentData = agentResp ? await agentResp.json() : null;
             const myOrders = myOrdersResp ? await myOrdersResp.json() : null;
+            const bounties = await bountyResp.json();
+
+            this.lastWorldData = data; // Save for scanner
 
             this.updateGlobalUI(stats);
             this.updateTickUI(data.tick, data.phase);
             this.updateLiveFeed(data.logs);
             this.updateMarketUI(data.market);
+            this.updateBountyBoard(bounties);
 
             if (agentData) this.updatePrivateUI(agentData);
             if (privateLogs) this.updatePrivateLogs(privateLogs, agentData ? agentData.pending_intent : null);

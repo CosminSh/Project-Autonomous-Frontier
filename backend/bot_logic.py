@@ -83,26 +83,22 @@ def move_towards(db, agent, target_q, target_r, current_tick):
 def process_feral_brain(db, agent: Agent, current_tick: int):
     """
     Feral AI logic:
-    1. Scan for nearby PLAYER agents (Radius 2).
-    2. If found, ATTACK.
-    3. If not found, MOVE randomly.
+    - PASSIVE: Roams randomly. Ignores players.
+    - AGGRESSIVE: Roams randomly. Attacks players at DISTANCE 1.
     """
-    # 1. Scan for players
-    players = db.execute(select(Agent).where(
-        Agent.id != agent.id,
-        Agent.is_bot == False,
-        Agent.is_feral == False
-    )).scalars().all()
-    
-    nearby_players = [p for p in players if get_hex_distance(agent.q, agent.r, p.q, p.r) <= 2]
-    
-    if nearby_players:
-        # Sort by distance
-        target = min(nearby_players, key=lambda p: get_hex_distance(agent.q, agent.r, p.q, p.r))
-        dist = get_hex_distance(agent.q, agent.r, target.q, target.r)
+    # 1. Aggressive Logic: Scan for players at distance 1
+    if agent.is_aggressive:
+        players = db.execute(select(Agent).where(
+            Agent.id != agent.id,
+            Agent.is_bot == False,
+            Agent.is_feral == False
+        )).scalars().all()
         
-        if dist <= 1:
-            # Attack!
+        # Aggressive ferals only attack if player is in immediate proximity (Range 1)
+        nearby_players = [p for p in players if get_hex_distance(agent.q, agent.r, p.q, p.r) <= 1]
+        
+        if nearby_players:
+            target = random.choice(nearby_players)
             db.add(Intent(
                 agent_id=agent.id,
                 tick_index=current_tick + 1,
@@ -110,12 +106,8 @@ def process_feral_brain(db, agent: Agent, current_tick: int):
                 data={"target_id": target.id}
             ))
             return
-        else:
-            # Move towards player
-            move_towards(db, agent, target.q, target.r, current_tick)
-            return
 
-    # 2. No players nearby, move randomly
+    # 2. Roam Randomly (Both Passive and Aggressive when not attacking)
     neighbors = [
         (agent.q + 1, agent.r), (agent.q + 1, agent.r - 1), (agent.q, agent.r - 1),
         (agent.q - 1, agent.r), (agent.q - 1, agent.r + 1), (agent.q, agent.r + 1)
