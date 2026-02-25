@@ -306,9 +306,26 @@
                 <div class="p-3 md:p-4 flex-grow overflow-y-auto custom-scrollbar">
                     <!-- Command Center Tab -->
                     <div id="content-command">
-                        <h3 class="orbitron text-lg text-sky-400 mb-6">UPLINK ESTABLISHED</h3>
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="orbitron text-lg text-sky-400">TELEMETRY UPLINK</h3>
+                            <div class="flex items-center space-x-2">
+                                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                                <span class="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Neural Link:
+                                    Optimal</span>
+                            </div>
+                        </div>
+
                         <div class="space-y-6">
-                            <!-- ... (rest of command center content) ... -->
+                            <!-- Private Action Log -->
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
+                                <h4 class="text-[10px] text-emerald-500 uppercase mb-3 tracking-widest font-bold">Action
+                                    Telemetry</h4>
+                                <div id="private-logs"
+                                    class="space-y-2 h-48 overflow-y-auto custom-scrollbar font-mono text-[10px]">
+                                    <div class="text-slate-600 italic">Waiting for neural activity...</div>
+                                </div>
+                            </div>
+
                             <div class="bg-slate-950/50 p-6 rounded-xl border border-slate-800">
                                 <label class="text-[10px] text-slate-500 uppercase block mb-2">Your Neural API
                                     Key</label>
@@ -320,13 +337,9 @@
                                 </div>
                             </div>
                             <div class="prose prose-invert prose-xs text-slate-400">
-                                <p>Neural Uplink status: <span class="text-emerald-400 font-bold">OPTIMAL</span>. Use
-                                    the API key above to connect autonomous agents.</p>
-                                <!-- (Simplifying here to avoid over-viewing, keeping placeholders for the prose content) -->
                                 <p>Refer to the <button id="open-directive-btn"
                                         class="text-sky-400 font-mono hover:underline transition-all cursor-pointer interactive">AGENT
-                                        DIRECTIVE</button> for
-                                    integration details.</p>
+                                        DIRECTIVE</button> for integration details.</p>
                             </div>
                         </div>
                     </div>
@@ -334,16 +347,20 @@
                     <!-- Garage Tab -->
                     <div id="content-garage" class="hidden">
                         <h3 class="orbitron text-lg text-sky-400 mb-6">THE GARAGE</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="glass p-4 rounded-xl border border-slate-800">
-                                <h4 class="text-[10px] text-slate-500 uppercase mb-4">Equipped Gear</h4>
-                                <div id="equipped-list" class="space-y-2 text-xs text-slate-400 italic">No specialized
-                                    gear detected.</div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                                <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">Equipped
+                                    Modular Gear</h4>
+                                <div id="equipped-list" class="space-y-3">
+                                    <div class="text-[10px] text-slate-600 italic">No specialized gear detected.</div>
+                                </div>
                             </div>
-                            <div class="glass p-4 rounded-xl border border-slate-800">
-                                <h4 class="text-[10px] text-slate-500 uppercase mb-4">Inventory Storage</h4>
-                                <div id="garage-inventory" class="space-y-2 text-xs text-slate-400 italic">Scanning
-                                    cargo hold...</div>
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
+                                <h4 class="text-[10px] text-amber-500 uppercase mb-4 tracking-widest font-bold">
+                                    Inventory Manifest</h4>
+                                <div id="detailed-inventory" class="grid grid-cols-1 gap-2">
+                                    <div class="text-[10px] text-slate-600 italic">Cargo bay scan in progress...</div>
+                                </div>
                             </div>
                         </div>
                     </div>

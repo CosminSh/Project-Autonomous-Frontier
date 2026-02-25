@@ -155,7 +155,7 @@ class GameClient {
         const feedEl = document.getElementById('live-feed');
         if (!feedEl) return;
 
-        // Clear and redraw (for MVP simplicity, we could also just append new ones)
+        // Clear and redraw
         feedEl.innerHTML = '';
         logs.forEach(log => {
             const entry = document.createElement('div');
@@ -177,17 +177,48 @@ class GameClient {
             `;
             feedEl.appendChild(entry);
         });
+    }
 
-        // Trigger Visual Effects for new logs
+    updatePrivateLogs(logs, pendingIntent) {
+        if (!logs) return;
+        const logEl = document.getElementById('private-logs');
+        if (!logEl) return;
+
+        logEl.innerHTML = '';
+
+        // Add Pending Intent if exists
+        if (pendingIntent) {
+            const pendingEntry = document.createElement('div');
+            pendingEntry.className = `border-b border-sky-500/30 pb-2 mb-2 flex flex-col bg-sky-500/5 p-2 rounded-lg border border-sky-500/10`;
+            pendingEntry.innerHTML = `
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-sky-400 font-bold uppercase tracking-widest text-[8px]">Next scheduled Action</span>
+                    <span class="text-[8px] text-slate-500 animate-pulse">PENDING RESOLUTION</span>
+                </div>
+                <div class="flex space-x-2 text-sky-300">
+                    <span class="font-bold flex-shrink-0">${pendingIntent.action}</span>
+                    <span class="truncate">${JSON.stringify(pendingIntent.data)}</span>
+                </div>
+            `;
+            logEl.appendChild(pendingEntry);
+        }
+
         logs.forEach(log => {
-            if (log.details && log.details.location) {
-                const { q, r } = log.details.location;
-                if (log.event === 'MINING') this.triggerVisualEffect(q, r, 0x00ff88); // Emerald
-            }
-            if (log.event === 'COMBAT_HIT' && log.details.target_id) {
-                // Find target location if possible, or just use attacker
-                // For simplicity, let's just use the event data if it has q,r
-            }
+            const entry = document.createElement('div');
+            const time = new Date(log.time).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            let color = 'text-slate-400';
+            if (log.event === 'COMBAT_HIT') color = 'text-rose-400';
+            if (log.event === 'MINING') color = 'text-emerald-400';
+            if (log.details && log.details.status === 'success') color = 'text-sky-400';
+
+            entry.className = `border-b border-slate-900/50 pb-1 flex space-x-2 ${color}`;
+            entry.innerHTML = `
+                <span class="text-slate-700 font-mono">[${time}]</span>
+                <span class="font-bold flex-shrink-0">${log.event}</span>
+                <span class="truncate">${JSON.stringify(log.details)}</span>
+            `;
+            logEl.appendChild(entry);
         });
     }
 
@@ -763,15 +794,66 @@ SYNC STATUS: Neural link active.
         }
 
         const invList = document.getElementById('inventory-list');
-        if (!agent.inventory || agent.inventory.length === 0) {
-            invList.innerHTML = '<p class="text-[10px] text-slate-600 italic">No cargo bay activity.</p>';
-        } else {
-            invList.innerHTML = agent.inventory.map(i => `
-                <div class="flex justify-between items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800">
-                    <span class="text-[10px] uppercase tracking-tight text-slate-300 font-semibold">${i.type.replace('_', ' ')}</span>
-                    <span class="orbitron text-sky-400 text-[10px]">${i.quantity}</span>
-                </div>
-            `).join('');
+        if (invList) {
+            if (!agent.inventory || agent.inventory.length === 0) {
+                invList.innerHTML = '<p class="text-[10px] text-slate-600 italic">No cargo bay activity.</p>';
+            } else {
+                invList.innerHTML = agent.inventory.map(i => `
+                    <div class="flex justify-between items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                        <span class="text-[10px] uppercase tracking-tight text-slate-300 font-semibold">${i.type.replace('_', ' ')}</span>
+                        <span class="orbitron text-sky-400 text-[10px]">${i.quantity}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Detailed Manifest in Garage
+        const detailedInv = document.getElementById('detailed-inventory');
+        if (detailedInv) {
+            if (!agent.inventory || agent.inventory.length === 0) {
+                detailedInv.innerHTML = '<div class="text-[10px] text-slate-600 italic">No inventory items found.</div>';
+            } else {
+                detailedInv.innerHTML = agent.inventory.map(i => `
+                    <div class="flex justify-between items-center bg-slate-900/40 p-3 rounded-xl border border-slate-800 hover:border-slate-700 transition-all">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700">
+                                <span class="text-sky-400 text-xs">📦</span>
+                            </div>
+                            <div>
+                                <div class="text-[10px] font-bold text-slate-200 uppercase">${i.type.replace('_', ' ')}</div>
+                                <div class="text-[8px] text-slate-500 uppercase tracking-widest">Resource Stored</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="orbitron text-sky-400 text-xs">${i.quantity}</div>
+                            <div class="text-[8px] text-slate-600 uppercase">UNITS</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Garage Parts
+        const garageParts = document.getElementById('equipped-list');
+        if (garageParts) {
+            if (!agent.parts || agent.parts.length === 0) {
+                garageParts.innerHTML = '<div class="text-[10px] text-slate-600 italic">No specialized gear detected.</div>';
+            } else {
+                garageParts.innerHTML = agent.parts.map(p => `
+                    <div class="flex justify-between items-center bg-sky-500/5 p-3 rounded-xl border border-sky-500/20">
+                        <div class="flex items-center space-x-3">
+                            <div class="text-sky-400 text-sm">⚙️</div>
+                            <div>
+                                <div class="text-[10px] font-bold text-sky-300 uppercase">${p.name}</div>
+                                <div class="text-[8px] text-sky-500/50 uppercase tracking-widest">${p.type}</div>
+                            </div>
+                        </div>
+                        <div class="text-[8px] font-mono text-sky-500/70">
+                            ${JSON.stringify(p.stats)}
+                        </div>
+                    </div>
+                `).join('');
+            }
         }
     }
 
@@ -781,20 +863,24 @@ SYNC STATUS: Neural link active.
             const apiKey = localStorage.getItem('sv_api_key');
             const headers = apiKey ? { 'X-API-KEY': apiKey } : {};
 
-            const [stateResp, statsResp] = await Promise.all([
+            const [stateResp, statsResp, logsResp, agentResp] = await Promise.all([
                 fetch('/state'),
-                fetch('/api/global_stats')
+                fetch('/api/global_stats'),
+                apiKey ? fetch(`${window.location.origin}/api/agent_logs`, { headers }) : Promise.resolve(null),
+                apiKey ? fetch(`${window.location.origin}/api/my_agent`, { headers }) : Promise.resolve(null)
             ]);
 
             const data = await stateResp.json();
             const stats = await statsResp.json();
+            const privateLogs = logsResp ? await logsResp.json() : null;
+            const agentData = agentResp ? await agentResp.json() : null;
 
             this.updateGlobalUI(stats);
-
-            // Restore polling fallback for tick/phase
             this.updateTickUI(data.tick, data.phase);
-
             this.updateLiveFeed(data.logs);
+
+            if (agentData) this.updatePrivateUI(agentData);
+            if (privateLogs) this.updatePrivateLogs(privateLogs, agentData ? agentData.pending_intent : null);
 
             // Render World
             data.world.forEach(hex => {

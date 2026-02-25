@@ -1520,6 +1520,14 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
 @app.get("/api/my_agent")
 async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     db.refresh(current_agent)
+    
+    # Get pending intent for next tick
+    next_tick = get_next_tick_index(db)
+    pending_intent = db.execute(select(Intent).where(
+        Intent.agent_id == current_agent.id,
+        Intent.tick_index == next_tick
+    )).scalars().first()
+    
     return {
         "id": current_agent.id,
         "name": current_agent.name,
@@ -1533,7 +1541,11 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
         "capacity": current_agent.max_mass or BASE_CAPACITY,
         "inventory": [{"type": i.item_type, "quantity": i.quantity} for i in current_agent.inventory],
         "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats} for p in current_agent.parts],
-        "api_key": current_agent.api_key
+        "api_key": current_agent.api_key,
+        "pending_intent": {
+            "action": pending_intent.action_type,
+            "data": pending_intent.data
+        } if pending_intent else None
     }
 
 @app.get("/api/agent_logs")
