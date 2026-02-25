@@ -1678,7 +1678,12 @@ async def startup_event():
 @app.get("/api/perception")
 async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     ensure_agent_has_starter_gear(db, current_agent)
+    db.refresh(current_agent)
+    
     # 1. Get stats and battery
+    inv_list = [{"type": i.item_type, "quantity": i.quantity} for i in current_agent.inventory]
+    current_mass = sum(ITEM_WEIGHTS.get(i["type"], 1.0) * i["quantity"] for i in inv_list)
+    
     stats = {
         "id": current_agent.id,
         "name": current_agent.name,
@@ -1687,9 +1692,9 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
         "kinetic_force": current_agent.kinetic_force,
         "logic_precision": current_agent.logic_precision,
         "overclock": current_agent.overclock,
-        "mass": get_agent_mass(current_agent),
+        "mass": current_mass,
         "capacity": current_agent.max_mass or BASE_CAPACITY,
-        "inventory": [{"type": i.item_type, "quantity": i.quantity} for i in current_agent.inventory],
+        "inventory": inv_list,
         "location": {"q": current_agent.q, "r": current_agent.r}
     }
     
@@ -1773,6 +1778,9 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
         Intent.tick_index == next_tick
     )).scalars().first()
     
+    inv_list = [{"type": i.item_type, "quantity": i.quantity} for i in current_agent.inventory]
+    current_mass = sum(ITEM_WEIGHTS.get(i["type"], 1.0) * i["quantity"] for i in inv_list)
+    
     return {
         "id": current_agent.id,
         "name": current_agent.name,
@@ -1782,9 +1790,9 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
         "kinetic_force": current_agent.kinetic_force,
         "logic_precision": current_agent.logic_precision,
         "overclock": current_agent.overclock,
-        "mass": get_agent_mass(current_agent),
+        "mass": current_mass,
         "capacity": current_agent.max_mass or BASE_CAPACITY,
-        "inventory": [{"type": i.item_type, "quantity": i.quantity} for i in current_agent.inventory],
+        "inventory": inv_list,
         "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats} for p in current_agent.parts],
         "api_key": current_agent.api_key,
         "pending_intent": {
