@@ -103,6 +103,25 @@ def get_agent_mass(agent):
         total_mass += weight * item.quantity
     return total_mass
 
+def get_nearest_station(db: Session, agent: Agent, station_type: str):
+    """Returns the nearest WorldHex of a specific station type."""
+    stations = db.execute(select(WorldHex).where(WorldHex.is_station == True, WorldHex.station_type == station_type)).scalars().all()
+    if not stations:
+        return None
+    return min(stations, key=lambda s: get_hex_distance(agent.q, agent.r, s.q, s.r))
+
+def get_discovery_packet(db: Session, agent: Agent):
+    """Returns nearest locations of public service stations."""
+    all_stations = db.execute(select(WorldHex).where(WorldHex.is_station == True)).scalars().all()
+    discovery = {}
+    for st in ["MARKET", "SMELTER", "CRAFTER", "REPAIR"]:
+        relevant = [s for s in all_stations if s.station_type == st]
+        if relevant:
+            nearest = min(relevant, key=lambda s: get_hex_distance(agent.q, agent.r, s.q, s.r))
+            dist = get_hex_distance(agent.q, agent.r, nearest.q, nearest.r)
+            discovery[st] = {"q": nearest.q, "r": nearest.r, "distance": dist}
+    return discovery
+
 def recalculate_agent_stats(db: Session, agent: Agent):
     """Resets and recalculates agent stats based on equipped parts."""
     # Base Stats
@@ -887,7 +906,12 @@ async def heartbeat_loop():
                         
                         if dist > max_dist:
                             logger.info(f"Agent {agent.id} move too far: {dist} (Max: {max_dist})")
-                            db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={"reason": "OUT_OF_RANGE", "dist": dist, "max": max_dist}))
+                            db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={
+                                "reason": "OUT_OF_RANGE", 
+                                "dist": dist, 
+                                "max": max_dist,
+                                "help": f"Normal movement range is 1. Overclocked range (via HE3_FUEL) is 3. For long-distance navigation, submit MOVE intents hex-by-hex."
+                            }))
                             continue
                         
                         # 2. Collision Check
@@ -953,11 +977,19 @@ async def heartbeat_loop():
                                 await manager.broadcast({"type": "EVENT", "event": "MINING", "agent_id": agent.id, "amount": yield_amount, "q": agent.q, "r": agent.r})
                             else:
                                 logger.info(f"Agent {agent.id} failed to mine: No Drill")
-                                db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "MISSING_DRILL", "location": {"q": agent.q, "r": agent.r}}))
+                                db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={
+                                    "reason": "MISSING_DRILL", 
+                                    "location": {"q": agent.q, "r": agent.r},
+                                    "help": "Mining requires an equipped Drill Unit. You can craft a DRILL_UNIT at a CRAFTER station using IRON_INGOT and COPPER_INGOT."
+                                }))
                         else:
                             # Not on a resource hex
                             logger.info(f"Agent {agent.id} failed to mine: Not on a resource hex at ({agent.q}, {agent.r})")
-                            db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "NOT_ON_RESOURCE_HEX", "location": {"q": agent.q, "r": agent.r}}))
+                            db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={
+                                "reason": "NOT_ON_RESOURCE_HEX", 
+                                "location": {"q": agent.q, "r": agent.r},
+                                "help": "Mining only works on Asteroid or specialized resource hexes. Check /api/perception 'environment_hexes' to find resources."
+                            }))
                                 
                     elif intent.action_type == "ATTACK":
                         if agent.capacitor < ATTACK_ENERGY_COST:
@@ -1307,7 +1339,14 @@ async def heartbeat_loop():
                                 db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "INSUFFICIENT_INVENTORY", "item": item_type}))
                         else:
                             logger.info(f"Agent {agent.id} failed to list: Not at Market")
-                            db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "NOT_AT_MARKET", "action": "LIST"}))
+                            nearest = get_nearest_station(db, agent, "MARKET")
+                            help_msg = f"Listing items requires being at a MARKET station. Navigate to ({nearest.q}, {nearest.r})" if nearest else "No MARKET station found in local sector."
+                            db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={
+                                "reason": "NOT_AT_MARKET", 
+                                "action": "LIST",
+                                "help": help_msg,
+                                "target_coords": {"q": nearest.q, "r": nearest.r} if nearest else None
+                            }))
 
                     elif intent.action_type == "BUY":
                         # Buy item from Auction House
@@ -1373,7 +1412,14 @@ async def heartbeat_loop():
                                     db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "INSUFFICIENT_CREDITS", "max_price": max_price}))
                         else:
                             logger.info(f"Agent {agent.id} failed to buy: Not at Market")
-                            db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "NOT_AT_MARKET", "action": "BUY"}))
+                            nearest = get_nearest_station(db, agent, "MARKET")
+                            help_msg = f"Buying items requires being at a MARKET station. Navigate to ({nearest.q}, {nearest.r})" if nearest else "No MARKET station found in local sector."
+                            db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={
+                                "reason": "NOT_AT_MARKET", 
+                                "action": "BUY",
+                                "help": help_msg,
+                                "target_coords": {"q": nearest.q, "r": nearest.r} if nearest else None
+                            }))
 
                     elif intent.action_type == "SMELT":
                         # Smelt Ore into Ingots at Smelter
@@ -1411,7 +1457,14 @@ async def heartbeat_loop():
                                 db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INSUFFICIENT_ORE", "ore": ore_type, "required": quantity}))
                         else:
                             logger.info(f"Agent {agent.id} failed to smelt: Not at Smelter")
-                            db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "NOT_AT_SMELTER", "action": "SMELT"}))
+                            nearest = get_nearest_station(db, agent, "SMELTER")
+                            help_msg = f"Smelting requires being at a SMELTER station. Navigate to ({nearest.q}, {nearest.r})" if nearest else "No SMELTER station found in local sector."
+                            db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={
+                                "reason": "NOT_AT_SMELTER", 
+                                "action": "SMELT",
+                                "help": help_msg,
+                                "target_coords": {"q": nearest.q, "r": nearest.r} if nearest else None
+                            }))
 
                     elif intent.action_type == "CRAFT":
                         # Craft Items at Crafter
@@ -1466,6 +1519,14 @@ async def heartbeat_loop():
                                 logger.info(f"Agent {agent.id} failed to craft {result_item}: Insufficient Materials")
                         else:
                             logger.info(f"Agent {agent.id} failed to craft: Not at Crafter")
+                            nearest = get_nearest_station(db, agent, "CRAFTER")
+                            help_msg = f"Crafting requires being at a CRAFTER station. Navigate to ({nearest.q}, {nearest.r})" if nearest else "No CRAFTER station found in local sector."
+                            db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={
+                                "reason": "NOT_AT_CRAFTER", 
+                                "action": "CRAFT",
+                                "help": help_msg,
+                                "target_coords": {"q": nearest.q, "r": nearest.r} if nearest else None
+                            }))
 
                     elif intent.action_type == "REPAIR":
                         # Repair Agent Structure at Repair Station
@@ -1492,6 +1553,13 @@ async def heartbeat_loop():
                                     logger.info(f"Agent {agent.id} failed to repair: Insufficient Credits (Need {total_cost})")
                         else:
                             logger.info(f"Agent {agent.id} failed to repair: Not at Repair Station")
+                            nearest = get_nearest_station(db, agent, "REPAIR")
+                            help_msg = f"Standard Repairs require being at a REPAIR station. Navigate to ({nearest.q}, {nearest.r})" if nearest else "No REPAIR station found in local sector."
+                            db.add(AuditLog(agent_id=agent.id, event_type="REPAIR_FAILED", details={
+                                "reason": "NOT_AT_REPAIR_STATION",
+                                "help": help_msg,
+                                "target_coords": {"q": nearest.q, "r": nearest.r} if nearest else None
+                            }))
 
                     elif intent.action_type == "SALVAGE":
                         drop_id = intent.data.get("drop_id")
@@ -1544,6 +1612,15 @@ async def heartbeat_loop():
                                 logger.info(f"Agent {agent.id} failed CORE SERVICE: Insufficient resources")
                         else:
                             logger.info(f"Agent {agent.id} failed CORE SERVICE: Not at valid station")
+                            nearest_repair = get_nearest_station(db, agent, "REPAIR")
+                            nearest_market = get_nearest_station(db, agent, "MARKET")
+                            target = nearest_repair or nearest_market
+                            help_msg = f"CORE SERVICE requires being at a REPAIR or MARKET station. Navigate to ({target.q}, {target.r})" if target else "No valid station found."
+                            db.add(AuditLog(agent_id=agent.id, event_type="CORE_SERVICE_FAILED", details={
+                                "reason": "NOT_AT_VALID_STATION",
+                                "help": help_msg,
+                                "target_coords": {"q": target.q, "r": target.r} if target else None
+                            }))
 
                     elif intent.action_type == "EQUIP":
                         # Equip part from inventory
@@ -1719,12 +1796,15 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
     )).scalars().all()
     nearby_hexes = [h for h in nearby_hexes if get_hex_distance(current_agent.q, current_agent.r, h.q, h.r) <= sensor_radius]
     
-    # 3. Auction House Prices (Top 3 materials)
+    # 3. Global Discovery (Public Knowledge of Stations)
+    discovery = get_discovery_packet(db, current_agent)
+
+    # 4. Auction House Prices (Top 3 materials)
     top_prices = db.execute(select(AuctionOrder).where(
         AuctionOrder.order_type == "SELL"
     ).order_by(AuctionOrder.price.asc()).limit(3)).scalars().all()
     
-    # 4. MCP Format
+    # 5. MCP Format
     state = db.execute(select(GlobalState)).scalars().first()
     
     mcp_packet = {
@@ -1735,9 +1815,11 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
             "tick_info": {
                 "current_tick": state.tick_index if state else 0,
                 "phase": state.phase if state else "UNKNOWN",
-                "note": "Parallel Processing: You may submit multiple intents per tick. Intents submitted during PERCEPTION/STRATEGY execute in the upcoming CRUNCH."
+                "note": "Parallel Processing: You may submit multiple intents per tick. Intents submitted during PERCEPTION/STRATEGY execute in the upcoming CRUNCH.",
+                "navigation_hint": "MOVE is limited to 1 hex (3 if Overclocked). Long-distance travel requires multi-tick pathfinding where your agent submits incremental MOVE intents."
             },
             "agent_status": {**stats, "energy_regen": RECHARGE_RATE},
+            "discovery": discovery,
             "environment": {
                 "other_agents": [
                     {
@@ -1794,6 +1876,7 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
         "capacity": current_agent.max_mass or BASE_CAPACITY,
         "inventory": inv_list,
         "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats} for p in current_agent.parts],
+        "discovery": get_discovery_packet(db, current_agent),
         "api_key": current_agent.api_key,
         "pending_intent": {
             "action": pending_intent.action_type,
@@ -1833,6 +1916,7 @@ async def get_game_guide():
         "tips": [
             "Energy Economy: You can perform as many actions as your Capacitor allows in a single tick.",
             "Keep your Wear & Tear low! High wear reduces your combat effectiveness significantly.",
+            "Navigation: Long-distance travel requires multi-tick pathfinding. Submit MOVE intents hex-by-hex until you reach your target.",
             "Programmatic Discovery: Use /api/world/library for recipes and /api/world/poi for station locations.",
             "Use /api/perception to get a snapshot of your surroundings."
         ]
