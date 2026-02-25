@@ -674,6 +674,7 @@ async def heartbeat_loop():
                     "MOVE": 1,
                     "EQUIP": 2,
                     "UNEQUIP": 2,
+                    "CANCEL": 2,
                     "MINE": 3,
                     "ATTACK": 3,
                     "INTIMIDATE": 3,
@@ -1417,6 +1418,36 @@ async def heartbeat_loop():
                         else:
                             logger.info(f"Agent {agent.id} failed to unequip: Part not found or not owned")
 
+                    elif intent.action_type == "CANCEL":
+                        # Cancel market order
+                        order_id = intent.data.get("order_id")
+                        order = db.get(AuctionOrder, order_id)
+                        if order and order.owner == f"agent:{agent.id}":
+                            # Return items to agent if it was a SELL order
+                            if order.order_type == "SELL":
+                                inv_item = next((i for i in agent.inventory if i.item_type == order.item_type), None)
+                                if inv_item:
+                                    inv_item.quantity += order.quantity
+                                else:
+                                    db.add(InventoryItem(agent_id=agent.id, item_type=order.item_type, quantity=order.quantity))
+                            
+                            # Return credits if it was a BUY order
+                            elif order.order_type == "BUY":
+                                credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+                                total_refund = int(order.price * order.quantity)
+                                if credits:
+                                    credits.quantity += total_refund
+                                else:
+                                    db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=total_refund))
+                                    
+                            item_type = order.item_type
+                            db.delete(order)
+                            logger.info(f"Agent {agent.id} CANCELED order {order_id}")
+                            db.add(AuditLog(agent_id=agent.id, event_type="MARKET_CANCEL", details={"order_id": order_id, "item": item_type}))
+                            await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
+                        else:
+                            logger.info(f"Agent {agent.id} failed to CANCEL order {order_id}: Not owner or not found")
+
                 # 3. Clean up
                 db.execute(text("DELETE FROM intents"))
                 db.commit()
@@ -1552,6 +1583,19 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
 async def get_agent_logs(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     logs = db.execute(select(AuditLog).where(AuditLog.agent_id == current_agent.id).order_by(AuditLog.time.desc()).limit(20)).scalars().all()
     return [{"time": l.time.isoformat(), "event": l.event_type, "details": l.details} for l in logs]
+
+@app.get("/api/market/my_orders")
+async def get_my_market_orders(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    owner_str = f"agent:{current_agent.id}"
+    orders = db.execute(select(AuctionOrder).where(AuctionOrder.owner == owner_str)).scalars().all()
+    return [{
+        "id": o.id,
+        "item": o.item_type,
+        "type": o.order_type,
+        "quantity": o.quantity,
+        "price": o.price,
+        "time": o.created_at.isoformat() if o.created_at else None
+    } for o in orders]
 
 class IntentRequest(BaseModel):
     action_type: str

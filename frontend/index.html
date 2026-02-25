@@ -367,14 +367,121 @@
 
                     <!-- Market Tab -->
                     <div id="content-market" class="hidden">
-                        <h3 class="orbitron text-lg text-sky-400 mb-6">AUCTION HOUSE</h3>
-                        <div id="market-listings" class="space-y-4 mb-8">
-                            <!-- Populated via JS -->
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="orbitron text-lg text-sky-400">AUCTION HOUSE</h3>
+                            <div class="flex space-x-2">
+                                <span class="text-[8px] bg-slate-800 text-slate-400 px-2 py-1 rounded">TRADING HUB:
+                                    ALPHA SECTOR</span>
+                                <span class="text-[8px] bg-sky-500/10 text-sky-400 px-2 py-1 rounded animate-pulse">LIVE
+                                    DATA</span>
+                            </div>
                         </div>
-                        <div class="glass p-4 rounded-xl border border-slate-800">
-                            <h4 class="text-[10px] text-slate-500 uppercase mb-4">Open Orders</h4>
-                            <div id="market-orders" class="space-y-2 text-xs text-slate-400 italic text-center py-8">
-                                Connect to local Market terminal to see listings.
+
+                        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                            <!-- Left: Active Listings -->
+                            <div class="xl:col-span-2 space-y-6">
+                                <div class="glass p-6 rounded-2xl border border-slate-800 overflow-hidden">
+                                    <div class="flex justify-between items-center mb-4">
+                                        <h4 class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">
+                                            Market Manifest</h4>
+                                        <div class="flex space-x-4 text-[9px] text-slate-500">
+                                            <span>SELL ORDERS: <span id="count-sell"
+                                                    class="text-sky-400">0</span></span>
+                                            <span>BUY ORDERS: <span id="count-buy"
+                                                    class="text-amber-400">0</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-left text-xs">
+                                            <thead
+                                                class="text-slate-500 border-b border-slate-800 uppercase tracking-tighter text-[9px]">
+                                                <tr>
+                                                    <th class="pb-3 font-normal">Resource Type</th>
+                                                    <th class="pb-3 font-normal">Side</th>
+                                                    <th class="pb-3 font-normal">Qty</th>
+                                                    <th class="pb-3 font-normal">UnitPrice</th>
+                                                    <th class="pb-3 font-normal text-right">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="market-listings-body">
+                                                <!-- Populated via JS -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div class="glass p-6 rounded-2xl border border-slate-800 border-t-4 border-t-sky-500">
+                                    <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">My
+                                        Active Portfolio</h4>
+                                    <div id="my-orders" class="space-y-2">
+                                        <div class="text-[10px] text-slate-600 italic text-center py-4">No active
+                                            contracts found.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Trade Control -->
+                            <div class="space-y-6">
+                                <div
+                                    class="glass p-6 rounded-2xl border border-slate-800 border-l-4 border-l-amber-500">
+                                    <h4 class="text-[10px] text-amber-500 uppercase mb-4 tracking-widest font-bold">
+                                        Secure Trade Interface</h4>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="text-[9px] text-slate-500 uppercase mb-1 block">Trade
+                                                Vector</label>
+                                            <div class="flex space-x-2">
+                                                <button id="trade-side-sell"
+                                                    class="flex-1 py-2 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-bold orbitron">SELL</button>
+                                                <button id="trade-side-buy"
+                                                    class="flex-1 py-2 rounded-lg bg-slate-900 text-slate-500 border border-slate-800 text-[10px] font-bold orbitron">BUY</button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="text-[9px] text-slate-500 uppercase mb-1 block">Cargo
+                                                Type</label>
+                                            <select id="trade-item-type"
+                                                class="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-slate-300 outline-none focus:border-amber-500">
+                                                <!-- Populated via inventory or presets -->
+                                                <option value="IRON_ORE">IRON ORE</option>
+                                                <option value="IRON_INGOT">IRON INGOT</option>
+                                                <option value="COPPER_ORE">COPPER ORE</option>
+                                                <option value="GOLD_ORE">GOLD ORE</option>
+                                                <option value="HE3_FUEL">HE3 FUEL</option>
+                                            </select>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label
+                                                    class="text-[9px] text-slate-500 uppercase mb-1 block">Quantity</label>
+                                                <input type="number" id="trade-quantity" value="1"
+                                                    class="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-sky-400 outline-none">
+                                            </div>
+                                            <div>
+                                                <label class="text-[9px] text-slate-500 uppercase mb-1 block">Price /
+                                                    Unit</label>
+                                                <input type="number" id="trade-price" value="10"
+                                                    class="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-amber-400 outline-none">
+                                            </div>
+                                        </div>
+                                        <button id="btn-submit-order"
+                                            class="w-full py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black orbitron text-xs transition-all shadow-lg shadow-amber-500/10">EXECUTE
+                                            CONTRACT</button>
+                                        <p class="text-[8px] text-slate-500 text-center uppercase tracking-tighter">
+                                            Requires Docking at Market Station</p>
+                                    </div>
+                                </div>
+
+                                <div class="glass p-4 rounded-xl border border-slate-800 bg-slate-900/40">
+                                    <h4 class="text-[9px] text-slate-500 uppercase mb-2">Market Sentiment</h4>
+                                    <div class="flex justify-between items-center text-[10px]">
+                                        <span class="text-slate-300">IRON ORE Volatility</span>
+                                        <span class="text-emerald-400">LOW</span>
+                                    </div>
+                                    <div class="w-full bg-slate-800 h-1 rounded-full mt-2 overflow-hidden">
+                                        <div class="bg-emerald-500 h-full w-3/4"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

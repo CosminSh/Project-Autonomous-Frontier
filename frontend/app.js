@@ -27,6 +27,8 @@ window.copyAgentPrompt = function () {
 class GameClient {
     constructor() {
         window.game = this; // Set early to capture sync events
+        this.miningEffectActive = false;
+        this.tradeSide = 'SELL';
         this.isInitialized = false;
 
         this.scene = null;
@@ -69,6 +71,14 @@ class GameClient {
         if (btnSmelt) btnSmelt.addEventListener('click', () => this.submitIndustryIntent('SMELT'));
         if (btnCraft) btnCraft.addEventListener('click', () => this.submitIndustryIntent('CRAFT'));
         if (btnRepair) btnRepair.addEventListener('click', () => this.submitIndustryIntent('REPAIR'));
+
+        // Market Listeners
+        const tradeSideBuy = document.getElementById('trade-side-buy');
+        const tradeSideSell = document.getElementById('trade-side-sell');
+        const tradeSubmit = document.getElementById('btn-submit-order');
+        if (tradeSideBuy) tradeSideBuy.addEventListener('click', () => this.setTradeSide('BUY'));
+        if (tradeSideSell) tradeSideSell.addEventListener('click', () => this.setTradeSide('SELL'));
+        if (tradeSubmit) tradeSubmit.addEventListener('click', () => this.submitTradeIntent());
 
         // Directive Modal Listeners
         const openDirBtn = document.getElementById('open-directive-btn');
@@ -274,20 +284,154 @@ class GameClient {
     }
 
     updateMarketUI(market) {
-        const table = document.getElementById('market-listings');
-        if (!table || !market) return;
-        table.innerHTML = '';
+        const body = document.getElementById('market-listings-body');
+        const countSell = document.getElementById('count-sell');
+        const countBuy = document.getElementById('count-buy');
+        if (!body || !market) return;
+
+        body.innerHTML = '';
+        let sells = 0;
+        let buys = 0;
+
         market.forEach(order => {
+            if (order.type === 'SELL') sells++;
+            if (order.type === 'BUY') buys++;
+
             const row = document.createElement('tr');
-            row.className = "border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors";
+            row.className = "border-b border-slate-800/50 hover:bg-slate-800/20 transition-all group";
+
+            const color = order.type === 'SELL' ? 'text-sky-400' : 'text-amber-400';
+
             row.innerHTML = `
-                <td class="py-3 font-bold">${order.item}</td>
-                <td>${order.quantity}</td>
-                <td class="text-sky-400">$${order.price}</td>
-                <td><span class="px-2 py-0.5 rounded bg-slate-800 text-[8px]">${order.type}</span></td>
+                <td class="py-4 font-bold text-slate-300">${order.item.replace('_', ' ')}</td>
+                <td class="py-4"><span class="px-2 py-0.5 rounded-full text-[7px] font-black border ${order.type === 'SELL' ? 'bg-sky-500/10 border-sky-500/30 text-sky-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-400'}">${order.type}</span></td>
+                <td class="py-4 font-mono text-slate-400">${order.quantity}</td>
+                <td class="py-4 font-bold ${color}">$${order.price.toFixed(2)}</td>
+                <td class="py-4 text-right">
+                    <button class="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded text-[9px] font-bold" onclick="game.quickTrade('${order.item}', ${order.price}, '${order.type}')">
+                        ${order.type === 'SELL' ? 'BUY' : 'SELL'}
+                    </button>
+                </td>
             `;
-            table.appendChild(row);
+            body.appendChild(row);
         });
+
+        if (countSell) countSell.textContent = sells;
+        if (countBuy) countBuy.textContent = buys;
+    }
+
+    updateMyOrdersUI(orders) {
+        const container = document.getElementById('my-orders');
+        if (!container) return;
+
+        if (!orders || orders.length === 0) {
+            container.innerHTML = '<div class="text-[10px] text-slate-600 italic text-center py-4">No active contracts found.</div>';
+            return;
+        }
+
+        container.innerHTML = orders.map(o => `
+            <div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+                <div class="flex items-center space-x-3">
+                    <div class="w-2 h-2 rounded-full ${o.type === 'SELL' ? 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.5)]' : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]'}"></div>
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-200 uppercase">${o.item.replace('_', ' ')}</div>
+                        <div class="text-[8px] text-slate-500 uppercase tracking-widest">${o.type} CONTRACT</div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-right">
+                        <div class="text-[10px] text-slate-200">$${o.price}</div>
+                        <div class="text-[8px] text-slate-500">${o.quantity} UNITS</div>
+                    </div>
+                    <button onclick="game.submitIntent('CANCEL', {order_id: ${o.id}})" class="p-2 hover:bg-rose-500/10 rounded-lg group transition-all">
+                        <span class="text-slate-600 group-hover:text-rose-500 text-xs">✕</span>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    quickTrade(item, price, type) {
+        // Fill form and switch side
+        document.getElementById('trade-item-type').value = item;
+        document.getElementById('trade-price').value = price;
+        document.getElementById('trade-quantity').value = 1;
+
+        if (type === 'SELL') {
+            document.getElementById('trade-side-buy').click();
+        } else {
+            document.getElementById('trade-side-sell').click();
+        }
+    }
+
+    setTradeSide(side) {
+        this.tradeSide = side;
+        const buyBtn = document.getElementById('trade-side-buy');
+        const sellBtn = document.getElementById('trade-side-sell');
+
+        if (side === 'BUY') {
+            buyBtn.classList.add('bg-amber-500', 'text-slate-950');
+            buyBtn.classList.remove('text-slate-400');
+            sellBtn.classList.remove('bg-sky-500', 'text-slate-950');
+            sellBtn.classList.add('text-slate-400');
+        } else {
+            sellBtn.classList.add('bg-sky-500', 'text-slate-950');
+            sellBtn.classList.remove('text-slate-400');
+            buyBtn.classList.remove('bg-amber-500', 'text-slate-950');
+            buyBtn.classList.add('text-slate-400');
+        }
+    }
+
+    async submitIntent(actionType, data) {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) {
+            alert("No API Key found. Login first.");
+            return;
+        }
+
+        try {
+            const resp = await fetch(`${window.location.origin}/api/intent`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-KEY': apiKey
+                },
+                body: JSON.stringify({ action_type: actionType, data: data })
+            });
+            const result = await resp.json();
+            if (result.status === 'success') {
+                // Visual feedback instead of alert? Maybe a small toast later.
+                console.log(`${actionType} intent recorded.`);
+                if (actionType === 'CANCEL') {
+                    // Force refresh my orders
+                    this.pollState();
+                }
+            } else {
+                alert(`Command Failed: ${result.detail || 'Access Denied'}`);
+            }
+        } catch (err) {
+            console.error("Intent Submission Error:", err);
+            alert("Uplink failed. Check console.");
+        }
+    }
+
+    async submitTradeIntent() {
+        const itemType = document.getElementById('trade-item-type').value;
+        const price = parseFloat(document.getElementById('trade-price').value);
+        const quantity = parseInt(document.getElementById('trade-quantity').value);
+
+        if (!itemType || isNaN(price) || isNaN(quantity) || quantity <= 0) {
+            alert("Please fill out all trade fields correctly.");
+            return;
+        }
+
+        let actionType = this.tradeSide === 'SELL' ? 'LIST' : 'BUY';
+        let data = this.tradeSide === 'SELL'
+            ? { item_type: itemType, price: price, quantity: quantity }
+            : { item_type: itemType, max_price: price, quantity: quantity };
+
+        await this.submitIntent(actionType, data);
+        alert(`${actionType} intent queued for The Crunch!`);
     }
 
     setupWebSocket() {
@@ -339,12 +483,6 @@ class GameClient {
     }
 
     async submitIndustryIntent(type) {
-        const apiKey = localStorage.getItem('sv_api_key');
-        if (!apiKey) {
-            alert("No API Key found. Login first.");
-            return;
-        }
-
         let data = {};
         if (type === 'SMELT') {
             data = {
@@ -360,25 +498,8 @@ class GameClient {
             data = { amount: amount };
         }
 
-        try {
-            const resp = await fetch(`${window.location.origin}/api/intent`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-API-KEY': apiKey
-                },
-                body: JSON.stringify({ action_type: type, data: data })
-            });
-            const result = await resp.json();
-            if (result.status === 'success') {
-                alert(`${type} intent queued for The Crunch! Standby for phase resolution.`);
-            } else {
-                alert(`Command Failed: ${result.detail || 'Access Denied'}`);
-            }
-        } catch (err) {
-            console.error("Industrial Hub Error:", err);
-            alert("Uplink failed. Check console.");
-        }
+        await this.submitIntent(type, data);
+        alert(`${type} intent queued for The Crunch!`);
     }
 
     setAuthenticated(isAuthenticated) {
@@ -684,43 +805,6 @@ SYNC STATUS: Neural link active.
         mesh.rotation.y += 0.01;
     }
 
-    updateMarketUI(market) {
-        if (!market) return;
-        const marketEl = document.getElementById('market-listings');
-        if (!marketEl) return;
-
-        if (market.length === 0) {
-            marketEl.innerHTML = '<p class="text-[10px] text-slate-600 italic">Market is currently quiet.</p>';
-            return;
-        }
-
-        marketEl.innerHTML = `
-            <table class="w-full text-left text-[10px] text-slate-400">
-                <thead class="text-[8px] text-slate-500 uppercase tracking-widest border-b border-slate-800">
-                    <tr>
-                        <th class="pb-2">Item</th>
-                        <th class="pb-2">Qty</th>
-                        <th class="pb-2">Price</th>
-                        <th class="pb-2">Type</th>
-                    </tr>
-                </thead>
-                <tbody id="market-table"></tbody>
-            </table>
-        `;
-        const table = document.getElementById('market-table');
-        market.forEach(order => {
-            const row = document.createElement('tr');
-            row.className = "border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors";
-            row.innerHTML = `
-                <td class="py-3 font-bold">${order.item}</td>
-                <td>${order.quantity}</td>
-                <td class="text-sky-400">$${order.price}</td>
-                <td><span class="px-2 py-0.5 rounded bg-slate-800 text-[8px]">${order.type}</span></td>
-            `;
-            table.appendChild(row);
-        });
-    }
-
     updateGlobalUI(stats) {
         document.getElementById('stat-agents').innerText = stats.total_agents || 0;
         document.getElementById('stat-market').innerText = stats.market_listings || 0;
@@ -863,24 +947,28 @@ SYNC STATUS: Neural link active.
             const apiKey = localStorage.getItem('sv_api_key');
             const headers = apiKey ? { 'X-API-KEY': apiKey } : {};
 
-            const [stateResp, statsResp, logsResp, agentResp] = await Promise.all([
+            const [stateResp, statsResp, logsResp, agentResp, myOrdersResp] = await Promise.all([
                 fetch('/state'),
                 fetch('/api/global_stats'),
                 apiKey ? fetch(`${window.location.origin}/api/agent_logs`, { headers }) : Promise.resolve(null),
-                apiKey ? fetch(`${window.location.origin}/api/my_agent`, { headers }) : Promise.resolve(null)
+                apiKey ? fetch(`${window.location.origin}/api/my_agent`, { headers }) : Promise.resolve(null),
+                apiKey ? fetch(`${window.location.origin}/api/market/my_orders`, { headers }) : Promise.resolve(null)
             ]);
 
             const data = await stateResp.json();
             const stats = await statsResp.json();
             const privateLogs = logsResp ? await logsResp.json() : null;
             const agentData = agentResp ? await agentResp.json() : null;
+            const myOrders = myOrdersResp ? await myOrdersResp.json() : null;
 
             this.updateGlobalUI(stats);
             this.updateTickUI(data.tick, data.phase);
             this.updateLiveFeed(data.logs);
+            this.updateMarketUI(data.market);
 
             if (agentData) this.updatePrivateUI(agentData);
             if (privateLogs) this.updatePrivateLogs(privateLogs, agentData ? agentData.pending_intent : null);
+            if (myOrders) this.updateMyOrdersUI(myOrders);
 
             // Render World
             data.world.forEach(hex => {
