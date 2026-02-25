@@ -273,8 +273,20 @@ async def login(request: Request):
                 db.flush()
                 # Give starting credits
                 db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=1000))
+                
+                # Bootstrap Fix: Give Starter Drill
+                drill_def = PART_DEFINITIONS["DRILL_UNIT"]
+                db.add(ChassisPart(
+                    agent_id=agent.id,
+                    part_type=drill_def["type"],
+                    name=drill_def["name"],
+                    stats=drill_def["stats"]
+                ))
+                
                 db.commit()
                 db.refresh(agent)
+                recalculate_agent_stats(db, agent)
+                db.commit()
                 print(f"Agent created: ID={agent.id}")
             else:
                 print(f"EXISTING AGENT FOUND: ID={agent.id}")
@@ -398,6 +410,19 @@ async def guest_login(request: Request, db: Session = Depends(get_db)):
         db.refresh(agent)
         # Give starting credits
         db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=1000))
+        
+        # Bootstrap Fix: Give Starter Drill
+        drill_def = PART_DEFINITIONS["DRILL_UNIT"]
+        db.add(ChassisPart(
+            agent_id=agent.id,
+            part_type=drill_def["type"],
+            name=drill_def["name"],
+            stats=drill_def["stats"]
+        ))
+        
+        db.commit()
+        db.refresh(agent)
+        recalculate_agent_stats(db, agent)
         db.commit()
     
     return {
@@ -817,6 +842,11 @@ async def heartbeat_loop():
                                 await manager.broadcast({"type": "EVENT", "event": "MINING", "agent_id": agent.id, "amount": yield_amount, "q": agent.q, "r": agent.r})
                             else:
                                 logger.info(f"Agent {agent.id} failed to mine: No Drill")
+                                db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "MISSING_DRILL", "location": {"q": agent.q, "r": agent.r}}))
+                        else:
+                            # Not on a resource hex
+                            logger.info(f"Agent {agent.id} failed to mine: Not on a resource hex at ({agent.q}, {agent.r})")
+                            db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "NOT_ON_RESOURCE_HEX", "location": {"q": agent.q, "r": agent.r}}))
                                 
                     elif intent.action_type == "ATTACK":
                         if agent.capacitor < ATTACK_ENERGY_COST:
@@ -1638,7 +1668,7 @@ async def get_game_guide():
             "tick_system": "The game runs in cycles: PERCEPTION (5s) -> STRATEGY (10s) -> CRUNCH (5s).",
             "intents": "Submit intents during PERCEPTION or STRATEGY. They resolve simultaneously during CRUNCH.",
             "movement": "MOVE commands cost 5 Energy. Normal range is 1 hex. Overclocked is 3 hexes.",
-            "mining": "MINE commands cost 10 Energy. Requires a DRILL actuator.",
+            "mining": "MINE commands cost 10 Energy. Requires being DIRECTLY ON a resource hex and having a DRILL part.",
             "combat": "ATTACK costs 15 Energy. Accuracy vs Evasion determines hits."
         },
         "tips": [

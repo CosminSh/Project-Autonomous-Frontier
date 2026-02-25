@@ -121,6 +121,9 @@ def seed_world():
         db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=1000))
         db.add(InventoryItem(agent_id=agent.id, item_type="IRON_ORE", quantity=50))
         
+        # Give Striker-01 a starter drill
+        db.add(ChassisPart(agent_id=agent.id, name="Titanium Mining Drill", part_type="Actuator", stats={"kinetic_force": 10}))
+        
         # Add Industrial Bots
         for i in range(5):
             bot = Agent(name=f"Worker-Bot-{i}", q=random.randint(-2, 2), r=random.randint(-2, 2), is_bot=True)
