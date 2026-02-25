@@ -876,6 +876,7 @@ async def heartbeat_loop():
 
                         if agent.capacitor < energy_cost:
                             logger.info(f"Agent {agent.id} failed to move: Insufficient Capacitor (Need {energy_cost:.1f})")
+                            db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={"reason": "INSUFFICIENT_ENERGY", "required": energy_cost}))
                             continue
 
                         # 1. Distance Check (Max 1 hex normally, 3 if Overclocked)
@@ -886,6 +887,7 @@ async def heartbeat_loop():
                         
                         if dist > max_dist:
                             logger.info(f"Agent {agent.id} move too far: {dist} (Max: {max_dist})")
+                            db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={"reason": "OUT_OF_RANGE", "dist": dist, "max": max_dist}))
                             continue
                         
                         # 2. Collision Check
@@ -904,6 +906,7 @@ async def heartbeat_loop():
                             await manager.broadcast({"type": "EVENT", "event": "MOVE", "agent_id": agent.id, "q": target_q, "r": target_r})
                         else:
                             logger.info(f"Agent {agent.id} hit obstacle at ({target_q}, {target_r})")
+                            db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={"reason": "OBSTACLE", "q": target_q, "r": target_r}))
                             
                     elif intent.action_type == "MINE":
                         if agent.capacitor < MINE_ENERGY_COST:
@@ -958,18 +961,24 @@ async def heartbeat_loop():
                                 
                     elif intent.action_type == "ATTACK":
                         if agent.capacitor < ATTACK_ENERGY_COST:
+                            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "INSUFFICIENT_ENERGY", "target_id": target_id}))
                             continue
-                            
-                        target_id = intent.data.get("target_id")
-                        target = db.get(Agent, target_id)
                         
-                        if target and get_hex_distance(agent.q, agent.r, target.q, target.r) <= 1:
+                        target = db.get(Agent, target_id)
+                        if not target:
+                            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "TARGET_NOT_FOUND", "target_id": target_id}))
+                            continue
+
+                        if get_hex_distance(agent.q, agent.r, target.q, target.r) > 1:
+                            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "OUT_OF_RANGE", "target_id": target_id, "dist": get_hex_distance(agent.q, agent.r, target.q, target.r)}))
+                            continue
                             # 1. Anarchy Zone Check
                             in_anarchy = is_in_anarchy_zone(target.q, target.r)
                             is_pvp = not agent.is_feral and not target.is_feral
                             
                             if is_pvp and not in_anarchy:
                                 logger.info(f"Agent {agent.id} attack blocked: Safe Zone protection at ({target.q}, {target.r})")
+                                db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "SAFE_ZONE_PROTECTION", "target_id": target_id}))
                                 continue
                             
                             # 2. Hit Resolution (GDD Style: 1d20 + Logic vs 10 + target.Logic/2)
@@ -1169,6 +1178,10 @@ async def heartbeat_loop():
                                 await manager.broadcast({"type": "EVENT", "event": "CONSUME", "agent_id": agent.id, "item": item_type})
                             else:
                                 logger.info(f"Agent {agent.id} attempted to consume non-consumable: {item_type}")
+                                db.add(AuditLog(agent_id=agent.id, event_type="CONSUME_FAILED", details={"reason": "NOT_CONSUMABLE", "item": item_type}))
+                        else:
+                            logger.info(f"Agent {agent.id} failed to consume: Missing {item_type}")
+                            db.add(AuditLog(agent_id=agent.id, event_type="CONSUME_FAILED", details={"reason": "INSUFFICIENT_INVENTORY", "item": item_type}))
 
                     elif intent.action_type == "FIELD_TRADE":
                         # data: {"target_id": 12, "items": [{"type": "IRON_ORE", "qty": 10}], "price": 100}
@@ -1183,6 +1196,7 @@ async def heartbeat_loop():
                             buyer_credits = next((i for i in target.inventory if i.item_type == "CREDITS"), None)
                             if price > 0 and (not buyer_credits or buyer_credits.quantity < price):
                                 logger.info(f"Field Trade Failed: Buyer {target_id} insufficient credits")
+                                db.add(AuditLog(agent_id=agent.id, event_type="FIELD_TRADE_FAILED", details={"reason": "BUYER_INSUFFICIENT_CREDITS", "target_id": target_id}))
                                 continue
                                 
                             # 2. Verify Seller (Agent) has items
@@ -1195,6 +1209,7 @@ async def heartbeat_loop():
                             
                             if not all_items_present:
                                 logger.info(f"Field Trade Failed: Seller {agent.id} missing items")
+                                db.add(AuditLog(agent_id=agent.id, event_type="FIELD_TRADE_FAILED", details={"reason": "SELLER_MISSING_ITEMS", "target_id": target_id}))
                                 continue
                                 
                             # 3. Execution
@@ -1289,8 +1304,10 @@ async def heartbeat_loop():
                                 await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
                             else:
                                 logger.info(f"Agent {agent.id} failed to list: Insufficient Inventory")
+                                db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "INSUFFICIENT_INVENTORY", "item": item_type}))
                         else:
                             logger.info(f"Agent {agent.id} failed to list: Not at Market")
+                            db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "NOT_AT_MARKET", "action": "LIST"}))
 
                     elif intent.action_type == "BUY":
                         # Buy item from Auction House
@@ -1335,6 +1352,7 @@ async def heartbeat_loop():
                                     await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
                                 else:
                                     logger.info(f"Agent {agent.id} failed to buy: Insufficient Credits")
+                                    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "INSUFFICIENT_CREDITS", "price": order.price}))
                             else:
                                 # Milestone 2: Persistent BUY Order
                                 credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
@@ -1352,8 +1370,10 @@ async def heartbeat_loop():
                                     await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
                                 else:
                                     logger.info(f"Agent {agent.id} failed to create BUY order: Insufficient Credits")
+                                    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "INSUFFICIENT_CREDITS", "max_price": max_price}))
                         else:
                             logger.info(f"Agent {agent.id} failed to buy: Not at Market")
+                            db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "NOT_AT_MARKET", "action": "BUY"}))
 
                     elif intent.action_type == "SMELT":
                         # Smelt Ore into Ingots at Smelter
@@ -1364,6 +1384,7 @@ async def heartbeat_loop():
                             
                             if ore_type not in SMELTING_RECIPES:
                                 logger.info(f"Agent {agent.id} failed to smelt: Invalid ore type {ore_type}")
+                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INVALID_ORE", "ore": ore_type}))
                                 continue
 
                             inv_ore = next((i for i in agent.inventory if i.item_type == ore_type), None)
@@ -1384,10 +1405,13 @@ async def heartbeat_loop():
                                     await manager.broadcast({"type": "EVENT", "event": "SMELT", "agent_id": agent.id, "ingot": ingot_type, "q": agent.q, "r": agent.r})
                                 else:
                                     logger.info(f"Agent {agent.id} failed to smelt: Quantity too low for ratio")
+                                    db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "QUANTITY_TOO_LOW", "qty": quantity}))
                             else:
                                 logger.info(f"Agent {agent.id} failed to smelt: Insufficient Ore")
+                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INSUFFICIENT_ORE", "ore": ore_type, "required": quantity}))
                         else:
                             logger.info(f"Agent {agent.id} failed to smelt: Not at Smelter")
+                            db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "NOT_AT_SMELTER", "action": "SMELT"}))
 
                     elif intent.action_type == "CRAFT":
                         # Craft Items at Crafter
@@ -1397,17 +1421,25 @@ async def heartbeat_loop():
                             
                             if result_item not in CRAFTING_RECIPES:
                                 logger.info(f"Agent {agent.id} failed to craft: Invalid recipe for {result_item}")
+                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "UNKNOWN_RECIPE", "item": result_item}))
                                 continue
                                 
                             recipe = CRAFTING_RECIPES[result_item]
                             
                             # Check Materials
                             can_craft = True
+                            missing_mat = None
                             for material, req_qty in recipe.items():
                                 total_qty = sum(i.quantity for i in agent.inventory if i.item_type == material)
                                 if total_qty < req_qty:
                                     can_craft = False
+                                    missing_mat = material
                                     break
+                            
+                            if not can_craft:
+                                logger.info(f"Agent {agent.id} failed to craft: Missing {missing_mat}")
+                                db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INSUFFICIENT_MATERIALS", "missing": missing_mat}))
+                                continue
                             
                             if can_craft:
                                 # Consume Materials
@@ -1657,6 +1689,7 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
         "overclock": current_agent.overclock,
         "mass": get_agent_mass(current_agent),
         "capacity": current_agent.max_mass or BASE_CAPACITY,
+        "inventory": [{"type": i.item_type, "quantity": i.quantity} for i in current_agent.inventory],
         "location": {"q": current_agent.q, "r": current_agent.r}
     }
     
@@ -1675,10 +1708,10 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
     )).scalars().all()
     nearby_agents = [a for a in nearby_agents if get_hex_distance(current_agent.q, current_agent.r, a.q, a.r) <= sensor_radius]
     
-    nearby_resources = db.execute(select(WorldHex).where(
-        WorldHex.resource_type.is_not(None)
+    nearby_hexes = db.execute(select(WorldHex).where(
+        (WorldHex.resource_type.is_not(None)) | (WorldHex.station_type.is_not(None))
     )).scalars().all()
-    nearby_resources = [r for r in nearby_resources if get_hex_distance(current_agent.q, current_agent.r, r.q, r.r) <= sensor_radius]
+    nearby_hexes = [h for h in nearby_hexes if get_hex_distance(current_agent.q, current_agent.r, h.q, h.r) <= sensor_radius]
     
     # 3. Auction House Prices (Top 3 materials)
     top_prices = db.execute(select(AuctionOrder).where(
@@ -1712,7 +1745,15 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
                         } if has_neural_scanner else None
                     } for a in nearby_agents
                 ],
-                "resources": [{"type": r.resource_type, "density": r.resource_density, "q": r.q, "r": r.r} for r in nearby_resources]
+                "environment_hexes": [
+                    {
+                        "type": h.resource_type or "POI", 
+                        "station": h.station_type,
+                        "name": h.station_name,
+                        "density": h.resource_density, 
+                        "q": h.q, "r": h.r
+                    } for h in nearby_hexes
+                ]
             },
             "market_data": [{"item": p.item_type, "price": p.price} for p in top_prices]
         }
