@@ -573,7 +573,11 @@ COMMAND REFERENCE (Full API: \${serverUrl}/api/commands):
 - CRAFT {item_type}
 
 PERCEPTION PACKET (GET /api/perception):
-Receives local vicinity data, agent status, and market snapshots.
+Receives local vicinity data, agent status, market snapshots, and a 'discovery' object with nearest station coordinates.
+
+DISCOVERY ENDPOINTS:
+- GET /api/world/library (Recipes & Mechanics)
+- GET /api/world/poi (Global Station Coordinates)
 
 SYNC STATUS: Neural link active.
 ========================================`;
@@ -815,6 +819,11 @@ SYNC STATUS: Neural link active.
             console.warn("Attempted to update Private UI with invalid agent data:", agent);
             return;
         }
+
+        if (agent.discovery) {
+            this.updateNavComputer(agent.discovery);
+        }
+
         const sidebar = document.getElementById('agent-detail');
         sidebar.style.opacity = '1';
 
@@ -966,6 +975,29 @@ SYNC STATUS: Neural link active.
                 `).join('');
             }
         }
+    }
+
+    updateNavComputer(discovery) {
+        const navList = document.getElementById('nav-computer-list');
+        if (!navList) return;
+
+        if (!discovery || Object.keys(discovery).length === 0) {
+            navList.innerHTML = '<div class="text-[10px] text-slate-600 italic col-span-2">Deep-space scan failed. No signatures found.</div>';
+            return;
+        }
+
+        navList.innerHTML = Object.entries(discovery).map(([type, data]) => `
+            <div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800 flex justify-between items-center group hover:border-sky-500/30 transition-all cursor-crosshair">
+                <div>
+                    <div class="text-[8px] text-slate-500 uppercase tracking-tighter font-bold">${type}</div>
+                    <div class="text-[10px] text-sky-400 font-mono">(${data.q}, ${data.r})</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-[10px] text-slate-400 font-bold">${data.distance.toFixed(1)}u</div>
+                    <div class="text-[6px] text-slate-600 uppercase">Distance</div>
+                </div>
+            </div>
+        `).join('');
     }
 
 

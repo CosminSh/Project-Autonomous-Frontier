@@ -81,6 +81,9 @@ When you make changes to your code and push them to GitHub:
    ```bash
    docker-compose up -d --build
    ```
+   if it's already running do this first to stop it: 
+   sudo docker-compose down
+
 
 ## Persistence Notes
 - Your data is stored in the `postgres_data` volume defined in `docker-compose.yml`. Even if you restart the server, the database remains intact.
