@@ -20,6 +20,7 @@ services:
     volumes:
       - ./backend:/app
       - ./frontend:/frontend
+      - ./docs:/app/docs
     ports:
       - "3000:8000"
       - "8000:8000"
