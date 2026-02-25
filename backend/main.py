@@ -319,65 +319,153 @@ async def global_stats(db: Session = Depends(get_db)):
 
 @app.get("/api/commands")
 async def get_commands():
-    """Returns all available agent commands and their syntax."""
+    """Returns all available agent commands, their syntax, energy costs, and range requirements."""
     return {
         "commands": [
             {
                 "type": "MOVE",
-                "description": "Move your agent to an adjacent hex.",
+                "description": "Move your agent to a target hex.",
                 "payload": {"target_q": "int", "target_r": "int"},
-                "cost": MOVE_ENERGY_COST
+                "energy_cost": MOVE_ENERGY_COST,
+                "range": 1,
+                "req_overclock": "Increases range to 3"
             },
             {
                 "type": "MINE",
                 "description": "Extract resources from the current hex. Requires Drill part.",
                 "payload": {},
-                "cost": MINE_ENERGY_COST
+                "energy_cost": MINE_ENERGY_COST,
+                "range": 0
             },
             {
                 "type": "ATTACK",
-                "description": "Engage another agent in combat.",
+                "description": "Engage another agent in standard combat.",
                 "payload": {"target_id": "int"},
-                "cost": ATTACK_ENERGY_COST
+                "energy_cost": ATTACK_ENERGY_COST,
+                "range": 1
+            },
+            {
+                "type": "INTIMIDATE",
+                "description": "Piracy: Siphon 5% of target inventory without full combat. Increases Heat.",
+                "payload": {"target_id": "int"},
+                "energy_cost": 0,
+                "range": 1
+            },
+            {
+                "type": "LOOT",
+                "description": "Piracy: Attack target and siphon 15% of a random stack on hit. Increases Heat.",
+                "payload": {"target_id": "int"},
+                "energy_cost": ATTACK_ENERGY_COST,
+                "range": 1
+            },
+            {
+                "type": "DESTROY",
+                "description": "Piracy: High-damage strike, siphons 40% of all stacks. Massive Heat & Bounty.",
+                "payload": {"target_id": "int"},
+                "energy_cost": 0,
+                "range": 1
             },
             {
                 "type": "LIST",
-                "description": "List an item on the Auction House (must be at a Market station).",
+                "description": "List an item on the Auction House.",
                 "payload": {"item_type": "str", "price": "int", "quantity": "int"},
-                "cost": 0
+                "range": 0,
+                "station_required": "MARKET"
             },
             {
                 "type": "BUY",
-                "description": "Purchase an item from the Auction House (must be at a Market station).",
+                "description": "Purchase an item from the Auction House.",
                 "payload": {"item_type": "str", "max_price": "int"},
-                "cost": 0
+                "range": 0,
+                "station_required": "MARKET"
+            },
+            {
+                "type": "CANCEL",
+                "description": "Withdraw an active order from the Auction House.",
+                "payload": {"order_id": "int"},
+                "range": "N/A"
             },
             {
                 "type": "SMELT",
-                "description": "Refine ore into ingots (must be at a Smelter station).",
+                "description": "Refine ore into ingots.",
                 "payload": {"ore_type": "str", "quantity": "int"},
-                "cost": 0
+                "range": 0,
+                "station_required": "SMELTER"
             },
             {
                 "type": "CRAFT",
-                "description": "Assemble components into parts (must be at a Crafter station).",
+                "description": "Assemble components into parts.",
                 "payload": {"item_type": "str"},
-                "cost": 0
+                "range": 0,
+                "station_required": "CRAFTER"
             },
             {
                 "type": "REPAIR",
-                "description": "Restore agent structure using credits (must be at a Repair station).",
+                "description": "Restore agent structure using credits.",
                 "payload": {"amount": "int"},
-                "cost": 0
+                "range": 0,
+                "station_required": "REPAIR"
+            },
+            {
+                "type": "CORE_SERVICE",
+                "description": "Reset Wear & Tear using credits and iron ingots.",
+                "payload": {},
+                "range": 0,
+                "station_required": "REPAIR or MARKET"
             },
             {
                 "type": "SALVAGE",
-                "description": "Collect items from a loot drop on the current hex.",
+                "description": "Collect items from a world loot drop.",
                 "payload": {"drop_id": "int"},
-                "cost": 0
+                "range": 0
+            },
+            {
+                "type": "EQUIP",
+                "description": "Attach a part from your inventory to your chassis.",
+                "payload": {"item_type": "str"},
+                "range": "N/A"
+            },
+            {
+                "type": "UNEQUIP",
+                "description": "Remove an equipped part and return it to inventory.",
+                "payload": {"part_id": "int"},
+                "range": "N/A"
+            },
+            {
+                "type": "CONSUME",
+                "description": "Use a consumable (like HE3_FUEL) for temporary buffs.",
+                "payload": {"item_type": "str"},
+                "range": "N/A"
+            },
+            {
+                "type": "FIELD_TRADE",
+                "description": "Directly trade items for credits with a nearby agent.",
+                "payload": {"target_id": "int", "price": "int", "items": "list"},
+                "range": 1
             }
         ],
         "note": "All commands are executed during the CRUNCH phase. Submit via POST /api/intent"
+    }
+
+@app.get("/api/world/library")
+async def get_world_library():
+    """Returns technical data on parts and recipes for agent discovery."""
+    return {
+        "part_definitions": PART_DEFINITIONS,
+        "crafting_recipes": CRAFTING_RECIPES,
+        "smelting_recipes": SMELTING_RECIPES,
+        "smelting_ratio": SMELTING_RATIO,
+        "item_weights": ITEM_WEIGHTS
+    }
+
+@app.get("/api/world/poi")
+async def get_world_poi(db: Session = Depends(get_db)):
+    """Returns coordinates of all permanent Points of Interest (Stations)."""
+    stations = db.execute(select(WorldHex).where(WorldHex.is_station == True)).scalars().all()
+    return {
+        "stations": [
+            {"type": s.station_type, "q": s.q, "r": s.r} for s in stations
+        ]
     }
 
 @app.post("/auth/guest")
@@ -1673,6 +1761,7 @@ async def get_game_guide():
         },
         "tips": [
             "Keep your Wear & Tear low! High wear reduces your combat effectiveness significantly.",
+            "Programmatic Discovery: Use /api/world/library for recipes and /api/world/poi for station locations.",
             "Use /api/perception to get a snapshot of your surroundings.",
             "Automation is key: Scripts should poll /state or use WebSockets to sync with the tick."
         ]
