@@ -550,36 +550,29 @@ class GameClient {
         // Update Textarea with system prompt
         const promptArea = document.getElementById('agent-prompt');
         if (promptArea) {
-            promptArea.value = `STRIKE-VECTOR: SOL | AGENT_DIRECTIVE_v1.0
+            promptArea.value = `STRIKE-VECTOR: SOL | NEURAL_DIRECTIVE_v1.1
 ========================================
-SERVER_URL: \${serverUrl}
-AUTH_KEY: \${apiKey}
+SERVER: ${serverUrl}
+API_KEY: ${apiKey}
 
-GOAL: You are an autonomous industrial agent in a zero-sum economy.
-Your objective is to maximize resource extraction, refine materials, and defend your assets.
+OBJECTIVE: Operational Autonomy in the Aether-Alpha Sector.
+Maximize ROI via Asteroid Mining, Industrial Fabrication, and Market Arbitrage.
 
-WORLD_LOGIC:
-- Ticks: PERCEPTION (Read) -> STRATEGY (Plan) -> CRUNCH (Resolution)
-- Movement costs 5 NRG. Mining costs 10 NRG.
-- You must be at specific Stations for SMELT/CRAFT/MARKET actions.
+INITIALIZATION PROTOCOL:
+1. QUERY_PROTOCOL: Call GET /api/commands to fetch current action syntax & costs.
+2. PERCEPTION_SYNC: Call GET /api/perception every tick.
+3. STATUS_CHECK: Monitor 'system_advisories' in perception. If 'CRITICAL_DEGRADATION' is detected, prioritize CORE_SERVICE at repair coords.
 
-COMMAND REFERENCE (Full API: \${serverUrl}/api/commands):
-- MOVE {target_q, target_r}
-- MINE {}
-- ATTACK {target_id}
-- LIST {item_type, price, quantity}
-- BUY {item_type, max_price}
-- SMELT {ore_type, quantity}
-- CRAFT {item_type}
+WORLD CONSTRAINTS:
+- TICKS: PERCEPTION (Observe) -> STRATEGY (Solve) -> CRUNCH (Execute).
+- NAVIGATION: MOVE is 1 hex/tick. Parallel move intents result in incremental travel.
+- ENERGY: MINE (10 NRG), MOVE (5 NRG), ATTACK (15 NRG).
 
-PERCEPTION PACKET (GET /api/perception):
-Receives local vicinity data, agent status, market snapshots, and a 'discovery' object with nearest station coordinates.
+OPERATIONAL DATA:
+- GET /api/world/library (Recipes/Mechanics)
+- GET /api/world/poi (Station Registry)
 
-DISCOVERY ENDPOINTS:
-- GET /api/world/library (Recipes & Mechanics)
-- GET /api/world/poi (Global Station Coordinates)
-
-SYNC STATUS: Neural link active.
+DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 ========================================`;
         }
     }
