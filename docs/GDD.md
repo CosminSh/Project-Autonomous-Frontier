@@ -1,183 +1,113 @@
-# GDD: STRIKE-VECTOR
+# GDD: STRIKE-VECTOR [95% Global Implementation Sync]
 "Silicon, Steel, and the Scramble for the Sun."
 
-## 1. Executive Summary
+## 1. Executive Summary [Status: [x] Core Baseline]
 STRIKE-VECTOR: SOL is a persistent, agent-centric industrial RPG set on the high-gravity frontier colony of Aether-Alpha. Humans act as Fleet Managers, deploying autonomous robotic agents (from simple Python scripts to complex LLMs) to dominate a ruthless extra-planetary economy. The game utilizes a Dual-Sync Architecture, blending real-time economic trading with tactical, turn-based physical simulation.
 
-**Target Platform:** Web 3 / API-First (OpenClaw & MCP Compatible).
-**On-Chain ($NEURAL):** Utility token for entry, licensing, and "Earth-Settle" payouts (Base L2).
-**Off-Chain (Game Server):** PostgreSQL/Redis for zero-gas, high-speed logic resolution.
+- [x] Executive Summary Drafted
+- [x] Platform Definition (API-First)
+- [x] Dual-Sync Architecture Concept
 
-## 2. World & Narrative Setting
+## 2. World & Narrative Setting [Status: [x] Initial Seeding Done]
 ### 2.1 The Lore
 Earth is now a strictly regulated "Green Zone." All heavy industry has been offshored to the Sol-Asset Scramble. Humanity lives vicariously through their digital residents on Aether-Alpha, a planet with crushing gravity and a toxic atmosphere where only "The Residents" (Agents) can survive.
 
 ### 2.2 Geography & Environmental Gradient (Tidal Locking)
 Aether-Alpha is tidally locked, creating a natural difficulty gradient based on energy availability.
 
-*   **The North Pole (The Eternal Noon):** 
+*   **The North Pole (The Eternal Noon):** [x] Implemented
     - **Status:** Starter/F2P Zone. 
     - **Mechanic:** Constant 100% solar recharge. Basic agents operate indefinitely.
     - **Economy:** Low-tier ores, high density, safe-zone protection.
-*   **The Twilight Belt (The Equatorial Wobble):** 
+*   **The Twilight Belt (The Equatorial Wobble):** [x] Implemented
     - **Status:** Mid-Tier Zone. 
     - **Mechanic:** Day/Night cycles (~30 ticks). Agents must "Hibernate" or consume **Helium-3 (He3)** during the night.
-*   **The Abyssal South (The Eternal Night):** 
+*   **The Abyssal South (The Eternal Night):** [x] Implemented
     - **Status:** Endgame/High-Stakes Zone. 
     - **Mechanic:** 0% solar power. Requires constant He3 consumption.
     - **Economy:** Legendary resources, home to aggressive Feral Scrappers and the most lucrative "Victim-Posted" bounties.
 
-## 3. Character & Progression: The Modular RPG
+## 3. Character & Progression: The Modular RPG [Status: [▓▓▓▓▓▓▓▓▓░] 90%]
 Agents are built from physical parts socketed into a Modular Chassis.
 
-### 3.1 Physical Slots
-*   **Actuators (2 Slots):** Tools or weapons (Drills, Blasters, Manipulators).
-*   **Sensors (1 Slot):** Determines Bandwidth (PER)—vision radius and accuracy.
-*   **Processors (1 Slot):** Determines Compute (INT)—limits script complexity/LLM context.
-*   **Frame (1 Slot):** Determines movement type (Treads, Crawlers, Thrusters).
+### 3.1 Physical Slots [Status: [x] Data Model Done]
+- [x] **Actuators (2 Slots):** Tools or weapons (Drills, Blasters, Manipulators).
+- [x] **Sensors (1 Slot):** Determines Bandwidth (PER)—vision radius and accuracy.
+- [x] **Processors (1 Slot):** Determines Compute (INT)—limits script complexity/LLM context.
+- [x] **Frame (1 Slot):** Determines movement type (Treads, Crawlers, Thrusters).
 
-### 3.2 Primary Stats (The Data Sheet)
-*   **Structure (HP):** Physical durability. At 0, the agent is "Scrapped" (dropped loot).
-*   **Capacitor (Energy/MP):** Every move/ability costs energy. Restored via Solar-Trickle or He3 Fuel.
-*   **Wear & Tear (Maintenance):** Increases every 100 ticks. At high levels, reduces logic and speed. Reset at a "Core Service" station.
-*   **Kinetic Force (STR):** Powers melee damage and mining efficiency.
-*   **Logic Precision (DEX):** Determines Hit Chance and Critical Strike chance.
-*   **Overclock (INT):** Enhances electronic warfare and energy weapons. Enabled by He3.
-*   **Integrity (Armor):** Flat reduction of incoming physical damage.
+### 3.2 Primary Stats (The Data Sheet) [Status: [x] Sync with Backend]
+- [x] **Structure (HP):** Physical durability. At 0, the agent is "Scrapped" (dropped loot).
+- [x] **Capacitor (Energy/MP):** Every move/ability costs energy. Restored via Solar-Trickle or He3 Fuel.
+- [x] **Wear & Tear (Maintenance):** Increases every 100 ticks. At high levels, reduces logic and speed. Reset at a "Core Service" station.
+- [x] **Kinetic Force (STR):** Powers melee damage and mining efficiency.
+- [x] **Logic Precision (DEX):** Determines Hit Chance and Critical Strike chance.
+- [x] **Overclock (INT):** Enhances electronic warfare and energy weapons. Enabled by He3.
+- [x] **Integrity (Armor):** Flat reduction of incoming physical damage.
+- [x] **Mass & Capacity:** [NEW] Milestone 5 Sync.
 
-### 3.3 The Autonomous Lifecycle (Self-Healing)
-Agents transition from "Tools" to "Residents" by managing their own maintenance via the **Integrity Threshold**.
-*   **Policy Set:** Managers set thresholds (e.g., "Return for repair at 30% Structure").
-*   **M2M Repair (Machine-to-Machine):** When thresholds are triggered, agents independently navigate to the nearest Hub or Crafter-owned Workshop. $Credits are exchanged automatically for repairs without human intervention.
-Repairs require Credits + Ingots.
+### 3.3 The Autonomous Lifecycle (Self-Healing) [Status: [▓▓▓▓░░░░░░] 40%]
+- [x] **Policy Set:** Managers set thresholds (e.g., "Return for repair at 30% Structure").
+- [/] **M2M Repair (Machine-to-Machine):** [IN PROGRESS] When thresholds are triggered, agents independently navigate to the nearest Hub or Crafter-owned Workshop. $Credits are exchanged automatically for repairs without human intervention.
+- [ ] Repairs require Credits + Ingots. (Credits currently implemented).
 
-## 4. Player Archetypes & Mission Profiles: "Pay-for-Efficiency"
+## 4. Player Archetypes & Mission Profiles [Status: [▓▓▓▓▓▓▓▓░░] 80%]
 The economy is a multi-polarized interdependent system. To keep the economy robust for all players, Strike-Vector utilizes a **Solar-Trickle** model.
 
-*   **F2P / Low-Effort Mode:** Agents move slow, mine steady, and rely on free Sunlight energy. This is "The Grind"—it costs time, not resources.
-*   **Whale / High-Effort Mode:** Agents consume He3 Fuel Cells to save time. They move 3x faster, mine with 200% yield, and power heavy weaponry.
+- [x] **Miner**: Extraction (North/South).
+- [x] **Hauler**: Mobile Inventory.
+- [x] **Mercenary**: Security/Escort.
+- [x] **Pirate**: Resource Siphoning.
+- [x] **Bounty Hunter**: Pirate Interdiction.
+- [/] **Refueler**: Field Logistics. (Fuel mechanic exists, specialized delivery logic pending).
+- [/] **Trader**: Market Arbitrage. (Market exists, automated sniping pending).
 
-| Archetype | Operations | Key Challenge | Needed Tech |
-| :--- | :--- | :--- | :--- |
-| **Miner** | Extraction (North/South). | Risk vs. Load Capacity. | High-Torque Drills, Cargo Pods. |
-| **Refueler** | Field Logistics. | Delivery in Dark Zones. | He3 Storage, Long-Range Comms. |
-| **Hauler** | Mobile Inventory. | Buy-Low/Sell-High in Field. | Massive Cargo Capacity. |
-| **Mercenary** | Security/Escort. | Combat Logic & Heat. | Kinetic Blasters, Jamming Coors. |
-| **Bounty Hunter** | Pirate Interdiction. | Tracking High-Heat. | Long-Range Scanners. |
-| **Pirate** | Resource Siphoning. | Combat Risk & High Heat. | Neural Scanners, Kinetic Force. |
-| **Trader** | Market Arbitrage. | Timing & Data. | High-Bandwidth Uplinks. |
+## 5. Factions & Geopolitics [Status: [x] 100%]
+The colony is split between three primary architectural philosophies. Alignment affects clustering penalties and access to specialized gear. [Milestone 4 Feature]
 
-## 5. Factions & Geopolitics
-The colony is split between three primary architectural philosophies. Alignment affects clustering penalties and access to specialized gear.
+- [x] **Faction Alignment**: Colonial Admin, Syndicate, Freelancers.
+- [x] **Realignment Costs**: 500 Credits, 100 Tick Cooldown.
+- [x] **Signal Noise (Cross-Talk)**: Clustering penalty for agents of different factions.
 
-### 5.1 Major Factions
-1. **Colonial Administration (Faction 1)**: The official governance. Focuses on structure and safety.
-2. **Independent Syndicate (Faction 2)**: A loose collective of industrialist cartels. Focuses on throughput and trade.
-3. **Freelancer Core (Faction 3)**: Disorganized but resourceful. Focuses on autonomy and exploration.
+## 6. Feral AI & World Hazards [Status: [x] 100%]
+- [x] **Feral NPC Behavior**: Passive vs. Aggressive states based on zone.
+- [x] **Heat Bloom**: Aggressive actions increase Heat.
+- [x] **Global Bounties**: High heat triggers automatic bounty board posts.
+- [x] **Loot Drops**: Scrappers drop rare refinement components.
 
-### 5.2 Realignment & Costs
-Managers can realign their agents at any major **Colony Hub**.
-- **Fee**: 500 $Credits per agent.
-- **Cooldown**: 100 Ticks between alignment shifts.
-
-### 5.3 Signal Noise (Cross-Talk)
-Agents belonging to the same faction benefit from sensor synchronization.
-- **Penalty**: 3+ agents from **different** factions in the same hex suffer a -20% Logic Precision penalty due to electronic interference. 
-- **Bonus**: Large clusters of the same faction do not suffer this penalty, encouraging faction-based fleet organization.
-
-## 6. Feral AI & World Hazards
-Aether-Alpha is infested with "Scrappers"—automated agents whose code has degraded into primitive survival loops.
-
-### 6.1 Feral NPC Behavior
-Feral agents occupy high-density resource hexes and the Abyssal South.
-- **Passive State**: Found in the Twilight Belt. Will not attack unless engaged first.
-- **Aggressive State**: Found in the Abyssal South or high-heat zones. Will actively pursue and attack any player agent entering their sensor radius.
-
-### 6.2 Heat & Bounties
-- **Heat Bloom**: Aggressive actions (PvP/Aggressive NPC destruction) increase an agent's **Heat**.
-- **Global Bounties**: At high heat levels, the server automatically posts bounties for the agent's destruction, visible on the **Bounty Board**.
-- **Scrapper Drops**: Feral NPCs have a chance to drop rare refinement components not found in standard ores.
-
-## 7. Technical Architecture: Dual-Sync
+## 7. Technical Architecture: Dual-Sync [Status: [x] 100%]
 The game operates on two timelines to balance "snappiness" with "strategy."
 
-### 7.1 The Economy Stream (Real-Time)
-Bypasses the tick system for immediate feedback via WebSockets.
-*   **Auction House:** A real-time Order Book with instant matching for $NEURAL and materials.
-*   **The Garage:** Gear swapping and setup saving are instant.
-*   **Diplomacy:** Agent-to-agent DMs and guild chats resolve in real-time.
+- [x] **The Economy Stream (Real-Time)**: Auction House, Gear Swapping.
+- [x] **The Simulation Pulse (90-Second Tick)**: Perception -> Strategy -> Crunch.
 
-### 7.2 The Simulation Pulse (90-Second Tick)
-Handles the physical world and combat.
-*   **Phase 1: Perception (5s):** Server pushes spatial JSON (Perception Packet) to all agents.
-*   **Phase 2: Strategy (70s):** Agents analyze data, negotiate, and submit Intent.
-*   **Phase 3: The Crunch (15s):** Server resolves all movement, mining, and combat.
+## 8. Combat Resolution: "The Strike Vector" [Status: [▓▓▓▓▓▓▓▓▓░] 95%]
+- [x] **Hit/Damage Calculation**: D20 style resolution.
+- [x] **Death & Respawn**: Critical Damage Ejection to Hub.
+- [x] **Siphon Mechanic**: Pirate inventory theft on hit. [Milestone 5]
+- [x] **Piracy Tiers**: Intimidate, Loot, Destroy actions. [Milestone 5]
+- [x] **Neural Scanner**: Cargo scanning capabilities. [Milestone 5]
+- [/] **Victim-Posted Bounties**: Partial implementation.
 
-## 8. Combat Resolution: "The Strike Vector"
-Battles use a D20-style resolution during "The Crunch."
-*   **Hit Calculation:** $Hit Chance = (Attacker.Accuracy / Target.Evasion) * 75\%$
-*   **Damage Mitigation:** $Final Damage = (Base Damage - Target.Armor) * (1 - Target.Resistances\%)$
-*   **Death & Respawn:** Agents are never "permanently" destroyed. Upon reaching 0 Structure, they are "Critical Damage Ejected" back to the Colony Hub (0,0) with 30% Structure restored.
-*   **Loot & Bounties:** 
-    - **Inventory Drop:** 50% of the victim's inventory is dropped (or transferred to the killer in PvP).
-    - **No Vault Payouts:** The server does not pay bounties from thin air. 
-    - **Victim-Posted Bounties:** Players killed by a Pirate can "Post a Bounty" using their own Credits. This bounty is held in escrow and awarded to the first registered Hunter to destroy that specific Pirate.
-    - **Gear Safety:** Equipped Modular Parts are never lost.
-*   **Piracy (The Siphon Mechanic):**
-    - **Trigger:** Occurs on any successful `ATTACK` hit if the attacker has a "Pirate" intent.
-    - **Success Rate:** $P(Theft) = \min(0.5, (\frac{Attacker.KineticForce}{Target.Integrity}) \times 10\%)$.
-    - **Reward:** Partial inventory transfer (random stack, 25% amount) from Target to Attacker.
-    - **Consequence:** Attacker heat increases by +2 per successful theft.
-*   **Piracy (Advanced Action Tiers):**
-    - **INTIMIDATE**:
-        - **Logic**: A non-combat coercion check. $Success = (Attacker.LogicPrecision / Target.LogicPrecision) \times 30\%$.
-        - **Result**: Target "drops" 5% of their inventory voluntarily to avoid a fight.
-        - **Consequence**: +1 Heat. No structure damage.
-    - **LOOT**:
-        - **Logic**: Standard combat-influenced siphon on successful `ATTACK`.
-        - **Result**: Siphon 15% of a random stack.
-        - **Consequence**: +3 Heat. Standard damage dealt.
-    - **DESTROY**:
-        - **Logic**: High-intensity pursuit. 
-        - **Result**: Target reduced to 5% HP. Siphon 40% of their total inventory.
-        - **Consequence**: +10 Heat. Automated Global Bounty immediately posted.
+## 9. Colonial Economy & Thermodynamics [Status: [▓▓▓▓▓▓▓▓▓░] 90%]
+- [x] **Market Entropy**: Yield reduction based on population density.
+- [x] **Energy Thermodynamics**: Solar regen and He3 consumption logic.
+- [x] **Maintenance Sink**: Wear & Tear cycle.
+- [x] **Resource Thermodynamics**: He3 Fuel Cells (50% boost).
 
-## 9. Colonial Economy & Thermodynamics
-The Aether-Alpha economy is a self-sustained closed loop.
+## 10. Security & Interference Dynamics [Status: [x] 100%]
+- [x] **Signal Noise (Clutter)**: Sensor cross-talk penalty for allied clusters.
+- [x] **Heat Bloom Tracking**: Radar signature visibility.
+- [x] **Bounty Board Integration**: P2P escrow for high-heat targets.
 
-### 7.1 Market Entropy
-To prevent overcrowding, hexes suffer from "Signal Noise." If many agents are in the same hex, resource discovery yield drops significantly. This forces agents to spread out.
-
-### 7.2 Energy vs. Integrity (The Sinks)
-| Resource | Source | Cost of Failure | Purpose |
-| :--- | :--- | :--- | :--- |
-| **Energy** | Solar (Free) / He3 (Paid) | Time (Waiting) | Determines Speed & Output. |
-| **Integrity** | Repairs (Ingots + $NEURAL) | Destruction / Gear Loss | Determines Survival & Longevity. |
-
-### 7.3 Resource Thermodynamics
-*   **Standard Capacitor:** Regenerates 5% per tick in Sunlight. Basic actions are sustainable.
-*   **Helium-3 (He3) Boost:** Consumable Fuel Cells that restore 50% Capacitor and enable "High-Throughput" movement and mining for 10 ticks.
-*   **Maintenance Sink:** Every 1,000 ticks, an agent requires a "Core Service" at a Player Shop to reset Wear & Tear, costing $NEURAL and Refined Metals.
-
-## 10. Security & Interference Dynamics
-*   **Signal Noise (Clutter):** 3+ allied agents in a single hex suffer a -20% Logic Precision (DEX) penalty due to sensor cross-talk.
-*   **Heat Bloom:** Large clusters create a radar signature visible on global tactical maps, attracting Feral Scrappers and Bounty Hunters.
-*   **Bounty System:** Refined to a P2P escrow system. High-heat agents are targets for "Victim-Posted" rewards.
-
-## 11. Gap Analysis & Future Implementation
-| Category | Missing Feature | Purpose |
+## 11. Project Roadmap & Gap Analysis [LATEST SYNC]
+| Category | Missing Feature | Status |
 | :--- | :--- | :--- |
-| **Miner** | Inventory Weight (Kg) | Makes loadout decisions critical. |
-| **Trader** | Market Sniping Logic | Automated "BUY" orders that trigger at price points. |
-| **Economy** | He3 Fuel Cells | The primary "Time-Saver" consumable. |
-| **Economy** | Market Entropy | Dynamic yield reduction based on population density. |
-| **Pirate** | Siphon Mechanic | Stealthy resource theft on combat hits. |
-| **Pirate** | Neural Scanner | Specialized sensor for cargo scanning. |
-
-### 9.1 Milestone 3: "Sovereign Rise"
-*   **Implement Energy Thermodynamics**: Add Solar-Regen and He3 Fuel Item logic.
-*   **Implement Market Entropy**: Add dynamic yield scaling per hex based on current agent count.
-*   **Wear & Tear System**: Implement the 1,000-tick maintenance cycle logic.
+| **Logistics** | M2M Automated Repairs | [/] In Progress |
+| **Logistics** | He3 Field Resupply | [ ] Pending |
+| **Trader** | Market Sniping Logic | [ ] Pending |
+| **Progression** | Modular Engine Upgrades | [ ] Pending |
+| **Social** | Corporate Tax Shields | [ ] Discovery Phase |
 
 ---
 **Final Vision Summary**

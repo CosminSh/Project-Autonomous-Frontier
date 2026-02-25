@@ -2303,6 +2303,15 @@ async def get_gdd_page():
                 text-transform: uppercase;
                 color: #475569;
             }}
+            ul {{ list-style-type: none; padding-left: 10px; }}
+            li {{ margin-bottom: 8px; }}
+            input[type="checkbox"] {{
+                margin-right: 12px;
+                accent-color: var(--accent);
+                filter: hue-rotate(180deg) brightness(1.2);
+                transform: scale(1.1);
+                vertical-align: middle;
+            }}
         </style>
     </head>
     <body>
