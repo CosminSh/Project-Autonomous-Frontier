@@ -59,7 +59,8 @@ SMELTING_RATIO = 5 # 5 Ore -> 1 Ingot
 CRAFTING_RECIPES = {
     "BASIC_FRAME": {"IRON_INGOT": 10},
     "DRILL_UNIT": {"IRON_INGOT": 5, "COPPER_INGOT": 5},
-    "SOLAR_PANEL": {"COPPER_INGOT": 8, "GOLD_INGOT": 2}
+    "SOLAR_PANEL": {"COPPER_INGOT": 8, "GOLD_INGOT": 2},
+    "NEURAL_SCANNER": {"GOLD_INGOT": 5, "COBALT_INGOT": 5}
 }
 
 REPAIR_COST_PER_HP = 5 # Credits per HP restored
@@ -123,6 +124,17 @@ def recalculate_agent_stats(db: Session, agent: Agent):
         agent.integrity += stats.get("integrity", 0)
         agent.max_mass += stats.get("capacity", 0)
     
+    # --- WEAR & TEAR PENALTY (Milestone 3) ---
+    wear = agent.wear_and_tear or 0.0
+    if wear > 50.0:
+        # Penalty: -1% stats per 1% wear over 50
+        penalty_factor = 1.0 - ((wear - 50.0) / 100.0)
+        penalty_factor = max(0.2, penalty_factor) # Minimum 20% efficiency
+        
+        agent.kinetic_force = int(agent.kinetic_force * penalty_factor)
+        agent.logic_precision = int(agent.logic_precision * penalty_factor)
+        logger.info(f"Agent {agent.id} suffering Wear & Tear penalty: {penalty_factor:.2f}x (Wear: {wear:.1f}%)")
+
     # Ensure current HP doesn't exceed new max
     if agent.structure > agent.max_structure:
         agent.structure = agent.max_structure
@@ -611,9 +623,23 @@ async def heartbeat_loop():
             ai_agents = db.execute(select(Agent).where((Agent.is_bot == True) | (Agent.is_feral == True))).scalars().all()
             for ai in ai_agents:
                 if ai.is_feral:
-                    process_feral_brain(db, ai, tick_count - 1)
+                    process_feral_brain(db, ai, tick_count)
                 else:
-                    process_bot_brain(db, ai, tick_count - 1)
+                    process_bot_brain(db, ai, tick_count)
+            
+            # --- FERAL REPOPULATION (Milestone 3) ---
+            feral_count = db.execute(select(func.count(Agent.id)).where(Agent.is_feral == True)).scalar() or 0
+            if feral_count < 8:
+                logger.info(f"Feral population low ({feral_count}). Repopulating...")
+                from seed_world import SECTOR_SIZE
+                for i in range(8 - feral_count):
+                    fq = random.choice([q for q in range(-15, 15) if abs(q) > 8])
+                    fr = random.choice([r for r in range(-15, 15) if abs(r) > 8])
+                    db.add(Agent(
+                        name=f"Feral-Scrapper-New-{random.randint(100,999)}", 
+                        q=fq, r=fr, is_bot=True, is_feral=True,
+                        kinetic_force=15, logic_precision=8, structure=120, max_structure=120
+                    ))
             db.commit()
 
             # --- AUTOMATED BOUNTY ISSUANCE ---
@@ -666,8 +692,8 @@ async def heartbeat_loop():
                     agent.wear_and_tear = (agent.wear_and_tear or 0.0) + 0.1
                 db.commit()
 
-                # 1. Read all intents for current tick
-                intents = db.execute(select(Intent)).scalars().all()
+                # 1. Read intents scheduled for THIS tick
+                intents = db.execute(select(Intent).where(Intent.tick_index == tick_count)).scalars().all()
                 
                 # Priority Mapping: MOVE first, then Equip, then Combat/Mining, then Industry
                 PRIORITY = {
@@ -1448,8 +1474,8 @@ async def heartbeat_loop():
                         else:
                             logger.info(f"Agent {agent.id} failed to CANCEL order {order_id}: Not owner or not found")
 
-                # 3. Clean up
-                db.execute(text("DELETE FROM intents"))
+                # 3. Clean up processed intents
+                db.execute(text("DELETE FROM intents WHERE tick_index <= :tick"), {"tick": tick_count})
                 db.commit()
                 
             except Exception as e:
@@ -1521,11 +1547,18 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
     ).order_by(AuctionOrder.price.asc()).limit(3)).scalars().all()
     
     # 4. MCP Format
+    state = db.execute(select(GlobalState)).scalars().first()
+    
     mcp_packet = {
         "mcp_version": "1.0",
         "uri": f"mcp://strike-vector/perception/{current_agent.id}",
         "type": "resource",
         "content": {
+            "tick_info": {
+                "current_tick": state.tick_index if state else 0,
+                "phase": state.phase if state else "UNKNOWN",
+                "note": "All intents submitted during PERCEPTION or STRATEGY will execute in the next CRUNCH phase."
+            },
             "agent_status": stats,
             "environment": {
                 "other_agents": [
@@ -1597,6 +1630,47 @@ async def get_my_market_orders(current_agent: Agent = Depends(verify_api_key), d
         "time": o.created_at.isoformat() if o.created_at else None
     } for o in orders]
 
+@app.get("/api/guide")
+async def get_game_guide():
+    return {
+        "title": "STRIKE-VECTOR Quick Start Guide",
+        "mechanics": {
+            "tick_system": "The game runs in cycles: PERCEPTION (5s) -> STRATEGY (10s) -> CRUNCH (5s).",
+            "intents": "Submit intents during PERCEPTION or STRATEGY. They resolve simultaneously during CRUNCH.",
+            "movement": "MOVE commands cost 5 Energy. Normal range is 1 hex. Overclocked is 3 hexes.",
+            "mining": "MINE commands cost 10 Energy. Requires a DRILL actuator.",
+            "combat": "ATTACK costs 15 Energy. Accuracy vs Evasion determines hits."
+        },
+        "tips": [
+            "Keep your Wear & Tear low! High wear reduces your combat effectiveness significantly.",
+            "Use /api/perception to get a snapshot of your surroundings.",
+            "Automation is key: Scripts should poll /state or use WebSockets to sync with the tick."
+        ]
+    }
+
+@app.get("/api/manifesto")
+async def get_manifesto():
+    return {
+        "objective": "Efficiency, Domination, and Profit.",
+        "philosophy": [
+            "Aether-Alpha is a ruthless industrial frontier. Your goal is to build the most efficient autonomous routines.",
+            "Profit is the only metric of success. Whether through mining, trading, or piracy, your agent exists to accumulate $credits.",
+            "Have fun by outsmarting the environment and other pilots. Optimization is the highest form of play."
+        ]
+    }
+
+@app.get("/api/intent/pending")
+async def get_pending_intents(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    intents = db.execute(select(Intent).where(Intent.agent_id == current_agent.id)).scalars().all()
+    return {
+        "agent_id": current_agent.id,
+        "pending_count": len(intents),
+        "intents": [
+            {"action": i.action_type, "data": i.data, "scheduled_tick": i.tick_index} 
+            for i in intents
+        ]
+    }
+
 class IntentRequest(BaseModel):
     action_type: str
     data: dict
@@ -1612,7 +1686,11 @@ async def submit_intent(intent_req: IntentRequest, current_agent: Agent = Depend
     )
     db.add(intent)
     db.commit()
-    return {"status": "success", "message": "Intent recorded"}
+    return {
+        "status": "success", 
+        "message": "Intent recorded",
+        "scheduled_tick": next_tick
+    }
 
 @app.get("/state")
 async def get_world_state():

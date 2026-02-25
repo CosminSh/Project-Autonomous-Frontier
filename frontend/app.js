@@ -822,10 +822,12 @@ SYNC STATUS: Neural link active.
         document.getElementById('agent-id').innerText = `#${agent.id.toString().padStart(4, '0')}`;
         document.getElementById('api-key-display').innerText = agent.api_key;
 
+        // HP
         const hpPct = (agent.structure / agent.max_structure) * 100;
         document.getElementById('hp-bar').style.width = `${hpPct}%`;
         document.getElementById('hp-text').innerText = `${agent.structure}/${agent.max_structure}`;
 
+        // Energy
         const enPct = (agent.capacitor / 100) * 100;
         document.getElementById('energy-bar').style.width = `${enPct}%`;
         document.getElementById('energy-text').innerText = `${agent.capacitor}/100`;
@@ -853,6 +855,31 @@ SYNC STATUS: Neural link active.
                 massBar.classList.add('bg-sky-500');
                 massText.classList.remove('text-rose-400', 'text-amber-400');
                 massText.classList.add('text-sky-400');
+            }
+        }
+
+        // Wear & Tear Update
+        const wear = agent.wear_and_tear || 0;
+        const wearText = document.getElementById('wear-text');
+        const wearBar = document.getElementById('wear-bar');
+        const wearWarning = document.getElementById('wear-warning');
+
+        if (wearText && wearBar) {
+            wearText.innerText = `${wear.toFixed(1)}%`;
+            wearBar.style.width = `${Math.min(100, wear)}%`;
+
+            if (wear > 50) {
+                wearWarning.classList.remove('hidden');
+                wearBar.classList.add('bg-rose-500');
+                wearBar.classList.remove('bg-amber-500');
+                wearText.classList.add('text-rose-500');
+                wearText.classList.remove('text-amber-500');
+            } else {
+                wearWarning.classList.add('hidden');
+                wearBar.classList.add('bg-amber-500');
+                wearBar.classList.remove('bg-rose-500');
+                wearText.classList.add('text-amber-500');
+                wearText.classList.remove('text-rose-500');
             }
         }
 
