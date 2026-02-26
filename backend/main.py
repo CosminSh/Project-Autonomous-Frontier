@@ -234,12 +234,15 @@ def recalculate_agent_stats(db: Session, agent: Agent):
 
         # Apply Affixes
         affixes = part.affixes or {}
-        for stat_name, bonus in affixes.items():
-            if hasattr(agent, stat_name):
-                current_val = getattr(agent, stat_name)
-                setattr(agent, stat_name, current_val + bonus)
-            elif stat_name == "capacity":
-                agent.max_mass += bonus
+        # Affixes are nested: {"Swift": {"kinetic_force": 5}}
+        for affix_name, stat_bonuses in affixes.items():
+            if isinstance(stat_bonuses, dict):
+                for stat_name, bonus in stat_bonuses.items():
+                    if hasattr(agent, stat_name):
+                        current_val = getattr(agent, stat_name) or 0
+                        setattr(agent, stat_name, current_val + bonus)
+                    elif stat_name == "capacity":
+                        agent.max_mass = (agent.max_mass or BASE_CAPACITY) + bonus
     
     # --- WEAR & TEAR PENALTY (Milestone 3) ---
     wear = agent.wear_and_tear or 0.0
@@ -302,10 +305,16 @@ app.add_middleware(
 
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
-    response = await call_next(request)
-    # Required for Google OAuth popups to communicate back to the window
-    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
-    return response
+    try:
+        response = await call_next(request)
+        # Required for Google OAuth popups to communicate back to the window
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+        return response
+    except Exception as e:
+        logger.error(f"CRASH in {request.method} {request.url.path}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise e
 
 # WebSocket Manager
 class ConnectionManager:

@@ -12,6 +12,8 @@ def run_migration():
             # Check and add columns to 'agents' table
             columns_to_add = [
                 ("is_aggressive", "BOOLEAN DEFAULT FALSE"),
+                ("is_bot", "BOOLEAN DEFAULT FALSE"),
+                ("is_feral", "BOOLEAN DEFAULT FALSE"),
                 ("faction_id", "INTEGER"),
                 ("heat", "INTEGER DEFAULT 0"),
                 ("overclock_ticks", "INTEGER DEFAULT 0"),
