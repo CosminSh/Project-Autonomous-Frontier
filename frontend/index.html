@@ -232,8 +232,19 @@
                 <div class="p-3 md:p-4 border-b border-slate-800">
                     <div class="flex justify-between items-start">
                         <div>
-                            <h2 id="agent-name" class="orbitron text-base md:text-lg font-bold text-sky-400">LOADING...
-                            </h2>
+                            <div class="flex items-center space-x-2">
+                                <h2 id="agent-name" class="orbitron text-base md:text-lg font-bold text-sky-400">
+                                    LOADING...</h2>
+                                <button id="rename-trigger"
+                                    class="text-slate-500 hover:text-sky-400 transition-colors p-1"
+                                    title="Rename Pilot">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none"
+                                        viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                </button>
+                            </div>
                             <p id="agent-id" class="text-[9px] md:text-[10px] text-slate-500 font-mono">#0000</p>
                         </div>
                         <div class="flex flex-col items-end space-y-1">
@@ -282,6 +293,20 @@
                                 class="w-full h-1.5 md:h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
                                 <div id="energy-bar" class="h-full bg-sky-500 transition-all duration-500"
                                     style="width: 100%"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-end mb-1">
+                                <span
+                                    class="text-[8px] md:text-[10px] text-slate-400 uppercase tracking-widest font-bold">Solar
+                                    Intensity</span>
+                                <span id="solar-text" class="text-[10px] md:text-xs font-mono text-amber-400">0%</span>
+                            </div>
+                            <div
+                                class="w-full h-1.5 md:h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                                <div id="solar-bar" class="h-full bg-amber-400 transition-all duration-500"
+                                    style="width: 0%"></div>
                             </div>
                         </div>
 
@@ -609,7 +634,11 @@
                                     class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-sky-500 outline-none">
                                     <option value="BASIC_FRAME">BASIC FRAME (10 Iron Ingots)</option>
                                     <option value="DRILL_UNIT">DRILL UNIT (5 Iron, 5 Copper Ingots)</option>
-                                    <option value="SOLAR_PANEL">SOLAR PANEL (8 Copper, 2 Gold Ingots)</option>
+                                    <option value="SCRAP_SOLAR_PANEL">SCRAP SOLAR PANEL (5 Iron Ingots)</option>
+                                    <option value="REFINED_SOLAR_PANEL">REFINED SOLAR PANEL (10 Copper, 2 Gold Ingots)
+                                    </option>
+                                    <option value="HE3_FUEL_CELL_UNIT">HE3 FUEL CELL UNIT (10 Cobalt, 5 Gold Ingots)
+                                    </option>
                                 </select>
                                 <button id="btn-craft"
                                     class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">FABRICATE</button>

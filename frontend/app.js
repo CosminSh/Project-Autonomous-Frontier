@@ -64,6 +64,9 @@ class GameClient {
         const realignBtn = document.getElementById('realign-faction-btn');
         if (realignBtn) realignBtn.addEventListener('click', () => this.submitFactionRealignment());
 
+        const renameTrigger = document.getElementById('rename-trigger');
+        if (renameTrigger) renameTrigger.addEventListener('click', () => this.handleRename());
+
         // Mode Switcher Listeners
         document.getElementById('btn-mode-world').addEventListener('click', () => this.setUIMode('world'));
         document.getElementById('btn-mode-agent').addEventListener('click', () => this.setUIMode('management'));
@@ -435,6 +438,42 @@ class GameClient {
             console.error(e);
             btn.disabled = false;
             btn.innerText = oldText;
+        }
+    }
+
+    async handleRename() {
+        const currentName = document.getElementById('agent-name').innerText;
+        const newName = prompt("Enter a new unique name for your Pilot:", currentName);
+
+        if (!newName || newName === currentName || newName.length < 3) return;
+
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return;
+
+        try {
+            const resp = await fetch(`${window.location.origin}/api/rename_agent`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-KEY': apiKey
+                },
+                body: JSON.stringify({ new_name: newName })
+            });
+
+            if (resp.ok) {
+                const data = await resp.json();
+                document.getElementById('agent-name').innerText = data.new_name;
+                // Highlight success
+                const nameEl = document.getElementById('agent-name');
+                nameEl.classList.add('text-emerald-400');
+                setTimeout(() => nameEl.classList.remove('text-emerald-400'), 2000);
+            } else {
+                const err = await resp.json();
+                alert(`Rename Failed: ${err.detail || 'The name is invalid or already taken.'}`);
+            }
+        } catch (e) {
+            console.error("Rename Error:", e);
+            alert("Connection error during rename.");
         }
     }
 
@@ -934,24 +973,82 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
     updateAgentMesh(agentData) {
         let mesh = this.agents.get(agentData.id);
         const { x, z } = this.qToCoord(agentData.q, agentData.r);
+        const visual = agentData.visual_signature || { chassis: 'BASIC', rarity: 'STANDARD' };
 
         if (!mesh) {
-            const geometry = new THREE.ConeGeometry(0.5, 1, 4);
-            const color = agentData.is_feral ? 0xff4422 : 0x38bdf8;
-            const emissive = agentData.is_feral ? 0xff0000 : 0x0ea5e9;
+            // 1. Determine Geometry based on Chassis
+            let geometry;
+            switch (visual.chassis) {
+                case 'SHIELDED':
+                    geometry = new THREE.CylinderGeometry(0.5, 0.5, 0.8, 6); // Hexagonal shield
+                    break;
+                case 'HEAVY':
+                    geometry = new THREE.BoxGeometry(0.7, 0.7, 0.7);
+                    break;
+                default:
+                    geometry = new THREE.ConeGeometry(0.5, 1, 4);
+            }
+
+            // 2. Determine Material based on Rarity & Feral Status
+            const rarityColors = {
+                'SCRAP': 0x64748b,
+                'STANDARD': 0x38bdf8,
+                'REFINED': 0x3b82f6,
+                'PRIME': 0xfacc15,
+                'RELIC': 0xf97316
+            };
+            const rarityEmissives = {
+                'SCRAP': 0x334155,
+                'STANDARD': 0x0ea5e9,
+                'REFINED': 0x2563eb,
+                'PRIME': 0xeab308,
+                'RELIC': 0xea580c
+            };
+
+            const color = agentData.is_feral ? 0xff4422 : (rarityColors[visual.rarity] || 0x38bdf8);
+            const emissive = agentData.is_feral ? 0xff0000 : (rarityEmissives[visual.rarity] || 0x0ea5e9);
 
             const material = new THREE.MeshStandardMaterial({
                 color: color,
                 emissive: emissive,
-                emissiveIntensity: 0.5
+                emissiveIntensity: 0.5,
+                metalness: 0.8,
+                roughness: 0.2
             });
+
             mesh = new THREE.Mesh(geometry, material);
+
+            // 3. Add Actuator Marker if present
+            if (visual.actuator === 'DRILL') {
+                const drillGeom = new THREE.ConeGeometry(0.15, 0.4, 8);
+                const drillMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9 });
+                const drill = new THREE.Mesh(drillGeom, drillMat);
+                drill.position.y = -0.6;
+                drill.rotation.x = Math.PI;
+                mesh.add(drill);
+            } else if (visual.actuator === 'WEAPON') {
+                const gunGeom = new THREE.CylinderGeometry(0.08, 0.08, 0.6, 8);
+                const gunMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9 });
+                const gun = new THREE.Mesh(gunGeom, gunMat);
+                gun.position.set(0.3, 0.2, 0);
+                gun.rotation.z = Math.PI / 2;
+                mesh.add(gun);
+            }
+
             this.scene.add(mesh);
             this.agents.set(agentData.id, mesh);
         }
 
         mesh.position.lerp(new THREE.Vector3(x, 0.6, z), 0.1);
         mesh.rotation.y += 0.01;
+
+        // Dynamic pulse for high rarity
+        if (visual.rarity === 'PRIME' || visual.rarity === 'RELIC') {
+            const pulse = 0.5 + Math.sin(Date.now() * 0.005) * 0.3;
+            if (mesh.material.emissiveIntensity !== undefined) {
+                mesh.material.emissiveIntensity = pulse;
+            }
+        }
     }
 
     updateGlobalUI(stats) {
@@ -988,7 +1085,28 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         // Energy
         const enPct = (agent.capacitor / 100) * 100;
         document.getElementById('energy-bar').style.width = `${enPct}%`;
-        document.getElementById('energy-text').innerText = `${agent.capacitor}/100 (+2)`;
+
+        // Solar Intensity
+        const solarIntensity = agent.solar_intensity || 0;
+        const solarBar = document.getElementById('solar-bar');
+        const solarText = document.getElementById('solar-text');
+        if (solarBar && solarText) {
+            solarBar.style.width = `${solarIntensity}%`;
+            solarText.innerText = `${solarIntensity}%`;
+        }
+
+        // Calculate expected regen for display
+        let expectedRegen = 0;
+        const powerPart = agent.parts?.find(p => p.type === 'Power');
+        if (powerPart) {
+            const efficiency = powerPart.stats?.efficiency || 0.5;
+            if (powerPart.name.includes('Fuel Cell')) {
+                expectedRegen = 2;
+            } else {
+                expectedRegen = Math.floor((solarIntensity / 100) * (efficiency * 10));
+            }
+        }
+        document.getElementById('energy-text').innerText = `${agent.capacitor}/100 (+${expectedRegen})`;
 
         // Mass Update
         const mass = agent.mass || 0;

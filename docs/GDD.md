@@ -35,7 +35,7 @@ Agents are built from physical parts socketed into a Modular Chassis. Every part
 - [x] **Sensors (1 Slot):** Determines PER (Vision/Scan).
 - [x] **Processors (1 Slot):** Determines INT (Script logic/Context).
 - [x] **Frame (1 Slot):** Determines base HP and Mass capacity.
-- [ ] **Engine (1 Slot):** Determines Speed and Energy Efficiency. [PENDING]
+- [x] **Power (1 Slot):** Determines Energy Regeneration and efficiency.
 
 ### 3.2 Randomized Gear: Affixes & Suffixes
 Following the "Diablo 2" model, crafted gear is no longer deterministic. 
@@ -43,6 +43,12 @@ Following the "Diablo 2" model, crafted gear is no longer deterministic.
 - **Prefixes/Suffixes**: Random bonuses added during crafting based on the recipe and luck.
     - *Example*: "Overclocked Steel Drill of the Void" (Prefix: +Energy, Suffix: +Critical Chance).
 - **Progression**: High-tier gear requires rarer "Base Frames" and specific component combinations.
+
+### 3.3 Unique Character Naming
+To foster a sense of unique identity, every agent possesses a distinct name alongside its ID. 
+- **Uniqueness**: Agent names must be unique across the colonial network.
+- **Modification**: Fleet Managers can update an agent's name through the backend registry, provided the new name is not already claimed.
+- **Narrative Weight**: Names are the primary "human" link to the digital residents, often reflecting their specialized roles (e.g., "The Gilded Siphon", "Iron-Lung VII").
 
 ### 3.2 Primary Stats (The Data Sheet) [Status: [x] Sync with Backend]
 - [x] **Structure (HP):** Physical durability. At 0, the agent is "Scrapped" (dropped loot).
@@ -71,6 +77,18 @@ The economy is a multi-polarized interdependent system. To keep the economy robu
 - [x] **Bounty Hunter**: Pirate Interdiction.
 - [/] **Refueler**: Field Logistics. Uses **He3 Canisters** to resupply allies with low energy in the field.
 - [/] **Trader**: Market Arbitrage. (Market exists, automated sniping pending).
+
+### 4.5 Power Systems: The Energy Cycle
+The Energy cycle is the lifeblood of the frontier. 
+- **Solar-Trickle**: High-altitude agents with functional **Solar Panels** regenerate energy during the Perception phase based on local solar intensity.
+- **Tidal Gradients**: 
+    - **North Pole**: 1.0x intensity.
+    - **Twilight Belt**: 0.0x to 1.0x (dynamic or gradient-based).
+    - **South Pole**: 0.0x intensity (requires Helium-3).
+- **The Power Slot**: 
+    - `SCRAP_SOLAR_PANEL`: Baseline efficiency (50%), starting gear.
+    - `REFINED_SOLAR_PANEL`: Higher efficiency (80%-100%).
+    - `HE3_FUEL_CELL`: Consumes He3 for 24/7 power, regardless of sun availability.
 
 ## 5. Factions & Geopolitics [Status: [x] 100%]
 The colony is split between three primary architectural philosophies. Alignment affects clustering penalties and access to specialized gear. [Milestone 4 Feature]
@@ -140,8 +158,20 @@ The Scramble is not just about siphoning resources; it's about siphoning informa
 | **Industrial** | Gear Upgrade System | [x] RELEASED |
 | **Social** | Network Intelligence (Chat/Squads) | [ ] DESIGNED |
 | **Trader** | Market Sniping Logic | [ ] Pending |
-| **Progression** | Modular Engine Upgrades | [x] RELEASED |
+| **Identity** | Unique Naming System | [x] RELEASED |
+| **Aesthetics** | Gear-Based Visual Signatures | [x] RELEASED |
+| **Environment** | Tidal Locking & Solar Gradient | [x] RELEASED |
+| **Industrial** | Solar Panel & Power Slot | [x] RELEASED |
 | **Social** | Corporate Tax Shields | [ ] DESIGNED |
+
+## 13. Aesthetics & Character Uniqueness [Milestone 6 Focus]
+While agents are functional units, their visual representation on the map is a key part of the "Spectator Experience" for Fleet Managers.
+
+### 13.1 Gear-Based Visual Signatures
+The physical appearance of an agent on the World Map dynamically reflects its equipped gear. 
+- **Chassis Overlays**: Equipped Frames change the base model silhouette (e.g., "Basic Frame" vs. "Shield Generator").
+- **Attachment Markers**: Actuators and Sensors add visible sub-components to the model.
+- **Aesthetic Tiers**: Rarity levels (Scrap, Standard, etc.) may apply subtle visual pulses or color shifts to the agent's map model, making high-tier agents instantly recognizable to observers.
 
 ---
 **Final Vision Summary**

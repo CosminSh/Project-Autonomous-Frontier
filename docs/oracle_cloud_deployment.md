@@ -92,3 +92,33 @@ When you make changes to your code and push them to GitHub:
 
 > [!TIP]
 > To see the logs of your server, run: `docker-compose logs -f backend`
+
+## 7. Troubleshooting & Best Practices
+
+### A. Database Migrations (Schema Changes)
+Whenever a new feature adds columns to the database (like Rarity or Affixes), the live server will crash with a `500 Internal Server Error` until the database is updated.
+1. **Pull the code**: `git pull`
+2. **Run migration**: `docker-compose exec backend python migrate.py`
+3. **Check Output**: If the migration script says "Column already exists", that's normal. If it says "Successfully handled", the fix is applied.
+
+### B. Monitoring Logs
+If the website isn't loading data, the backend logs are the first place to look.
+- **View logs**: `docker-compose logs --tail=50 -f backend`
+- **Look for**: `CRITICAL`, `ERROR`, or Python tracebacks.
+- **Unbuffered Output**: If you don't see logs immediately, try running the command with `python -u`.
+
+### C. Resource Lock-ups
+On low-resource (Always Free) instances, the database or backend might occasionally hang.
+- **Full Restart**: `docker-compose down && docker-compose up -d --build`
+- **Prune old data**: `docker system prune` (Only if disk is full).
+
+### D. Google OAuth Whitelisting
+If you change your server's domain or IP address, you **must** update the Google Cloud Console.
+1. Go to **APIs & Services** -> **Credentials**.
+2. Edit your **OAuth 2.0 Client ID**.
+3. Add your IP with port 3000 (e.g., `http://92.5.113.36:3000`) to **Authorized JavaScript origins**.
+
+### E. Defensive Coding
+- Check for `None` values when accessing optional JSON fields.
+- Always add a default fallback when `getattr()` or `get()` is used on database objects.
+- Use `try...except` in middlewares to log exact error locations before the 500 response is sent.

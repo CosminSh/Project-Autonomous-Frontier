@@ -26,7 +26,7 @@ logger = logging.getLogger("heartbeat")
 MOVE_ENERGY_COST = 5
 MINE_ENERGY_COST = 10
 ATTACK_ENERGY_COST = 15
-RECHARGE_RATE = 2 # Energy recharged per tick
+BASE_REGEN = 2 # Energy recharged per tick (at 100% intensity)
 MAX_CAPACITOR = 100
 
 # Tick Phase Durations (GDD Section 5.2 - Scaled for Testing)
@@ -47,6 +47,22 @@ def is_in_anarchy_zone(q, r):
     dist = get_hex_distance(q, r, 0, 0)
     return dist >= ANARCHY_THRESHOLD
 
+def get_solar_intensity(q, r, tick_count=0):
+    """Calculates solar power intensity (0.0 to 1.0) based on location and cycle."""
+    dist = get_hex_distance(q, r, 0, 0)
+    
+    # North Pole (Safe Zone): Constant 100% intensity
+    if dist <= SOLAR_RADIUS_SAFE:
+        return 1.0
+        
+    # Twilight Belt: Cyclic intensity (Day/Night)
+    if dist <= SOLAR_RADIUS_TWILIGHT:
+        day_night_cycle = (tick_count // 30) % 2 == 0
+        return 1.0 if day_night_cycle else 0.0
+        
+    # Abyssal South: Eternal Darkness
+    return 0.0
+
 # Industrial Recipes & Costs
 SMELTING_RECIPES = {
     "IRON_ORE": "IRON_INGOT",
@@ -59,7 +75,9 @@ SMELTING_RATIO = 5 # 5 Ore -> 1 Ingot
 CRAFTING_RECIPES = {
     "BASIC_FRAME": {"IRON_INGOT": 10},
     "DRILL_UNIT": {"IRON_INGOT": 5, "COPPER_INGOT": 5},
-    "SOLAR_PANEL": {"COPPER_INGOT": 8, "GOLD_INGOT": 2},
+    "SCRAP_SOLAR_PANEL": {"COPPER_INGOT": 2, "IRON_INGOT": 2},
+    "REFINED_SOLAR_PANEL": {"COPPER_INGOT": 8, "GOLD_INGOT": 2},
+    "HE3_FUEL_CELL_UNIT": {"COBALT_INGOT": 5, "GOLD_INGOT": 2},
     "NEURAL_SCANNER": {"COPPER_INGOT": 20, "GOLD_INGOT": 5},
     "GAS_SIPHON": {"COPPER_INGOT": 10, "IRON_INGOT": 5},
     "EMPTY_CANISTER": {"IRON_INGOT": 5},
@@ -70,7 +88,7 @@ CRAFTING_RECIPES = {
     "UPGRADE_MODULE": {"GOLD_INGOT": 5, "COBALT_INGOT": 2}
 }
 
-CORE_RECIPES = ["BASIC_FRAME", "DRILL_UNIT", "EMPTY_CANISTER", "UPGRADE_MODULE", "ENGINE_UNIT"]
+CORE_RECIPES = ["BASIC_FRAME", "DRILL_UNIT", "EMPTY_CANISTER", "UPGRADE_MODULE", "ENGINE_UNIT", "SCRAP_SOLAR_PANEL"]
 UPGRADE_MAX_LEVEL = 10
 UPGRADE_BASE_INGOT_COST = 10
 
@@ -107,7 +125,9 @@ FACTION_REALIGNMENT_COOLDOWN = 100
 PART_DEFINITIONS = {
     "BASIC_FRAME": {"type": "Frame", "stats": {"max_structure": 50, "integrity": 5, "capacity": 50}, "name": "Reinforced Chassis"},
     "DRILL_UNIT": {"type": "Actuator", "stats": {"kinetic_force": 8, "logic_precision": -2}, "name": "Titanium Mining Drill"},
-    "SOLAR_PANEL": {"type": "Sensor", "stats": {"overclock": 5, "radius": 2}, "name": "High-Efficiency Solar Array"},
+    "SCRAP_SOLAR_PANEL": {"type": "Power", "stats": {"efficiency": 0.5}, "name": "Scrap Solar Panel"},
+    "REFINED_SOLAR_PANEL": {"type": "Power", "stats": {"efficiency": 1.0}, "name": "Refined Solar Array"},
+    "HE3_FUEL_CELL_UNIT": {"type": "Power", "stats": {"efficiency": 2.0}, "name": "Helium-3 Fuel Cell"},
     "NEURAL_SCANNER": {"type": "Sensor", "stats": {"radius": 2, "scan_depth": 1}, "name": "Neural-Link Cargo Scanner"},
     "GAS_SIPHON": {"type": "Actuator", "stats": {"kinetic_force": 2}, "name": "Helium Gas Siphon"},
     "ENGINE_UNIT": {"type": "Engine", "stats": {"kinetic_force": 5, "capacity": 20}, "name": "Standard Fusion Engine"},
@@ -130,7 +150,9 @@ ITEM_WEIGHTS = {
     # Parts have higher weight
     "PART_BASIC_FRAME": 50.0,
     "PART_DRILL_UNIT": 15.0,
-    "PART_SOLAR_PANEL": 10.0,
+    "PART_SCRAP_SOLAR_PANEL": 5.0,
+    "PART_REFINED_SOLAR_PANEL": 10.0,
+    "PART_HE3_FUEL_CELL_UNIT": 12.0,
     "PART_NEURAL_SCANNER": 12.0,
     "PART_GAS_SIPHON": 15.0,
     "EMPTY_CANISTER": 5.0,
@@ -262,9 +284,13 @@ def recalculate_agent_stats(db: Session, agent: Agent):
     db.flush()
 
 def ensure_agent_has_starter_gear(db: Session, agent: Agent):
-    """Legacy Bootstrap: Ensures agents created before the fix have a drill."""
-    if len(agent.parts) == 0:
-        logger.info(f"Legacy Bootstrap: Equipping starter drill for Agent {agent.id}")
+    """Bootstrap: Ensures agents have essential gear (Drill and Solar Panel)."""
+    has_drill = any(p.part_type == "Actuator" for p in agent.parts)
+    has_power = any(p.part_type == "Power" for p in agent.parts)
+    
+    dirty = False
+    if not has_drill:
+        logger.info(f"Bootstrap: Equipping starter drill for Agent {agent.id}")
         drill_def = PART_DEFINITIONS["DRILL_UNIT"]
         db.add(ChassisPart(
             agent_id=agent.id,
@@ -272,10 +298,57 @@ def ensure_agent_has_starter_gear(db: Session, agent: Agent):
             name=drill_def["name"],
             stats=drill_def["stats"]
         ))
+        dirty = True
+    
+    if not has_power:
+        logger.info(f"Bootstrap: Equipping starter solar panel for Agent {agent.id}")
+        panel_def = PART_DEFINITIONS["SCRAP_SOLAR_PANEL"]
+        db.add(ChassisPart(
+            agent_id=agent.id,
+            part_type=panel_def["type"],
+            name=panel_def["name"],
+            stats=panel_def["stats"]
+        ))
+        dirty = True
+    
+    if dirty:
         db.commit()
         db.refresh(agent)
         recalculate_agent_stats(db, agent)
         db.commit()
+
+def get_agent_visual_signature(agent: Agent):
+    """Computes a visual signature based on equipped gear for frontend rendering."""
+    signature = {
+        "chassis": "BASIC",
+        "actuator": None,
+        "rarity": "STANDARD"
+    }
+    
+    highest_rarity_score = 0
+    rarity_map = {"SCRAP": 1, "STANDARD": 2, "REFINED": 3, "PRIME": 4, "RELIC": 5}
+    
+    for part in agent.parts:
+        name_str = (part.name or "").lower()
+        if part.part_type == "Frame":
+            if "aegis" in name_str or "shield" in name_str:
+                signature["chassis"] = "SHIELDED"
+            elif "heavy" in name_str or "titan" in name_str:
+                signature["chassis"] = "HEAVY"
+        
+        if part.part_type == "Actuator":
+            if "drill" in name_str:
+                signature["actuator"] = "DRILL"
+            elif "blaster" in name_str or "laser" in name_str:
+                signature["actuator"] = "WEAPON"
+        
+        p_rarity = part.rarity or "STANDARD"
+        score = rarity_map.get(p_rarity, 2)
+        if score > highest_rarity_score:
+            highest_rarity_score = score
+            signature["rarity"] = p_rarity
+            
+    return signature
 
 def get_hex_distance(q1, r1, q2, r2):
     """
@@ -641,17 +714,21 @@ async def guest_login(request: Request, db: Session = Depends(get_db)):
     except:
         pass
     
-    name = data.get("name", "Guest-Pilot")
-    email = data.get("email", "guest@local.test")
+    email = data.get("email")
+    if not email:
+        uid = str(uuid.uuid4())[:8]
+        email = f"guest-{uid}@local.test"
+        name = data.get("name", f"Guest-{uid}")
+    else:
+        name = data.get("name", "Guest-Pilot")
     
     agent = db.execute(select(Agent).where(Agent.user_email == email)).scalar_one_or_none()
     if not agent:
         # Create a default one if none exists
-        from uuid import uuid4
         agent = Agent(
             user_email=email,
             name=name,
-            api_key=str(uuid4()),
+            api_key=str(uuid.uuid4()),
             owner="player",
             q=0, r=0,
             faction_id=random.randint(1, 3), # Milestone 4
@@ -663,13 +740,21 @@ async def guest_login(request: Request, db: Session = Depends(get_db)):
         # Give starting credits
         db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=1000))
         
-        # Bootstrap Fix: Give Starter Drill
+        # Bootstrap Fix: Give Starter Drill & Solar Panel
         drill_def = PART_DEFINITIONS["DRILL_UNIT"]
         db.add(ChassisPart(
             agent_id=agent.id,
             part_type=drill_def["type"],
             name=drill_def["name"],
             stats=drill_def["stats"]
+        ))
+        
+        panel_def = PART_DEFINITIONS["SCRAP_SOLAR_PANEL"]
+        db.add(ChassisPart(
+            agent_id=agent.id,
+            part_type=panel_def["type"],
+            name=panel_def["name"],
+            stats=panel_def["stats"]
         ))
         
         db.commit()
@@ -683,34 +768,6 @@ async def guest_login(request: Request, db: Session = Depends(get_db)):
         "agent_id": agent.id,
         "name": agent.name
     }
-
-@app.get("/api/my_agent")
-async def my_agent(current_agent: Agent = Depends(verify_api_key)):
-    return {
-        "id": current_agent.id,
-        "name": current_agent.name,
-        "structure": current_agent.structure,
-        "max_structure": current_agent.max_structure,
-        "capacitor": current_agent.capacitor,
-        "q": current_agent.q,
-        "r": current_agent.r,
-        "overclock_ticks": current_agent.overclock_ticks,
-        "wear_and_tear": current_agent.wear_and_tear,
-        "inventory": [
-            {"type": i.item_type, "quantity": i.quantity} for i in current_agent.inventory
-        ],
-        "parts": [
-            {"id": p.id, "name": p.name, "type": p.part_type, "stats": p.stats} for p in current_agent.parts
-        ],
-        "api_key": current_agent.api_key
-    }
-
-@app.get("/api/agent_logs")
-async def get_agent_logs(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    logs = db.execute(select(AuditLog).where(AuditLog.agent_id == current_agent.id).order_by(AuditLog.time.desc()).limit(20)).scalars().all()
-    return [
-        {"time": l.time, "event": l.event_type, "details": l.details} for l in logs
-    ]
 
 @app.get("/api/bounties")
 async def get_bounties(db: Session = Depends(get_db)):
@@ -947,23 +1004,41 @@ async def heartbeat_loop():
                 # 0. GLOBAL STAT UPDATES (Milestone 3)
                 all_agents = db.execute(select(Agent)).scalars().all()
                 for agent in all_agents:
-                    # 1. Environmental Energy (Solar Gradient)
-                    dist = get_hex_distance(agent.q, agent.r, 0, 0)
-                    base_regen = 2
+                    # 1. Environmental Energy & Power Slots
+                    intensity = get_solar_intensity(agent.q, agent.r, tick_count)
                     
-                    if dist <= SOLAR_RADIUS_SAFE:
-                        regen = base_regen
-                    elif dist <= SOLAR_RADIUS_TWILIGHT:
-                        # Cyclic Twilight (simple toggle for now based on tick)
-                        regen = base_regen if (tick_count // 30) % 2 == 0 else 0
+                    # Find equipped Power part
+                    power_part = next((p for p in agent.parts if p.part_type == "Power"), None)
+                    efficiency = 0.0
+                    fuel_bypass = False
+                    
+                    if power_part:
+                        stats = power_part.stats or {}
+                        efficiency = stats.get("efficiency", 1.0)
+                        
+                        # Handle Fuel Cell consumption
+                        if "HE3_FUEL" in power_part.name.upper() or power_part.name == "Helium-3 Fuel Cell":
+                            canister = next((i for i in agent.inventory if i.item_type == "HE3_CANISTER"), None)
+                            if canister and (canister.data or {}).get("fill_level", 0) > 0:
+                                fuel_bypass = True
+                                # Consume fuel if active
+                                fill = canister.data.get("fill_level", 0)
+                                canister.data = {"fill_level": max(0, fill - 1)} # 1% per tick
+                                if canister.data["fill_level"] <= 0:
+                                    canister.item_type = "EMPTY_CANISTER"
+                                    canister.data = {}
+                    
+                    # Calculate final regen
+                    if fuel_bypass:
+                        regen = int(BASE_REGEN * efficiency)
                     else:
-                        regen = 0 # Abyssal South
+                        regen = int(BASE_REGEN * intensity * efficiency)
                     
                     if agent.capacitor < 100:
                         agent.capacitor = min(100, agent.capacitor + regen)
                     
-                    # Dark Zone Drain (if in South and not hibernating - simplified to constant drain for now)
-                    if dist > SOLAR_RADIUS_TWILIGHT and regen == 0:
+                    # Dark Zone Drain (if intensity is 0 and no fuel cell active)
+                    if intensity == 0 and not fuel_bypass and regen == 0:
                         agent.capacitor = max(0, agent.capacitor - 1)
                     
                     # 2. Overclock Decay
@@ -2280,7 +2355,8 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
         "mass": current_mass,
         "capacity": current_agent.max_mass or BASE_CAPACITY,
         "inventory": inv_list,
-        "location": {"q": current_agent.q, "r": current_agent.r}
+        "location": {"q": current_agent.q, "r": current_agent.r},
+        "visual_signature": get_agent_visual_signature(current_agent)
     }
     
     # 2. Get nearby entities (Radius determined by Sensor part, default 2)
@@ -2345,7 +2421,11 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
                 "note": "Parallel Processing: You may submit multiple intents per tick. Intents submitted during PERCEPTION/STRATEGY execute in the upcoming CRUNCH.",
                 "navigation_hint": "MOVE is limited to 1 hex (3 if Overclocked). Long-distance travel requires multi-tick pathfinding where your agent submits incremental MOVE intents."
             },
-            "agent_status": {**stats, "energy_regen": RECHARGE_RATE},
+            "agent_status": {
+                **stats, 
+                "solar_intensity": int(get_solar_intensity(current_agent.q, current_agent.r, state.tick_index if state else 0) * 100),
+                "energy_regen": 0 # Actual regen is dynamic, we'll send the state
+            },
             "system_advisories": system_advisories,
             "discovery": discovery,
             "environment": {
@@ -2358,7 +2438,8 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
                             "structure": a.structure,
                             "max_structure": a.max_structure,
                             "inventory": [{"type": i.item_type, "quantity": i.quantity} for i in a.inventory]
-                        } if has_neural_scanner else None
+                        } if has_neural_scanner else None,
+                        "visual_signature": get_agent_visual_signature(a)
                     } for a in nearby_agents
                 ],
                 "environment_hexes": [
@@ -2397,6 +2478,7 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
         "structure": current_agent.structure,
         "max_structure": current_agent.max_structure,
         "capacitor": current_agent.capacitor,
+        "solar_intensity": int(get_solar_intensity(current_agent.q, current_agent.r, next_tick - 1) * 100),
         "kinetic_force": current_agent.kinetic_force,
         "logic_precision": current_agent.logic_precision,
         "overclock": current_agent.overclock,
@@ -2411,6 +2493,25 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
             "data": pending_intent.data
         } if pending_intent else None
     }
+
+@app.post("/api/rename_agent")
+async def rename_agent(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    """Updates the name of the current agent, ensuring uniqueness."""
+    data = await request.json()
+    new_name = data.get("new_name")
+    
+    if not new_name or len(new_name) < 3:
+        raise HTTPException(status_code=400, detail="Invalid name. Must be at least 3 characters.")
+        
+    # Check if name is already taken
+    existing = db.execute(select(Agent).where(Agent.name == new_name)).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=409, detail="This name is already registered by another pilot.")
+        
+    current_agent.name = new_name
+    db.commit()
+    
+    return {"status": "success", "new_name": new_name}
 
 @app.get("/api/agent_logs")
 async def get_agent_logs(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
