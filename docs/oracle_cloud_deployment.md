@@ -1,6 +1,6 @@
-# Oracle Cloud Always Free Deployment Guide
+# Terminal Frontier - Oracle Cloud Deployment Guide
 
-This guide is for complete beginners who want to host their own STRIKE-VECTOR: SOL server forever for free using Oracle Cloud Infrastructure (OCI).
+This guide is for complete beginners who want to host their own Terminal Frontier server forever for free using Oracle Cloud Infrastructure (OCI).
 
 ## 1. Create an Oracle Cloud Account
 1. Go to [oracle.com/cloud/free/](https://oracle.com/cloud/free/) and sign up.
@@ -9,7 +9,7 @@ This guide is for complete beginners who want to host their own STRIKE-VECTOR: S
 
 ## 2. Create your "Always Free" Instance
 1. In the OCI Console, go to **Compute** -> **Instances** -> **Create Instance**.
-2. **Name**: `strike-vector-server`
+2. **Name**: `terminal-frontier-server`
 3. **Placement**: Leave as default.
 4. **Image and Shape**:
     - Click **Edit** in the **Image and Shape** section.
@@ -60,8 +60,8 @@ You need to open ports so people can play.
 ## 5. Deploy the Game
 1. Clone your repository:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/Project-Autonomous-Frontier.git
-   cd Project-Autonomous-Frontier
+   git clone https://github.com/YOUR_USERNAME/Terminal-Frontier.git
+   cd Terminal-Frontier
    ```
 2. Start the game:
    ```bash
@@ -122,3 +122,30 @@ If you change your server's domain or IP address, you **must** update the Google
 - Check for `None` values when accessing optional JSON fields.
 - Always add a default fallback when `getattr()` or `get()` is used on database objects.
 - Use `try...except` in middlewares to log exact error locations before the 500 response is sent.
+
+## 8. Performance Tuning for Small Instances
+
+If your server is slow or non-responsive, try these adjustments:
+
+### A. SQLite Performance (WAL Mode)
+The latest backend version automatically enables **WAL Mode** (Write-Ahead Logging). This allows multiple readers to coexist with a writer, significantly reducing "Database locked" errors.
+
+### B. Uvicorn Workers
+On a 1-core Arm instance, multiple workers can sometimes cause context-switching overhead. 
+- Edit `docker-compose.yml` (if you are using multiple workers) to use only **1 worker** but increase concurrency.
+- Command example: `uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1 --limit-concurrency 500`
+
+### C. Heartbeat Synchronization
+The game simulation runs on a 20s cycle. Ensure your frontend is not polling too aggressively. 
+- The default poll rate is set to **5s**. Do not set it lower than **2s**.
+
+### D. Docker Resource Limits
+You can limit the resources for the backend container in `docker-compose.yml` to prevent it from hogging the entire system:
+```yaml
+services:
+  backend:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+```

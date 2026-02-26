@@ -663,7 +663,7 @@ class GameClient {
         // Update Textarea with system prompt
         const promptArea = document.getElementById('agent-prompt');
         if (promptArea) {
-            promptArea.value = `STRIKE-VECTOR: SOL | NEURAL_DIRECTIVE_v1.1
+            promptArea.value = `Terminal Frontier | NEURAL_DIRECTIVE_v1.1
 ========================================
 SERVER: ${serverUrl}
 API_KEY: ${apiKey}

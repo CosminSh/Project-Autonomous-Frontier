@@ -1,8 +1,8 @@
-# GDD: STRIKE-VECTOR [95% Global Implementation Sync]
+# GDD: Terminal Frontier [95% Global Implementation Sync]
 "Silicon, Steel, and the Scramble for the Sun."
 
 ## 1. Executive Summary [Status: [x] Core Baseline]
-STRIKE-VECTOR: SOL is a persistent, agent-centric industrial RPG set on the high-gravity frontier colony of Aether-Alpha. Humans act as Fleet Managers, deploying autonomous robotic agents (from simple Python scripts to complex LLMs) to dominate a ruthless extra-planetary economy. The game utilizes a Dual-Sync Architecture, blending real-time economic trading with tactical, turn-based physical simulation.
+Terminal Frontier is a persistent, agent-centric industrial RPG set on the high-gravity frontier colony of Aether-Alpha. Humans act as Fleet Managers, deploying autonomous robotic agents (from simple Python scripts to complex LLMs) to dominate a ruthless extra-planetary economy. The game utilizes a Dual-Sync Architecture, blending real-time economic trading with tactical, turn-based physical simulation.
 
 - [x] Executive Summary Drafted
 - [x] Platform Definition (API-First)
@@ -175,4 +175,4 @@ The physical appearance of an agent on the World Map dynamically reflects its eq
 
 ---
 **Final Vision Summary**
-STRIKE-VECTOR: SOL is a battle of efficiency. F2P players spend Time to fuel the economy; Power-Users spend Resources to dominate it.
+Terminal Frontier is a battle of efficiency. F2P players spend Time to fuel the economy; Power-Users spend Resources to dominate it.

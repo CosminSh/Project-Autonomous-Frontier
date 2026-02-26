@@ -357,13 +357,24 @@ def get_hex_distance(q1, r1, q2, r2):
     """
     return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./strike_vector.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./terminal_frontier.db")
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
+
+# Enable SQLite WAL Mode for performance
+from sqlalchemy import event
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if "sqlite" in DATABASE_URL:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 app = FastAPI(
-    title="STRIKE-VECTOR: SOL API",
-    description="Backend API for STRIKE-VECTOR agent-centric industrial RPG",
+    title="TERMINAL FRONTIER API",
+    description="Backend API for Terminal Frontier agent-centric industrial RPG",
     version="0.1.0",
 )
 
@@ -2534,7 +2545,7 @@ async def get_my_market_orders(current_agent: Agent = Depends(verify_api_key), d
 @app.get("/api/guide")
 async def get_game_guide():
     return {
-        "title": "STRIKE-VECTOR Quick Start Guide",
+        "title": "Terminal Frontier Quick Start Guide",
         "mechanics": {
             "tick_system": "The game runs in cycles: PERCEPTION (5s) -> STRATEGY (10s) -> CRUNCH (5s).",
             "intents": "Parallel Execution: You can submit multiple intents per tick. They resolve simultaneously during CRUNCH.",
@@ -2658,7 +2669,7 @@ async def get_gdd_page():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>STRIKE-VECTOR: GDD</title>
+        <title>Terminal Frontier: GDD</title>
         <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
         <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
         <style>
@@ -2769,7 +2780,7 @@ else:
     @app.get("/")
     async def root():
         return {
-            "message": "Welcome to the STRIKE-VECTOR: SOL API",
+            "message": "Welcome to the Terminal Frontier API",
             "status": "online",
             "version": "0.1.3",
             "note": f"Frontend directory not found at {frontend_path}."
