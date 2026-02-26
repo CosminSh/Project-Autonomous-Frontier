@@ -68,8 +68,10 @@ def seed_world():
                         res_type = "IRON_ORE"
                     elif dist == 2:
                         res_type = "COBALT_ORE"
+                        if random.random() < 0.3: res_type = "HELIUM_GAS"
                     else:
                         res_type = "GOLD_ORE"
+                        if random.random() < 0.2: res_type = "HELIUM_GAS"
                     res_density = random.uniform(0.5, 2.0) * (1 + dist * 0.2)
                 elif roll < 0.15:
                     terrain = "OBSTACLE"
@@ -97,6 +99,12 @@ def seed_world():
                 if gq == -10 and gr == 0:
                     is_station = True
                     st_type = "REPAIR"
+                    terrain = "STATION"
+                
+                # Refinery at (0, -10)
+                if gq == 0 and gr == -10:
+                    is_station = True
+                    st_type = "REFINERY"
                     terrain = "STATION"
                 
                 db.add(WorldHex(

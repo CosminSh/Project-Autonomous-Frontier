@@ -36,6 +36,7 @@ class Agent(Base):
     overclock_ticks = Column(Integer, server_default="0")
     wear_and_tear = Column(Float, server_default="0.0")
     last_faction_change_tick = Column(Integer, server_default="0")
+    unlocked_recipes = Column(JSON, nullable=True) # List of strings: ["DRILL_UNIT", "ENGINE_UNIT"]
     
     # Relationships
     parts = relationship("ChassisPart", back_populates="agent")
@@ -50,7 +51,9 @@ class ChassisPart(Base):
     part_type = Column(String) # Actuator, Sensor, Processor, Frame
     slot_index = Column(Integer) # For parts like Actuators (0, 1)
     name = Column(String)
-    stats = Column(JSON) # Stats provided by this part (e.g., {"bonus_str": 5})
+    rarity = Column(String, server_default="STANDARD") # SCRAP, STANDARD, REFINED, PRIME, RELIC
+    stats = Column(JSON) # Base stats provided by this part template
+    affixes = Column(JSON, nullable=True) # Randomized bonuses (e.g., {"bonus_str": 5})
     
     agent = relationship("Agent", back_populates="parts")
 
@@ -61,6 +64,7 @@ class InventoryItem(Base):
     agent_id = Column(Integer, ForeignKey("agents.id"))
     item_type = Column(String) # IRON_ORE, CREDITS, etc.
     quantity = Column(Integer, default=1)
+    data = Column(JSON, nullable=True) # Metadata (e.g., {"fill_level": 50})
 
     agent = relationship("Agent", back_populates="inventory")
 

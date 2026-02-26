@@ -27,14 +27,22 @@ Aether-Alpha is tidally locked, creating a natural difficulty gradient based on 
     - **Mechanic:** 0% solar power. Requires constant He3 consumption.
     - **Economy:** Legendary resources, home to aggressive Feral Scrappers and the most lucrative "Victim-Posted" bounties.
 
-## 3. Character & Progression: The Modular RPG [Status: [▓▓▓▓▓▓▓▓▓░] 90%]
-Agents are built from physical parts socketed into a Modular Chassis.
+### 3.1 Modular Slots & Rarity [Status: [▓▓░░░░░░░░] 20%]
+Agents are built from physical parts socketed into a Modular Chassis. Every part now follows a **Rarity Hierarchy**: 
+- `SCRAP` (Gray) | `STANDARD` (White) | `REFINED` (Blue) | `PRIME` (Yellow) | `RELIC` (Orange)
 
-### 3.1 Physical Slots [Status: [x] Data Model Done]
-- [x] **Actuators (2 Slots):** Tools or weapons (Drills, Blasters, Manipulators).
-- [x] **Sensors (1 Slot):** Determines Bandwidth (PER)—vision radius and accuracy.
-- [x] **Processors (1 Slot):** Determines Compute (INT)—limits script complexity/LLM context.
-- [x] **Frame (1 Slot):** Determines movement type (Treads, Crawlers, Thrusters).
+- [x] **Actuators (2 Slots):** Tools/Weapons (Drills, Blasters, Siphons).
+- [x] **Sensors (1 Slot):** Determines PER (Vision/Scan).
+- [x] **Processors (1 Slot):** Determines INT (Script logic/Context).
+- [x] **Frame (1 Slot):** Determines base HP and Mass capacity.
+- [ ] **Engine (1 Slot):** Determines Speed and Energy Efficiency. [PENDING]
+
+### 3.2 Randomized Gear: Affixes & Suffixes
+Following the "Diablo 2" model, crafted gear is no longer deterministic. 
+- **Base Type**: Determines the core stat (e.g., "Steel Drill" has base 10 kinetic force).
+- **Prefixes/Suffixes**: Random bonuses added during crafting based on the recipe and luck.
+    - *Example*: "Overclocked Steel Drill of the Void" (Prefix: +Energy, Suffix: +Critical Chance).
+- **Progression**: High-tier gear requires rarer "Base Frames" and specific component combinations.
 
 ### 3.2 Primary Stats (The Data Sheet) [Status: [x] Sync with Backend]
 - [x] **Structure (HP):** Physical durability. At 0, the agent is "Scrapped" (dropped loot).
@@ -43,13 +51,15 @@ Agents are built from physical parts socketed into a Modular Chassis.
 - [x] **Kinetic Force (STR):** Powers melee damage and mining efficiency.
 - [x] **Logic Precision (DEX):** Determines Hit Chance and Critical Strike chance.
 - [x] **Overclock (INT):** Enhances electronic warfare and energy weapons. Enabled by He3.
-- [x] **Integrity (Armor):** Flat reduction of incoming physical damage.
+- [x] **Integrity (Armor)::** Flat reduction of incoming physical damage.
 - [x] **Mass & Capacity:** [NEW] Milestone 5 Sync.
 
 ### 3.3 The Autonomous Lifecycle (Self-Healing) [Status: [▓▓▓▓░░░░░░] 40%]
 - [x] **Policy Set:** Managers set thresholds (e.g., "Return for repair at 30% Structure").
-- [/] **M2M Repair (Machine-to-Machine):** [IN PROGRESS] When thresholds are triggered, agents independently navigate to the nearest Hub or Crafter-owned Workshop. $Credits are exchanged automatically for repairs without human intervention.
-- [ ] Repairs require Credits + Ingots. (Credits currently implemented).
+- [/] **M2M Repair (Machine-to-Machine)::** When thresholds are triggered, agents independently navigate to the nearest Hub or Workshop. $Credits + **Iron Ingots** are exchanged automatically for repairs.
+- [x] **Repair Cost:** Credits (5/HP) + Iron Ingots (0.1/HP).
+- [/] **He3 Canister Logistics:** Reusable canisters with metadata-tracked fill levels.
+- [ ] **Gear Upgrading (The Forge)**: Spend resources and "Upgrade Modules" to increase the base stats of a part without rerolling affixes.
 
 ## 4. Player Archetypes & Mission Profiles [Status: [▓▓▓▓▓▓▓▓░░] 80%]
 The economy is a multi-polarized interdependent system. To keep the economy robust for all players, Strike-Vector utilizes a **Solar-Trickle** model.
@@ -59,7 +69,7 @@ The economy is a multi-polarized interdependent system. To keep the economy robu
 - [x] **Mercenary**: Security/Escort.
 - [x] **Pirate**: Resource Siphoning.
 - [x] **Bounty Hunter**: Pirate Interdiction.
-- [/] **Refueler**: Field Logistics. (Fuel mechanic exists, specialized delivery logic pending).
+- [/] **Refueler**: Field Logistics. Uses **He3 Canisters** to resupply allies with low energy in the field.
 - [/] **Trader**: Market Arbitrage. (Market exists, automated sniping pending).
 
 ## 5. Factions & Geopolitics [Status: [x] 100%]
@@ -94,20 +104,44 @@ The game operates on two timelines to balance "snappiness" with "strategy."
 - [x] **Energy Thermodynamics**: Solar regen and He3 consumption logic.
 - [x] **Maintenance Sink**: Wear & Tear cycle.
 - [x] **Resource Thermodynamics**: He3 Fuel Cells (50% boost).
+- [x] **Helium Cycle**: Helium Gas gathering -> Refining -> Canister Filling.
+- [x] **RNG Crafting (The Great Scramble)**:
+    - **Recipes**: Unlocked via consumption of **RECIPE_** items.
+    - **Affix Injection**: High-rarity items roll prefixes/suffixes from the `AFFIX_POOL`.
+    - **Forge**: Gear can be upgraded up to +10 at specialized stations.
 
 ## 10. Security & Interference Dynamics [Status: [x] 100%]
 - [x] **Signal Noise (Clutter)**: Sensor cross-talk penalty for allied clusters.
 - [x] **Heat Bloom Tracking**: Radar signature visibility.
 - [x] **Bounty Board Integration**: P2P escrow for high-heat targets.
 
-## 11. Project Roadmap & Gap Analysis [LATEST SYNC]
+## 11. Social & Network Intelligence [Status: [ ] Design Phase]
+The Scramble is not just about siphoning resources; it's about siphoning information. Coordination is what separates a Scrapper from a Fleet Manager.
+
+- [ ] **Proximity Chat (Short-Wave Radio)**: Agents can broadcast strings to all other agents within their Sensor Radius.
+    - *Mechanic*: Every PERCEPTION phase, agents receive a `messages` list in their JSON state containing `{"sender_id": int, "text": str, "distance": float}`.
+- [ ] **Corporations (Guilds)**: Persistent player-formed organizations.
+    - *Mechanic*: Shared vault for resources, custom tax rates, and a dedicated **Long-Range Channel** (Global Guild Chat).
+    - *Hierarchy*: CEO (Owner), Officers (Admin), Operatives (Members).
+- [ ] **Squads (Parties)**: Temporary tactical links between 3-5 agents.
+    - *Mechanic*: Shared loot distribution (Equal or Leader-takes-all), shared telemetry (members always visible to each other regardless of Sensor Radius), and the **Squad Frequency** (Private Party Chat).
+- [ ] **Anti-Spam & Moderation Protocols**:
+    - **Signal Shunting (Block List)**: Managers can add Sender IDs to a local blacklist. Blocked signals are discarded during the PERCEPTION phase.
+    - **Admin Flagging (Reports)**: Malicious or illegal (spam) broadcasts can be flagged to the Colonial Administration.
+    - **Bandwidth Throttling (Rate Limiting)**: Proximity broadcasts are capped at 5 messages per tick to prevent buffer overflows and noise flooding.
+
+## 12. Project Roadmap & Gap Analysis [LATEST SYNC]
 | Category | Missing Feature | Status |
 | :--- | :--- | :--- |
-| **Logistics** | M2M Automated Repairs | [/] In Progress |
-| **Logistics** | He3 Field Resupply | [ ] Pending |
+| **Logistics** | M2M Automated Repairs | [x] RELEASED |
+| **Logistics** | He3 Field Resupply | [x] RELEASED |
+| **Industrial** | RNG Gear & Affix System | [x] RELEASED |
+| **Industrial** | Recipe Unlock System | [x] RELEASED |
+| **Industrial** | Gear Upgrade System | [x] RELEASED |
+| **Social** | Network Intelligence (Chat/Squads) | [ ] DESIGNED |
 | **Trader** | Market Sniping Logic | [ ] Pending |
-| **Progression** | Modular Engine Upgrades | [ ] Pending |
-| **Social** | Corporate Tax Shields | [ ] Discovery Phase |
+| **Progression** | Modular Engine Upgrades | [x] RELEASED |
+| **Social** | Corporate Tax Shields | [ ] DESIGNED |
 
 ---
 **Final Vision Summary**

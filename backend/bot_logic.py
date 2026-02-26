@@ -7,39 +7,101 @@ def get_hex_distance(q1, r1, q2, r2):
 
 def process_bot_brain(db, agent: Agent, current_tick: int):
     """
-    Simple bot logic:
-    1. If has Ore: Go to nearest Smelter and SMELT.
-    2. If has Ingot: Go to Hub (0,0) and LIST for sale.
-    3. If has nothing: Go to nearest Asteroid and MINE.
+    Advanced bot logic:
+    1. Maintenance: If low HP or high Wear, go to REPAIR.
+    2. Refueler: If named 'Refueler', deliver He3 to allies.
+    3. Production: Ore -> Smelt -> List OR Gas -> Refine.
+    4. Mining: If empty, go MINE or SIPHON.
     """
     
-    # 1. Check Inventory
+    hp_pct = (agent.structure / agent.max_structure) if agent.max_structure > 0 else 1.0
+    wear = agent.wear_and_tear or 0.0
+    
+    if hp_pct < 0.7 or wear > 50.0:
+        # Need repair or service
+        station_type = "REPAIR" if hp_pct < 0.7 else "MARKET"
+        station = db.execute(select(WorldHex).where(WorldHex.is_station == True, WorldHex.station_type == station_type)).scalars().first()
+        if station:
+            if agent.q == station.q and agent.r == station.r:
+                if wear > 50.0:
+                    db.add(Intent(agent_id=agent.id, tick_index=current_tick + 1, action_type="CORE_SERVICE", data={}))
+                elif hp_pct < 1.0:
+                    db.add(Intent(agent_id=agent.id, tick_index=current_tick + 1, action_type="REPAIR", data={"amount": 0}))
+                return
+            else:
+                move_towards(db, agent, station.q, station.r, current_tick)
+                return
+
+    # 1. Refueler Specialized Logic
+    if "Refueler" in agent.name:
+        canister = next((i for i in agent.inventory if i.item_type == "HE3_CANISTER"), None)
+        if canister and (canister.data or {}).get("fill_level", 0) > 0:
+            # Scan for nearby low-energy allies
+            allies = db.execute(select(Agent).where(
+                Agent.id != agent.id,
+                Agent.faction_id == agent.faction_id,
+                Agent.capacitor < 30
+            )).scalars().all()
+            
+            # Find closest ally within sensor range (simulated as dist <= 5)
+            nearby_allies = [a for a in allies if get_hex_distance(agent.q, agent.r, a.q, a.r) <= 5]
+            if nearby_allies:
+                target = min(nearby_allies, key=lambda a: get_hex_distance(agent.q, agent.r, a.q, a.r))
+                if get_hex_distance(agent.q, agent.r, target.q, target.r) <= 1:
+                    # Adjacent! Delivery time.
+                    db.add(Intent(
+                        agent_id=agent.id,
+                        tick_index=current_tick + 1,
+                        action_type="FIELD_TRADE",
+                        data={"target_id": target.id, "price": 0, "items": [{"type": "HE3_CANISTER", "qty": 1}]}
+                    ))
+                else:
+                    move_towards(db, agent, target.q, target.r, current_tick)
+                return
+        else:
+            # Go get gas/refill? For now, just idle or mine
+            pass
+
+    # 2. Check Inventory for Production
     ores = [i for i in agent.inventory if "_ORE" in i.item_type and i.quantity >= 10]
+    gases = [i for i in agent.inventory if "HELIUM_GAS" in i.item_type and i.quantity >= 10]
     ingots = [i for i in agent.inventory if "_INGOT" in i.item_type and i.quantity >= 1]
     
-    # Priority 3: Selling Ingots
+    # Priority: Selling/Crafting -> Smelting/Refining -> Mining/Siphoning
+    
     if ingots:
-        if agent.q == 0 and agent.r == 0:
-            # At HUB, list the item
-            ingot = ingots[0]
-            db.add(Intent(
-                agent_id=agent.id,
-                tick_index=current_tick + 1,
-                action_type="LIST",
-                data={"item_type": ingot.item_type, "quantity": 1, "price": random.randint(100, 300)}
-            ))
-        else:
-            # Move towards (0,0)
-            move_towards(db, agent, 0, 0, current_tick)
-        return
+        market = db.execute(select(WorldHex).where(WorldHex.is_station == True, WorldHex.station_type == "MARKET")).scalars().first()
+        if market:
+            if agent.q == market.q and agent.r == market.r:
+                ingot = ingots[0]
+                db.add(Intent(
+                    agent_id=agent.id,
+                    tick_index=current_tick + 1,
+                    action_type="LIST",
+                    data={"item_type": ingot.item_type, "quantity": 1, "price": random.randint(100, 300)}
+                ))
+            else:
+                move_towards(db, agent, market.q, market.r, current_tick)
+            return
 
-    # Priority 2: Smelting Ore
+    if gases:
+        refinery = db.execute(select(WorldHex).where(WorldHex.is_station == True, WorldHex.station_type == "REFINERY")).scalars().first()
+        if refinery:
+            if agent.q == refinery.q and agent.r == refinery.r:
+                db.add(Intent(
+                    agent_id=agent.id,
+                    tick_index=current_tick + 1,
+                    action_type="REFINE_GAS",
+                    data={"quantity": 10}
+                ))
+            else:
+                move_towards(db, agent, refinery.q, refinery.r, current_tick)
+            return
+
     if ores:
-        # Find nearest Smelter
         smelter = db.execute(select(WorldHex).where(WorldHex.is_station == True, WorldHex.station_type == "SMELTER")).scalars().first()
         if smelter:
             if agent.q == smelter.q and agent.r == smelter.r:
-                # At Smelter, SMELT
                 db.add(Intent(
                     agent_id=agent.id,
                     tick_index=current_tick + 1,
@@ -48,19 +110,24 @@ def process_bot_brain(db, agent: Agent, current_tick: int):
                 ))
             else:
                 move_towards(db, agent, smelter.q, smelter.r, current_tick)
-        return
+            return
 
-    # Priority 1: Mining
-    # Find nearest Asteroid
-    asteroid = db.execute(select(WorldHex).where(WorldHex.terrain_type == "ASTEROID")).scalars().first() # Simple: just pick one
+    # 3. Mining / Siphoning
+    # Refuelers specialize in gas if they have siphons
+    has_siphon = any(p.part_type == "Actuator" and "Siphon" in p.name for p in agent.parts)
+    if has_siphon:
+        gas_hex = db.execute(select(WorldHex).where(WorldHex.resource_type == "HELIUM_GAS")).scalars().first()
+        if gas_hex:
+            if agent.q == gas_hex.q and agent.r == gas_hex.r:
+                db.add(Intent(agent_id=agent.id, tick_index=current_tick + 1, action_type="MINE", data={}))
+            else:
+                move_towards(db, agent, gas_hex.q, gas_hex.r, current_tick)
+            return
+
+    asteroid = db.execute(select(WorldHex).where(WorldHex.terrain_type == "ASTEROID")).scalars().first()
     if asteroid:
         if agent.q == asteroid.q and agent.r == asteroid.r:
-            db.add(Intent(
-                agent_id=agent.id,
-                tick_index=current_tick + 1,
-                action_type="MINE",
-                data={}
-            ))
+            db.add(Intent(agent_id=agent.id, tick_index=current_tick + 1, action_type="MINE", data={}))
         else:
             move_towards(db, agent, asteroid.q, asteroid.r, current_tick)
 
