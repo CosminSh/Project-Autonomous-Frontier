@@ -52,6 +52,24 @@ def run_migration():
                     else:
                         print(f"  Error adding {col_name}: {e}", flush=True)
                     conn.rollback()
+
+            # Check and add columns to 'inventory_items' table
+            inv_cols = [
+                ("data", "JSON")
+            ]
+
+            for col_name, col_type in inv_cols:
+                try:
+                    print(f"Checking/Adding column {col_name} to inventory_items...", flush=True)
+                    conn.execute(text(f"ALTER TABLE inventory_items ADD COLUMN {col_name} {col_type};"))
+                    conn.commit()
+                    print(f"  Successfully handled {col_name}", flush=True)
+                except Exception as e:
+                    if "already exists" in str(e).lower():
+                        print(f"  Column {col_name} already exists.", flush=True)
+                    else:
+                        print(f"  Error adding {col_name}: {e}", flush=True)
+                    conn.rollback()
     except Exception as e:
         print(f"CRITICAL MIGRATION ERROR: {e}", flush=True)
 
