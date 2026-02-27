@@ -1188,19 +1188,50 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
     centerOnAgent() {
         const myAgentId = localStorage.getItem('sv_agent_id');
         const mesh = this.agents.get(myAgentId);
-        if (mesh && this.controls) {
-            this.controls.target.copy(mesh.position);
-            // Optionally snap camera a bit closer if way out
-            const dist = this.camera.position.distanceTo(mesh.position);
-            if (dist > 150) {
-                const dir = this.camera.position.clone().sub(mesh.position).normalize();
-                this.camera.position.copy(mesh.position.clone().add(dir.multiplyScalar(100)));
-            }
-            this.controls.update();
-            console.log("Camera centered on agent:", myAgentId);
-        } else {
-            console.warn("Cannot center: Agent mesh not found in scene.");
+
+        if (!mesh || !this.controls || !this.camera) {
+            console.warn("Cannot center: Agent mesh not found or camera not ready.");
+            return;
         }
+
+        // Destination: the agent's position on the sphere surface
+        const agentPos = mesh.position.clone();
+
+        // The camera should sit behind/above the agent —
+        // compute the outward normal from the planet center, then offset along it
+        const normal = agentPos.clone().normalize(); // outward from planet center
+        const camDistance = 80; // how far from agent to place the camera
+        const targetCamPos = agentPos.clone().add(normal.multiplyScalar(camDistance));
+
+        // Animate: lerp both target and camera position over ~60 frames (~1s)
+        const startTarget = this.controls.target.clone();
+        const startCamPos = this.camera.position.clone();
+        const DURATION = 900; // ms
+        const startTime = performance.now();
+
+        const animate = (now) => {
+            const elapsed = now - startTime;
+            const t = Math.min(1, elapsed / DURATION);
+            // Ease in-out cubic
+            const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+            // Move orbit target to agent position
+            this.controls.target.lerpVectors(startTarget, agentPos, ease);
+
+            // Move camera position
+            this.camera.position.lerpVectors(startCamPos, targetCamPos, ease);
+
+            // Tell OrbitControls to accept these changes
+            this.controls.update();
+
+            if (t < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                console.log("Camera centered on agent:", myAgentId);
+            }
+        };
+
+        requestAnimationFrame(animate);
     }
 
     updateScannerUI(agentId) {
@@ -1422,21 +1453,6 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         const up = targetPos.clone().normalize();
         const targetQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
         mesh.quaternion.slerp(targetQuat, 0.15);
-
-        // CAMERA FOLLOW: If this is our agent, update controls target
-        const myAgentId = localStorage.getItem('sv_agent_id'); // We might need to store this on login
-        if (agentData.id == myAgentId || agentData.id == this.lastMyAgentId) {
-            if (this.controls) {
-                const { x, y, z } = this.qToSphere(agentData.q ?? agentData.location?.q ?? 0, agentData.r ?? agentData.location?.r ?? 0);
-                const targetPos = new THREE.Vector3(x, y, z);
-
-                if (this.controls.target.distanceTo(targetPos) > 10) {
-                    this.controls.target.copy(targetPos);
-                } else {
-                    this.controls.target.lerp(targetPos, 0.1);
-                }
-            }
-        }
 
         // Dynamic pulse for high rarity
         if (visual.rarity === 'PRIME' || visual.rarity === 'RELIC') {
