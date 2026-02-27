@@ -978,6 +978,9 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         sunLight.position.set(5, 10, 2);
         this.scene.add(sunLight);
 
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
+        this.scene.add(hemiLight);
+
         // View Resizer
         window.addEventListener('resize', () => {
             this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -1121,8 +1124,8 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             color,
             emissive,
             emissiveIntensity,
-            metalness: 0.8,
-            roughness: 0.2,
+            metalness: 0.1,
+            roughness: 0.8,
             flatShading: true
         });
 
@@ -1132,7 +1135,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         mesh.rotation.y = Math.PI / 6;
 
         const edges = new THREE.EdgesGeometry(geometry);
-        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.1 }));
+        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4 }));
         mesh.add(line);
 
         this.scene.add(mesh);
