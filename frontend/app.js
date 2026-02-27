@@ -981,6 +981,10 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
         this.scene.add(hemiLight);
 
+        // Atmosphere & Environment
+        this.initAtmosphere();
+        this.initAsteroid();
+
         // View Resizer
         window.addEventListener('resize', () => {
             this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -1154,7 +1158,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             let geometry;
             switch (visual.chassis) {
                 case 'SHIELDED':
-                    geometry = new THREE.CylinderGeometry(0.5, 0.5, 0.8, 6); // Hexagonal shield
+                    geometry = new THREE.CylinderGeometry(0.5, 0.5, 0.8, 6);
                     break;
                 case 'HEAVY':
                     geometry = new THREE.BoxGeometry(0.7, 0.7, 0.7);
@@ -1163,7 +1167,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                     geometry = new THREE.ConeGeometry(0.5, 1, 4);
             }
 
-            // 2. Determine Material based on Rarity & Feral Status
+            // 2. Determine Material
             const rarityColors = {
                 'SCRAP': 0x64748b,
                 'STANDARD': 0x38bdf8,
@@ -1192,7 +1196,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
             mesh = new THREE.Mesh(geometry, material);
 
-            // 3. Add Actuator Marker if present
+            // 3. Add Actuator Marker
             if (visual.actuator === 'DRILL') {
                 const drillGeom = new THREE.ConeGeometry(0.15, 0.4, 8);
                 const drillMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9 });
@@ -1208,6 +1212,13 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                 gun.rotation.z = Math.PI / 2;
                 mesh.add(gun);
             }
+
+            // 4. Name Label
+            const labelColor = agentData.is_feral ? '#ff4422' : '#38bdf8';
+            const label = this.createLabel(agentData.name, labelColor);
+            label.position.y = 1.2;
+            mesh.add(label);
+            mesh.userData.label = label;
 
             this.scene.add(mesh);
             this.agents.set(agentData.id, mesh);
@@ -1586,9 +1597,94 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
     animate() {
         requestAnimationFrame(() => this.animate());
         if (this.controls) this.controls.update();
+
+        // Rotate atmosphere slightly for life
+        if (this.starfield) this.starfield.rotation.y += 0.0001;
+        if (this.debris) this.debris.rotation.y -= 0.0002;
+
         if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
         }
+    }
+
+    initAtmosphere() {
+        // Starfield
+        const starGeom = new THREE.BufferGeometry();
+        const starCount = 2000;
+        const posArray = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 600;
+        }
+        starGeom.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.7, transparent: true, opacity: 0.8 });
+        this.starfield = new THREE.Points(starGeom, starMat);
+        this.scene.add(this.starfield);
+
+        // Ambient Dust/Debris
+        const debrisGeom = new THREE.BufferGeometry();
+        const debrisCount = 100;
+        const debrisPos = new Float32Array(debrisCount * 3);
+        const debrisColors = new Float32Array(debrisCount * 3);
+        for (let i = 0; i < debrisCount * 3; i++) {
+            debrisPos[i] = (Math.random() - 0.5) * 100;
+            debrisColors[i] = Math.random();
+        }
+        debrisGeom.setAttribute('position', new THREE.BufferAttribute(debrisPos, 3));
+        debrisGeom.setAttribute('color', new THREE.BufferAttribute(debrisColors, 3));
+        const debrisMat = new THREE.PointsMaterial({ size: 0.2, vertexColors: true, transparent: true, opacity: 0.4 });
+        this.debris = new THREE.Points(debrisGeom, debrisMat);
+        this.scene.add(this.debris);
+    }
+
+    initAsteroid() {
+        // A large foundation mesh
+        const geom = new THREE.DodecahedronGeometry(50, 2);
+        const pos = geom.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+            const v = new THREE.Vector3().fromBufferAttribute(pos, i);
+            v.normalize().multiplyScalar(40 + Math.random() * 15);
+            pos.setXYZ(i, v.x, v.y, v.z);
+        }
+        geom.computeVertexNormals();
+
+        const mat = new THREE.MeshStandardMaterial({
+            color: 0x1a1a1e,
+            roughness: 0.9,
+            metalness: 0.1,
+            flatShading: true
+        });
+
+        const asteroid = new THREE.Mesh(geom, mat);
+        asteroid.position.y = -60; // Way below the hex grid
+        asteroid.rotation.x = Math.PI / 4;
+        this.scene.add(asteroid);
+        this.asteroidBase = asteroid;
+    }
+
+    createLabel(text, color = '#ffffff') {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 256;
+        canvas.height = 64;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.font = 'bold 24px "Orbitron", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Glow effect
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = color;
+        ctx.fillText(text, 128, 32);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.scale.set(4, 1, 1);
+        return sprite;
     }
 }
 
