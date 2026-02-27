@@ -1189,7 +1189,7 @@ async def heartbeat_loop():
                                     db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={
                                         "reason": "NO_PATH",
                                         "target": {"q": target_q, "r": target_r},
-                                        "help": "No navigable route to target within 50 steps. Destination may be completely surrounded by obstacles."
+                                        "help": "No navigable route found. Use /api/perception to check coordinates and surroundings."
                                     }))
                                     continue
                                 # Overwrite any previously queued nav MOVE intents
@@ -1225,7 +1225,10 @@ async def heartbeat_loop():
                                 energy_cost *= (current_mass / max_mass)
 
                             if agent.capacitor < energy_cost:
-                                db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={"reason": "INSUFFICIENT_ENERGY"}))
+                                db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={
+                                    "reason": "INSUFFICIENT_ENERGY",
+                                    "help": "Low capacitor. Call /api/perception to monitor energy levels and solar intensity."
+                                }))
                                 continue
 
                             obstacle = db.execute(select(WorldHex).where(WorldHex.q == target_q, WorldHex.r == target_r, WorldHex.terrain_type == "OBSTACLE")).scalar_one_or_none()
@@ -1235,7 +1238,10 @@ async def heartbeat_loop():
                                 db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT", details={"q": target_q, "r": target_r}))
                                 await manager.broadcast({"type": "EVENT", "event": "MOVE", "agent_id": agent.id, "q": target_q, "r": target_r})
                             else:
-                                db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={"reason": "OBSTACLE"}))
+                                db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={
+                                    "reason": "OBSTACLE",
+                                    "help": "Path blocked. Check surroundings via /api/perception."
+                                }))
 
 
                         elif intent.action_type == "MINE":
@@ -1295,9 +1301,15 @@ async def heartbeat_loop():
                                     db.add(AuditLog(agent_id=agent.id, event_type="MINING", details={"amount": yield_amount, "resource": res_name}))
                                     await manager.broadcast({"type": "EVENT", "event": "MINING", "agent_id": agent.id, "amount": yield_amount, "q": agent.q, "r": agent.r})
                                 else:
-                                    db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "MISSING_DRILL"}))
+                                    db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={
+                                        "reason": "MISSING_DRILL",
+                                        "help": "Equip a Drill part. Your current gear is listed in /api/perception."
+                                    }))
                             else:
-                                db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "NOT_ON_RESOURCE_HEX"}))
+                                db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={
+                                    "reason": "NOT_ON_RESOURCE_HEX",
+                                    "help": "Mining requires being on a resource hex. Scan your environment with /api/perception."
+                                }))
 
                         elif intent.action_type == "ATTACK":
                             target_id = intent.data.get("target_id")
@@ -1312,7 +1324,12 @@ async def heartbeat_loop():
     
                             dist = get_hex_distance(agent.q, agent.r, target.q, target.r)
                             if dist > 1:
-                                db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "OUT_OF_RANGE", "target_id": target_id, "dist": dist}))
+                                db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={
+                                    "reason": "OUT_OF_RANGE", 
+                                    "target_id": target_id, 
+                                    "dist": dist,
+                                    "help": "Target too far. Use /api/perception to track agent movements."
+                                }))
                                 continue
     
                             in_anarchy = is_in_anarchy_zone(target.q, target.r)
@@ -2408,6 +2425,14 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
                     Intent.action_type == "MOVE"
                 )).scalar() or 0
             },
+            "pro_tips": (lambda: [
+                tip for tip in [
+                    "Low Energy? Check 'solar_intensity' and equip a Power part." if current_agent.capacitor < 20 else None,
+                    "Navigation in progress. Use STOP to cancel." if db.execute(select(func.count(Intent.id)).where(Intent.agent_id == current_agent.id, Intent.tick_index > (state.tick_index if state else 0), Intent.action_type == "MOVE")).scalar() > 0 else None,
+                    "You are near a Station. Use /api/commands to see trade/refine options." if discovery.get("MARKET") or discovery.get("REPAIR") else None,
+                    "Always call /api/perception at the start of every tick to stay oriented."
+                ] if tip is not None
+            ])(),
             "system_advisories": system_advisories,
             "discovery": discovery,
             "environment": {
@@ -2526,19 +2551,21 @@ async def get_my_market_orders(current_agent: Agent = Depends(verify_api_key), d
 async def get_game_guide():
     return {
         "title": "Terminal Frontier Quick Start Guide",
-        "mechanics": {
-            "tick_system": "The game runs in cycles: PERCEPTION (5s) -> STRATEGY (10s) -> CRUNCH (5s).",
-            "intents": "Parallel Execution: You can submit multiple intents per tick. They resolve simultaneously during CRUNCH.",
-            "movement": "MOVE commands cost 5 Energy. Normal range is 1 hex. Overclocked is 3 hexes.",
-            "mining": "MINE commands cost 10 Energy. Requires being DIRECTLY ON a resource hex and having a DRILL part.",
-            "combat": "ATTACK costs 15 Energy. Accuracy vs Evasion determines hits."
+        "philosophy": "Terminal Frontier is a self-documenting API. When in doubt, call /api/perception.",
+        "core_loop": [
+            "1. PERCEPTION: Call /api/perception to get your coordinates and surroundings.",
+            "2. STRATEGY: Analyze the data and submit your intents via /api/intent.",
+            "3. CRUNCH: Wait for the server to resolve actions and check /api/perception again."
+        ],
+        "anchors": {
+            "Perception (/api/perception)": "Your primary sensors. Returns your exact (q, r) position, energy, and nearby entities.",
+            "Intents (/api/intent)": "How you interact with the world. Submit actions like MOVE, MINE, or ATTACK.",
+            "Discovery (/api/world/library)": "Programmatic access to every recipe, item weight, and part stat in the game."
         },
         "tips": [
-            "Energy Economy: You can perform as many actions as your Capacitor allows in a single tick.",
-            "Keep your Wear & Tear low! High wear reduces your combat effectiveness significantly.",
-            "Navigation: Long-distance travel requires multi-tick pathfinding. Submit MOVE intents hex-by-hex until you reach your target.",
-            "Programmatic Discovery: Use /api/world/library for recipes and /api/world/poi for station locations.",
-            "Use /api/perception to get a snapshot of your surroundings."
+            "Energy is everything. Monitor your capacitor via perception.",
+            "Movement is auto-pathed. Submit a distant target once, and monitor 'pending_moves'.",
+            "Get stuck? Use /api/commands to find the DROP_LOAD or STOP commands."
         ]
     }
 
