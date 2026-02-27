@@ -990,6 +990,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         this.scene.add(hemiLight);
 
         // Atmosphere & Environment
+        this.initGoldbergGrid(32); // Creates 10,242 perfect slots
         this.initAtmosphere();
         this.initAsteroid();
         this.fetchFullWorld();
@@ -1143,15 +1144,8 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         });
 
         const mesh = new THREE.Mesh(geometry, material);
-        const { x, y, z, lat } = this.qToSphere(q, r);
+        const { x, y, z } = this.qToSphere(q, r);
         mesh.position.set(x, y, z);
-
-        // Adaptive Scaling: Distort hexes to fill gaps on the sphere
-        // Hexes need to be "taller" relative to the equator to avoid gaps in a cylindrical wrap
-        const adaptiveScale = 1.0 / Math.sin(lat);
-        // Clamp to avoid extreme scaling at poles
-        const finalScale = Math.min(Math.max(adaptiveScale, 1.0), 1.5);
-        mesh.scale.set(finalScale, 1, finalScale);
 
         // Orient mesh to point "up" from sphere surface
         const normal = new THREE.Vector3(x, y, z).normalize();
@@ -1710,26 +1704,60 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         this.asteroidBase = sphere;
     }
 
+    initGoldbergGrid(frequency = 32) {
+        const radius = 50;
+        const geom = new THREE.IcosahedronGeometry(radius, frequency);
+        const positions = geom.attributes.position;
+        const pts = [];
+        const seen = new Set();
+
+        for (let i = 0; i < positions.count; i++) {
+            const vx = Math.round(positions.getX(i) * 100) / 100;
+            const vy = Math.round(positions.getY(i) * 100) / 100;
+            const vz = Math.round(positions.getZ(i) * 100) / 100;
+            const key = `${vx},${vy},${vz}`;
+            if (!seen.has(key)) {
+                pts.push(new THREE.Vector3(vx, vy, vz));
+                seen.add(key);
+            }
+        }
+
+        // Sort: North Pole (highest Y) to South Pole
+        pts.sort((a, b) => {
+            if (Math.abs(b.y - a.y) > 0.01) return b.y - a.y;
+            return Math.atan2(a.z, a.x) - Math.atan2(b.z, b.x);
+        });
+
+        this.goldbergSlots = pts;
+        console.log(`Generated Goldberg Grid with ${pts.length} slots.`);
+    }
+
     qToSphere(q, r, altitude = 0) {
-        const radius = 50 + altitude;
+        // Map (q, r) to a stable index in the Goldberg grid
+        const index = this.axialToIndex(q, r);
+        const slotCount = this.goldbergSlots ? this.goldbergSlots.length : 1;
+        const slot = (this.goldbergSlots && slotCount > 0) ? this.goldbergSlots[index % slotCount] : new THREE.Vector3(0, 50, 0);
 
-        // Use a cylindrical wrap projection
-        // We treat q as longitude and r as latitude
-        // worldScale defines how "dense" the wrapping is
-        const worldScale = 15;
-
-        // Longitude: wraps around the equator (0 to 2PI)
-        const lon = (q / worldScale) * (Math.PI / 2);
-
-        // Latitude: from North Pole to South Pole (0 to PI)
-        const lat = (r / worldScale) * (Math.PI / 2) + (Math.PI / 2);
-
+        const pos = slot.clone().normalize().multiplyScalar(50 + altitude);
         return {
-            x: radius * Math.sin(lat) * Math.cos(lon),
-            y: radius * Math.cos(lat),
-            z: radius * Math.sin(lat) * Math.sin(lon),
-            lat: lat
+            x: pos.x,
+            y: pos.y,
+            z: pos.z
         };
+    }
+
+    axialToIndex(q, r) {
+        // Hex spiral math for stable (q,r) -> index mapping
+        if (q === 0 && r === 0) return 0;
+        const shell = (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+        const innerCount = 3 * (shell - 1) * shell + 1;
+
+        // Use angle to find pos within shell
+        let angle = Math.atan2(r * Math.sqrt(3) / 2, q + r / 2);
+        if (angle < 0) angle += Math.PI * 2;
+        const shellPos = Math.floor((angle / (Math.PI * 2)) * (6 * shell));
+
+        return innerCount + shellPos;
     }
 
     createStationLabel(text) {
