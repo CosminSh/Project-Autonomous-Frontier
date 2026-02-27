@@ -982,11 +982,11 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         const ambientLight = new THREE.AmbientLight(0x404040, 2);
         this.scene.add(ambientLight);
 
-        const sunLight = new THREE.DirectionalLight(0xffffff, 3);
-        sunLight.position.set(0, 100, 0); // Directly above North Pole (0,0,0 on grid)
+        const sunLight = new THREE.DirectionalLight(0xffffff, 4);
+        sunLight.position.set(200, 100, 0); // Sun in the distance, lighting North/Side
         this.scene.add(sunLight);
 
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x080820, 0.5); // Very dim bottom light
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x080820, 0.2); // Darker shadow side
         this.scene.add(hemiLight);
 
         // Atmosphere & Environment
@@ -1143,8 +1143,15 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         });
 
         const mesh = new THREE.Mesh(geometry, material);
-        const { x, y, z } = this.qToSphere(q, r);
+        const { x, y, z, lat } = this.qToSphere(q, r);
         mesh.position.set(x, y, z);
+
+        // Adaptive Scaling: Distort hexes to fill gaps on the sphere
+        // Hexes need to be "taller" relative to the equator to avoid gaps in a cylindrical wrap
+        const adaptiveScale = 1.0 / Math.sin(lat);
+        // Clamp to avoid extreme scaling at poles
+        const finalScale = Math.min(Math.max(adaptiveScale, 1.0), 1.5);
+        mesh.scale.set(finalScale, 1, finalScale);
 
         // Orient mesh to point "up" from sphere surface
         const normal = new THREE.Vector3(x, y, z).normalize();
@@ -1705,24 +1712,23 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
     qToSphere(q, r, altitude = 0) {
         const radius = 50 + altitude;
-        const size = 1.0;
 
-        // Axial to flat cartesian
-        const fx = size * (3 / 2 * q);
-        const fz = size * (Math.sqrt(3) / 2 * q + Math.sqrt(3) * r);
+        // Use a cylindrical wrap projection
+        // We treat q as longitude and r as latitude
+        // worldScale defines how "dense" the wrapping is
+        const worldScale = 15;
 
-        // Polar distance and angle
-        const dist = Math.sqrt(fx * fx + fz * fz);
-        const angle = Math.atan2(fz, fx);
+        // Longitude: wraps around the equator (0 to 2PI)
+        const lon = (q / worldScale) * (Math.PI / 2);
 
-        // Map distance to latitude (0 at North Pole, PI at South Pole)
-        // Adjust DIVISOR based on grid radius (approx 75 for 5x5 sectors)
-        const lat = (dist / 75) * Math.PI;
+        // Latitude: from North Pole to South Pole (0 to PI)
+        const lat = (r / worldScale) * (Math.PI / 2) + (Math.PI / 2);
 
         return {
-            x: radius * Math.sin(lat) * Math.cos(angle),
+            x: radius * Math.sin(lat) * Math.cos(lon),
             y: radius * Math.cos(lat),
-            z: radius * Math.sin(lat) * Math.sin(angle)
+            z: radius * Math.sin(lat) * Math.sin(lon),
+            lat: lat
         };
     }
 
