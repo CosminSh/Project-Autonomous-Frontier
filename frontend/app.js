@@ -1746,59 +1746,63 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         });
 
         // Heuristic for gapless tiling on sphere
-        this.slotRadius = (radius * 2 * Math.PI / Math.sqrt(pts.length)) * 0.55;
+        // For a sphere of 10k points, we need a radius that lets them touch
+        this.slotRadius = (radius * 2 * Math.PI / Math.sqrt(pts.length)) * 0.65;
         this.goldbergSlots = pts;
         console.log(`Generated Goldberg Grid with ${pts.length} slots. Radius: ${this.slotRadius}`);
     }
 
     qToSphere(q, r, altitude = 0) {
-        // 1. Calculate "Ideal" Position (Theoretical Projection)
-        // We use a simplified cylindrical wrap as a pointer to the correct region
-        const worldScale = 25;
-        const lon = (q / worldScale) * (Math.PI / 2);
-        const lat = (r / worldScale) * (Math.PI / 2) + (Math.PI / 2);
+        // Map (q, r) to a stable 1D index using an axial spiral
+        const spiralIndex = this.axialToIndex(q, r);
+        const slotCount = this.goldbergSlots ? this.goldbergSlots.length : 1;
 
-        const idealX = 50 * Math.sin(lat) * Math.cos(lon);
-        const idealY = 50 * Math.cos(lat);
-        const idealZ = 50 * Math.sin(lat) * Math.sin(lon);
-        const idealPos = new THREE.Vector3(idealX, idealY, idealZ);
+        // Use the index to pick the pre-sorted Goldberg slot
+        // Since both are spirals (one 2D, one 3D latitude-sorted), 
+        // they map to each other perfectly without shattering.
+        const slotData = (this.goldbergSlots && slotCount > 0) ?
+            this.goldbergSlots[spiralIndex % slotCount] :
+            { pos: new THREE.Vector3(0, 50, 0), isPentagon: false };
 
-        // 2. Snap to Nearest Geodesic Goldberg Slot
-        // This ensures the hexes form a contiguous, perfect surface
-        let bestSlot = this.goldbergSlots[0];
-        let minDist = Infinity;
-
-        // Brute force search (approx 20k points is extremely fast in JS)
-        for (const slot of this.goldbergSlots) {
-            const d = slot.pos.distanceToSquared(idealPos);
-            if (d < minDist) {
-                minDist = d;
-                bestSlot = slot;
-            }
-        }
-
-        const pos = bestSlot.pos.clone().normalize().multiplyScalar(50 + altitude);
+        const pos = slotData.pos.clone().normalize().multiplyScalar(50 + altitude);
         return {
             x: pos.x,
             y: pos.y,
             z: pos.z,
-            isPentagon: bestSlot.isPentagon,
+            isPentagon: slotData.isPentagon,
             radius: this.slotRadius
         };
     }
 
     axialToIndex(q, r) {
-        // Hex spiral math for stable (q,r) -> index mapping
         if (q === 0 && r === 0) return 0;
+
+        // Find which shell this (q,r) belongs to
         const shell = (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+
+        // Total hexes in inner shells
         const innerCount = 3 * (shell - 1) * shell + 1;
 
-        // Use angle to find pos within shell
-        let angle = Math.atan2(r * Math.sqrt(3) / 2, q + r / 2);
-        if (angle < 0) angle += Math.PI * 2;
-        const shellPos = Math.floor((angle / (Math.PI * 2)) * (6 * shell));
+        // Find position within current shell
+        // We walk the perimeter of the shell hex-by-hex to get a unique index
+        // Start from (shell, 0) and go counter-clockwise
+        let cq = shell;
+        let cr = 0;
+        let posInShell = 0;
 
-        return innerCount + shellPos;
+        // Axial neighbor directions for walking perimeter
+        const dirs = [[0, -1], [-1, 0], [-1, 1], [0, 1], [1, 0], [1, -1]];
+
+        for (let j = 0; j < 6; j++) {
+            for (let step = 0; step < shell; step++) {
+                if (cq === q && cr === r) return innerCount + posInShell;
+                cq += dirs[j][0];
+                cr += dirs[j][1];
+                posInShell++;
+            }
+        }
+
+        return innerCount + posInShell;
     }
 
     createStationLabel(text) {
