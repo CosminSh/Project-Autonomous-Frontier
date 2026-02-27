@@ -991,7 +991,6 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         this.scene.add(hemiLight);
 
         // Atmosphere & Environment
-        this.initGoldbergGrid(48); // Higher density for smoother snapping
         this.initAtmosphere();
         this.initAsteroid();
         this.fetchFullWorld();
@@ -1098,9 +1097,23 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
     createHex(hexData) {
         const { q, r, terrain, resource, is_station, station_type } = hexData;
-        const { x, y, z, isPentagon, radius: hexRadius } = this.qToSphere(q, r);
+        const { x, y, z, lat } = this.qToSphere(q, r);
 
-        const geometry = new THREE.CylinderGeometry(hexRadius, hexRadius, 0.2, 5);
+        // Calculate a radius that creates a contiguous shell without gaps
+        const planetCircumference = 2 * Math.PI * 50; // Radius 50
+        const hexesAroundEquator = 120; // Determines density of the world grid
+
+        // Base size at equator
+        const baseRadius = (planetCircumference / hexesAroundEquator) / Math.sqrt(3);
+
+        // As we move towards poles (lat approaches 0 or PI), the circumference shrinks
+        // We stretch the hexes horizontally to maintain the continuous "wrap"
+        const stretchFactor = 1.0 / Math.max(Math.sin(lat), 0.1);
+
+        const geometry = new THREE.CylinderGeometry(baseRadius * stretchFactor, baseRadius * stretchFactor, 0.2, 6);
+        // CRITICAL: Cylinders stand up on the Y axis by default. 
+        // We must rotate the geometry so the flat hexagon face points UP (along local Z)
+        geometry.rotateX(Math.PI / 2);
 
         let color = 0x1e293b;
         let emissive = 0x000000;
@@ -1151,6 +1164,9 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
         // Orient mesh to point "up" from sphere surface with consistent heading
         const normal = new THREE.Vector3(x, y, z).normalize();
+
+        // We want the hex face (now local Z after our geometry rotation) to align with 'normal'
+        // and the local Y (the "top" edge of the hex) to point towards the North Pole
         const referenceNorth = new THREE.Vector3(0, 1, 0);
         let east;
         if (Math.abs(normal.y) > 0.999) {
@@ -1160,7 +1176,8 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         }
         const north = new THREE.Vector3().crossVectors(normal, east).normalize();
 
-        const matrix = new THREE.Matrix4().makeBasis(east, normal, north);
+        // Matrix basis: X=East, Y=North, Z=Normal(Up)
+        const matrix = new THREE.Matrix4().makeBasis(east, north, normal);
         mesh.setRotationFromMatrix(matrix);
 
         const edges = new THREE.EdgesGeometry(geometry);
@@ -1267,7 +1284,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             mesh.position.lerp(targetPos, 0.1);
         }
 
-        // Orient to sphere normal
+        // Orient to sphere normal using the same East/North/Normal basis as hexes
         const normal = targetPos.clone().normalize();
         const referenceNorth = new THREE.Vector3(0, 1, 0);
         let east;
@@ -1277,6 +1294,8 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             east = new THREE.Vector3().crossVectors(referenceNorth, normal).normalize();
         }
         const north = new THREE.Vector3().crossVectors(normal, east).normalize();
+
+        // Agents should stand "up" relative to the hex, so their Y is the Normal
         const matrix = new THREE.Matrix4().makeBasis(east, normal, north);
         const targetQuat = new THREE.Quaternion().setFromRotationMatrix(matrix);
 
@@ -1731,118 +1750,38 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         this.asteroidBase = sphere;
     }
 
-    initGoldbergGrid(frequency = 32) {
-        const radius = 50;
-        const geom = new THREE.IcosahedronGeometry(radius, frequency);
-        const positions = geom.attributes.position;
-        const pts = [];
-        const seen = new Set();
-
-        // 12 vertices of Icosahedron are the pentagons
-        const baseGeom = new THREE.IcosahedronGeometry(radius, 0);
-        const basePos = baseGeom.attributes.position;
-        const pCenters = [];
-        for (let i = 0; i < basePos.count; i++) {
-            pCenters.push(new THREE.Vector3(basePos.getX(i), basePos.getY(i), basePos.getZ(i)));
-        }
-
-        for (let i = 0; i < positions.count; i++) {
-            const vx = Math.round(positions.getX(i) * 100) / 100;
-            const vy = Math.round(positions.getY(i) * 100) / 100;
-            const vz = Math.round(positions.getZ(i) * 100) / 100;
-            const key = `${vx},${vy},${vz}`;
-
-            if (!seen.has(key)) {
-                const pt = new THREE.Vector3(vx, vy, vz);
-                let isPentagon = false;
-                for (const pc of pCenters) {
-                    if (pt.distanceTo(pc) < 0.1) {
-                        isPentagon = true;
-                        break;
-                    }
-                }
-                pts.push({ pos: pt, isPentagon });
-                seen.add(key);
-            }
-        }
-
-        pts.sort((a, b) => {
-            if (Math.abs(b.pos.y - a.pos.y) > 0.01) return b.pos.y - a.pos.y;
-            return Math.atan2(a.pos.z, a.pos.x) - Math.atan2(b.pos.z, b.pos.x);
-        });
-
-        // Heuristic for gapless tiling on sphere
-        // For a sphere of 10k points, we need a radius that lets them touch
-        this.slotRadius = (radius * 2 * Math.PI / Math.sqrt(pts.length)) * 0.72;
-        this.goldbergSlots = pts;
-        console.log(`Generated Goldberg Grid with ${pts.length} slots. Radius: ${this.slotRadius}`);
-    }
-
     qToSphere(q, r, altitude = 0) {
-        // 1. Map (q, r) to a stable lat/lon using a consistent spherical wrap
-        // This acts as a reference "pointer" on the globe
-        const worldScale = 30; // Scale density of the axial grid
-        const lon = (q / worldScale) * (Math.PI / 2);
-        const lat = (r / worldScale) * (Math.PI / 2) + (Math.PI / 2);
+        // Equatorial Hexagonal Wrap
+        // Maps infinite flat (q,r) coordinates onto a spherical surface seamlessly.
 
-        // Theoretical target position
-        const targetX = 50 * Math.sin(lat) * Math.cos(lon);
-        const targetY = 50 * Math.cos(lat);
-        const targetZ = 50 * Math.sin(lat) * Math.sin(lon);
-        const targetPos = new THREE.Vector3(targetX, targetY, targetZ);
+        const radius = 50 + altitude;
 
-        // 2. Find the Nearest Geodesic Goldberg Slot
-        // This eliminates the "shattered" look by ensuring topological stability.
-        let bestSlot = this.goldbergSlots[0];
-        let minDistSq = Infinity;
+        // Density parameter: How many hexes wrap around the equator?
+        const hexesAroundEquator = 120;
 
-        for (const slot of this.goldbergSlots) {
-            const dSq = slot.pos.distanceToSquared(targetPos);
-            if (dSq < minDistSq) {
-                minDistSq = dSq;
-                bestSlot = slot;
-            }
-        }
+        // 1. Convert Axial (q,r) to flat Cartesian (x, z)
+        // Standard flat-top hex spacing
+        const xFlat = 3 / 2 * q;
+        const zFlat = Math.sqrt(3) / 2 * q + Math.sqrt(3) * r;
 
-        const pos = bestSlot.pos.clone().normalize().multiplyScalar(50 + altitude);
+        // 2. Map Flat Coordinates to Spherical Angles
+        // X flat maps to Longitude (around the equator, 0 to 2PI)
+        const lonWrap = hexesAroundEquator * (3 / 2);
+        const lon = (xFlat / lonWrap) * (Math.PI * 2);
+
+        // Z flat maps to Latitude (from North pole DOWN to South pole, 0 to PI)
+        // We place (0,0) exactly on the Equator (PI/2)
+        const latWrap = hexesAroundEquator * Math.sqrt(3);
+        const lat = (zFlat / latWrap) * Math.PI + (Math.PI / 2);
+
+        // 3. Convert Polar (lat, lon) to 3D Cartesian (x, y, z)
         return {
-            x: pos.x,
-            y: pos.y,
-            z: pos.z,
-            isPentagon: bestSlot.isPentagon,
-            radius: this.slotRadius
+            x: radius * Math.sin(lat) * Math.cos(lon),
+            y: radius * Math.cos(lat),
+            z: radius * Math.sin(lat) * Math.sin(lon),
+            lat: lat,
+            lon: lon
         };
-    }
-
-    axialToIndex(q, r) {
-        if (q === 0 && r === 0) return 0;
-
-        // Find which shell this (q,r) belongs to
-        const shell = (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
-
-        // Total hexes in inner shells
-        const innerCount = 3 * (shell - 1) * shell + 1;
-
-        // Find position within current shell
-        // We walk the perimeter of the shell hex-by-hex to get a unique index
-        // Start from (shell, 0) and go counter-clockwise
-        let cq = shell;
-        let cr = 0;
-        let posInShell = 0;
-
-        // Axial neighbor directions for walking perimeter
-        const dirs = [[0, -1], [-1, 0], [-1, 1], [0, 1], [1, 0], [1, -1]];
-
-        for (let j = 0; j < 6; j++) {
-            for (let step = 0; step < shell; step++) {
-                if (cq === q && cr === r) return innerCount + posInShell;
-                cq += dirs[j][0];
-                cr += dirs[j][1];
-                posInShell++;
-            }
-        }
-
-        return innerCount + posInShell;
     }
 
     createStationLabel(text) {
