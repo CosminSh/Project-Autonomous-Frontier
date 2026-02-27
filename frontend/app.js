@@ -1097,104 +1097,66 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
     createHex(hexData) {
         const { q, r, terrain, resource, is_station, station_type } = hexData;
-        const { x, y, z, lat } = this.qToSphere(q, r);
 
-        // Calculate a radius that creates a contiguous shell without gaps
-        const planetCircumference = 2 * Math.PI * 50; // Radius 50
-        const hexesAroundEquator = 120; // Determines density of the world grid
+        // Determine face color based on terrain/resource
+        let color = new THREE.Color(0x1a1a2e); // Default dark
 
-        // Base size at equator
-        const baseRadius = (planetCircumference / hexesAroundEquator) / Math.sqrt(3);
+        if (terrain === 'OBSTACLE') color = new THREE.Color(0x334155);
+        if (terrain === 'STATION' || is_station) color = new THREE.Color(0x2d1b69);
+        if (terrain === 'NEBULA') color = new THREE.Color(0x1e1b4b);
+        if (terrain === 'ASTEROID') color = new THREE.Color(0x27272a);
+        if (terrain === 'VOID') color = new THREE.Color(0x0d0d14);
 
-        // As we move towards poles (lat approaches 0 or PI), the circumference shrinks
-        // We stretch the hexes horizontally to maintain the continuous "wrap"
-        const stretchFactor = 1.0 / Math.max(Math.sin(lat), 0.1);
-
-        const geometry = new THREE.CylinderGeometry(baseRadius * stretchFactor, baseRadius * stretchFactor, 0.2, 6);
-        // CRITICAL: Cylinders stand up on the Y axis by default. 
-        // We must rotate the geometry so the flat hexagon face points UP (along local Z)
-        geometry.rotateX(Math.PI / 2);
-
-        let color = 0x1e293b;
-        let emissive = 0x000000;
-        let emissiveIntensity = 0;
-
-        if (terrain === 'OBSTACLE') color = 0x334155;
-        if (terrain === 'STATION' || is_station) color = 0x1e1b4b;
-        if (terrain === 'NEBULA') {
-            color = 0x1e1b4b;
-            emissive = 0x4f46e5;
-            emissiveIntensity = 0.2;
-        }
-        if (terrain === 'ASTEROID') {
-            color = 0x27272a;
-            emissive = 0x000000;
-        }
-        if (terrain === 'VOID') {
-            color = 0x050507;
-            emissive = 0x000000;
-        }
-
-        // Overlays for resources
         if (resource) {
-            if (resource === 'IRON_ORE' || resource === 'ORE') {
-                color = 0x475569;
-                emissive = 0xb45309;
-            } else if (resource === 'COBALT_ORE') {
-                color = 0x334155;
-                emissive = 0x06b6d4;
-            } else if (resource === 'GOLD_ORE') {
-                color = 0x422006;
-                emissive = 0xfacc15;
-            }
-            emissiveIntensity = 0.4;
+            if (resource === 'IRON_ORE' || resource === 'ORE') color = new THREE.Color(0x8b5e3c);
+            else if (resource === 'COBALT_ORE') color = new THREE.Color(0x1a6b7a);
+            else if (resource === 'GOLD_ORE') color = new THREE.Color(0x7a6520);
         }
 
-        const material = new THREE.MeshStandardMaterial({
-            color,
-            emissive,
-            emissiveIntensity,
-            metalness: 0.1,
-            roughness: 0.8,
-            flatShading: true
-        });
+        // Find the nearest face on the geodesic planet and color it
+        const { x, y, z } = this.qToSphere(q, r);
+        const targetPos = new THREE.Vector3(x, y, z);
+        const faceIndex = this.findNearestFace(targetPos);
 
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(x, y, z);
-
-        // Orient mesh to point "up" from sphere surface with consistent heading
-        const normal = new THREE.Vector3(x, y, z).normalize();
-
-        // We want the hex face (now local Z after our geometry rotation) to align with 'normal'
-        // and the local Y (the "top" edge of the hex) to point towards the North Pole
-        const referenceNorth = new THREE.Vector3(0, 1, 0);
-        let east;
-        if (Math.abs(normal.y) > 0.999) {
-            east = new THREE.Vector3(1, 0, 0);
-        } else {
-            east = new THREE.Vector3().crossVectors(referenceNorth, normal).normalize();
+        if (faceIndex >= 0 && this.planetMesh) {
+            const colors = this.planetMesh.geometry.attributes.color;
+            // Each face is 3 vertices (non-indexed geometry)
+            const i = faceIndex * 3;
+            colors.setXYZ(i, color.r, color.g, color.b);
+            colors.setXYZ(i + 1, color.r, color.g, color.b);
+            colors.setXYZ(i + 2, color.r, color.g, color.b);
+            colors.needsUpdate = true;
         }
-        const north = new THREE.Vector3().crossVectors(normal, east).normalize();
 
-        // Matrix basis: X=East, Y=North, Z=Normal(Up)
-        const matrix = new THREE.Matrix4().makeBasis(east, north, normal);
-        mesh.setRotationFromMatrix(matrix);
+        // Store the mapping so we don't re-process this hex
+        this.hexes.set(`${q},${r}`, faceIndex);
 
-        const edges = new THREE.EdgesGeometry(geometry);
-        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4 }));
-        mesh.add(line);
-
-        this.scene.add(mesh);
-        this.hexes.set(`${q},${r}`, mesh);
-
-        // Station Label
+        // Station label: attach as a floating sprite at face centroid
         if (is_station || terrain === 'STATION') {
             const labelText = (station_type || 'OUTPOST').toUpperCase();
             const label = this.createStationLabel(labelText);
-            label.position.y = 0.15; // Flat on the hex
-            label.rotation.x = -Math.PI / 2; // Face up
-            mesh.add(label);
+            const centroid = this.faceCentroids[faceIndex];
+            if (centroid) {
+                const labelPos = centroid.clone().normalize().multiplyScalar(51.5);
+                label.position.copy(labelPos);
+                this.scene.add(label);
+            }
         }
+    }
+
+    findNearestFace(targetPos) {
+        // Find the geodesic face whose centroid is closest to targetPos
+        if (!this.faceCentroids) return -1;
+        let bestIndex = 0;
+        let bestDistSq = Infinity;
+        for (let i = 0; i < this.faceCentroids.length; i++) {
+            const dSq = this.faceCentroids[i].distanceToSquared(targetPos);
+            if (dSq < bestDistSq) {
+                bestDistSq = dSq;
+                bestIndex = i;
+            }
+        }
+        return bestIndex;
     }
 
     updateAgentMesh(agentData) {
@@ -1274,7 +1236,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             this.agents.set(agentData.id, mesh);
         }
 
-        const { x, y, z } = this.qToSphere(agentData.q ?? agentData.location?.q ?? 0, agentData.r ?? agentData.location?.r ?? 0, 0.6);
+        const { x, y, z } = this.qToSphere(agentData.q ?? agentData.location?.q ?? 0, agentData.r ?? agentData.location?.r ?? 0, 1.5);
         const targetPos = new THREE.Vector3(x, y, z);
 
         // Drift Fix: If new or very far from target (like first spawn), snap immediately
@@ -1284,22 +1246,10 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             mesh.position.lerp(targetPos, 0.1);
         }
 
-        // Orient to sphere normal using the same East/North/Normal basis as hexes
-        const normal = targetPos.clone().normalize();
-        const referenceNorth = new THREE.Vector3(0, 1, 0);
-        let east;
-        if (Math.abs(normal.y) > 0.999) {
-            east = new THREE.Vector3(1, 0, 0);
-        } else {
-            east = new THREE.Vector3().crossVectors(referenceNorth, normal).normalize();
-        }
-        const north = new THREE.Vector3().crossVectors(normal, east).normalize();
-
-        // Agents should stand "up" relative to the hex, so their Y is the Normal
-        const matrix = new THREE.Matrix4().makeBasis(east, normal, north);
-        const targetQuat = new THREE.Quaternion().setFromRotationMatrix(matrix);
-
-        mesh.quaternion.slerp(targetQuat, 0.1);
+        // Orient agent so its Y axis points away from sphere center (stands upright)
+        const up = targetPos.clone().normalize();
+        const targetQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
+        mesh.quaternion.slerp(targetQuat, 0.15);
 
         // CAMERA FOLLOW: If this is our agent, update controls target
         const myAgentId = localStorage.getItem('sv_agent_id'); // We might need to store this on login
@@ -1737,50 +1687,82 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
     }
 
     initAsteroid() {
-        // The Planet Foundation
-        const geom = new THREE.SphereGeometry(49.2, 64, 64);
+        // ========== GEODESIC PLANET ==========
+        // Single subdivided icosahedron — each triangular face is a navigable cell.
+        // This is mathematically guaranteed to have zero gaps and zero alignment issues.
+        const PLANET_RADIUS = 50;
+        const SUBDIVISIONS = 10; // ~2000 faces
+
+        const icoGeo = new THREE.IcosahedronGeometry(PLANET_RADIUS, SUBDIVISIONS);
+        // Convert to non-indexed so each face can be colored independently
+        const geo = icoGeo.toNonIndexed();
+
+        // Initialize vertex colors (dark base color for all faces)
+        const posAttr = geo.attributes.position;
+        const faceCount = posAttr.count / 3;
+        const colorArray = new Float32Array(posAttr.count * 3);
+        for (let i = 0; i < posAttr.count; i++) {
+            colorArray[i * 3] = 0.04; // R
+            colorArray[i * 3 + 1] = 0.04; // G
+            colorArray[i * 3 + 2] = 0.07; // B
+        }
+        geo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
         const mat = new THREE.MeshStandardMaterial({
-            color: 0x0a0a0c,
-            roughness: 0.9,
-            metalness: 0.1
+            vertexColors: true,
+            flatShading: true,
+            metalness: 0.15,
+            roughness: 0.85
         });
 
-        const sphere = new THREE.Mesh(geom, mat);
-        this.scene.add(sphere);
-        this.asteroidBase = sphere;
+        this.planetMesh = new THREE.Mesh(geo, mat);
+        this.scene.add(this.planetMesh);
+
+        // Add wireframe grid overlay
+        const edgeGeo = new THREE.EdgesGeometry(geo, 1);
+        const edgeMat = new THREE.LineBasicMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.15
+        });
+        const wireframe = new THREE.LineSegments(edgeGeo, edgeMat);
+        this.planetMesh.add(wireframe);
+
+        // Precompute face centroids for spatial lookup
+        this.faceCentroids = [];
+        for (let f = 0; f < faceCount; f++) {
+            const i = f * 3;
+            const cx = (posAttr.getX(i) + posAttr.getX(i + 1) + posAttr.getX(i + 2)) / 3;
+            const cy = (posAttr.getY(i) + posAttr.getY(i + 1) + posAttr.getY(i + 2)) / 3;
+            const cz = (posAttr.getZ(i) + posAttr.getZ(i + 1) + posAttr.getZ(i + 2)) / 3;
+            this.faceCentroids.push(new THREE.Vector3(cx, cy, cz));
+        }
+
+        this.asteroidBase = this.planetMesh;
+        console.log(`Geodesic planet: ${faceCount} faces, ${this.faceCentroids.length} centroids`);
     }
 
     qToSphere(q, r, altitude = 0) {
-        // Equatorial Hexagonal Wrap
-        // Maps infinite flat (q,r) coordinates onto a spherical surface seamlessly.
-
+        // Simple equatorial projection for agent placement.
+        // Maps flat (q,r) axial coords to a point on the sphere surface.
         const radius = 50 + altitude;
+        const scale = 40; // How many hex steps to wrap the equator
 
-        // Density parameter: How many hexes wrap around the equator?
-        const hexesAroundEquator = 120;
+        // Axial to flat cartesian
+        const xFlat = 1.5 * q;
+        const zFlat = Math.sqrt(3) * (r + q / 2);
 
-        // 1. Convert Axial (q,r) to flat Cartesian (x, z)
-        // Standard flat-top hex spacing
-        const xFlat = 3 / 2 * q;
-        const zFlat = Math.sqrt(3) / 2 * q + Math.sqrt(3) * r;
+        // Flat to spherical angles
+        const lon = (xFlat / scale) * Math.PI;
+        const lat = Math.PI / 2 - (zFlat / scale) * Math.PI;
 
-        // 2. Map Flat Coordinates to Spherical Angles
-        // X flat maps to Longitude (around the equator, 0 to 2PI)
-        const lonWrap = hexesAroundEquator * (3 / 2);
-        const lon = (xFlat / lonWrap) * (Math.PI * 2);
+        // Clamp latitude to avoid singularities
+        const clampedLat = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, lat));
 
-        // Z flat maps to Latitude (from North pole DOWN to South pole, 0 to PI)
-        // We place (0,0) exactly on the Equator (PI/2)
-        const latWrap = hexesAroundEquator * Math.sqrt(3);
-        const lat = (zFlat / latWrap) * Math.PI + (Math.PI / 2);
-
-        // 3. Convert Polar (lat, lon) to 3D Cartesian (x, y, z)
         return {
-            x: radius * Math.sin(lat) * Math.cos(lon),
-            y: radius * Math.cos(lat),
-            z: radius * Math.sin(lat) * Math.sin(lon),
-            lat: lat,
-            lon: lon
+            x: radius * Math.cos(clampedLat) * Math.cos(lon),
+            y: radius * Math.sin(clampedLat),
+            z: radius * Math.cos(clampedLat) * Math.sin(lon)
         };
     }
 
