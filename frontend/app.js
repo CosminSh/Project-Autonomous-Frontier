@@ -197,6 +197,7 @@ class GameClient {
         this.controls = null;
         this.hexes = new Map();
         this.agents = new Map();
+        this.poiLabels = new Map();
         this.selectedAgentId = null;
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
@@ -1140,6 +1141,9 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                 const labelPos = centroid.clone().normalize().multiplyScalar(51.5);
                 label.position.copy(labelPos);
                 this.scene.add(label);
+
+                // Track for stacking: { label, faceIndex }
+                this.poiLabels.set(faceIndex, { label, faceIndex });
             }
         }
     }
@@ -1622,6 +1626,51 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
     animate() {
         requestAnimationFrame(() => this.animate());
         if (this.controls) this.controls.update();
+
+        // Label Stacking Logic
+        // group labels by faceIndex (which face on the planet they are over)
+        const stacks = new Map();
+
+        // 1. Add POI labels to stacks
+        for (let [faceIndex, poi] of this.poiLabels.entries()) {
+            if (!stacks.has(faceIndex)) stacks.set(faceIndex, []);
+            stacks.get(faceIndex).push({ mesh: poi.label, baseHeight: 1.5 });
+        }
+
+        // 2. Add visible agent labels to stacks
+        for (let [id, mesh] of this.agents.entries()) {
+            if (mesh.visible && mesh.userData.label) {
+                // Find which face index this agent is over
+                const faceIndex = this.findNearestFace(mesh.position);
+                if (!stacks.has(faceIndex)) stacks.set(faceIndex, []);
+                stacks.get(faceIndex).push({ mesh: mesh.userData.label, baseHeight: 1.2 });
+            }
+        }
+
+        // 3. Apply vertical offsets
+        const STACK_INCREMENT = 0.6;
+        for (let [faceIndex, labels] of stacks.entries()) {
+            // Sort to keep POIs at bottom (usually index 0 if added first, but let's be safe)
+            labels.sort((a, b) => (a.baseHeight > b.baseHeight ? 1 : -1));
+
+            labels.forEach((item, index) => {
+                // The label is a child of the agent mesh or floating in scene
+                // If it's a child, we adjust local position. 
+                // Station labels are directly in the scene, so we adjust world altitude.
+                if (item.mesh.parent === this.scene) {
+                    // It's a station label
+                    const centroid = this.faceCentroids[faceIndex];
+                    if (centroid) {
+                        const altitude = 1.5 + (index * STACK_INCREMENT);
+                        item.mesh.position.copy(centroid.clone().normalize().multiplyScalar(50 + altitude));
+                    }
+                } else {
+                    // It's an agent label (child of agent mesh)
+                    // Offset relative to the agent's base
+                    item.mesh.position.y = 1.2 + (index * STACK_INCREMENT);
+                }
+            });
+        }
 
         // Rotate atmosphere slightly for life
         if (this.starfield) this.starfield.rotation.y += 0.0001;
