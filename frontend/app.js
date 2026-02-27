@@ -990,7 +990,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         this.scene.add(hemiLight);
 
         // Atmosphere & Environment
-        this.initGoldbergGrid(32); // Creates 10,242 perfect slots
+        this.initGoldbergGrid(48); // Higher density for smoother snapping
         this.initAtmosphere();
         this.initAsteroid();
         this.fetchFullWorld();
@@ -1752,16 +1752,37 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
     }
 
     qToSphere(q, r, altitude = 0) {
-        const index = this.axialToIndex(q, r);
-        const slotCount = this.goldbergSlots ? this.goldbergSlots.length : 1;
-        const slotData = (this.goldbergSlots && slotCount > 0) ? this.goldbergSlots[index % slotCount] : { pos: new THREE.Vector3(0, 50, 0), isPentagon: false };
+        // 1. Calculate "Ideal" Position (Theoretical Projection)
+        // We use a simplified cylindrical wrap as a pointer to the correct region
+        const worldScale = 25;
+        const lon = (q / worldScale) * (Math.PI / 2);
+        const lat = (r / worldScale) * (Math.PI / 2) + (Math.PI / 2);
 
-        const pos = slotData.pos.clone().normalize().multiplyScalar(50 + altitude);
+        const idealX = 50 * Math.sin(lat) * Math.cos(lon);
+        const idealY = 50 * Math.cos(lat);
+        const idealZ = 50 * Math.sin(lat) * Math.sin(lon);
+        const idealPos = new THREE.Vector3(idealX, idealY, idealZ);
+
+        // 2. Snap to Nearest Geodesic Goldberg Slot
+        // This ensures the hexes form a contiguous, perfect surface
+        let bestSlot = this.goldbergSlots[0];
+        let minDist = Infinity;
+
+        // Brute force search (approx 20k points is extremely fast in JS)
+        for (const slot of this.goldbergSlots) {
+            const d = slot.pos.distanceToSquared(idealPos);
+            if (d < minDist) {
+                minDist = d;
+                bestSlot = slot;
+            }
+        }
+
+        const pos = bestSlot.pos.clone().normalize().multiplyScalar(50 + altitude);
         return {
             x: pos.x,
             y: pos.y,
             z: pos.z,
-            isPentagon: slotData.isPentagon,
+            isPentagon: bestSlot.isPentagon,
             radius: this.slotRadius
         };
     }
