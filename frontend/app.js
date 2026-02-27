@@ -1769,28 +1769,32 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
     createStationLabel(text) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = 128;
-        canvas.height = 32;
+        canvas.width = 256;
+        canvas.height = 64;
 
         ctx.fillStyle = 'rgba(0, 0, 0, 0)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        ctx.font = 'bold 20px "Orbitron", sans-serif';
+        ctx.font = 'bold 24px "Orbitron", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
         // Amber/Gold with a dark outline for contrast
         ctx.strokeStyle = 'black';
-        ctx.lineWidth = 4;
-        ctx.strokeText(text, 64, 16);
+        ctx.lineWidth = 6;
+        ctx.strokeText(text, 128, 32);
+
+        ctx.shadowColor = '#facc15';
+        ctx.shadowBlur = 4;
         ctx.fillStyle = '#facc15';
-        ctx.fillText(text, 64, 16);
+        ctx.fillText(text, 128, 32);
 
         const texture = new THREE.CanvasTexture(canvas);
-        const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
-        const geometry = new THREE.PlaneGeometry(3, 0.75);
-        const plane = new THREE.Mesh(geometry, material);
-        return plane;
+        const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+        const sprite = new THREE.Sprite(spriteMat);
+        // Match the scale of previously used plane (3 wide, 0.75 high)
+        sprite.scale.set(4, 1, 1);
+        return sprite;
     }
 
     createLabel(text, color = '#ffffff') {
