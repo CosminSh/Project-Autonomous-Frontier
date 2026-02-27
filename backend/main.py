@@ -686,6 +686,13 @@ async def get_commands():
                 "description": "Directly trade items for credits with a nearby agent.",
                 "payload": {"target_id": "int", "price": "int", "items": "list"},
                 "range": 1
+            },
+            {
+                "type": "DROP_LOAD",
+                "description": "Jettison all non-CREDITS cargo. Destroys items permanently. Use to unstick an overloaded agent.",
+                "payload": {},
+                "energy_cost": 0,
+                "range": "N/A"
             }
         ],
         "note": "All commands are executed during the CRUNCH phase. Submit via POST /api/intent"
@@ -1165,7 +1172,33 @@ async def heartbeat_loop():
                                     if "GAS" in res_name and not any(p.part_type == "Actuator" and "Siphon" in p.name for p in agent.parts):
                                         db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "MISSING_GAS_SIPHON"}))
                                         continue
-                                    
+
+                                    # --- Bug #1 Fix: Capacity check before adding mined yield ---
+                                    item_weight = ITEM_WEIGHTS.get(res_name, 1.0)
+                                    current_mass = get_agent_mass(agent)
+                                    max_mass = agent.max_mass or BASE_CAPACITY
+                                    if current_mass >= max_mass:
+                                        db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={
+                                            "reason": "CARGO_FULL",
+                                            "current_mass": round(current_mass, 1),
+                                            "max_mass": round(max_mass, 1),
+                                            "help": "Cargo hold is at capacity. Use DROP_LOAD to jettison inventory, or sell/smelt at a station."
+                                        }))
+                                        continue
+                                    space_remaining = max_mass - current_mass
+                                    if item_weight > 0:
+                                        max_yield_by_weight = int(space_remaining / item_weight)
+                                    else:
+                                        max_yield_by_weight = yield_amount
+                                    yield_amount = min(yield_amount, max_yield_by_weight)
+                                    if yield_amount <= 0:
+                                        db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={
+                                            "reason": "CARGO_FULL",
+                                            "help": "Not enough space for even 1 unit. Use DROP_LOAD or sell/smelt to free capacity."
+                                        }))
+                                        continue
+                                    # --- End capacity check ---
+
                                     inv_item = next((i for i in agent.inventory if i.item_type == res_name), None)
                                     if inv_item: inv_item.quantity += yield_amount
                                     else: db.add(InventoryItem(agent_id=agent.id, item_type=res_name, quantity=yield_amount))
@@ -1416,10 +1449,19 @@ async def heartbeat_loop():
                                     "item": item_type,
                                     "help": f"Item {item_type} not found in inventory. You can find HE3_FUEL cells on specialized asteroids or trade with other agents."
                                 }))
-                        
-                        await asyncio.sleep(0) # Yield loop frequently
-    
-                        if intent.action_type == "LIST":
+
+                        elif intent.action_type == "DROP_LOAD":
+                            # Destroy all non-CREDITS inventory so overloaded agents can get unstuck
+                            dropped = []
+                            for item in list(agent.inventory):
+                                if item.item_type != "CREDITS":
+                                    dropped.append({"type": item.item_type, "qty": item.quantity})
+                                    db.delete(item)
+                            logger.info(f"Agent {agent.id} dropped load: {dropped}")
+                            db.add(AuditLog(agent_id=agent.id, event_type="DROP_LOAD", details={"dropped": dropped}))
+                            await manager.broadcast({"type": "EVENT", "event": "DROP_LOAD", "agent_id": agent.id, "dropped_count": len(dropped)})
+
+                        elif intent.action_type == "LIST":
                             # List item on Auction House (SELL order)
                             hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
                             if hex_data and hex_data.is_station and hex_data.station_type == "MARKET":
@@ -2104,6 +2146,8 @@ async def heartbeat_loop():
                                     "help": "Order either does not exist or is not owned by you. Only the creator can cancel an auction listing."
                                 }))
 
+                        await asyncio.sleep(0) # Yield loop frequently
+
                 # End of Crunch
                     db.commit()
                 except Exception as e:
@@ -2259,7 +2303,16 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
             "agent_status": {
                 **stats, 
                 "solar_intensity": int(get_solar_intensity(current_agent.q, current_agent.r, state.tick_index if state else 0) * 100),
-                "energy_regen": 0 # Actual regen is dynamic, we'll send the state
+                "energy_regen": (lambda: (
+                    (lambda power_part: (
+                        round(
+                            BASE_REGEN *
+                            get_solar_intensity(current_agent.q, current_agent.r, state.tick_index if state else 0) *
+                            (power_part.stats or {}).get("efficiency", 1.0),
+                            2
+                        ) if power_part else 0
+                    ))(next((p for p in current_agent.parts if p.part_type == "Power"), None))
+                ))()
             },
             "system_advisories": system_advisories,
             "discovery": discovery,
@@ -2424,7 +2477,7 @@ class IntentRequest(BaseModel):
 
 @app.post("/api/intent")
 async def submit_intent(intent_req: IntentRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    VALID_ACTIONS = ["MOVE", "MINE", "SCAN", "ATTACK", "INTIMIDATE", "LOOT", "DESTROY", "LIST", "BUY", "CANCEL", "EQUIP", "UNEQUIP", "SMELT", "CRAFT", "REPAIR", "SALVAGE", "CONSUME", "CORE_SERVICE", "REFINE_GAS", "CHANGE_FACTION"]
+    VALID_ACTIONS = ["MOVE", "MINE", "SCAN", "ATTACK", "INTIMIDATE", "LOOT", "DESTROY", "LIST", "BUY", "CANCEL", "EQUIP", "UNEQUIP", "SMELT", "CRAFT", "REPAIR", "SALVAGE", "CONSUME", "CORE_SERVICE", "REFINE_GAS", "CHANGE_FACTION", "DROP_LOAD"]
     if intent_req.action_type not in VALID_ACTIONS:
         raise HTTPException(status_code=400, detail=f"Invalid action_type: {intent_req.action_type}. Supported: {', '.join(VALID_ACTIONS[:5])}...")
 
