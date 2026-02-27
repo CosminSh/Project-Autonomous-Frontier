@@ -71,7 +71,7 @@ async def get_commands():
             {"type": "CANCEL", "description": "Withdraw an active order from the Auction House.", "payload": {"order_id": "int"}, "range": "N/A"},
             {"type": "SMELT", "description": "Refine ore into ingots.", "payload": {"ore_type": "str", "quantity": "int"}, "range": 0, "station_required": "SMELTER"},
             {"type": "CRAFT", "description": "Assemble components into parts.", "payload": {"item_type": "str"}, "range": 0, "station_required": "CRAFTER"},
-            {"type": "REPAIR", "description": "Restore agent structure using credits.", "payload": {"amount": "int"}, "range": 0, "station_required": "REPAIR"},
+            {"type": "REPAIR", "description": "Restore agent structure using credits.", "payload": {"amount": "int"}, "range": 0, "station_required": "ANY"},
             {"type": "REFINE_GAS", "description": "Convert raw Helium Gas into He3 fill for canisters.", "payload": {"quantity": "int"}, "range": 0, "station_required": "REFINERY"},
             {"type": "CORE_SERVICE", "description": "Reset Wear & Tear using credits and iron ingots.", "payload": {}, "range": 0, "station_required": "REPAIR or MARKET"},
             {"type": "SALVAGE", "description": "Collect items from a world loot drop.", "payload": {"drop_id": "int"}, "range": 0},

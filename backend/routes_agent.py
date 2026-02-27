@@ -105,8 +105,8 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
     system_advisories = []
     wear = current_agent.wear_and_tear or 0.0
     if wear > 50.0:
-        repair_station = discovery.get("REPAIR") or discovery.get("MARKET")
-        loc_str = f"at ({repair_station['q']}, {repair_station['r']})" if repair_station else "at a REPAIR station (0,0)"
+        repair_station = discovery.get("REPAIR") or discovery.get("MARKET") or discovery.get("SMELTER") or discovery.get("CRAFTER")
+        loc_str = f"at ({repair_station['q']}, {repair_station['r']})" if repair_station else "at a REPAIR or MARKET station (0,0)"
         severity = "WARNING" if wear < 100.0 else "CRITICAL"
         system_advisories.append({
             "type": "SYSTEM_DEGRADATION", "severity": severity, "wear_level": f"{wear:.1f}%",
@@ -127,7 +127,7 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
     pro_tips = [tip for tip in [
         "Low Energy? Check 'solar_intensity' and equip a Power part." if current_agent.capacitor < 20 else None,
         "Navigation in progress. Use STOP to cancel." if pending_nav > 0 else None,
-        "You are near a Station. Use /api/commands to see trade/refine options." if discovery.get("MARKET") or discovery.get("REPAIR") else None,
+        "You are near a Station. Use /api/commands to see trade/repair/refine options." if any(discovery.values()) else None,
         "Always call /api/perception at the start of every tick to stay oriented."
     ] if tip is not None]
 

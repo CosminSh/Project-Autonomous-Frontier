@@ -576,9 +576,15 @@ async def heartbeat_loop():
                             item_type = intent.data.get("item_type")
                             inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
                             if inv_item and inv_item.quantity >= 1:
-                                if item_type in ["HE3_FUEL", "HE3_FUEL_CELL", "HE3_CANISTER"]:
-                                    # Refill capacitor and enable overclock
-                                    if item_type == "HE3_CANISTER":
+                                if item_type in ["HE3_FUEL", "HE3_FUEL_CELL", "HE3_CANISTER", "REPAIR_KIT"]:
+                                    if item_type == "REPAIR_KIT":
+                                        actual_repair = min(50, agent.max_structure - agent.structure)
+                                        agent.structure += actual_repair
+                                        inv_item.quantity -= 1
+                                        if inv_item.quantity <= 0: db.delete(inv_item)
+                                        logger.info(f"Agent {agent.id} consumed REPAIR_KIT: +{actual_repair} HP")
+                                        db.add(AuditLog(agent_id=agent.id, event_type="CONSUME", details={"item": "REPAIR_KIT", "gain": actual_repair}))
+                                    elif item_type == "HE3_CANISTER":
                                         # Use fill level from data
                                         fill = (inv_item.data or {}).get("fill_level", 0)
                                         if fill <= 0:
@@ -603,6 +609,7 @@ async def heartbeat_loop():
                                         if inv_item.quantity <= 0: db.delete(inv_item)
                                         logger.info(f"Agent {agent.id} consumed {item_type}: +50 Capacitor, Overclock enabled.")
                                         db.add(AuditLog(agent_id=agent.id, event_type="CONSUME", details={"item": item_type}))
+
                                     
                                     await manager.broadcast({"type": "EVENT", "event": "CONSUME", "agent_id": agent.id, "item": item_type})
                                 else:
@@ -610,7 +617,7 @@ async def heartbeat_loop():
                                     db.add(AuditLog(agent_id=agent.id, event_type="CONSUME_FAILED", details={
                                         "reason": "NOT_CONSUMABLE", 
                                         "item": item_type,
-                                        "help": "Most raw materials cannot be consumed. Only tactical items like HE3_FUEL provide immediate buffs."
+                                        "help": "Most raw materials cannot be consumed. Only tactical items like HE3_FUEL or REPAIR_KIT provide immediate buffs."
                                     }))
                             else:
                                 logger.info(f"Agent {agent.id} failed to consume: Missing {item_type}")
@@ -928,7 +935,7 @@ async def heartbeat_loop():
                                     elif r_roll > 0.65: rarity = "UNCOMMON"
                                     
                                     # Construct Item Data
-                                    item_type = f"PART_{result_item}"
+                                    item_type = f"PART_{result_item}" if result_item in PART_DEFINITIONS else result_item
                                     item_data = {
                                         "rarity": rarity,
                                         "affixes": {}, # affixes rolling can be added here if needed
@@ -959,9 +966,9 @@ async def heartbeat_loop():
                                 }))
 
                         elif intent.action_type == "REPAIR":
-                            # Repair Agent Structure at Repair Station
+                            # Repair Agent Structure at any Station
                             hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
-                            if hex_data and hex_data.is_station and hex_data.station_type == "REPAIR":
+                            if hex_data and hex_data.is_station:
                                 amount_to_repair = intent.data.get("amount", 0)
                                 if amount_to_repair <= 0:
                                     # Auto-repair all if amount not specified or 0
@@ -995,13 +1002,13 @@ async def heartbeat_loop():
                                             "help": f"Standard repairs cost {REPAIR_COST_PER_HP} CR and {REPAIR_COST_IRON_INGOT_PER_HP} IRON_INGOT per HP. You need {total_cost} $CR and {ingot_cost} IRON_INGOT to reach full structural integrity."
                                         }))
                             else:
-                                logger.info(f"Agent {agent.id} failed to repair: Not at Repair Station")
-                                nearest_repair = get_nearest_station(db, agent, "REPAIR")
-                                help_msg = f"Standard repairs require being at a REPAIR station. Navigate to ({nearest_repair.q}, {nearest_repair.r})" if nearest_repair else "No repair station found."
+                                logger.info(f"Agent {agent.id} failed to repair: Not at a Station")
+                                nearest_station = get_nearest_station(db, agent, "REPAIR") or get_nearest_station(db, agent, "MARKET") or get_nearest_station(db, agent, "SMELTER") or get_nearest_station(db, agent, "CRAFTER")
+                                help_msg = f"Standard repairs require being at any station (REPAIR, MARKET, SMELTER, etc). Navigate to nearest station at ({nearest_station.q}, {nearest_station.r})" if nearest_station else "No station found nearby."
                                 db.add(AuditLog(agent_id=agent.id, event_type="REPAIR_FAILED", details={
-                                    "reason": "NOT_AT_REPAIR_STATION",
+                                    "reason": "NOT_AT_STATION",
                                     "help": help_msg,
-                                    "target_coords": {"q": nearest_repair.q, "r": nearest_repair.r} if nearest_repair else None
+                                    "target_coords": {"q": nearest_station.q, "r": nearest_station.r} if nearest_station else None
                                 }))
 
                         elif intent.action_type == "SALVAGE":
