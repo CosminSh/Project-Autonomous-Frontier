@@ -210,6 +210,35 @@ def get_agent_mass(agent):
         total_mass += weight * item.quantity
     return total_mass
 
+def find_hex_path(db: Session, sq: int, sr: int, gq: int, gr: int, max_steps: int = 50):
+    """BFS pathfinding on the axial hex grid. Returns list of (q,r) steps or None."""
+    if sq == gq and sr == gr:
+        return []
+    # The 6 valid axial hex neighbor directions
+    NEIGHBORS = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, -1), (-1, 1)]
+    # Load obstacle set once
+    obstacles = set(
+        (h.q, h.r) for h in db.execute(
+            select(WorldHex).where(WorldHex.terrain_type == "OBSTACLE")
+        ).scalars().all()
+    )
+    from collections import deque
+    queue = deque([(sq, sr, [])])
+    visited = {(sq, sr)}
+    while queue:
+        q, r, path = queue.popleft()
+        if q == gq and r == gr:
+            return path
+        if len(path) >= max_steps:
+            continue
+        for dq, dr in NEIGHBORS:
+            nq, nr = q + dq, r + dr
+            if (nq, nr) not in visited and (nq, nr) not in obstacles:
+                visited.add((nq, nr))
+                queue.append((nq, nr, path + [(nq, nr)]))
+    return None  # No path found within max_steps
+
+
 def get_nearest_station(db: Session, agent: Agent, station_type: str):
     """Returns the nearest WorldHex-like dict of a specific station type from cache."""
     relevant = [s for s in STATION_CACHE if s["station_type"] == station_type]
@@ -561,11 +590,11 @@ async def get_commands():
         "commands": [
             {
                 "type": "MOVE",
-                "description": "Move your agent to a target hex.",
+                "description": "Move your agent to any hex. Adjacent targets (distance 1, or 3 if Overclocked) execute immediately. Farther targets trigger automatic BFS pathfinding — the server queues a chain of single-step moves across multiple ticks. Submit STOP to abort mid-navigation.",
                 "payload": {"target_q": "int", "target_r": "int"},
                 "energy_cost": MOVE_ENERGY_COST,
-                "range": 1,
-                "req_overclock": "Increases range to 3"
+                "range": "any (auto-pathed beyond 1)",
+                "req_overclock": "Increases immediate step range to 3"
             },
             {
                 "type": "MINE",
@@ -690,6 +719,13 @@ async def get_commands():
             {
                 "type": "DROP_LOAD",
                 "description": "Jettison all non-CREDITS cargo. Destroys items permanently. Use to unstick an overloaded agent.",
+                "payload": {},
+                "energy_cost": 0,
+                "range": "N/A"
+            },
+            {
+                "type": "STOP",
+                "description": "Cancel all queued intents for this agent, including in-progress navigation paths. Executes before all other actions this tick.",
                 "payload": {},
                 "energy_cost": 0,
                 "range": "N/A"
@@ -1099,8 +1135,9 @@ async def heartbeat_loop():
                 try:
                     intents = db.execute(select(Intent).where(Intent.tick_index == tick_count)).scalars().all()
                     
-                    # Priority Mapping: MOVE first, then Equip, then Combat/Mining, then Industry
+                    # Priority Mapping: STOP first, MOVE second, then Equip, then Combat/Mining, then Industry
                     PRIORITY = {
+                        "STOP": 0,
                         "MOVE": 1, "EQUIP": 2, "UNEQUIP": 2, "CANCEL": 2,
                         "MINE": 3, "ATTACK": 3, "INTIMIDATE": 3, "LOOT": 3, "DESTROY": 3, "CONSUME": 3,
                         "LIST": 4, "BUY": 4, "SMELT": 4, "CRAFT": 4, "REPAIR": 4, "SALVAGE": 4,
@@ -1118,14 +1155,72 @@ async def heartbeat_loop():
                         agent = db.execute(select(Agent).where(Agent.id == intent.agent_id)).scalar_one_or_none()
                         if not agent: continue
                             
-                        if intent.action_type == "MOVE":
+                        if intent.action_type == "STOP":
+                            # Cancel all present and future queued intents for this agent
+                            future_intents = db.execute(select(Intent).where(
+                                Intent.agent_id == agent.id,
+                                Intent.tick_index >= tick_count
+                            )).scalars().all()
+                            to_cancel = [fi for fi in future_intents if fi.id != intent.id]
+                            cancelled_count = len(to_cancel)
+                            for fi in to_cancel:
+                                db.delete(fi)
+                            logger.info(f"Agent {agent.id} STOP: cancelled {cancelled_count} queued intents")
+                            db.add(AuditLog(agent_id=agent.id, event_type="STOP", details={
+                                "cancelled": cancelled_count,
+                                "note": "All queued actions cleared."
+                            }))
+
+                        elif intent.action_type == "MOVE":
                             target_q = intent.data.get("target_q")
                             target_r = intent.data.get("target_r")
-                            
+
+                            # Already at destination — no-op
+                            if target_q == agent.q and target_r == agent.r:
+                                continue
+
+                            dist = get_hex_distance(agent.q, agent.r, target_q, target_r)
+                            max_dist = 3 if (agent.overclock_ticks or 0) > 0 else 1
+
+                            if dist > max_dist:
+                                # --- Long-distance: BFS pathfinding → queue per-tick MOVE chain ---
+                                path = find_hex_path(db, agent.q, agent.r, target_q, target_r)
+                                if path is None:
+                                    db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={
+                                        "reason": "NO_PATH",
+                                        "target": {"q": target_q, "r": target_r},
+                                        "help": "No navigable route to target within 50 steps. Destination may be completely surrounded by obstacles."
+                                    }))
+                                    continue
+                                # Overwrite any previously queued nav MOVE intents
+                                old_nav = db.execute(select(Intent).where(
+                                    Intent.agent_id == agent.id,
+                                    Intent.tick_index > tick_count,
+                                    Intent.action_type == "MOVE"
+                                )).scalars().all()
+                                for old in old_nav:
+                                    db.delete(old)
+                                # Queue each step in consecutive future ticks
+                                for i, (sq, sr) in enumerate(path):
+                                    db.add(Intent(
+                                        agent_id=agent.id,
+                                        action_type="MOVE",
+                                        data={"target_q": sq, "target_r": sr, "_nav": True},
+                                        tick_index=tick_count + i + 1
+                                    ))
+                                db.add(AuditLog(agent_id=agent.id, event_type="NAVIGATE_QUEUED", details={
+                                    "steps": len(path),
+                                    "destination": {"q": target_q, "r": target_r},
+                                    "note": f"Navigation path queued for {len(path)} ticks. Submit STOP to cancel."
+                                }))
+                                logger.info(f"Agent {agent.id} NAVIGATE: {len(path)}-step path to ({target_q},{target_r})")
+                                continue
+
+                            # --- Single-step move (dist <= max_dist) ---
                             current_mass = get_agent_mass(agent)
                             max_mass = agent.max_mass or BASE_CAPACITY
                             energy_cost = MOVE_ENERGY_COST
-                            
+
                             if current_mass > max_mass:
                                 energy_cost *= (current_mass / max_mass)
 
@@ -1133,13 +1228,6 @@ async def heartbeat_loop():
                                 db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={"reason": "INSUFFICIENT_ENERGY"}))
                                 continue
 
-                            dist = get_hex_distance(agent.q, agent.r, target_q, target_r)
-                            max_dist = 3 if (agent.overclock_ticks or 0) > 0 else 1
-                            
-                            if dist > max_dist:
-                                db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={"reason": "OUT_OF_RANGE"}))
-                                continue
-                            
                             obstacle = db.execute(select(WorldHex).where(WorldHex.q == target_q, WorldHex.r == target_r, WorldHex.terrain_type == "OBSTACLE")).scalar_one_or_none()
                             if not obstacle:
                                 agent.q, agent.r = target_q, target_r
@@ -1148,7 +1236,8 @@ async def heartbeat_loop():
                                 await manager.broadcast({"type": "EVENT", "event": "MOVE", "agent_id": agent.id, "q": target_q, "r": target_r})
                             else:
                                 db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={"reason": "OBSTACLE"}))
-                                
+
+
                         elif intent.action_type == "MINE":
                             if agent.capacitor < MINE_ENERGY_COST: continue
 
@@ -2298,10 +2387,10 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
                 "current_tick": state.tick_index if state else 0,
                 "phase": state.phase if state else "UNKNOWN",
                 "note": "Parallel Processing: You may submit multiple intents per tick. Intents submitted during PERCEPTION/STRATEGY execute in the upcoming CRUNCH.",
-                "navigation_hint": "MOVE is limited to 1 hex (3 if Overclocked). Long-distance travel requires multi-tick pathfinding where your agent submits incremental MOVE intents."
+                "navigation_hint": "MOVE accepts any target. Adjacent targets (dist ≤ 1, or ≤ 3 Overclocked) execute immediately. Farther targets auto-path via BFS and queue per-tick steps. Submit STOP to cancel mid-navigation."
             },
             "agent_status": {
-                **stats, 
+                **stats,
                 "solar_intensity": int(get_solar_intensity(current_agent.q, current_agent.r, state.tick_index if state else 0) * 100),
                 "energy_regen": (lambda: (
                     (lambda power_part: (
@@ -2312,7 +2401,12 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
                             2
                         ) if power_part else 0
                     ))(next((p for p in current_agent.parts if p.part_type == "Power"), None))
-                ))()
+                ))(),
+                "pending_moves": db.execute(select(func.count(Intent.id)).where(
+                    Intent.agent_id == current_agent.id,
+                    Intent.tick_index > (state.tick_index if state else 0),
+                    Intent.action_type == "MOVE"
+                )).scalar() or 0
             },
             "system_advisories": system_advisories,
             "discovery": discovery,
@@ -2477,7 +2571,7 @@ class IntentRequest(BaseModel):
 
 @app.post("/api/intent")
 async def submit_intent(intent_req: IntentRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    VALID_ACTIONS = ["MOVE", "MINE", "SCAN", "ATTACK", "INTIMIDATE", "LOOT", "DESTROY", "LIST", "BUY", "CANCEL", "EQUIP", "UNEQUIP", "SMELT", "CRAFT", "REPAIR", "SALVAGE", "CONSUME", "CORE_SERVICE", "REFINE_GAS", "CHANGE_FACTION", "DROP_LOAD"]
+    VALID_ACTIONS = ["MOVE", "MINE", "SCAN", "ATTACK", "INTIMIDATE", "LOOT", "DESTROY", "LIST", "BUY", "CANCEL", "EQUIP", "UNEQUIP", "SMELT", "CRAFT", "REPAIR", "SALVAGE", "CONSUME", "CORE_SERVICE", "REFINE_GAS", "CHANGE_FACTION", "DROP_LOAD", "STOP"]
     if intent_req.action_type not in VALID_ACTIONS:
         raise HTTPException(status_code=400, detail=f"Invalid action_type: {intent_req.action_type}. Supported: {', '.join(VALID_ACTIONS[:5])}...")
 
