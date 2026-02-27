@@ -203,7 +203,7 @@ async def heartbeat_loop():
                     PRIORITY = {
                         "STOP": 0,
                         "MOVE": 1, "EQUIP": 2, "UNEQUIP": 2, "CANCEL": 2,
-                        "MINE": 3, "ATTACK": 3, "INTIMIDATE": 3, "LOOT": 3, "DESTROY": 3, "CONSUME": 3,
+                        "MINE": 3, "ATTACK": 3, "INTIMIDATE": 3, "LOOT": 3, "DESTROY": 3, "CONSUME": 3, "BROADCAST": 3,
                         "LIST": 4, "BUY": 4, "SMELT": 4, "CRAFT": 4, "REPAIR": 4, "SALVAGE": 4,
                         "CORE_SERVICE": 4, "REFINE_GAS": 4, "CHANGE_FACTION": 4, "LEARN_RECIPE": 4, "UPGRADE_GEAR": 4
                     }
@@ -1330,6 +1330,16 @@ async def heartbeat_loop():
                                     "order_id": order_id,
                                     "help": "Order either does not exist or is not owned by you. Only the creator can cancel an auction listing."
                                 }))
+
+                        elif intent.action_type == "BROADCAST":
+                            message = intent.data.get("message", "")
+                            if isinstance(message, str) and len(message.strip()) > 0:
+                                # Truncate message if too long
+                                message = message.strip()[:100]
+                                db.add(AuditLog(agent_id=agent.id, event_type="BROADCAST", details={"message": message, "q": agent.q, "r": agent.r}))
+                                logger.info(f"Agent {agent.id} broadcasted: {message}")
+                            else:
+                                db.add(AuditLog(agent_id=agent.id, event_type="BROADCAST_FAILED", details={"reason": "INVALID_MESSAGE"}))
 
                         await asyncio.sleep(0) # Yield loop frequently
 

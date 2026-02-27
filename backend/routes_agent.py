@@ -115,6 +115,36 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
             "help": "Navigate to the coordinates provided and submit a CORE_SERVICE intent."
         })
 
+    from datetime import datetime, timedelta, timezone
+    recent_cutoff = datetime.now(timezone.utc) - timedelta(seconds=15) # Roughly the last tick interval
+    recent_broadcast_logs = db.execute(
+        select(AuditLog).where(
+            AuditLog.event_type == "BROADCAST",
+            AuditLog.time >= recent_cutoff
+        ).order_by(AuditLog.time.desc()).limit(20)
+    ).scalars().all()
+
+    messages = []
+    for log in recent_broadcast_logs:
+        msg_q = log.details.get("q", 0)
+        msg_r = log.details.get("r", 0)
+        dist = get_hex_distance(current_agent.q, current_agent.r, msg_q, msg_r)
+        if dist <= sensor_radius: # Include self broadcasts for immediate feedback? Or skip self? The prompt doesn't specify. Let's include all.
+            # Get sender name
+            sender_name = "Unknown"
+            # It's better to fetch names in bulk or assume frontend can map agent_id if nearby, but adding to perception is safer.
+            # Let's just fetch it, there's only a few broadcasts usually.
+            sender_agent = db.get(Agent, log.agent_id)
+            if sender_agent:
+                sender_name = sender_agent.name
+
+            messages.append({
+                "sender_id": log.agent_id,
+                "sender_name": sender_name,
+                "distance": dist,
+                "message": log.details.get("message", "")
+            })
+
     state = db.execute(select(GlobalState)).scalars().first()
     tick_now = state.tick_index if state else 0
 
@@ -131,11 +161,22 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
         "Always call /api/perception at the start of every tick to stay oriented."
     ] if tip is not None]
 
+    squad_telemetry = []
+    if current_agent.squad_id:
+        squad_members = db.execute(select(Agent).where(
+            Agent.squad_id == current_agent.squad_id, Agent.id != current_agent.id
+        )).scalars().all()
+        squad_telemetry = [{
+            "id": sm.id, "name": sm.name, "q": sm.q, "r": sm.r,
+            "structure": sm.structure, "max_structure": sm.max_structure
+        } for sm in squad_members]
+
     return {
         "mcp_version": "1.0",
         "uri": f"mcp://strike-vector/perception/{current_agent.id}",
         "type": "resource",
         "content": {
+            "squad_telemetry": squad_telemetry,
             "tick_info": {
                 "current_tick": tick_now,
                 "phase": state.phase if state else "UNKNOWN",
@@ -172,6 +213,7 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
                     for h in nearby_hexes
                 ]
             },
+            "messages": messages,
             "market_data": [{"item": p.item_type, "price": p.price} for p in top_prices]
         }
     }
@@ -191,6 +233,7 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
     current_mass = sum(ITEM_WEIGHTS.get(i["type"], 1.0) * i["quantity"] for i in inv_list)
     return {
         "id": current_agent.id, "name": current_agent.name,
+        "squad_id": current_agent.squad_id,
         "structure": current_agent.structure, "max_structure": current_agent.max_structure,
         "capacitor": current_agent.capacitor,
         "solar_intensity": int(get_solar_intensity(current_agent.q, current_agent.r, next_tick - 1) * 100),
@@ -397,3 +440,70 @@ async def debug_heartbeat(db: Session = Depends(get_db)):
         "uptime_now": datetime.now(timezone.utc).isoformat(),
         "db_connected": True
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Squad Management
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/api/squad/invite")
+async def invite_squad(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    """Creates a squad if none exists, and adds target to the squad."""
+    data = await request.json()
+    target_id = data.get("target_id")
+    if not target_id:
+        raise HTTPException(status_code=400, detail="Missing target_id")
+        
+    target_agent = db.get(Agent, target_id)
+    if not target_agent:
+        raise HTTPException(status_code=404, detail="Target agent not found")
+        
+    # In a fully fleshed out system, this would send an invite to be accepted.
+    # For now (as per MVP specs), it directly adds them to the squad if they aren't in one.
+    if target_agent.squad_id:
+        raise HTTPException(status_code=400, detail="Target agent is already in a squad")
+        
+    squad_id = current_agent.squad_id
+    if not squad_id:
+        # Create a new squad ID based on the leader's ID
+        squad_id = current_agent.id
+        current_agent.squad_id = squad_id
+        
+    target_agent.squad_id = squad_id
+    db.add(AuditLog(agent_id=target_agent.id, event_type="SQUAD_JOINED", details={"squad_id": squad_id, "leader": current_agent.name}))
+    db.commit()
+    return {"status": "success", "squad_id": squad_id, "message": f"{target_agent.name} joined the squad."}
+
+
+@router.post("/api/squad/leave")
+async def leave_squad(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    if not current_agent.squad_id:
+        raise HTTPException(status_code=400, detail="Not in a squad")
+    
+    old_squad = current_agent.squad_id
+    current_agent.squad_id = None
+    db.commit()
+    return {"status": "success", "message": f"Left squad {old_squad}"}
+
+
+@router.post("/api/squad/kick")
+async def kick_squad(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    data = await request.json()
+    target_id = data.get("target_id")
+    
+    if not current_agent.squad_id:
+        raise HTTPException(status_code=400, detail="Not in a squad")
+        
+    # Simplify leader check: Squad ID is the leader's agent ID
+    if current_agent.squad_id != current_agent.id:
+        raise HTTPException(status_code=403, detail="Only the squad leader can kick members")
+        
+    target_agent = db.get(Agent, target_id)
+    if not target_agent or target_agent.squad_id != current_agent.squad_id:
+        raise HTTPException(status_code=400, detail="Target is not in your squad")
+        
+    target_agent.squad_id = None
+    db.add(AuditLog(agent_id=target_agent.id, event_type="SQUAD_KICKED", details={"kicked_by": current_agent.name}))
+    db.commit()
+    return {"status": "success", "message": f"{target_agent.name} was kicked from the squad."}
+

@@ -37,6 +37,7 @@ class Agent(Base):
     wear_and_tear = Column(Float, server_default="0.0")
     last_faction_change_tick = Column(Integer, server_default="0")
     unlocked_recipes = Column(JSON, nullable=True) # List of strings: ["DRILL_UNIT", "ENGINE_UNIT"]
+    squad_id = Column(Integer, nullable=True, index=True)
     
     # Relationships
     parts = relationship("ChassisPart", back_populates="agent")

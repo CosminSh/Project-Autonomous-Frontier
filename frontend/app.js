@@ -1328,8 +1328,9 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             colors.needsUpdate = true;
         }
 
-        // Store the mapping so we don't re-process this hex
-        this.hexes.set(`${q},${r}`, faceIndex);
+        // Store the mapping so we don't re-process this hex, along with its original color
+        this.hexes.set(`${q},${r}`, { faceIndex, color });
+
 
         // Station label: attach as a floating sprite at face centroid
         if (is_station || terrain === 'STATION') {
@@ -1772,12 +1773,40 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             }
 
             // Update visible hexes
+            const visibleHexKeys = new Set();
             worldDataToRender.forEach(hex => {
                 const key = `${hex.q},${hex.r}`;
+                visibleHexKeys.add(key);
                 if (!this.hexes.has(key)) {
                     this.createHex(hex);
                 }
             });
+
+            // Apply Shroud to non-visible hexes
+            let colorsUpdated = false;
+            for (let [key, data] of this.hexes.entries()) {
+                const { faceIndex, color } = data;
+                if (faceIndex >= 0 && this.planetMesh) {
+                    const colors = this.planetMesh.geometry.attributes.color;
+                    const i = faceIndex * 3;
+                    if (visibleHexKeys.has(key) || !this.lastPerception) {
+                        // Fully visible
+                        colors.setXYZ(i, color.r, color.g, color.b);
+                        colors.setXYZ(i + 1, color.r, color.g, color.b);
+                        colors.setXYZ(i + 2, color.r, color.g, color.b);
+                    } else {
+                        // Shrouded (darkened)
+                        colors.setXYZ(i, color.r * 0.2, color.g * 0.2, color.b * 0.2);
+                        colors.setXYZ(i + 1, color.r * 0.2, color.g * 0.2, color.b * 0.2);
+                        colors.setXYZ(i + 2, color.r * 0.2, color.g * 0.2, color.b * 0.2);
+                    }
+                    colorsUpdated = true;
+                }
+            }
+            if (colorsUpdated && this.planetMesh) {
+                this.planetMesh.geometry.attributes.color.needsUpdate = true;
+            }
+
 
             // Update visible agents
             agentsToRender.forEach(agent => {

@@ -20,7 +20,8 @@ def run_migration():
                 ("wear_and_tear", "DOUBLE PRECISION DEFAULT 0.0"),
                 ("last_faction_change_tick", "INTEGER DEFAULT 0"),
                 ("max_mass", "DOUBLE PRECISION DEFAULT 100.0"),
-                ("unlocked_recipes", "JSON")
+                ("unlocked_recipes", "JSON"),
+                ("squad_id", "INTEGER")
             ]
             
             for col_name, col_type in columns_to_add:
