@@ -215,6 +215,13 @@ async def heartbeat_loop():
                     all_agents = db.execute(select(Agent)).scalars().all()
 
                     for intent in sorted_intents:
+                        # Defensively normalize item string inputs to be forgiving (e.g. "iron ore" -> "IRON_ORE")
+                        if intent.data:
+                            for key in ["item_type", "ore_type"]:
+                                val = intent.data.get(key)
+                                if isinstance(val, str):
+                                    intent.data[key] = val.strip().upper().replace(" ", "_").replace("-", "_")
+
                         # Refresh agent from DB
                         agent = db.execute(select(Agent).where(Agent.id == intent.agent_id)).scalar_one_or_none()
                         if not agent: continue
@@ -808,10 +815,11 @@ async def heartbeat_loop():
                                 
                                 if ore_type not in SMELTING_RECIPES:
                                     logger.info(f"Agent {agent.id} failed to smelt: Invalid ore type {ore_type}")
+                                    valid_ores = ", ".join(SMELTING_RECIPES.keys())
                                     db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={
                                         "reason": "INVALID_ORE", 
                                         "ore": ore_type,
-                                        "help": "Only raw ores (IRON_ORE, COPPER_ORE, etc.) can be smelted into ingots."
+                                        "help": f"Only recognized ores can be smelted. Try checking your spelling. Available ores: {valid_ores}"
                                     }))
                                     continue
 
