@@ -1141,7 +1141,6 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         this.initAtmosphere();
         this.initAsteroid();
         this.fetchFullWorld();
-
         // View Resizer
         window.addEventListener('resize', () => {
             this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -1154,6 +1153,8 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
         // Center Camera Handler
         document.getElementById('center-camera-btn')?.addEventListener('click', () => this.centerOnAgent());
+
+        this.hasCenteredInitially = false;
     }
 
     onWorldClick(event) {
@@ -1733,8 +1734,20 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             if (agentData) {
                 visibleAgentIds.add(agentData.id);
                 this.updateAgentMesh(agentData);
-                // Also show the centering button if authenticated
-                document.getElementById('center-camera-btn')?.classList.remove('hidden');
+
+                // Show centering button
+                const centerBtn = document.getElementById('center-camera-btn');
+                if (centerBtn && centerBtn.classList.contains('hidden')) {
+                    centerBtn.classList.remove('hidden');
+                    console.log("UI: Center Camera button enabled.");
+                }
+
+                // Auto-center on first load
+                if (!this.hasCenteredInitially) {
+                    console.log("UI: Initial auto-centering on agent...");
+                    this.centerOnAgent();
+                    this.hasCenteredInitially = true;
+                }
             }
 
             if (this.lastPerception && this.lastPerception.environment) {
