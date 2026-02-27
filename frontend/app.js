@@ -950,8 +950,16 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
     init() {
         // Scene setup
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x050507);
-        this.scene.fog = new THREE.FogExp2(0x050507, 0.05);
+
+        // Skybox
+        const loader = new THREE.TextureLoader();
+        loader.load('https://agent8-games.verse8.io/mcp-agent8-generated/static-assets/skybox-14100960-1754694699668.jpg', (texture) => {
+            texture.mapping = THREE.EquirectangularReflectionMapping;
+            this.scene.background = texture;
+            this.scene.environment = texture;
+        });
+
+        this.scene.fog = new THREE.FogExp2(0x050507, 0.002); // Reduced fog for space scale
 
         // Camera
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -974,16 +982,17 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         const ambientLight = new THREE.AmbientLight(0x404040, 2);
         this.scene.add(ambientLight);
 
-        const sunLight = new THREE.DirectionalLight(0x38bdf8, 2);
-        sunLight.position.set(5, 10, 2);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 3);
+        sunLight.position.set(0, 100, 0); // Directly above North Pole (0,0,0 on grid)
         this.scene.add(sunLight);
 
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x080820, 0.5); // Very dim bottom light
         this.scene.add(hemiLight);
 
         // Atmosphere & Environment
         this.initAtmosphere();
         this.initAsteroid();
+        this.fetchFullWorld();
 
         // View Resizer
         window.addEventListener('resize', () => {
@@ -1134,9 +1143,13 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         });
 
         const mesh = new THREE.Mesh(geometry, material);
-        const { x, z } = this.qToCoord(q, r);
-        mesh.position.set(x, 0, z);
-        mesh.rotation.y = Math.PI / 6;
+        const { x, y, z } = this.qToSphere(q, r);
+        mesh.position.set(x, y, z);
+
+        // Orient mesh to point "up" from sphere surface
+        const normal = new THREE.Vector3(x, y, z).normalize();
+        const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+        mesh.applyQuaternion(quaternion);
 
         const edges = new THREE.EdgesGeometry(geometry);
         const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4 }));
@@ -1159,7 +1172,6 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         let mesh = this.agents.get(agentData.id);
         const q = agentData.q ?? agentData.location?.q ?? 0;
         const r = agentData.r ?? agentData.location?.r ?? 0;
-        const { x, z } = this.qToCoord(q, r);
         const visual = agentData.visual_signature || { chassis: 'BASIC', rarity: 'STANDARD' };
 
         if (!mesh) {
@@ -1233,15 +1245,22 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             this.agents.set(agentData.id, mesh);
         }
 
-        mesh.position.lerp(new THREE.Vector3(x, 0.6, z), 0.1);
-        mesh.rotation.y += 0.01;
+        const { x, y, z } = this.qToSphere(agentData.q ?? agentData.location?.q ?? 0, agentData.r ?? agentData.location?.r ?? 0, 0.6);
+        mesh.position.lerp(new THREE.Vector3(x, y, z), 0.1);
+
+        // Orient to sphere normal
+        const normal = new THREE.Vector3(x, y, z).normalize();
+        const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+        mesh.quaternion.slerp(quaternion, 0.1);
+        mesh.rotateY(0.01);
 
         // CAMERA FOLLOW: If this is our agent, update controls target
         const myAgentId = localStorage.getItem('sv_agent_id'); // We might need to store this on login
         if (agentData.id == myAgentId || agentData.id == this.lastMyAgentId) {
             if (this.controls) {
-                const targetPos = new THREE.Vector3(x, 0, z);
-                // If the camera is very far away, snap it; otherwise, lerp smoothly
+                const { x, y, z } = this.qToSphere(agentData.q ?? agentData.location?.q ?? 0, agentData.r ?? agentData.location?.r ?? 0);
+                const targetPos = new THREE.Vector3(x, y, z);
+
                 if (this.controls.target.distanceTo(targetPos) > 10) {
                     this.controls.target.copy(targetPos);
                 } else {
@@ -1652,30 +1671,59 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         this.scene.add(this.debris);
     }
 
-    initAsteroid() {
-        // A large foundation mesh - Brought much closer
-        const geom = new THREE.DodecahedronGeometry(80, 2);
-        const pos = geom.attributes.position;
-        for (let i = 0; i < pos.count; i++) {
-            const v = new THREE.Vector3().fromBufferAttribute(pos, i);
-            // Irregular scaling for rocky look
-            v.normalize().multiplyScalar(60 + Math.random() * 20);
-            pos.setXYZ(i, v.x, v.y, v.z);
+    async fetchFullWorld() {
+        try {
+            const resp = await fetch('/api/world/full');
+            const data = await resp.json();
+            data.forEach(hex => {
+                const key = `${hex.q},${hex.r}`;
+                if (!this.hexes.has(key)) {
+                    // Only render stations or landmarks for performance in global view
+                    if (hex.is_station || hex.terrain !== 'VOID') {
+                        this.createHex(hex);
+                    }
+                }
+            });
+        } catch (e) {
+            console.error("Error fetching full world:", e);
         }
-        geom.computeVertexNormals();
+    }
 
+    initAsteroid() {
+        // The Planet Foundation
+        const geom = new THREE.SphereGeometry(49.2, 64, 64);
         const mat = new THREE.MeshStandardMaterial({
-            color: 0x1a1a1e,
+            color: 0x0a0a0c,
             roughness: 0.9,
-            metalness: 0.1,
-            flatShading: true
+            metalness: 0.1
         });
 
-        const asteroid = new THREE.Mesh(geom, mat);
-        asteroid.position.y = -55; // Tucked just under the hex grid (y=0)
-        asteroid.rotation.x = Math.PI / 4;
-        this.scene.add(asteroid);
-        this.asteroidBase = asteroid;
+        const sphere = new THREE.Mesh(geom, mat);
+        this.scene.add(sphere);
+        this.asteroidBase = sphere;
+    }
+
+    qToSphere(q, r, altitude = 0) {
+        const radius = 50 + altitude;
+        const size = 1.0;
+
+        // Axial to flat cartesian
+        const fx = size * (3 / 2 * q);
+        const fz = size * (Math.sqrt(3) / 2 * q + Math.sqrt(3) * r);
+
+        // Polar distance and angle
+        const dist = Math.sqrt(fx * fx + fz * fz);
+        const angle = Math.atan2(fz, fx);
+
+        // Map distance to latitude (0 at North Pole, PI at South Pole)
+        // Adjust DIVISOR based on grid radius (approx 75 for 5x5 sectors)
+        const lat = (dist / 75) * Math.PI;
+
+        return {
+            x: radius * Math.sin(lat) * Math.cos(angle),
+            y: radius * Math.cos(lat),
+            z: radius * Math.sin(lat) * Math.sin(angle)
+        };
     }
 
     createStationLabel(text) {

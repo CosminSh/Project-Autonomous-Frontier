@@ -2481,6 +2481,18 @@ async def get_world_state():
             } for o in orders]
         }
 
+@app.get("/api/world/full")
+async def get_full_world(db: Session = Depends(get_db)):
+    """Returns essential layout of the entire world for global visualization."""
+    hexes = db.execute(select(WorldHex.q, WorldHex.r, WorldHex.terrain_type, WorldHex.is_station, WorldHex.station_type)).all()
+    return [{
+        "q": h.q,
+        "r": h.r,
+        "terrain": h.terrain_type,
+        "is_station": h.is_station,
+        "station_type": h.station_type
+    } for h in hexes]
+
 # Mount static files
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 frontend_path = os.path.join(base_dir, "frontend")
