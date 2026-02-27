@@ -1141,7 +1141,9 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
     updateAgentMesh(agentData) {
         let mesh = this.agents.get(agentData.id);
-        const { x, z } = this.qToCoord(agentData.q, agentData.r);
+        const q = agentData.q ?? agentData.location?.q ?? 0;
+        const r = agentData.r ?? agentData.location?.r ?? 0;
+        const { x, z } = this.qToCoord(q, r);
         const visual = agentData.visual_signature || { chassis: 'BASIC', rarity: 'STANDARD' };
 
         if (!mesh) {
@@ -1215,7 +1217,13 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         const myAgentId = localStorage.getItem('sv_agent_id'); // We might need to store this on login
         if (agentData.id == myAgentId || agentData.id == this.lastMyAgentId) {
             if (this.controls) {
-                this.controls.target.lerp(new THREE.Vector3(x, 0, z), 0.05);
+                const targetPos = new THREE.Vector3(x, 0, z);
+                // If the camera is very far away, snap it; otherwise, lerp smoothly
+                if (this.controls.target.distanceTo(targetPos) > 10) {
+                    this.controls.target.copy(targetPos);
+                } else {
+                    this.controls.target.lerp(targetPos, 0.1);
+                }
             }
         }
 
@@ -1248,8 +1256,10 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
         document.getElementById('agent-name').innerText = agent.name;
         document.getElementById('agent-id').innerText = `#${agent.id.toString().padStart(4, '0')}`;
+        const q = agent.q ?? agent.location?.q ?? 0;
+        const r = agent.r ?? agent.location?.r ?? 0;
         const coordsEl = document.getElementById('agent-coords');
-        if (coordsEl) coordsEl.innerText = `Q:${agent.q || 0}, R:${agent.r || 0}`;
+        if (coordsEl) coordsEl.innerText = `Q:${q}, R:${r}`;
         document.getElementById('api-key-display').innerText = agent.api_key;
 
         // HP

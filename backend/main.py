@@ -2177,6 +2177,8 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
         "mass": current_mass,
         "capacity": current_agent.max_mass or BASE_CAPACITY,
         "inventory": inv_list,
+        "q": current_agent.q,
+        "r": current_agent.r,
         "location": {"q": current_agent.q, "r": current_agent.r},
         "visual_signature": get_agent_visual_signature(current_agent)
     }
@@ -2324,6 +2326,8 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
         "overclock": current_agent.overclock,
         "mass": current_mass,
         "capacity": current_agent.max_mass or BASE_CAPACITY,
+        "q": current_agent.q,
+        "r": current_agent.r,
         "inventory": inv_list,
         "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats} for p in current_agent.parts],
         "discovery": get_discovery_packet(db, current_agent),
