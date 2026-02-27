@@ -1151,6 +1151,9 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
         // Click Handler (Raycasting)
         this.renderer.domElement.addEventListener('click', (e) => this.onWorldClick(e));
+
+        // Center Camera Handler
+        document.getElementById('center-camera-btn')?.addEventListener('click', () => this.centerOnAgent());
     }
 
     onWorldClick(event) {
@@ -1178,6 +1181,24 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         } else {
             // Check if clicking elsewhere hides the scanner
             // But we have a close button, so maybe keep it
+        }
+    }
+
+    centerOnAgent() {
+        const myAgentId = localStorage.getItem('sv_agent_id');
+        const mesh = this.agents.get(myAgentId);
+        if (mesh && this.controls) {
+            this.controls.target.copy(mesh.position);
+            // Optionally snap camera a bit closer if way out
+            const dist = this.camera.position.distanceTo(mesh.position);
+            if (dist > 150) {
+                const dir = this.camera.position.clone().sub(mesh.position).normalize();
+                this.camera.position.copy(mesh.position.clone().add(dir.multiplyScalar(100)));
+            }
+            this.controls.update();
+            console.log("Camera centered on agent:", myAgentId);
+        } else {
+            console.warn("Cannot center: Agent mesh not found in scene.");
         }
     }
 
@@ -1708,15 +1729,17 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             let worldDataToRender = data.world;
             let agentsToRender = data.agents;
 
+            // Always track and show self if available
+            if (agentData) {
+                visibleAgentIds.add(agentData.id);
+                this.updateAgentMesh(agentData);
+                // Also show the centering button if authenticated
+                document.getElementById('center-camera-btn')?.classList.remove('hidden');
+            }
+
             if (this.lastPerception && this.lastPerception.environment) {
                 worldDataToRender = this.lastPerception.environment.environment_hexes;
                 agentsToRender = this.lastPerception.environment.other_agents;
-
-                // Include self
-                if (agentData) {
-                    visibleAgentIds.add(agentData.id);
-                    this.updateAgentMesh(agentData);
-                }
             }
 
             // Update visible hexes
