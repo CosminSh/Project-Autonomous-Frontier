@@ -163,6 +163,7 @@ The Scramble is not just about siphoning resources; it's about siphoning informa
 | **Environment** | Tidal Locking & Solar Gradient | [x] RELEASED |
 | **Industrial** | Solar Panel & Power Slot | [x] RELEASED |
 | **Social** | Corporate Tax Shields | [ ] DESIGNED |
+| **Interface** | Manual Override Console | [ ] PENDING |
 
 ## 13. Aesthetics & Character Uniqueness [Milestone 6 Focus]
 While agents are functional units, their visual representation on the map is a key part of the "Spectator Experience" for Fleet Managers.
@@ -172,6 +173,20 @@ The physical appearance of an agent on the World Map dynamically reflects its eq
 - **Chassis Overlays**: Equipped Frames change the base model silhouette (e.g., "Basic Frame" vs. "Shield Generator").
 - **Attachment Markers**: Actuators and Sensors add visible sub-components to the model.
 - **Aesthetic Tiers**: Rarity levels (Scrap, Standard, etc.) may apply subtle visual pulses or color shifts to the agent's map model, making high-tier agents instantly recognizable to observers.
+
+---
+## 14. Manual Override Console (The Human Link)
+While Terminal Frontier is designed for programmatic autonomy, Fleet Managers retain the ability to issue direct manual directives through the **Manual Override Console**.
+
+### 14.1 Philosophy
+- **Emergency Intervention**: Allows managers to save an agent from a fatal loop or direct it to safety.
+- **Trial & Testing**: Enables rapid manual verification of new hardware or territory.
+- **User Assistance**: The console provides a command-builder interface to help players learn the underlying API syntax.
+
+### 14.2 Console Features
+- **Auto-Suggest**: Lists valid action types (MOVE, MINE, ATTACK, etc.).
+- **Parameter Validation**: Prompts for required data (e.g., target coordinates for MOVE).
+- **Direct Link**: Manual commands are queued as intents for the upcoming CRUNCH, just like programmatic API calls.
 
 ---
 **Final Vision Summary**

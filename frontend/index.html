@@ -38,6 +38,55 @@
             box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
         }
 
+        /* Terminal Specific Styles */
+        .terminal-output {
+            background: rgba(2, 6, 23, 0.8);
+            border: 1px solid rgba(56, 189, 248, 0.1);
+            font-family: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(56, 189, 248, 0.3) transparent;
+        }
+
+        .terminal-output::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .terminal-output::-webkit-scrollbar-thumb {
+            background: rgba(56, 189, 248, 0.3);
+            border-radius: 2px;
+        }
+
+        .terminal-input-container {
+            position: relative;
+        }
+
+        .suggestion-list {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            background: #0f172a;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 8px;
+            margin-bottom: 4px;
+            max-height: 150px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .suggestion-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 10px;
+            transition: all 0.2s;
+        }
+
+        .suggestion-item:hover,
+        .suggestion-item.active {
+            background: rgba(56, 189, 248, 0.2);
+            color: #38bdf8;
+        }
+
         #canvas-container {
             width: 100%;
             height: 100vh;
@@ -364,6 +413,8 @@
                         class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap">Market</button>
                     <button id="tab-industry"
                         class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap">Industry</button>
+                    <button id="tab-terminal"
+                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap">Terminal</button>
                 </nav>
                 <div class="p-3 md:p-4 flex-grow overflow-y-auto custom-scrollbar">
                     <!-- Command Center Tab -->
@@ -660,6 +711,40 @@
                                 <button id="btn-repair"
                                     class="w-full md:w-auto bg-rose-500 hover:bg-rose-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">REPAIR</button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Terminal Tab -->
+                <div id="content-terminal" class="hidden h-full flex flex-col">
+                    <div class="flex justify-between items-center mb-4 text-sky-400">
+                        <h3 class="orbitron text-base">MANUAL OVERRIDE</h3>
+                        <span class="text-[8px] uppercase tracking-widest font-black opacity-50">Neural Directive
+                            Ready</span>
+                    </div>
+                    <div id="terminal-buffer"
+                        class="terminal-output flex-grow p-4 rounded-xl mb-4 overflow-y-auto min-h-[300px] text-[10px] space-y-1">
+                        <div class="text-slate-600 font-mono italic">Initializing command buffer...</div>
+                        <div class="text-sky-500/80 font-mono">UPLINK: Direct manual control enabled. Type 'HELP' for
+                            syntax.</div>
+                    </div>
+                    <div class="terminal-input-container">
+                        <div id="command-suggestions" class="suggestion-list hidden"></div>
+                        <div class="flex space-x-2">
+                            <span class="text-sky-500 font-bold self-center ml-2 mr-1">&gt;</span>
+                            <input type="text" id="terminal-input"
+                                class="flex-grow bg-slate-950 border border-slate-800 p-4 rounded-xl text-sky-400 font-mono text-sm outline-none focus:border-sky-500 transition-all font-mono"
+                                placeholder="Execute Action..." autocomplete="off">
+                            <button id="terminal-submit"
+                                class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-6 py-2 rounded-xl font-bold orbitron text-xs transition-all uppercase">Enter</button>
+                        </div>
+                        <div class="mt-3 flex flex-wrap gap-2 pb-2">
+                            <button id="btn-quick-move"
+                                class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">MOVE</button>
+                            <button id="btn-quick-mine"
+                                class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">MINE</button>
+                            <button id="btn-quick-help"
+                                class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-amber-400 hover:border-amber-500/30">HELP</button>
                         </div>
                     </div>
                 </div>

@@ -2591,6 +2591,25 @@ class IntentRequest(BaseModel):
 
 @app.post("/api/intent")
 async def submit_intent(intent_req: IntentRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    VALID_ACTIONS = ["MOVE", "MINE", "SCAN", "ATTACK", "INTIMIDATE", "LOOT", "DESTROY", "LIST", "BUY", "CANCEL", "EQUIP", "UNEQUIP", "SMELT", "CRAFT", "REPAIR", "SALVAGE", "CONSUME", "CORE_SERVICE", "REFINE_GAS", "CHANGE_FACTION"]
+    if intent_req.action_type not in VALID_ACTIONS:
+        raise HTTPException(status_code=400, detail=f"Invalid action_type: {intent_req.action_type}. Supported: {', '.join(VALID_ACTIONS[:5])}...")
+
+    # Basic Validation for Manual Commands
+    data = intent_req.data or {}
+    if intent_req.action_type == "MOVE":
+        if "target_q" not in data or "target_r" not in data:
+            raise HTTPException(status_code=400, detail="MOVE directive requires 'target_q' and 'target_r' coordinates.")
+        try:
+            int(data["target_q"])
+            int(data["target_r"])
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Coordinates must be valid integers.")
+            
+    elif intent_req.action_type in ["SMELT", "CRAFT"]:
+        if not data:
+            raise HTTPException(status_code=400, detail=f"{intent_req.action_type} directive requires payload data.")
+
     next_tick = get_next_tick_index(db)
     intent = Intent(
         agent_id=current_agent.id,

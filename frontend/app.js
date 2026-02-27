@@ -30,6 +30,157 @@ window.copyAgentPrompt = function () {
     }
 }
 
+class TerminalHandler {
+    constructor(game) {
+        this.game = game;
+        this.input = document.getElementById('terminal-input');
+        this.submitBtn = document.getElementById('terminal-submit');
+        this.buffer = document.getElementById('terminal-buffer');
+        this.suggestionsEl = document.getElementById('command-suggestions');
+
+        this.commands = {
+            'MOVE': { params: ['q', 'r'], help: 'MOVE <q> <r> - Reposition agent' },
+            'MINE': { params: [], help: 'MINE - Extract resources from current location' },
+            'SCAN': { params: [], help: 'SCAN - Refresh world sensors and telemetry' },
+            'HELP': { params: [], help: 'HELP - Display manual override protocols' }
+        };
+
+        this.setupListeners();
+    }
+
+    setupListeners() {
+        if (!this.input) return;
+
+        this.input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') this.submit();
+            else this.handleSuggestions(e);
+        });
+
+        this.input.addEventListener('input', () => this.updateSuggestions());
+        this.submitBtn?.addEventListener('click', () => this.submit());
+
+        // Quick buttons
+        document.getElementById('btn-quick-move')?.addEventListener('click', () => {
+            this.input.value = 'MOVE ';
+            this.input.focus();
+        });
+        document.getElementById('btn-quick-mine')?.addEventListener('click', () => {
+            this.input.value = 'MINE';
+            this.submit();
+        });
+        document.getElementById('btn-quick-scan')?.addEventListener('click', () => {
+            this.input.value = 'SCAN';
+            this.submit();
+        });
+        document.getElementById('btn-quick-help')?.addEventListener('click', () => {
+            this.input.value = 'HELP';
+            this.submit();
+        });
+    }
+
+    log(msg, type = 'info') {
+        const div = document.createElement('div');
+        const colors = {
+            info: 'text-slate-400',
+            success: 'text-emerald-400',
+            error: 'text-rose-400',
+            system: 'text-sky-400'
+        };
+        div.className = `font-mono ${colors[type] || colors.info}`;
+        const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        div.innerHTML = `<span class="opacity-30">[${time}]</span> ${msg}`;
+        this.buffer.appendChild(div);
+        this.buffer.scrollTop = this.buffer.scrollHeight;
+    }
+
+    updateSuggestions() {
+        const val = this.input.value.toUpperCase().trim();
+        if (!val) {
+            this.suggestionsEl.classList.add('hidden');
+            return;
+        }
+
+        const matches = Object.keys(this.commands).filter(c => c.startsWith(val));
+        if (matches.length > 0) {
+            this.suggestionsEl.innerHTML = matches.map(m =>
+                `<div class="suggestion-item" onclick="game.terminal.useSuggestion('${m}')">${this.commands[m].help}</div>`
+            ).join('');
+            this.suggestionsEl.classList.remove('hidden');
+        } else {
+            this.suggestionsEl.classList.add('hidden');
+        }
+    }
+
+    useSuggestion(cmd) {
+        this.input.value = cmd + ' ';
+        this.suggestionsEl.classList.add('hidden');
+        this.input.focus();
+    }
+
+    handleSuggestions(e) {
+        // Simple tab/arrow logic could go here if needed
+    }
+
+    async submit() {
+        const raw = this.input.value.trim();
+        if (!raw) return;
+
+        this.input.value = '';
+        this.suggestionsEl.classList.add('hidden');
+        this.log(`&gt; ${raw}`, 'system');
+
+        const parts = raw.split(/\s+/);
+        const actionType = parts[0].toUpperCase();
+        const args = parts.slice(1);
+
+        if (actionType === 'HELP') {
+            this.log("AVAILABLE PROTOCOLS:", "info");
+            Object.values(this.commands).forEach(c => this.log(` - ${c.help}`, "info"));
+            return;
+        }
+
+        if (!this.commands[actionType]) {
+            this.log(`ERROR: PROTOCOL '${actionType}' NOT RECOGNIZED.`, 'error');
+            return;
+        }
+
+        // Action Mapping
+        let intent = { action_type: actionType, data: {} };
+
+        try {
+            if (actionType === 'MOVE') {
+                if (args.length < 2) throw new Error("MOVE requires Q and R coordinates.");
+                intent.data = { target_q: parseInt(args[0]), target_r: parseInt(args[1]) };
+            } else if (actionType === 'MINE') {
+                intent.data = {};
+            } else if (actionType === 'SCAN') {
+                this.log(`RE-SYNCHRONIZING SENSOR ARRAY...`, 'info');
+                await this.game.pollState();
+                this.log(`SYNCHRONIZATION COMPLETE. STATE UPDATED.`, 'success');
+                return;
+            }
+
+            this.log(`TRANSMITTING DIRECTIVE: ${actionType}...`, 'info');
+
+            const apiKey = localStorage.getItem('sv_api_key');
+            const resp = await fetch(`${window.location.origin}/api/intent`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
+                body: JSON.stringify(intent)
+            });
+
+            const result = await resp.json();
+            if (result.status === 'success') {
+                this.log(`UPLINK SUCCESS: ACTION QUEUED FOR CRUNCH.`, 'success');
+            } else {
+                this.log(`UPLINK REJECTED: ${result.detail || 'Access Denied'}`, 'error');
+            }
+        } catch (err) {
+            this.log(`CRITICAL ERROR: ${err.message}`, 'error');
+        }
+    }
+}
+
 class GameClient {
     constructor() {
         window.game = this; // Set early to capture sync events
@@ -72,7 +223,7 @@ class GameClient {
         document.getElementById('btn-mode-agent').addEventListener('click', () => this.setUIMode('management'));
 
         // Tab Listeners
-        ['command', 'garage', 'market', 'industry'].forEach(tab => {
+        ['command', 'garage', 'market', 'industry', 'terminal'].forEach(tab => {
             const el = document.getElementById(`tab-${tab}`);
             if (el) el.addEventListener('click', () => this.switchTab(tab));
         });
@@ -104,6 +255,9 @@ class GameClient {
         if (closeDirBtn) closeDirBtn.addEventListener('click', () => this.toggleDirectiveModal(false));
         if (closeDirBtnFooter) closeDirBtnFooter.addEventListener('click', () => this.toggleDirectiveModal(false));
         if (overlay) overlay.addEventListener('click', () => this.toggleDirectiveModal(false));
+
+        // 4. Terminal Handler
+        this.terminal = new TerminalHandler(this);
 
         this.isInitialized = true;
         this.processPendingAuth();
@@ -273,7 +427,7 @@ class GameClient {
     }
 
     switchTab(tabId) {
-        const tabs = ['command', 'garage', 'market', 'industry'];
+        const tabs = ['command', 'garage', 'market', 'industry', 'terminal'];
         tabs.forEach(t => {
             const content = document.getElementById(`content-${t}`);
             const btn = document.getElementById(`tab-${t}`);
