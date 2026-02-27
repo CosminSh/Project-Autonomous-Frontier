@@ -1097,7 +1097,9 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
     createHex(hexData) {
         const { q, r, terrain, resource, is_station, station_type } = hexData;
-        const geometry = new THREE.CylinderGeometry(1, 1, 0.2, 6);
+        const { x, y, z, isPentagon, radius: hexRadius } = this.qToSphere(q, r);
+
+        const geometry = new THREE.CylinderGeometry(hexRadius, hexRadius, 0.2, isPentagon ? 5 : 6);
 
         let color = 0x1e293b;
         let emissive = 0x000000;
@@ -1144,7 +1146,6 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         });
 
         const mesh = new THREE.Mesh(geometry, material);
-        const { x, y, z } = this.qToSphere(q, r);
         mesh.position.set(x, y, z);
 
         // Orient mesh to point "up" from sphere surface
@@ -1711,38 +1712,57 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         const pts = [];
         const seen = new Set();
 
+        // 12 vertices of Icosahedron are the pentagons
+        const baseGeom = new THREE.IcosahedronGeometry(radius, 0);
+        const basePos = baseGeom.attributes.position;
+        const pCenters = [];
+        for (let i = 0; i < basePos.count; i++) {
+            pCenters.push(new THREE.Vector3(basePos.getX(i), basePos.getY(i), basePos.getZ(i)));
+        }
+
         for (let i = 0; i < positions.count; i++) {
             const vx = Math.round(positions.getX(i) * 100) / 100;
             const vy = Math.round(positions.getY(i) * 100) / 100;
             const vz = Math.round(positions.getZ(i) * 100) / 100;
             const key = `${vx},${vy},${vz}`;
+
             if (!seen.has(key)) {
-                pts.push(new THREE.Vector3(vx, vy, vz));
+                const pt = new THREE.Vector3(vx, vy, vz);
+                let isPentagon = false;
+                for (const pc of pCenters) {
+                    if (pt.distanceTo(pc) < 0.1) {
+                        isPentagon = true;
+                        break;
+                    }
+                }
+                pts.push({ pos: pt, isPentagon });
                 seen.add(key);
             }
         }
 
-        // Sort: North Pole (highest Y) to South Pole
         pts.sort((a, b) => {
-            if (Math.abs(b.y - a.y) > 0.01) return b.y - a.y;
-            return Math.atan2(a.z, a.x) - Math.atan2(b.z, b.x);
+            if (Math.abs(b.pos.y - a.pos.y) > 0.01) return b.pos.y - a.pos.y;
+            return Math.atan2(a.pos.z, a.pos.x) - Math.atan2(b.pos.z, b.pos.x);
         });
 
+        // Heuristic for gapless tiling on sphere
+        this.slotRadius = (radius * 2 * Math.PI / Math.sqrt(pts.length)) * 0.55;
         this.goldbergSlots = pts;
-        console.log(`Generated Goldberg Grid with ${pts.length} slots.`);
+        console.log(`Generated Goldberg Grid with ${pts.length} slots. Radius: ${this.slotRadius}`);
     }
 
     qToSphere(q, r, altitude = 0) {
-        // Map (q, r) to a stable index in the Goldberg grid
         const index = this.axialToIndex(q, r);
         const slotCount = this.goldbergSlots ? this.goldbergSlots.length : 1;
-        const slot = (this.goldbergSlots && slotCount > 0) ? this.goldbergSlots[index % slotCount] : new THREE.Vector3(0, 50, 0);
+        const slotData = (this.goldbergSlots && slotCount > 0) ? this.goldbergSlots[index % slotCount] : { pos: new THREE.Vector3(0, 50, 0), isPentagon: false };
 
-        const pos = slot.clone().normalize().multiplyScalar(50 + altitude);
+        const pos = slotData.pos.clone().normalize().multiplyScalar(50 + altitude);
         return {
             x: pos.x,
             y: pos.y,
-            z: pos.z
+            z: pos.z,
+            isPentagon: slotData.isPentagon,
+            radius: this.slotRadius
         };
     }
 
