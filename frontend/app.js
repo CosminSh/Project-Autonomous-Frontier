@@ -976,7 +976,8 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        this.controls.maxPolarAngle = Math.PI / 2.1;
+        this.controls.minDistance = 60;   // Planet radius is 50
+        this.controls.maxDistance = 500;
 
         // Lighting
         const ambientLight = new THREE.AmbientLight(0x404040, 2);
@@ -1148,10 +1149,19 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         const mesh = new THREE.Mesh(geometry, material);
         mesh.position.set(x, y, z);
 
-        // Orient mesh to point "up" from sphere surface
+        // Orient mesh to point "up" from sphere surface with consistent heading
         const normal = new THREE.Vector3(x, y, z).normalize();
-        const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-        mesh.applyQuaternion(quaternion);
+        const referenceNorth = new THREE.Vector3(0, 1, 0);
+        let east;
+        if (Math.abs(normal.y) > 0.999) {
+            east = new THREE.Vector3(1, 0, 0);
+        } else {
+            east = new THREE.Vector3().crossVectors(referenceNorth, normal).normalize();
+        }
+        const north = new THREE.Vector3().crossVectors(normal, east).normalize();
+
+        const matrix = new THREE.Matrix4().makeBasis(east, normal, north);
+        mesh.setRotationFromMatrix(matrix);
 
         const edges = new THREE.EdgesGeometry(geometry);
         const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4 }));
@@ -1248,13 +1258,29 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         }
 
         const { x, y, z } = this.qToSphere(agentData.q ?? agentData.location?.q ?? 0, agentData.r ?? agentData.location?.r ?? 0, 0.6);
-        mesh.position.lerp(new THREE.Vector3(x, y, z), 0.1);
+        const targetPos = new THREE.Vector3(x, y, z);
+
+        // Drift Fix: If new or very far from target (like first spawn), snap immediately
+        if (mesh.position.lengthSq() < 1 || mesh.position.distanceTo(targetPos) > 10) {
+            mesh.position.copy(targetPos);
+        } else {
+            mesh.position.lerp(targetPos, 0.1);
+        }
 
         // Orient to sphere normal
-        const normal = new THREE.Vector3(x, y, z).normalize();
-        const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-        mesh.quaternion.slerp(quaternion, 0.1);
-        mesh.rotateY(0.01);
+        const normal = targetPos.clone().normalize();
+        const referenceNorth = new THREE.Vector3(0, 1, 0);
+        let east;
+        if (Math.abs(normal.y) > 0.999) {
+            east = new THREE.Vector3(1, 0, 0);
+        } else {
+            east = new THREE.Vector3().crossVectors(referenceNorth, normal).normalize();
+        }
+        const north = new THREE.Vector3().crossVectors(normal, east).normalize();
+        const matrix = new THREE.Matrix4().makeBasis(east, normal, north);
+        const targetQuat = new THREE.Quaternion().setFromRotationMatrix(matrix);
+
+        mesh.quaternion.slerp(targetQuat, 0.1);
 
         // CAMERA FOLLOW: If this is our agent, update controls target
         const myAgentId = localStorage.getItem('sv_agent_id'); // We might need to store this on login
@@ -1747,7 +1773,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
         // Heuristic for gapless tiling on sphere
         // For a sphere of 10k points, we need a radius that lets them touch
-        this.slotRadius = (radius * 2 * Math.PI / Math.sqrt(pts.length)) * 0.65;
+        this.slotRadius = (radius * 2 * Math.PI / Math.sqrt(pts.length)) * 0.72;
         this.goldbergSlots = pts;
         console.log(`Generated Goldberg Grid with ${pts.length} slots. Radius: ${this.slotRadius}`);
     }
