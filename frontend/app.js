@@ -1099,7 +1099,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         const { q, r, terrain, resource, is_station, station_type } = hexData;
         const { x, y, z, isPentagon, radius: hexRadius } = this.qToSphere(q, r);
 
-        const geometry = new THREE.CylinderGeometry(hexRadius, hexRadius, 0.2, isPentagon ? 5 : 6);
+        const geometry = new THREE.CylinderGeometry(hexRadius, hexRadius, 0.2, 5);
 
         let color = 0x1e293b;
         let emissive = 0x000000;
@@ -1753,23 +1753,37 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
     }
 
     qToSphere(q, r, altitude = 0) {
-        // Map (q, r) to a stable 1D index using an axial spiral
-        const spiralIndex = this.axialToIndex(q, r);
-        const slotCount = this.goldbergSlots ? this.goldbergSlots.length : 1;
+        // 1. Map (q, r) to a stable lat/lon using a consistent spherical wrap
+        // This acts as a reference "pointer" on the globe
+        const worldScale = 30; // Scale density of the axial grid
+        const lon = (q / worldScale) * (Math.PI / 2);
+        const lat = (r / worldScale) * (Math.PI / 2) + (Math.PI / 2);
 
-        // Use the index to pick the pre-sorted Goldberg slot
-        // Since both are spirals (one 2D, one 3D latitude-sorted), 
-        // they map to each other perfectly without shattering.
-        const slotData = (this.goldbergSlots && slotCount > 0) ?
-            this.goldbergSlots[spiralIndex % slotCount] :
-            { pos: new THREE.Vector3(0, 50, 0), isPentagon: false };
+        // Theoretical target position
+        const targetX = 50 * Math.sin(lat) * Math.cos(lon);
+        const targetY = 50 * Math.cos(lat);
+        const targetZ = 50 * Math.sin(lat) * Math.sin(lon);
+        const targetPos = new THREE.Vector3(targetX, targetY, targetZ);
 
-        const pos = slotData.pos.clone().normalize().multiplyScalar(50 + altitude);
+        // 2. Find the Nearest Geodesic Goldberg Slot
+        // This eliminates the "shattered" look by ensuring topological stability.
+        let bestSlot = this.goldbergSlots[0];
+        let minDistSq = Infinity;
+
+        for (const slot of this.goldbergSlots) {
+            const dSq = slot.pos.distanceToSquared(targetPos);
+            if (dSq < minDistSq) {
+                minDistSq = dSq;
+                bestSlot = slot;
+            }
+        }
+
+        const pos = bestSlot.pos.clone().normalize().multiplyScalar(50 + altitude);
         return {
             x: pos.x,
             y: pos.y,
             z: pos.z,
-            isPentagon: slotData.isPentagon,
+            isPentagon: bestSlot.isPentagon,
             radius: this.slotRadius
         };
     }
