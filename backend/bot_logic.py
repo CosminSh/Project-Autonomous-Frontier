@@ -5,7 +5,7 @@ from models import Agent, WorldHex, Intent, InventoryItem, AuditLog
 def get_hex_distance(q1, r1, q2, r2):
     return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
 
-def process_bot_brain(db, agent: Agent, current_tick: int):
+def process_bot_brain(db, agent: Agent, current_tick: int, stations: list):
     """
     Advanced bot logic:
     1. Maintenance: If low HP or high Wear, go to REPAIR.
@@ -20,16 +20,16 @@ def process_bot_brain(db, agent: Agent, current_tick: int):
     if hp_pct < 0.7 or wear > 50.0:
         # Need repair or service
         station_type = "REPAIR" if hp_pct < 0.7 else "MARKET"
-        station = db.execute(select(WorldHex).where(WorldHex.is_station == True, WorldHex.station_type == station_type)).scalars().first()
+        station = next((s for s in stations if s["station_type"] == station_type), None)
         if station:
-            if agent.q == station.q and agent.r == station.r:
+            if agent.q == station["q"] and agent.r == station["r"]:
                 if wear > 50.0:
                     db.add(Intent(agent_id=agent.id, tick_index=current_tick + 1, action_type="CORE_SERVICE", data={}))
                 elif hp_pct < 1.0:
                     db.add(Intent(agent_id=agent.id, tick_index=current_tick + 1, action_type="REPAIR", data={"amount": 0}))
                 return
             else:
-                move_towards(db, agent, station.q, station.r, current_tick)
+                move_towards(db, agent, station["q"], station["r"], current_tick)
                 return
 
     # 1. Refueler Specialized Logic
@@ -70,9 +70,9 @@ def process_bot_brain(db, agent: Agent, current_tick: int):
     # Priority: Selling/Crafting -> Smelting/Refining -> Mining/Siphoning
     
     if ingots:
-        market = db.execute(select(WorldHex).where(WorldHex.is_station == True, WorldHex.station_type == "MARKET")).scalars().first()
+        market = next((s for s in stations if s["station_type"] == "MARKET"), None)
         if market:
-            if agent.q == market.q and agent.r == market.r:
+            if agent.q == market["q"] and agent.r == market["r"]:
                 ingot = ingots[0]
                 db.add(Intent(
                     agent_id=agent.id,
@@ -85,9 +85,9 @@ def process_bot_brain(db, agent: Agent, current_tick: int):
             return
 
     if gases:
-        refinery = db.execute(select(WorldHex).where(WorldHex.is_station == True, WorldHex.station_type == "REFINERY")).scalars().first()
+        refinery = next((s for s in stations if s["station_type"] == "REFINERY"), None)
         if refinery:
-            if agent.q == refinery.q and agent.r == refinery.r:
+            if agent.q == refinery["q"] and agent.r == refinery["r"]:
                 db.add(Intent(
                     agent_id=agent.id,
                     tick_index=current_tick + 1,
@@ -99,9 +99,9 @@ def process_bot_brain(db, agent: Agent, current_tick: int):
             return
 
     if ores:
-        smelter = db.execute(select(WorldHex).where(WorldHex.is_station == True, WorldHex.station_type == "SMELTER")).scalars().first()
+        smelter = next((s for s in stations if s["station_type"] == "SMELTER"), None)
         if smelter:
-            if agent.q == smelter.q and agent.r == smelter.r:
+            if agent.q == smelter["q"] and agent.r == smelter["r"]:
                 db.add(Intent(
                     agent_id=agent.id,
                     tick_index=current_tick + 1,

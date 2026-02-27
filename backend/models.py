@@ -25,14 +25,14 @@ class Agent(Base):
     max_mass = Column(Float, server_default="100.0")
     
     # Coordinates (Hex Grid q, r)
-    q = Column(Integer, default=0)
-    r = Column(Integer, default=0)
+    q = Column(Integer, default=0, index=True)
+    r = Column(Integer, default=0, index=True)
     
     is_bot = Column(Boolean, server_default="0")
     is_feral = Column(Boolean, server_default="0")
     is_aggressive = Column(Boolean, server_default="0")
-    faction_id = Column(Integer, nullable=True)
-    heat = Column(Integer, server_default="0")
+    faction_id = Column(Integer, nullable=True, index=True)
+    heat = Column(Integer, server_default="0", index=True)
     overclock_ticks = Column(Integer, server_default="0")
     wear_and_tear = Column(Float, server_default="0.0")
     last_faction_change_tick = Column(Integer, server_default="0")
@@ -47,7 +47,7 @@ class ChassisPart(Base):
     __tablename__ = "chassis_parts"
 
     id = Column(Integer, primary_key=True, index=True)
-    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True, index=True)
     part_type = Column(String) # Actuator, Sensor, Processor, Frame
     slot_index = Column(Integer) # For parts like Actuators (0, 1)
     name = Column(String)
@@ -61,7 +61,7 @@ class InventoryItem(Base):
     __tablename__ = "inventory_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    agent_id = Column(Integer, ForeignKey("agents.id"))
+    agent_id = Column(Integer, ForeignKey("agents.id"), index=True)
     item_type = Column(String) # IRON_ORE, CREDITS, etc.
     quantity = Column(Integer, default=1)
     data = Column(JSON, nullable=True) # Metadata (e.g., {"fill_level": 50})
@@ -107,7 +107,7 @@ class Intent(Base):
     __tablename__ = "intents"
 
     id = Column(Integer, primary_key=True, index=True)
-    agent_id = Column(Integer, ForeignKey("agents.id"))
+    agent_id = Column(Integer, ForeignKey("agents.id"), index=True)
     tick_index = Column(BigInteger, index=True)
     action_type = Column(String) # MOVE, MINE, ATTACK, TRADE
     data = Column(JSON) # e.g., {"target_q": 1, "target_r": 0}
@@ -134,10 +134,10 @@ class GlobalState(Base):
 class Bounty(Base):
     __tablename__ = "bounties"
     id = Column(Integer, primary_key=True, index=True)
-    target_id = Column(Integer, ForeignKey("agents.id"))
+    target_id = Column(Integer, ForeignKey("agents.id"), index=True)
     reward = Column(Float)
     issuer = Column(String, default="Colonial Administration")
-    is_open = Column(Boolean, default=True)
+    is_open = Column(Boolean, default=True, index=True)
 
 class LootDrop(Base):
     __tablename__ = "loot_drops"

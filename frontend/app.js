@@ -1425,13 +1425,14 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             const apiKey = localStorage.getItem('sv_api_key');
             const headers = apiKey ? { 'X-API-KEY': apiKey } : {};
 
-            const [stateResp, statsResp, logsResp, agentResp, myOrdersResp, bountyResp] = await Promise.all([
+            const [stateResp, statsResp, logsResp, agentResp, myOrdersResp, bountyResp, perceptionResp] = await Promise.all([
                 fetch('/state'),
                 fetch('/api/global_stats'),
                 apiKey ? fetch(`${window.location.origin}/api/agent_logs`, { headers }) : Promise.resolve(null),
                 apiKey ? fetch(`${window.location.origin}/api/my_agent`, { headers }) : Promise.resolve(null),
                 apiKey ? fetch(`${window.location.origin}/api/market/my_orders`, { headers }) : Promise.resolve(null),
-                fetch('/api/bounties')
+                fetch('/api/bounties'),
+                apiKey ? fetch(`${window.location.origin}/api/perception`, { headers }) : Promise.resolve(null)
             ]);
 
             const data = await stateResp.json();
@@ -1440,8 +1441,13 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             const agentData = agentResp ? await agentResp.json() : null;
             const myOrders = myOrdersResp ? await myOrdersResp.json() : null;
             const bounties = await bountyResp.json();
+            const perceptionData = perceptionResp ? await perceptionResp.json() : null;
 
-            this.lastWorldData = data; // Save for scanner
+            this.lastWorldData = data; // Keep for fallback
+            if (perceptionData && perceptionData.content) {
+                this.lastPerception = perceptionData.content;
+                // Merge world logs if needed, or just use state logs
+            }
 
             this.updateGlobalUI(stats);
             this.updateTickUI(data.tick, data.phase);
@@ -1473,40 +1479,63 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                 }
             }
 
-            // Render World
-            data.world.forEach(hex => {
-                if (!this.hexes.has(`${hex.q},${hex.r}`)) {
+            // Render World & Agents (Fog of War)
+            const visibleAgentIds = new Set();
+            let worldDataToRender = data.world;
+            let agentsToRender = data.agents;
+
+            if (this.lastPerception && this.lastPerception.environment) {
+                worldDataToRender = this.lastPerception.environment.environment_hexes;
+                agentsToRender = this.lastPerception.environment.other_agents;
+
+                // Include self
+                if (agentData) {
+                    visibleAgentIds.add(agentData.id);
+                    this.updateAgentMesh(agentData);
+                }
+            }
+
+            // Update visible hexes
+            worldDataToRender.forEach(hex => {
+                const key = `${hex.q},${hex.r}`;
+                if (!this.hexes.has(key)) {
                     this.createHex(hex);
                 }
             });
 
-            // Render Agents
-            data.agents.forEach(agent => {
+            // Update visible agents
+            agentsToRender.forEach(agent => {
                 this.updateAgentMesh(agent);
+                visibleAgentIds.add(agent.id);
             });
 
-            // If logged in, poll my own details
-            if (apiKey) {
-                const myAgentResp = await fetch('/api/my_agent', { headers });
-                if (myAgentResp.status === 401) {
-                    // Critical Race Check: Only clear if the key in storage hasn't changed
-                    const currentKey = localStorage.getItem('sv_api_key');
-                    if (currentKey === apiKey) {
-                        console.warn("API Key unauthorized. Clearing session.");
-                        this.setAuthenticated(false);
-                    } else {
-                        console.log("Stale 401 detected, ignoring as session key has rotated.");
-                    }
-                    return;
-                }
-
-                this.updateMarketUI(data.market);
-                const myAgentData = await myAgentResp.json();
-                if (myAgentData && !myAgentData.detail) {
-                    this.updatePrivateUI(myAgentData);
+            // Hide/Cleanup agents out of perception
+            for (let [id, mesh] of this.agents.entries()) {
+                if (!visibleAgentIds.has(id)) {
+                    // Signatures fade or vanish when lost
+                    mesh.visible = false;
+                } else {
+                    mesh.visible = true;
                 }
             }
+            const myAgentResp = await fetch('/api/my_agent', { headers });
+            if (myAgentResp.status === 401) {
+                // Critical Race Check: Only clear if the key in storage hasn't changed
+                const currentKey = localStorage.getItem('sv_api_key');
+                if (currentKey === apiKey) {
+                    console.warn("API Key unauthorized. Clearing session.");
+                    this.setAuthenticated(false);
+                } else {
+                    console.log("Stale 401 detected, ignoring as session key has rotated.");
+                }
+                return;
+            }
 
+            this.updateMarketUI(data.market);
+            const myAgentData = await myAgentResp.json();
+            if (myAgentData && !myAgentData.detail) {
+                this.updatePrivateUI(myAgentData);
+            }
         } catch (e) {
             console.error("Poll error:", e);
         }

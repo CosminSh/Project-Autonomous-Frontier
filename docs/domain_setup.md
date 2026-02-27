@@ -14,7 +14,7 @@ Go to your domain registrar (where you bought `pixek.xyz`) or your DNS provider 
 7.  **Save** the record.
 
 > [!NOTE] 
-> It can take from 5 minutes to a few hours for the world to "learn" that `game.pixek.xyz` now points to your server.
+> It can take from 5 minutes to a few hours for the world to "learn" that `terminal-frontier.pixek.xyz` now points to your server.
 
 ## 2. Update Google Cloud Console
 Now that you have a domain, Google will allow it in your login settings:
@@ -22,13 +22,13 @@ Now that you have a domain, Google will allow it in your login settings:
 1.  Go to the [Google Cloud Console Credentials Page](https://console.cloud.google.com/apis/credentials).
 2.  Click on your **OAuth 2.0 Client ID** (the one used for this project).
 3.  Under **Authorized JavaScript origins**, click **+ ADD URI**.
-4.  Add your new address: `http://game.pixek.xyz:3000`
+4.  Add your new address: `http://terminal-frontier.pixek.xyz:3000`
 5.  Under **Authorized redirect URIs**, click **+ ADD URI**.
-6.  Add: `http://game.pixek.xyz:3000`
+6.  Add: `http://terminal-frontier.pixek.xyz:3000`
 7.  Click **Save**.
 
 ## 3. (Optional) Remove the :3000 from the URL
-If you want users to just type `game.pixek.xyz` (without the `:3000` at the end), follow these steps on your Oracle Server:
+If you want users to just type `terminal-frontier.pixek.xyz` (without the `:3000` at the end), follow these steps on your Oracle Server:
 
 1.  **Edit the configuration**:
     ```bash
@@ -49,12 +49,12 @@ If you want users to just type `game.pixek.xyz` (without the `:3000` at the end)
     ```bash
     sudo docker-compose up -d
     ```
-6.  **Update Google Settings**: Change your origins in Google Console to `http://game.pixek.xyz` (removing the `:3000`).
+6.  **Update Google Settings**: Change your origins in Google Console to `http://terminal-frontier.pixek.xyz` (removing the `:3000`).
 
 ---
 
 ### Verify Setup
 You can verify if the domain is correctly pointed by using this command in your Windows PowerShell:
-`nslookup game.pixek.xyz`
+`nslookup terminal-frontier.pixek.xyz`
 
 If it returns `92.5.113.36`, you are ready!

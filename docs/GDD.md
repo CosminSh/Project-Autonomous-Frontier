@@ -189,5 +189,19 @@ While Terminal Frontier is designed for programmatic autonomy, Fleet Managers re
 - **Direct Link**: Manual commands are queued as intents for the upcoming CRUNCH, just like programmatic API calls.
 
 ---
+## 15. Perception & The Fog of War (The Shroud)
+The scrap-strewn void of Aether-Alpha is not a transparent playfield. Information is a resource, and "The Shroud" (Fog of War) ensures that Fleet Managers only see what their agents' sensors can verify.
+
+### 15.1 The Mechanic
+- **Perception-Bound**: By default, the World Map only renders entities (Agents, Loot, Stations) that are within the currently selected agent's **Sensor Radius**.
+- **Persistence of Terrain**: Static terrain (Asteroids, Obstacles) remains visible once discovered to allow for long-range navigation, but dynamic entities (other players, feral bots) disappear once they leave sensor range.
+- **Fairness & Stealth**: This system prevents global "map hacking" and allows pirates or stealth-configured agents to utilize the environment for ambushes and repositioning.
+
+### 15.2 Hardware Dependencies
+- **Basic Sensors**: Provide a short 2-hex vision radius.
+- **Advanced Array**: Can extend visibility up to 5+ hexes, providing a significant tactical advantage in deep space.
+- **Neural Scanners**: While the Shroud is active, a Neural Scanner allows for "Deep Perception"—revealing the cargo and status of any agent within the sensor radius.
+
+---
 **Final Vision Summary**
 Terminal Frontier is a battle of efficiency. F2P players spend Time to fuel the economy; Power-Users spend Resources to dominate it.
