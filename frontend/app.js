@@ -1144,6 +1144,15 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
         this.scene.add(mesh);
         this.hexes.set(`${q},${r}`, mesh);
+
+        // Station Label
+        if (is_station || terrain === 'STATION') {
+            const labelText = (station_type || 'OUTPOST').toUpperCase();
+            const label = this.createStationLabel(labelText);
+            label.position.y = 0.15; // Flat on the hex
+            label.rotation.x = -Math.PI / 2; // Face up
+            mesh.add(label);
+        }
     }
 
     updateAgentMesh(agentData) {
@@ -1608,15 +1617,22 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
     }
 
     initAtmosphere() {
-        // Starfield
+        // Starfield - Increased density and size
         const starGeom = new THREE.BufferGeometry();
-        const starCount = 2000;
+        const starCount = 4000;
         const posArray = new Float32Array(starCount * 3);
+        const colorArray = new Float32Array(starCount * 3);
         for (let i = 0; i < starCount * 3; i++) {
-            posArray[i] = (Math.random() - 0.5) * 600;
+            posArray[i] = (Math.random() - 0.5) * 1000;
+            if (i % 3 === 0) { // Slight color variation
+                colorArray[i] = 0.8 + Math.random() * 0.2;
+                colorArray[i + 1] = 0.8 + Math.random() * 0.2;
+                colorArray[i + 2] = 1.0;
+            }
         }
         starGeom.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-        const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.7, transparent: true, opacity: 0.8 });
+        starGeom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+        const starMat = new THREE.PointsMaterial({ size: 1.5, vertexColors: true, transparent: true, opacity: 0.9, sizeAttenuation: false });
         this.starfield = new THREE.Points(starGeom, starMat);
         this.scene.add(this.starfield);
 
@@ -1637,12 +1653,13 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
     }
 
     initAsteroid() {
-        // A large foundation mesh
-        const geom = new THREE.DodecahedronGeometry(50, 2);
+        // A large foundation mesh - Brought much closer
+        const geom = new THREE.DodecahedronGeometry(80, 2);
         const pos = geom.attributes.position;
         for (let i = 0; i < pos.count; i++) {
             const v = new THREE.Vector3().fromBufferAttribute(pos, i);
-            v.normalize().multiplyScalar(40 + Math.random() * 15);
+            // Irregular scaling for rocky look
+            v.normalize().multiplyScalar(60 + Math.random() * 20);
             pos.setXYZ(i, v.x, v.y, v.z);
         }
         geom.computeVertexNormals();
@@ -1655,10 +1672,37 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         });
 
         const asteroid = new THREE.Mesh(geom, mat);
-        asteroid.position.y = -60; // Way below the hex grid
+        asteroid.position.y = -55; // Tucked just under the hex grid (y=0)
         asteroid.rotation.x = Math.PI / 4;
         this.scene.add(asteroid);
         this.asteroidBase = asteroid;
+    }
+
+    createStationLabel(text) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 128;
+        canvas.height = 32;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.font = 'bold 20px "Orbitron", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Amber/Gold with a dark outline for contrast
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 4;
+        ctx.strokeText(text, 64, 16);
+        ctx.fillStyle = '#facc15';
+        ctx.fillText(text, 64, 16);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+        const geometry = new THREE.PlaneGeometry(3, 0.75);
+        const plane = new THREE.Mesh(geometry, material);
+        return plane;
     }
 
     createLabel(text, color = '#ffffff') {
