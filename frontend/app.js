@@ -39,10 +39,10 @@ class TerminalHandler {
         this.suggestionsEl = document.getElementById('command-suggestions');
 
         this.commands = {
-            'MOVE': { params: ['q', 'r'], help: 'MOVE <q> <r> - Reposition agent' },
-            'MINE': { params: [], help: 'MINE - Extract resources from current location' },
-            'SCAN': { params: [], help: 'SCAN - Refresh world sensors and telemetry' },
-            'HELP': { params: [], help: 'HELP - Display manual override protocols' }
+            'MOVE': { params: ['q', 'r'], help: 'MOVE <q> <r> - e.g. MOVE 1 -1 (Reposition agent)' },
+            'MINE': { params: [], help: 'MINE - Extract resources from current hex' },
+            'SCAN': { params: [], help: 'SCAN - Re-sync sensor telemetry' },
+            'HELP': { params: [], help: 'HELP - Display command protocols' }
         };
 
         this.setupListeners();
@@ -170,10 +170,13 @@ class TerminalHandler {
             });
 
             const result = await resp.json();
-            if (result.status === 'success') {
-                this.log(`UPLINK SUCCESS: ACTION QUEUED FOR CRUNCH.`, 'success');
+            if (result.status === 'success' || resp.ok) {
+                this.log(`UPLINK SUCCESS: ACTION QUEUED.`, 'success');
+                if (result.message) this.log(`MSG: ${result.message}`, 'info');
+                if (result.details) this.log(`DATA: ${JSON.stringify(result.details)}`, 'info');
             } else {
-                this.log(`UPLINK REJECTED: ${result.detail || 'Access Denied'}`, 'error');
+                const errorDetail = result.detail || result.message || 'Access Denied';
+                this.log(`UPLINK REJECTED: ${errorDetail}`, 'error');
             }
         } catch (err) {
             this.log(`CRITICAL ERROR: ${err.message}`, 'error');
@@ -881,6 +884,8 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             if (data.status === 'success') {
                 console.log("Successfully authenticated. Storing API key and transitioning UI.");
                 localStorage.setItem('sv_api_key', data.api_key);
+                localStorage.setItem('sv_agent_id', data.agent_id);
+                this.lastMyAgentId = data.agent_id;
                 this.setAuthenticated(true);
                 this.pollState();
             } else {
@@ -910,6 +915,8 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
             if (data.status === 'success') {
                 localStorage.setItem('sv_api_key', data.api_key);
+                localStorage.setItem('sv_agent_id', data.agent_id);
+                this.lastMyAgentId = data.agent_id;
                 this.setAuthenticated(true);
                 this.pollState();
             } else {
@@ -1080,8 +1087,22 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         let emissiveIntensity = 0;
 
         if (terrain === 'OBSTACLE') color = 0x334155;
-        if (terrain === 'STATION') color = 0x1e1b4b;
+        if (terrain === 'STATION' || is_station) color = 0x1e1b4b;
+        if (terrain === 'NEBULA') {
+            color = 0x1e1b4b;
+            emissive = 0x4f46e5;
+            emissiveIntensity = 0.2;
+        }
+        if (terrain === 'ASTEROID') {
+            color = 0x27272a;
+            emissive = 0x000000;
+        }
+        if (terrain === 'VOID') {
+            color = 0x050507;
+            emissive = 0x000000;
+        }
 
+        // Overlays for resources
         if (resource) {
             if (resource === 'IRON_ORE' || resource === 'ORE') {
                 color = 0x475569;
@@ -1094,12 +1115,6 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                 emissive = 0xfacc15;
             }
             emissiveIntensity = 0.4;
-        }
-
-        if (is_station) {
-            color = 0x312e81;
-            emissive = 0x6366f1;
-            emissiveIntensity = 0.5;
         }
 
         const material = new THREE.MeshStandardMaterial({
@@ -1196,6 +1211,14 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         mesh.position.lerp(new THREE.Vector3(x, 0.6, z), 0.1);
         mesh.rotation.y += 0.01;
 
+        // CAMERA FOLLOW: If this is our agent, update controls target
+        const myAgentId = localStorage.getItem('sv_agent_id'); // We might need to store this on login
+        if (agentData.id == myAgentId || agentData.id == this.lastMyAgentId) {
+            if (this.controls) {
+                this.controls.target.lerp(new THREE.Vector3(x, 0, z), 0.05);
+            }
+        }
+
         // Dynamic pulse for high rarity
         if (visual.rarity === 'PRIME' || visual.rarity === 'RELIC') {
             const pulse = 0.5 + Math.sin(Date.now() * 0.005) * 0.3;
@@ -1225,6 +1248,8 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
         document.getElementById('agent-name').innerText = agent.name;
         document.getElementById('agent-id').innerText = `#${agent.id.toString().padStart(4, '0')}`;
+        const coordsEl = document.getElementById('agent-coords');
+        if (coordsEl) coordsEl.innerText = `Q:${agent.q || 0}, R:${agent.r || 0}`;
         document.getElementById('api-key-display').innerText = agent.api_key;
 
         // HP
