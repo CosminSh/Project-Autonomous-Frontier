@@ -2207,8 +2207,7 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
     
     nearby_hexes_query = select(WorldHex).where(
         WorldHex.q >= q_min, WorldHex.q <= q_max,
-        WorldHex.r >= r_min, WorldHex.r <= r_max,
-        (WorldHex.resource_type.is_not(None)) | (WorldHex.station_type.is_not(None))
+        WorldHex.r >= r_min, WorldHex.r <= r_max
     )
     
     nearby_hexes_results = db.execute(nearby_hexes_query).scalars().all()
@@ -2284,9 +2283,9 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
                 "environment_hexes": [
                     {
                         "q": h.q, "r": h.r,
-                        "terrain": "POI" if h.station_type else "RESOURCE",
+                        "terrain": h.terrain_type,
                         "resource": h.resource_type,
-                        "is_station": True if h.station_type else False,
+                        "is_station": h.is_station,
                         "station_type": h.station_type,
                         "density": h.resource_density
                     } for h in nearby_hexes
