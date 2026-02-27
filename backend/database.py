@@ -40,7 +40,8 @@ def refresh_station_cache():
     global STATION_CACHE
     with SessionLocal() as db:
         stations = db.execute(select(WorldHex).where(WorldHex.is_station == True)).scalars().all()
-        STATION_CACHE = [{"station_type": s.station_type, "q": s.q, "r": s.r} for s in stations]
+        STATION_CACHE.clear()
+        STATION_CACHE.extend([{"station_type": s.station_type, "q": s.q, "r": s.r} for s in stations])
     logger.info(f"Station cache initialized with {len(STATION_CACHE)} stations.")
 
 

@@ -33,11 +33,11 @@ def is_in_anarchy_zone(q, r) -> bool:
 
 
 def get_solar_intensity(q, r, tick_count=0) -> float:
-    """Calculates solar power intensity (0.0 to 1.0) based on location and cycle."""
-    dist = get_hex_distance(q, r, 0, 0)
-    if dist <= SOLAR_RADIUS_SAFE:
+    """Calculates solar power intensity (0.0 to 1.0) based on latitude (r)."""
+    dist_r = abs(r)
+    if dist_r <= SOLAR_RADIUS_SAFE:
         return 1.0
-    if dist <= SOLAR_RADIUS_TWILIGHT:
+    if dist_r <= SOLAR_RADIUS_TWILIGHT:
         day_night_cycle = (tick_count // 30) % 2 == 0
         return 1.0 if day_night_cycle else 0.0
     return 0.0

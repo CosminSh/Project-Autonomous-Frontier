@@ -301,6 +301,11 @@ async def submit_intent(intent_req: IntentRequest, current_agent: Agent = Depend
     elif intent_req.action_type in ["SMELT", "CRAFT"]:
         if not data:
             raise HTTPException(status_code=400, detail=f"{intent_req.action_type} directive requires payload data.")
+    elif intent_req.action_type == "CORE_SERVICE":
+        credits = next((i for i in current_agent.inventory if i.item_type == "CREDITS"), None)
+        ingots = next((i for i in current_agent.inventory if i.item_type == "IRON_INGOT"), None)
+        if not credits or credits.quantity < CORE_SERVICE_COST_CREDITS or not ingots or ingots.quantity < CORE_SERVICE_COST_IRON_INGOT:
+            raise HTTPException(status_code=400, detail=f"CORE_SERVICE requires {CORE_SERVICE_COST_CREDITS} CREDITS and {CORE_SERVICE_COST_IRON_INGOT} IRON_INGOT.")
 
     next_tick = get_next_tick_index(db)
     db.add(Intent(agent_id=current_agent.id, action_type=intent_req.action_type, data=intent_req.data, tick_index=next_tick))
