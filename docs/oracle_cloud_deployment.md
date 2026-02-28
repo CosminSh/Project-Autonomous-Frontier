@@ -52,6 +52,9 @@ You need to open ports so people can play.
    sudo apt update
    sudo apt install -y docker.io docker-compose
    sudo usermod -aG docker ubuntu
+   # Enable modern BuildKit for faster builds
+   echo "export DOCKER_BUILDKIT=1" >> ~/.bashrc
+   echo "export COMPOSE_DOCKER_CLI_BUILD=1" >> ~/.bashrc
    # Log out and log back in for docker permissions to apply
    exit
    ssh -i ssh-key.key ubuntu@YOUR_PUBLIC_IP
