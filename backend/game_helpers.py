@@ -208,4 +208,8 @@ def get_discovery_packet(station_cache: list, agent: Agent) -> dict:
             nearest = min(relevant, key=lambda s: get_hex_distance(agent.q, agent.r, s["q"], s["r"]))
             dist = get_hex_distance(agent.q, agent.r, nearest["q"], nearest["r"])
             discovery[st] = {"q": nearest["q"], "r": nearest["r"], "distance": dist}
+            
+    from config import CRAFTING_RECIPES, SMELTING_RECIPES
+    discovery["crafting_recipes"] = CRAFTING_RECIPES
+    discovery["smelting_recipes"] = SMELTING_RECIPES
     return discovery

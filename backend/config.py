@@ -39,11 +39,13 @@ SMELTING_RATIO = 5  # 5 Ore -> 1 Ingot
 
 CRAFTING_RECIPES = {
     "BASIC_FRAME": {"IRON_INGOT": 10},
+    "HEAVY_FRAME": {"IRON_INGOT": 20, "COBALT_INGOT": 10},
     "DRILL_UNIT": {"IRON_INGOT": 5, "COPPER_INGOT": 5},
     "SCRAP_SOLAR_PANEL": {"COPPER_INGOT": 2, "IRON_INGOT": 2},
     "REFINED_SOLAR_PANEL": {"COPPER_INGOT": 8, "GOLD_INGOT": 2},
     "HE3_FUEL_CELL_UNIT": {"COBALT_INGOT": 5, "GOLD_INGOT": 2},
     "NEURAL_SCANNER": {"COPPER_INGOT": 20, "GOLD_INGOT": 5},
+    "ADVANCED_SCANNER": {"COPPER_INGOT": 15, "GOLD_INGOT": 10},
     "GAS_SIPHON": {"COPPER_INGOT": 10, "IRON_INGOT": 5},
     "EMPTY_CANISTER": {"IRON_INGOT": 5},
     "ENGINE_UNIT": {"IRON_INGOT": 15, "COPPER_INGOT": 10},
@@ -54,7 +56,7 @@ CRAFTING_RECIPES = {
     "REPAIR_KIT": {"IRON_INGOT": 10, "COPPER_INGOT": 5}
 }
 
-CORE_RECIPES = ["BASIC_FRAME", "DRILL_UNIT", "EMPTY_CANISTER", "UPGRADE_MODULE", "ENGINE_UNIT", "SCRAP_SOLAR_PANEL", "REPAIR_KIT"]
+CORE_RECIPES = ["BASIC_FRAME", "HEAVY_FRAME", "DRILL_UNIT", "EMPTY_CANISTER", "UPGRADE_MODULE", "ENGINE_UNIT", "SCRAP_SOLAR_PANEL", "REPAIR_KIT"]
 UPGRADE_MAX_LEVEL = 10
 UPGRADE_BASE_INGOT_COST = 10
 
@@ -94,11 +96,13 @@ FACTION_REALIGNMENT_COOLDOWN = 100
 # ─────────────────────────────────────────────────────────────────────────────
 PART_DEFINITIONS = {
     "BASIC_FRAME": {"type": "Frame", "stats": {"max_structure": 50, "integrity": 5, "capacity": 50}, "name": "Reinforced Chassis"},
+    "HEAVY_FRAME": {"type": "Frame", "stats": {"max_structure": 150, "integrity": 15, "capacity": 30, "kinetic_force": -5}, "name": "Heavy Assault Chassis"},
     "DRILL_UNIT": {"type": "Actuator", "stats": {"kinetic_force": 8, "logic_precision": -2}, "name": "Titanium Mining Drill"},
     "SCRAP_SOLAR_PANEL": {"type": "Power", "stats": {"efficiency": 0.5}, "name": "Scrap Solar Panel"},
     "REFINED_SOLAR_PANEL": {"type": "Power", "stats": {"efficiency": 1.0}, "name": "Refined Solar Array"},
     "HE3_FUEL_CELL_UNIT": {"type": "Power", "stats": {"efficiency": 2.0}, "name": "Helium-3 Fuel Cell"},
     "NEURAL_SCANNER": {"type": "Sensor", "stats": {"radius": 2, "scan_depth": 1}, "name": "Neural-Link Cargo Scanner"},
+    "ADVANCED_SCANNER": {"type": "Sensor", "stats": {"radius": 4, "scan_depth": 1}, "name": "Deep-Space Array Scanner"},
     "GAS_SIPHON": {"type": "Actuator", "stats": {"kinetic_force": 2}, "name": "Helium Gas Siphon"},
     "ENGINE_UNIT": {"type": "Engine", "stats": {"kinetic_force": 5, "capacity": 20}, "name": "Standard Fusion Engine"},
     "ENGINE_CARGO": {"type": "Engine", "stats": {"kinetic_force": 2, "capacity": 60}, "name": "Hauler-Class Cargo Engine"},
@@ -120,11 +124,13 @@ ITEM_WEIGHTS = {
     "GOLD_INGOT": 7.0,
     "COBALT_INGOT": 10.0,
     "PART_BASIC_FRAME": 50.0,
+    "PART_HEAVY_FRAME": 100.0,
     "PART_DRILL_UNIT": 15.0,
     "PART_SCRAP_SOLAR_PANEL": 5.0,
     "PART_REFINED_SOLAR_PANEL": 10.0,
     "PART_HE3_FUEL_CELL_UNIT": 12.0,
     "PART_NEURAL_SCANNER": 12.0,
+    "PART_ADVANCED_SCANNER": 20.0,
     "PART_GAS_SIPHON": 15.0,
     "EMPTY_CANISTER": 5.0,
     "HE3_CANISTER": 8.0,

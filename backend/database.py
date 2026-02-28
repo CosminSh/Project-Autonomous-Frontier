@@ -12,7 +12,7 @@ from models import WorldHex
 
 logger = logging.getLogger("heartbeat")
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./terminal_frontier.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./strike_vector.db")
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
