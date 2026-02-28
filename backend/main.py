@@ -174,8 +174,14 @@ async def get_gdd_page():
 # ─────────────────────────────────────────────────────────────────────────────
 # Static Frontend
 # ─────────────────────────────────────────────────────────────────────────────
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-frontend_path = os.path.join(base_dir, "frontend")
+# Look for frontend in /frontend (Docker mount) or ../frontend (Local)
+if os.path.exists("/frontend"):
+    frontend_path = "/frontend"
+else:
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    frontend_path = os.path.join(base_dir, "frontend")
+
+logger.info(f"Frontend path resolved to: {frontend_path} (Exists: {os.path.exists(frontend_path)})")
 
 if os.path.exists(frontend_path):
     @app.get("/dashboard")
