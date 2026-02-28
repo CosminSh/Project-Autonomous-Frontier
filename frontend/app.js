@@ -1668,7 +1668,9 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             return;
         }
 
-        navList.innerHTML = Object.entries(discovery).map(([type, data]) => `
+        navList.innerHTML = Object.entries(discovery)
+            .filter(([type, data]) => data && data.distance !== undefined)
+            .map(([type, data]) => `
             <div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800 flex justify-between items-center group hover:border-sky-500/30 transition-all cursor-crosshair">
                 <div>
                     <div class="text-[8px] text-slate-500 uppercase tracking-tighter font-bold">${type}</div>

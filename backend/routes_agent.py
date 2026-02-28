@@ -61,7 +61,7 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
     stats = {
         "id": current_agent.id, "name": current_agent.name, "faction_id": current_agent.faction_id,
         "structure": current_agent.structure, "capacitor": current_agent.capacitor,
-        "wear_and_tear": current_agent.wear_and_tear or 0.0,
+        "wear_and_tear": round(current_agent.wear_and_tear or 0.0, 2),
         "kinetic_force": current_agent.kinetic_force, "logic_precision": current_agent.logic_precision,
         "overclock": current_agent.overclock, "mass": current_mass,
         "capacity": current_agent.max_mass or BASE_CAPACITY,
