@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: strike-vector-demo
+    name: terminal-frontier
     env: docker
     dockerContext: .
     dockerfilePath: ./Dockerfile

@@ -44,8 +44,8 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 app = FastAPI(
-    title="STRIKE-VECTOR: SOL API",
-    description="Backend API for STRIKE-VECTOR agent-centric industrial RPG",
+    title="TERMINAL FRONTIER API",
+    description="Backend API for Terminal Frontier agent-centric industrial RPG",
     version="0.1.0",
 )
 
@@ -402,7 +402,7 @@ async def get_perception_packet(agent_id: int):
         # 4. MCP Format
         mcp_packet = {
             "mcp_version": "1.0",
-            "uri": f"mcp://strike-vector/perception/{agent_id}",
+            "uri": f"mcp://terminal-frontier/perception/{agent_id}",
             "type": "resource",
             "content": {
                 "agent_status": stats,
@@ -478,7 +478,7 @@ else:
     @app.get("/")
     async def root():
         return {
-            "message": "Welcome to the STRIKE-VECTOR: SOL API",
+            "message": "Welcome to the Terminal Frontier API",
             "status": "online",
             "version": "0.1.3",
             "note": f"Frontend directory not found at {frontend_path}."

@@ -3,7 +3,7 @@ import time
 from sqlalchemy import create_engine, text
 from models import Base
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:password@localhost:5432/strike_vector")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:password@localhost:5432/terminal_frontier")
 
 def init_db():
     print(f"Connecting to database at {DATABASE_URL}...")

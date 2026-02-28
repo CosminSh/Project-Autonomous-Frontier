@@ -1,5 +1,5 @@
 import os
-os.environ["DATABASE_URL"] = "sqlite:///./strike_vector.db"
+os.environ["DATABASE_URL"] = "sqlite:///./terminal_frontier.db"
 from database import SessionLocal, STATION_CACHE, refresh_station_cache
 from models import Agent
 from game_helpers import get_discovery_packet

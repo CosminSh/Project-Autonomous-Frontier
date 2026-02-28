@@ -1,5 +1,5 @@
 import os
-os.environ["DATABASE_URL"] = "sqlite:///./strike_vector.db"
+os.environ["DATABASE_URL"] = "sqlite:///./terminal_frontier.db"
 from database import SessionLocal
 from models import Agent
 

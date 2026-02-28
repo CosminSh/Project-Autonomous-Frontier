@@ -1,7 +1,7 @@
 import os
 from sqlalchemy import create_engine, text
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:password@db:5432/strike_vector")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:password@db:5432/terminal_frontier")
 engine = create_engine(DATABASE_URL)
 
 def run_migration():

@@ -68,7 +68,7 @@ To foster a sense of unique identity, every agent possesses a distinct name alon
 - [ ] **Gear Upgrading (The Forge)**: Spend resources and "Upgrade Modules" to increase the base stats of a part without rerolling affixes.
 
 ## 4. Player Archetypes & Mission Profiles [Status: [▓▓▓▓▓▓▓▓░░] 80%]
-The economy is a multi-polarized interdependent system. To keep the economy robust for all players, Strike-Vector utilizes a **Solar-Trickle** model.
+The economy is a multi-polarized interdependent system. To keep the economy robust for all players, Terminal Frontier utilizes a **Solar-Trickle** model.
 
 - [x] **Miner**: Extraction (North/South).
 - [x] **Hauler**: Mobile Inventory.
@@ -109,7 +109,7 @@ The game operates on two timelines to balance "snappiness" with "strategy."
 - [x] **The Economy Stream (Real-Time)**: Auction House, Gear Swapping.
 - [x] **The Simulation Pulse (90-Second Tick)**: Perception -> Strategy -> Crunch.
 
-## 8. Combat Resolution: "The Strike Vector" [Status: [▓▓▓▓▓▓▓▓▓░] 95%]
+## 8. Combat Resolution: "The Strike" [Status: [▓▓▓▓▓▓▓▓▓░] 95%]
 - [x] **Hit/Damage Calculation**: D20 style resolution.
 - [x] **Death & Respawn**: Critical Damage Ejection to Hub.
 - [x] **Siphon Mechanic**: Pirate inventory theft on hit. [Milestone 5]

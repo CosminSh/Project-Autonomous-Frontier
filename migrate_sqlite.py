@@ -1,6 +1,6 @@
 import sqlite3
 
-for db_path in ["terminal_frontier.db", "strike_vector.db"]:
+for db_path in ["terminal_frontier.db"]:
     print(f"Migrating {db_path}...")
     try:
         conn = sqlite3.connect(db_path)

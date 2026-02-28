@@ -40,5 +40,5 @@ def migrate_db(db_path):
 
 if __name__ == "__main__":
     base_dir = "g:/Antigravity Projects/Project Autonomous Frontier"
-    migrate_db(os.path.join(base_dir, "strike_vector.db"))
+    migrate_db(os.path.join(base_dir, "terminal_frontier.db"))
     migrate_db(os.path.join(base_dir, "demo.db"))

@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models import Agent, ChassisPart, WorldHex, AuctionOrder, Intent, AuditLog
 
-DATABASE_URL = "postgresql://admin:password@localhost:5432/strike_vector"
+DATABASE_URL = "postgresql://admin:password@localhost:5432/terminal_frontier"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 

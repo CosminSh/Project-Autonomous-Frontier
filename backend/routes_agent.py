@@ -173,7 +173,7 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
 
     return {
         "mcp_version": "1.0",
-        "uri": f"mcp://strike-vector/perception/{current_agent.id}",
+        "uri": f"mcp://terminal-frontier/perception/{current_agent.id}",
         "type": "resource",
         "content": {
             "squad_telemetry": squad_telemetry,
