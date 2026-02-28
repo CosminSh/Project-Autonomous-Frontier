@@ -50,7 +50,7 @@ You need to open ports so people can play.
 4. Install Docker:
    ```bash
    sudo apt update
-   sudo apt install -y docker.io docker-compose
+   sudo apt install -y docker.io docker-compose docker-buildx
    sudo usermod -aG docker ubuntu
    # Enable modern BuildKit for faster builds
    echo "export DOCKER_BUILDKIT=1" >> ~/.bashrc
