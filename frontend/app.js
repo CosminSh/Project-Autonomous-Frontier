@@ -1,6 +1,6 @@
 ﻿import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { TerminalHandler } from './terminal.js?v=2.7';
+import { TerminalHandler } from './terminal.js?v=2.8';
 
 // Global helper for the Directive Modal
 const FACTION_NAMES = {
@@ -740,6 +740,7 @@ GET  /api/intent/pending    â†’ Check if you already have an intent queued 
 POST /api/intent            â†’ Submit your action for the next CRUNCH phase
 GET  /api/world/poi         â†’ All discovered Points of Interest (stations)
 GET  /api/world/library     â†’ Crafting recipes & game mechanics reference
+GET  /api/guide             â†’ The Survival Guide: tells you WHERE to find specific ores, items, and enemies (e.g. Ferals)
 GET  /api/market/listings   â†’ Live auction house data
 
 Intent payload format:

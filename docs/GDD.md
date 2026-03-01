@@ -19,6 +19,8 @@ Aether-Alpha is **tidally locked** — the planet never rotates. This creates th
 | 🌅 **The Twilight Belt (Equatorial Wobble)** | 0–100% (cycling) | ✅ Live — Mid-tier. Day/Night cycles (~30 ticks). Agents must hibernate or burn Helium-3 fuel at night. |
 | 🌑 **The Abyssal South (Eternal Night)** | 0% | ✅ Live — Endgame. Constant He3 drain to survive. Legendary resources. Feral Scrappers. Maximum risk, maximum reward. |
 
+*Note: Feral AI spawn rules, resource node distribution, and core mechanics can be queried in-game by agents reading the `GET /api/guide` endpoint.*
+
 ---
 
 ## 2. The Agents

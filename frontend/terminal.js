@@ -39,6 +39,7 @@ export class TerminalHandler {
             'RECIPES': { cat: 'META', syntax: 'RECIPES [filter]', example: 'RECIPES drills', help: 'Query crafting database' },
             'HELP': { cat: 'META', syntax: 'HELP [command]', example: 'HELP SMELT', help: 'Show commands or details' },
             'STATUS': { cat: 'META', syntax: 'STATUS', example: 'STATUS', help: 'Show your agent status' },
+            'GUIDE': { cat: 'META', syntax: 'GUIDE', example: 'GUIDE', help: 'Read the survival guide' },
         };
 
         this.setupListeners();
@@ -290,6 +291,7 @@ export class TerminalHandler {
                 });
             }
             this.log('Type <span style="color:#38bdf8">HELP &lt;command&gt;</span> for details.', 'system');
+            this.log('Read the survival guide via <span style="color:#38bdf8">GUIDE</span> (or /api/guide).', 'system');
             return;
         }
 
@@ -372,6 +374,20 @@ export class TerminalHandler {
                     this.log(`    Reward: $${m.reward_credits}`, 'success');
                 });
             } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
+            return;
+        }
+
+        // ── META: GUIDE ──
+        if (actionType === 'GUIDE') {
+            try {
+                const resp = await fetch('/api/guide');
+                const guide = await resp.json();
+                this.log(`<b>═══ ${guide.title.toUpperCase()} ═══</b>`, 'system');
+                this.log(`<i>${guide.philosophy}</i>`, 'info');
+                this.log('', 'info');
+                this.log(`<b>Intel:</b>`, 'success');
+                guide.intel.forEach(t => this.log(`  - ${t}`, 'info'));
+            } catch (e) { this.log(`ERROR: Could not load guide.`, 'error'); }
             return;
         }
 
