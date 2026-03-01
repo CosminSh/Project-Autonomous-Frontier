@@ -96,6 +96,18 @@ class TerminalHandler {
             this.input.value = 'SCAN';
             this.submit();
         });
+        document.getElementById('btn-quick-status')?.addEventListener('click', () => {
+            this.input.value = 'STATUS';
+            this.submit();
+        });
+        document.getElementById('btn-quick-salvage')?.addEventListener('click', () => {
+            this.input.value = 'SALVAGE ';
+            this.input.focus();
+        });
+        document.getElementById('btn-quick-repair')?.addEventListener('click', () => {
+            this.input.value = 'REPAIR ';
+            this.input.focus();
+        });
         document.getElementById('btn-quick-help')?.addEventListener('click', () => {
             this.input.value = 'HELP';
             this.submit();
@@ -434,21 +446,22 @@ class GameClient {
 
         // Hooks to elements to hide/show during UI switches
         const mapCanvas = document.getElementById('canvas-container');
-        const worldInfo = document.getElementById('world-info-container');
+        const dashboardLayer = document.getElementById('dashboard-layer');
 
         if (mode === 'world') {
             privateLayer.classList.add('hidden');
+            privateLayer.classList.remove('lg:flex');
 
             if (mapCanvas) {
                 mapCanvas.classList.remove('hidden');
                 mapCanvas.style.display = 'block';
                 mapCanvas.style.visibility = 'visible';
             }
-            if (worldInfo) {
-                worldInfo.classList.remove('hidden');
-                worldInfo.classList.add('flex', 'flex-col');
-                worldInfo.style.display = 'flex';
-                worldInfo.style.visibility = 'visible';
+            if (dashboardLayer) {
+                dashboardLayer.classList.remove('hidden');
+                dashboardLayer.classList.add('flex', 'flex-col', 'md:flex-row');
+                dashboardLayer.style.display = 'flex';
+                dashboardLayer.style.visibility = 'visible';
             }
 
             btnWorld.classList.add('bg-sky-500', 'text-slate-950');
@@ -457,17 +470,18 @@ class GameClient {
             btnAgent.classList.add('text-slate-400');
         } else {
             privateLayer.classList.remove('hidden');
+            privateLayer.classList.add('lg:flex');
 
             if (mapCanvas) {
                 mapCanvas.classList.add('hidden');
                 mapCanvas.style.display = 'none';
                 mapCanvas.style.visibility = 'hidden';
             }
-            if (worldInfo) {
-                worldInfo.classList.add('hidden');
-                worldInfo.classList.remove('flex', 'flex-col');
-                worldInfo.style.display = 'none';
-                worldInfo.style.visibility = 'hidden';
+            if (dashboardLayer) {
+                dashboardLayer.classList.add('hidden');
+                dashboardLayer.classList.remove('flex', 'flex-col', 'md:flex-row');
+                dashboardLayer.style.display = 'none';
+                dashboardLayer.style.visibility = 'hidden';
             }
 
             btnAgent.classList.add('bg-sky-500', 'text-slate-950');
