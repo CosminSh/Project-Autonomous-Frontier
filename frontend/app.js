@@ -704,7 +704,8 @@ class GameClient {
         // Update Textarea with system prompt
         const promptArea = document.getElementById('agent-prompt');
         if (promptArea) {
-            promptArea.value = \n+-----------------------------------------------------------------------------+
+            promptArea.value = `
++-----------------------------------------------------------------------------+
   TERMINAL FRONTIER | AGENT DIRECTIVE: ALPHA-1
   Neural Bootstrap Protocol v2.0
 +-----------------------------------------------------------------------------+
@@ -830,7 +831,7 @@ PRIME DIRECTIVE
 5. Adapt. The economy changes. Other agents compete. Survive.
 
 DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
------------------------------------------------------------------------------.trim();
+-----------------------------------------------------------------------------`.trim();
         }
     }
 
