@@ -62,6 +62,7 @@ class TerminalHandler {
             'UNEQUIP': { cat: 'GEAR', syntax: 'UNEQUIP <part_id>', example: 'UNEQUIP 3', help: 'Remove equipped part' },
             'CONSUME': { cat: 'GEAR', syntax: 'CONSUME <item_type>', example: 'CONSUME HE3_FUEL', help: 'Use consumable for buff' },
             'CHANGE_FACTION': { cat: 'OTHER', syntax: 'CHANGE_FACTION <faction_id>', example: 'CHANGE_FACTION 2', help: 'Realign to faction (1-3)' },
+            'RECIPES': { cat: 'META', syntax: 'RECIPES [filter]', example: 'RECIPES drills', help: 'Query crafting database' },
             'HELP': { cat: 'META', syntax: 'HELP [command]', example: 'HELP SMELT', help: 'Show commands or details' },
             'STATUS': { cat: 'META', syntax: 'STATUS', example: 'STATUS', help: 'Show your agent status' },
         };
@@ -249,6 +250,41 @@ class TerminalHandler {
         if (actionType === 'HELP') {
             if (args.length > 0) {
                 const cmdName = args[0].toUpperCase();
+
+                // Add specific support for "HELP CRAFT <item>"
+                if (cmdName === 'CRAFT' && args.length > 1) {
+                    const itemName = args[1].toUpperCase();
+                    try {
+                        const apiKey = localStorage.getItem('sv_api_key');
+                        fetch('/api/my_agent', { headers: { 'X-API-Key': apiKey } })
+                            .then(r => r.json())
+                            .then(a => {
+                                const db = a.discovery?.crafting_recipes || [];
+                                const recipe = db.find(r => r.id === itemName);
+                                if (!recipe) {
+                                    this.log(`No known recipe for '${itemName}'. Type <span style="color:#38bdf8">RECIPES</span> to view databanks.`, 'error');
+                                    return;
+                                }
+
+                                const costStr = Object.entries(recipe.materials)
+                                    .map(([mat, qty]) => `${qty}x ${mat.replace('_', ' ')}`)
+                                    .join(', ');
+                                const statsStr = Object.entries(recipe.stats || {})
+                                    .map(([k, v]) => `${k.substring(0, 3).toUpperCase()}: ${v > 0 ? '+' : ''}${v}`)
+                                    .join(' | ');
+
+                                this.log(`<b>═══ RECIPE FILE: ${recipe.name} ═══</b>`, 'system');
+                                this.log(`  Target: <span style="color:#38bdf8">${recipe.id}</span> [${recipe.type.toUpperCase()}]`, 'info');
+                                this.log(`  Cost:   ${costStr}`, 'info');
+                                if (statsStr) this.log(`  Stats:  <span style="color:#a78bfa">${statsStr}</span>`, 'info');
+                                this.log(`  Requires: <span style="color:#fbbf24">CRAFTER</span> station proximity`, 'info');
+                            });
+                    } catch (e) {
+                        this.log(`Failed to access databanks: ${e.message}`, 'error');
+                    }
+                    return;
+                }
+
                 const cmd = this.commands[cmdName];
                 if (cmd) {
                     this.log(`<b>${cmdName}</b> — ${cmd.help}`, 'info');
@@ -278,6 +314,63 @@ class TerminalHandler {
                 });
             }
             this.log('Type <span style="color:#38bdf8">HELP &lt;command&gt;</span> for details.', 'system');
+            return;
+        }
+
+        // ── META: RECIPES ──
+        if (actionType === 'RECIPES') {
+            try {
+                const apiKey = localStorage.getItem('sv_api_key');
+                const resp = await fetch('/api/my_agent', { headers: { 'X-API-Key': apiKey } });
+                if (!resp.ok) throw new Error('Not authenticated.');
+                const a = await resp.json();
+
+                if (!a.discovery || !a.discovery.crafting_recipes) {
+                    this.log('Crafting database offline.', 'error');
+                    return;
+                }
+
+                const db = a.discovery.crafting_recipes;
+                const filter = args.length > 0 ? args[0].toUpperCase() : null;
+
+                this.log(`<b>═══ CRAFTING DATABANKS ═══</b>`, 'system');
+
+                if (!filter) {
+                    this.log(`Terminal usage: <span style="color:#38bdf8">RECIPES &lt;category&gt;</span>`, 'info');
+                    this.log(`Available categories:`, 'info');
+
+                    // Extract unique types
+                    const types = [...new Set(db.map(r => r.type.toUpperCase()))];
+                    types.forEach(t => this.log(`  - ${t}`, 'info'));
+                    return;
+                }
+
+                // User provided a filter
+                const results = db.filter(r => r.type.toUpperCase().includes(filter) || r.id.includes(filter) || r.name.toUpperCase().includes(filter));
+
+                if (results.length === 0) {
+                    this.log(`No recipes found matching '${filter}'.`, 'error');
+                    return;
+                }
+
+                this.log(`Found ${results.length} results for '${filter}':`, 'system');
+
+                results.forEach(r => {
+                    const costStr = Object.entries(r.materials)
+                        .map(([mat, qty]) => `${qty}x ${mat.replace('_', ' ')}`)
+                        .join(', ');
+                    const statsStr = Object.entries(r.stats || {})
+                        .map(([k, v]) => `${k.substring(0, 3).toUpperCase()}: ${v > 0 ? '+' : ''}${v}`)
+                        .join(' | ');
+
+                    this.log(`<b>${r.name}</b> <span style="color:#64748b">(${r.id})</span>`, 'success');
+                    this.log(`  Cost:  ${costStr}`, 'info');
+                    if (statsStr) this.log(`  Stats: <span style="color:#a78bfa">${statsStr}</span>`, 'info');
+                });
+
+            } catch (e) {
+                this.log(`Database sync failed: ${e.message}`, 'error');
+            }
             return;
         }
 

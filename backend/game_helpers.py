@@ -210,8 +210,27 @@ def get_discovery_packet(station_cache: list, agent: Agent) -> dict:
             dist = get_hex_distance(agent.q, agent.r, nearest["q"], nearest["r"])
             discovery[st] = {"q": nearest["q"], "r": nearest["r"], "distance": dist}
             
-    from config import CRAFTING_RECIPES, SMELTING_RECIPES
-    discovery["crafting_recipes"] = CRAFTING_RECIPES
+    from config import CRAFTING_RECIPES, SMELTING_RECIPES, PART_DEFINITIONS, ITEM_WEIGHTS, CORE_RECIPES
+    
+    enriched_crafting = []
+    for item_key, materials in CRAFTING_RECIPES.items():
+        is_part = item_key in PART_DEFINITIONS
+        part_data = PART_DEFINITIONS.get(item_key, {})
+        
+        # Calculate resulting item type for weight lookup
+        inventory_type = f"PART_{item_key}" if is_part else item_key
+        
+        enriched_crafting.append({
+            "id": item_key,
+            "name": part_data.get("name", item_key.replace("_", " ").title()),
+            "type": part_data.get("type", "Material"),
+            "materials": materials,
+            "stats": part_data.get("stats", {}),
+            "weight": ITEM_WEIGHTS.get(inventory_type, 1.0),
+            "is_core": item_key in CORE_RECIPES
+        })
+        
+    discovery["crafting_recipes"] = enriched_crafting
     discovery["smelting_recipes"] = SMELTING_RECIPES
     return discovery
 

@@ -55,6 +55,7 @@ class DashboardClient {
             this.updateInventory(agentData.inventory);
             this.updateParts(agentData.parts);
             this.updateMarket(worldState.market);
+            this.updateForge(agentData.discovery);
 
         } catch (e) {
             console.error("Dashboard Poll Error:", e);
@@ -150,6 +151,40 @@ class DashboardClient {
                 </div>
             </div>
         `).join('');
+    }
+
+    updateForge(discovery) {
+        if (!discovery || !discovery.crafting_recipes) return;
+
+        const select = document.getElementById('craft-item-type');
+
+        // Preserve current selection if possible
+        const currentSelection = select.value;
+
+        // Build option HTML
+        const optionsHtml = discovery.crafting_recipes.map(recipe => {
+            const costStr = Object.entries(recipe.materials)
+                .map(([mat, qty]) => `${qty} ${mat.replace('_', ' ')}`)
+                .join(', ');
+
+            // Shorten stats for display
+            const statsStr = Object.entries(recipe.stats || {})
+                .map(([k, v]) => `${k.substring(0, 3).toUpperCase()}: ${v > 0 ? '+' : ''}${v}`)
+                .join(' | ');
+
+            const extraInfo = statsStr ? ` [${statsStr}]` : '';
+
+            return `<option value="${recipe.id}">${recipe.name} (${costStr})${extraInfo}</option>`;
+        }).join('');
+
+        // Only update DOM if content changed to prevent dropdown flickering
+        if (select.innerHTML !== optionsHtml) {
+            select.innerHTML = optionsHtml;
+            if (currentSelection) {
+                // Try to restore previous selection
+                select.value = currentSelection;
+            }
+        }
     }
 
     async submitIntent(type, data) {
