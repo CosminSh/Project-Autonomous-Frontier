@@ -55,6 +55,7 @@ class ChassisPart(Base):
     rarity = Column(String, server_default="STANDARD") # SCRAP, STANDARD, REFINED, PRIME, RELIC
     stats = Column(JSON) # Base stats provided by this part template
     affixes = Column(JSON, nullable=True) # Randomized bonuses (e.g., {"bonus_str": 5})
+    durability = Column(Float, server_default="100.0") # Part durability
     
     agent = relationship("Agent", back_populates="parts")
 

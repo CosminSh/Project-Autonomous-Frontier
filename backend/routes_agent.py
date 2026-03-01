@@ -241,7 +241,7 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
         "overclock": current_agent.overclock, "mass": current_mass,
         "capacity": current_agent.max_mass or BASE_CAPACITY,
         "q": current_agent.q, "r": current_agent.r, "inventory": inv_list,
-        "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats} for p in current_agent.parts],
+        "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "durability": getattr(p, "durability", 100.0)} for p in current_agent.parts],
         "discovery": get_discovery_packet(STATION_CACHE, current_agent),
         "api_key": current_agent.api_key,
         "pending_intent": {"action": pending_intent.action_type, "data": pending_intent.data} if pending_intent else None
@@ -282,7 +282,7 @@ VALID_ACTIONS = [
     "MOVE", "MINE", "SCAN", "ATTACK", "INTIMIDATE", "LOOT", "DESTROY",
     "LIST", "BUY", "CANCEL", "EQUIP", "UNEQUIP", "SMELT", "CRAFT", "REPAIR",
     "SALVAGE", "CONSUME", "CORE_SERVICE", "REFINE_GAS", "CHANGE_FACTION",
-    "DROP_LOAD", "STOP"
+    "DROP_LOAD", "STOP", "REPAIR_GEAR"
 ]
 
 

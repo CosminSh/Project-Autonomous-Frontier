@@ -143,7 +143,7 @@ def ensure_agent_has_starter_gear(db: Session, agent: Agent):
     dirty = False
     if not has_drill:
         logger.info(f"Bootstrap: Equipping starter drill for Agent {agent.id}")
-        drill_def = PART_DEFINITIONS["DRILL_UNIT"]
+        drill_def = PART_DEFINITIONS["DRILL_IRON_BASIC"]
         db.add(ChassisPart(agent_id=agent.id, part_type=drill_def["type"], name=drill_def["name"], stats=drill_def["stats"]))
         dirty = True
 

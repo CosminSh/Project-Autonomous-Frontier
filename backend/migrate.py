@@ -37,10 +37,10 @@ def run_migration():
                         print(f"  Error adding {col_name}: {e}", flush=True)
                     conn.rollback()
 
-            # Check and add columns to 'chassis_parts' table
             parts_cols = [
                 ("rarity", "VARCHAR DEFAULT 'STANDARD'"),
-                ("affixes", "JSON")
+                ("affixes", "JSON"),
+                ("durability", "DOUBLE PRECISION DEFAULT 100.0")
             ]
 
             for col_name, col_type in parts_cols:

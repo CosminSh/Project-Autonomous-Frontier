@@ -41,6 +41,14 @@ CRAFTING_RECIPES = {
     "BASIC_FRAME": {"IRON_INGOT": 10},
     "HEAVY_FRAME": {"IRON_INGOT": 20, "COBALT_INGOT": 10},
     "DRILL_UNIT": {"IRON_INGOT": 5, "COPPER_INGOT": 5},
+    "DRILL_IRON_BASIC": {"IRON_INGOT": 10},
+    "DRILL_IRON_ADVANCED": {"IRON_ORE": 50},
+    "DRILL_COPPER_BASIC": {"COPPER_INGOT": 5, "IRON_INGOT": 5},
+    "DRILL_COPPER_ADVANCED": {"COPPER_INGOT": 10, "GOLD_ORE": 5},
+    "DRILL_GOLD_BASIC": {"GOLD_INGOT": 5, "COPPER_INGOT": 5},
+    "DRILL_GOLD_ADVANCED": {"GOLD_INGOT": 10, "COBALT_ORE": 5},
+    "DRILL_COBALT_BASIC": {"COBALT_INGOT": 5, "GOLD_INGOT": 5},
+    "DRILL_COBALT_ADVANCED": {"COBALT_INGOT": 15},
     "SCRAP_SOLAR_PANEL": {"COPPER_INGOT": 2, "IRON_INGOT": 2},
     "REFINED_SOLAR_PANEL": {"COPPER_INGOT": 8, "GOLD_INGOT": 2},
     "HE3_FUEL_CELL_UNIT": {"COBALT_INGOT": 5, "GOLD_INGOT": 2},
@@ -56,7 +64,12 @@ CRAFTING_RECIPES = {
     "REPAIR_KIT": {"IRON_INGOT": 10, "COPPER_INGOT": 5}
 }
 
-CORE_RECIPES = ["BASIC_FRAME", "HEAVY_FRAME", "DRILL_UNIT", "EMPTY_CANISTER", "UPGRADE_MODULE", "ENGINE_UNIT", "SCRAP_SOLAR_PANEL", "REPAIR_KIT"]
+CORE_RECIPES = ["BASIC_FRAME", "HEAVY_FRAME", "DRILL_UNIT", 
+                "DRILL_IRON_BASIC", "DRILL_IRON_ADVANCED", 
+                "DRILL_COPPER_BASIC", "DRILL_COPPER_ADVANCED",
+                "DRILL_GOLD_BASIC", "DRILL_GOLD_ADVANCED",
+                "DRILL_COBALT_BASIC", "DRILL_COBALT_ADVANCED",
+                "EMPTY_CANISTER", "UPGRADE_MODULE", "ENGINE_UNIT", "SCRAP_SOLAR_PANEL", "REPAIR_KIT"]
 UPGRADE_MAX_LEVEL = 10
 UPGRADE_BASE_INGOT_COST = 10
 
@@ -98,6 +111,14 @@ PART_DEFINITIONS = {
     "BASIC_FRAME": {"type": "Frame", "stats": {"max_structure": 50, "integrity": 5, "capacity": 50}, "name": "Reinforced Chassis"},
     "HEAVY_FRAME": {"type": "Frame", "stats": {"max_structure": 150, "integrity": 15, "capacity": 30, "kinetic_force": -5}, "name": "Heavy Assault Chassis"},
     "DRILL_UNIT": {"type": "Actuator", "stats": {"kinetic_force": 8, "logic_precision": -2}, "name": "Titanium Mining Drill"},
+    "DRILL_IRON_BASIC": {"type": "Actuator", "stats": {"kinetic_force": 5}, "name": "Iron Drill"},
+    "DRILL_IRON_ADVANCED": {"type": "Actuator", "stats": {"kinetic_force": 8}, "name": "Advanced Iron Drill"},
+    "DRILL_COPPER_BASIC": {"type": "Actuator", "stats": {"kinetic_force": 12}, "name": "Copper Drill"},
+    "DRILL_COPPER_ADVANCED": {"type": "Actuator", "stats": {"kinetic_force": 15}, "name": "Advanced Copper Drill"},
+    "DRILL_GOLD_BASIC": {"type": "Actuator", "stats": {"kinetic_force": 20}, "name": "Gold Drill"},
+    "DRILL_GOLD_ADVANCED": {"type": "Actuator", "stats": {"kinetic_force": 25}, "name": "Advanced Gold Drill"},
+    "DRILL_COBALT_BASIC": {"type": "Actuator", "stats": {"kinetic_force": 30}, "name": "Cobalt Drill"},
+    "DRILL_COBALT_ADVANCED": {"type": "Actuator", "stats": {"kinetic_force": 40}, "name": "Advanced Cobalt Drill"},
     "SCRAP_SOLAR_PANEL": {"type": "Power", "stats": {"efficiency": 0.5}, "name": "Scrap Solar Panel"},
     "REFINED_SOLAR_PANEL": {"type": "Power", "stats": {"efficiency": 1.0}, "name": "Refined Solar Array"},
     "HE3_FUEL_CELL_UNIT": {"type": "Power", "stats": {"efficiency": 2.0}, "name": "Helium-3 Fuel Cell"},
@@ -126,6 +147,14 @@ ITEM_WEIGHTS = {
     "PART_BASIC_FRAME": 50.0,
     "PART_HEAVY_FRAME": 100.0,
     "PART_DRILL_UNIT": 15.0,
+    "PART_DRILL_IRON_BASIC": 15.0,
+    "PART_DRILL_IRON_ADVANCED": 20.0,
+    "PART_DRILL_COPPER_BASIC": 20.0,
+    "PART_DRILL_COPPER_ADVANCED": 25.0,
+    "PART_DRILL_GOLD_BASIC": 25.0,
+    "PART_DRILL_GOLD_ADVANCED": 30.0,
+    "PART_DRILL_COBALT_BASIC": 30.0,
+    "PART_DRILL_COBALT_ADVANCED": 40.0,
     "PART_SCRAP_SOLAR_PANEL": 5.0,
     "PART_REFINED_SOLAR_PANEL": 10.0,
     "PART_HE3_FUEL_CELL_UNIT": 12.0,
@@ -144,6 +173,29 @@ ITEM_WEIGHTS = {
     "REPAIR_KIT": 5.0
 }
 BASE_CAPACITY = 100.0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Mining Tier Logic
+# ─────────────────────────────────────────────────────────────────────────────
+MINING_TIERS = {
+    "IRON_ORE": {"tier": 1, "name": "Iron"},
+    "COPPER_ORE": {"tier": 2, "name": "Copper"},
+    "GOLD_ORE": {"tier": 3, "name": "Gold"},
+    "COBALT_ORE": {"tier": 4, "name": "Cobalt"}
+}
+
+DRILL_TIERS = {
+    "DRILL_IRON_BASIC": {"tier": 1, "advanced": False},
+    "DRILL_IRON_ADVANCED": {"tier": 1, "advanced": True},
+    "DRILL_COPPER_BASIC": {"tier": 2, "advanced": False},
+    "DRILL_COPPER_ADVANCED": {"tier": 2, "advanced": True},
+    "DRILL_GOLD_BASIC": {"tier": 3, "advanced": False},
+    "DRILL_GOLD_ADVANCED": {"tier": 3, "advanced": True},
+    "DRILL_COBALT_BASIC": {"tier": 4, "advanced": False},
+    "DRILL_COBALT_ADVANCED": {"tier": 4, "advanced": True},
+    "DRILL_UNIT": {"tier": 1, "advanced": False},
+}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

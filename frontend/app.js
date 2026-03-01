@@ -1762,20 +1762,28 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             if (!agent.parts || agent.parts.length === 0) {
                 garageParts.innerHTML = '<div class="text-[10px] text-slate-600 italic">No specialized gear detected.</div>';
             } else {
-                garageParts.innerHTML = agent.parts.map(p => `
-                    <div class="flex justify-between items-center bg-sky-500/5 p-3 rounded-xl border border-sky-500/20">
-                        <div class="flex items-center space-x-3">
-                            <div class="text-sky-400 text-sm">⚙️</div>
-                            <div>
-                                <div class="text-[10px] font-bold text-sky-300 uppercase">${p.name}</div>
-                                <div class="text-[8px] text-sky-500/50 uppercase tracking-widest">${p.type}</div>
+                garageParts.innerHTML = agent.parts.map(p => {
+                    const durColor = p.durability < 30 ? 'text-red-400' : (p.durability < 70 ? 'text-yellow-400' : 'text-emerald-400');
+                    return `
+                    <div class="flex flex-col space-y-2 bg-sky-500/5 p-3 rounded-xl border border-sky-500/20">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center space-x-3">
+                                <div class="text-sky-400 text-sm">⚙️</div>
+                                <div>
+                                    <div class="text-[10px] font-bold text-sky-300 uppercase">${p.name}</div>
+                                    <div class="text-[8px] text-sky-500/50 uppercase tracking-widest">${p.type}</div>
+                                </div>
+                            </div>
+                            <div class="text-[10px] uppercase font-bold tracking-wider ${durColor}">
+                                HP: ${Math.round(p.durability)}%
                             </div>
                         </div>
-                        <div class="text-[8px] font-mono text-sky-500/70">
+                        <div class="text-[8px] font-mono text-sky-500/70 text-right">
                             ${JSON.stringify(p.stats)}
                         </div>
                     </div>
-                `).join('');
+                    `
+                }).join('');
             }
         }
     }

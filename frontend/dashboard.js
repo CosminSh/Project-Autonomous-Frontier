@@ -115,18 +115,21 @@ class DashboardClient {
             return;
         }
 
-        list.innerHTML = parts.map(part => `
+        list.innerHTML = parts.map(part => {
+            const durColor = part.durability < 30 ? 'text-red-400' : (part.durability < 70 ? 'text-yellow-400' : 'text-emerald-400');
+            return `
             <div class="bg-indigo-900/10 p-4 rounded-xl border border-indigo-500/20 flex justify-between items-center">
                 <div>
                    <h4 class="text-xs text-indigo-300 font-bold uppercase">${part.name}</h4>
                    <p class="text-[9px] text-slate-500 uppercase">${part.type}</p>
+                   <p class="text-[9px] font-bold uppercase mt-1 ${durColor}">HP: ${Math.round(part.durability)}%</p>
                 </div>
                 <div class="text-right flex flex-col items-end">
                     <span class="orbitron text-xs text-indigo-400 mb-2">${Object.entries(part.stats).map(([k, v]) => `${k.charAt(0)}:+${v}`).join(' ')}</span>
                     <button onclick="window.dashboard.submitIntent('UNEQUIP', {part_id: ${part.id}})" class="text-[8px] bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 px-2 py-1 rounded border border-rose-500/30 transition-all uppercase font-bold">Unequip</button>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
     }
 
     updateMarket(orders) {

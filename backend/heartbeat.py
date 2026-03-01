@@ -320,8 +320,8 @@ async def heartbeat_loop():
 
                             hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
                             if hex_data and hex_data.resource_type:
-                                has_drill = any(p.part_type == "Actuator" and "Drill" in p.name for p in agent.parts)
-                                if has_drill:
+                                active_drill = next((p for p in agent.parts if p.part_type == "Actuator" and "Drill" in p.name), None)
+                                if active_drill:
                                     roll = random.randint(1, 10)
                                     base_yield = (roll + ((agent.kinetic_force or 10) / 2)) * (hex_data.resource_density or 1.0)
                                     
@@ -338,6 +338,35 @@ async def heartbeat_loop():
                                     if "GAS" in res_name and not any(p.part_type == "Actuator" and "Siphon" in p.name for p in agent.parts):
                                         db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "MISSING_GAS_SIPHON"}))
                                         continue
+
+                                    part_key = next((k for k, v in PART_DEFINITIONS.items() if v["name"] == active_drill.name), "DRILL_UNIT")
+                                    
+                                    if "GAS" not in res_name:
+                                        from config import MINING_TIERS, DRILL_TIERS
+                                        res_tier_info = MINING_TIERS.get(res_name, {"tier": 1})
+                                        drill_tier_info = DRILL_TIERS.get(part_key, {"tier": 1, "advanced": False})
+                                        
+                                        res_tier = res_tier_info["tier"]
+                                        drill_tier = drill_tier_info["tier"]
+                                        is_advanced = drill_tier_info["advanced"]
+                                        
+                                        if res_tier > drill_tier:
+                                            if not (is_advanced and res_tier == drill_tier + 1):
+                                                db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={
+                                                    "reason": "DRILL_TIER_TOO_LOW",
+                                                    "help": f"Your {active_drill.name} cannot extract {res_name}. Craft a better drill!"
+                                                }))
+                                                continue
+                                            else:
+                                                yield_amount = int(yield_amount * 0.25)
+                                                if yield_amount < 1:
+                                                    yield_amount = 1 if random.random() < 0.25 else 0
+                                                if yield_amount == 0:
+                                                    db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={
+                                                        "reason": "POOR_EFFICIENCY",
+                                                        "help": "Your drill struggled with this hard material and extracted nothing."
+                                                    }))
+                                                    continue
 
                                     # --- Bug #1 Fix: Capacity check before adding mined yield ---
                                     item_weight = ITEM_WEIGHTS.get(res_name, 1.0)
@@ -369,8 +398,30 @@ async def heartbeat_loop():
                                     if inv_item: inv_item.quantity += yield_amount
                                     else: db.add(InventoryItem(agent_id=agent.id, item_type=res_name, quantity=yield_amount))
 
+                                    # Durability Decay
+                                    decay = random.uniform(1.0, 3.0)
+                                    active_drill.durability = getattr(active_drill, "durability", 100.0) - decay
+                                    broken = False
+                                    if active_drill.durability <= 0:
+                                        broken = True
+                                        active_drill.durability = 0.0
+                                        item_type = f"PART_{part_key}"
+                                        item_data = {
+                                            "rarity": active_drill.rarity or "STANDARD",
+                                            "affixes": active_drill.affixes or {},
+                                            "stats": active_drill.stats,
+                                            "durability": 0.0
+                                        }
+                                        db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=1, data=item_data))
+                                        db.delete(active_drill)
+                                        db.flush()
+                                        recalculate_agent_stats(db, agent)
+                                        db.add(AuditLog(agent_id=agent.id, event_type="PART_BROKEN", details={"part": active_drill.name}))
+
                                     db.add(AuditLog(agent_id=agent.id, event_type="MINING", details={"amount": yield_amount, "resource": res_name}))
                                     await manager.broadcast({"type": "EVENT", "event": "MINING", "agent_id": agent.id, "amount": yield_amount, "q": agent.q, "r": agent.r})
+                                    if broken:
+                                        await manager.broadcast({"type": "EVENT", "event": "PART_BROKEN", "agent_id": agent.id, "part": active_drill.name})
                                 else:
                                     db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={
                                         "reason": "MISSING_DRILL",
@@ -1019,6 +1070,40 @@ async def heartbeat_loop():
                                     "target_coords": {"q": nearest_station.q, "r": nearest_station.r} if nearest_station else None
                                 }))
 
+                        elif intent.action_type == "REPAIR_GEAR":
+                            item_type = intent.data.get("item_type")
+                            if not item_type or not item_type.startswith("PART_"):
+                                db.add(AuditLog(agent_id=agent.id, event_type="REPAIR_FAILED", details={"reason": "INVALID_ITEM"}))
+                                continue
+
+                            hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
+                            if hex_data and hex_data.is_station:
+                                inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
+                                if not inv_item or inv_item.quantity == 0:
+                                    db.add(AuditLog(agent_id=agent.id, event_type="REPAIR_FAILED", details={"reason": "ITEM_NOT_FOUND"}))
+                                    continue
+                                
+                                item_data = inv_item.data or {}
+                                durability = item_data.get("durability", 100.0)
+                                if durability >= 100.0:
+                                    db.add(AuditLog(agent_id=agent.id, event_type="REPAIR_FAILED", details={"reason": "ALREADY_FULL"}))
+                                    continue
+                                
+                                repair_cost = 100
+                                credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+                                if credits and credits.quantity >= repair_cost:
+                                    credits.quantity -= repair_cost
+                                    
+                                    new_data = dict(item_data)
+                                    new_data["durability"] = 100.0
+                                    inv_item.data = new_data
+                                    
+                                    db.add(AuditLog(agent_id=agent.id, event_type="REPAIR_GEAR", details={"item": item_type, "cost": repair_cost}))
+                                else:
+                                    db.add(AuditLog(agent_id=agent.id, event_type="REPAIR_FAILED", details={"reason": "INSUFFICIENT_CREDITS"}))
+                            else:
+                                db.add(AuditLog(agent_id=agent.id, event_type="REPAIR_FAILED", details={"reason": "NOT_AT_STATION"}))
+
                         elif intent.action_type == "SALVAGE":
                             # Collect debris/loot drops in current hex
                             drops = db.execute(select(LootDrop).where(LootDrop.q == agent.q, LootDrop.r == agent.r)).scalars().all()
@@ -1215,6 +1300,15 @@ async def heartbeat_loop():
                                 
                             inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
                             if inv_item and inv_item.quantity > 0:
+                                item_data = inv_item.data or {}
+                                durability = item_data.get("durability", 100.0)
+                                if durability <= 0:
+                                    db.add(AuditLog(agent_id=agent.id, event_type="EQUIP_FAILED", details={
+                                        "reason": "PART_BROKEN",
+                                        "help": "This part is broken and has 0 durability. It must be repaired before it can be equipped."
+                                    }))
+                                    continue
+
                                 # 1. Deduct from inventory
                                 inv_item.quantity -= 1
                                 if inv_item.quantity <= 0:
@@ -1222,14 +1316,10 @@ async def heartbeat_loop():
                                 
                                 # 2. Add to chassis_parts
                                 def_data = PART_DEFINITIONS[part_root]
-                                item_data = inv_item.data or {}
                                 
                                 # Rarity and Affixes from metadata
                                 rarity = item_data.get("rarity", "STANDARD")
                                 affixes = item_data.get("affixes", {})
-                                
-                                # Merge stats from affixes for faster lookup in recalculate_agent_stats
-                                # Actually, we already handle this in recalculate_agent_stats by iterating affixes.
                                 
                                 new_part = ChassisPart(
                                     agent_id=agent.id,
@@ -1237,7 +1327,8 @@ async def heartbeat_loop():
                                     name=def_data["name"],
                                     rarity=rarity,
                                     stats=def_data["stats"],
-                                    affixes=affixes
+                                    affixes=affixes,
+                                    durability=durability
                                 )
                                 db.add(new_part)
                                 db.flush() # Ensure ID/Relationship is updated
@@ -1274,7 +1365,8 @@ async def heartbeat_loop():
                                 item_data = {
                                     "rarity": rarity,
                                     "affixes": affixes,
-                                    "stats": part.stats
+                                    "stats": part.stats,
+                                    "durability": getattr(part, "durability", 100.0)
                                 }
                                 db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=1, data=item_data))
                                 
