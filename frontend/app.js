@@ -1205,6 +1205,12 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             texture.mapping = THREE.EquirectangularReflectionMapping;
             this.scene.background = texture;
             this.scene.environment = texture;
+
+            // Initialization for background rotation (new in Three.js r163+)
+            // Since we don't know the exact version, we initialize Euler
+            if (!this.scene.backgroundRotation) {
+                this.scene.backgroundRotation = new THREE.Euler();
+            }
         });
 
         this.scene.fog = new THREE.FogExp2(0x050507, 0.002); // Reduced fog for space scale
@@ -2003,8 +2009,16 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         }
 
         // Rotate atmosphere slightly for life
-        if (this.starfield) this.starfield.rotation.y += 0.0001;
-        if (this.debris) this.debris.rotation.y -= 0.0002;
+        if (this.starfield) this.starfield.rotation.y += 0.00015;
+        if (this.debris) {
+            this.debris.rotation.y -= 0.0005;
+            this.debris.rotation.z += 0.0002;
+        }
+
+        // Rotate Skybox for deep space movement illusion
+        if (this.scene.backgroundRotation) {
+            this.scene.backgroundRotation.y += 0.0002;
+        }
 
         if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
@@ -2031,18 +2045,41 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         this.starfield = new THREE.Points(starGeom, starMat);
         this.scene.add(this.starfield);
 
-        // Ambient Dust/Debris
+        // Ambient Dust/Debris (Close proximity particles for parallax)
         const debrisGeom = new THREE.BufferGeometry();
-        const debrisCount = 100;
+        const debrisCount = 300; // Increased volume
         const debrisPos = new Float32Array(debrisCount * 3);
         const debrisColors = new Float32Array(debrisCount * 3);
-        for (let i = 0; i < debrisCount * 3; i++) {
-            debrisPos[i] = (Math.random() - 0.5) * 100;
-            debrisColors[i] = Math.random();
+        const debrisSizes = new Float32Array(debrisCount);
+
+        for (let i = 0; i < debrisCount * 3; i += 3) {
+            // Spread closer to the planet to create depth when camera orbits
+            debrisPos[i] = (Math.random() - 0.5) * 250;
+            debrisPos[i + 1] = (Math.random() - 0.5) * 250;
+            debrisPos[i + 2] = (Math.random() - 0.5) * 250;
+
+            // Varied muted colors for dust/rock
+            const shade = 0.3 + (Math.random() * 0.4);
+            debrisColors[i] = shade;          // r
+            debrisColors[i + 1] = shade * 0.9;  // g
+            debrisColors[i + 2] = shade * 0.8;  // b
+
+            debrisSizes[i / 3] = 0.5 + Math.random() * 1.5;
         }
         debrisGeom.setAttribute('position', new THREE.BufferAttribute(debrisPos, 3));
         debrisGeom.setAttribute('color', new THREE.BufferAttribute(debrisColors, 3));
-        const debrisMat = new THREE.PointsMaterial({ size: 0.2, vertexColors: true, transparent: true, opacity: 0.4 });
+        debrisGeom.setAttribute('size', new THREE.BufferAttribute(debrisSizes, 1));
+
+        // Use a generic shader or standard material for size attenuation if needed, 
+        // but PointsMaterial sizeAttenuation defaults to true.
+        const debrisMat = new THREE.PointsMaterial({
+            size: 0.6,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.6,
+            sizeAttenuation: true
+        });
+
         this.debris = new THREE.Points(debrisGeom, debrisMat);
         this.scene.add(this.debris);
     }
