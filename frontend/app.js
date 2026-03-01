@@ -1879,6 +1879,34 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                 }).join('');
             }
         }
+
+        // ── FORGE UI UPDATE ──
+        if (agent.discovery) {
+            this.updateForgeUI(agent.discovery);
+        }
+    }
+
+    updateForgeUI(discovery) {
+        if (!discovery || !discovery.crafting_recipes) return;
+        const select = document.getElementById('craft-item-type');
+        if (!select) return;
+
+        const currentSelection = select.value;
+        const optionsHtml = discovery.crafting_recipes.map(recipe => {
+            const costStr = Object.entries(recipe.materials)
+                .map(([mat, qty]) => `${qty} ${mat.replace('_', ' ')}`)
+                .join(', ');
+            const statsStr = Object.entries(recipe.stats || {})
+                .map(([k, v]) => `${k.substring(0, 3).toUpperCase()}: ${v > 0 ? '+' : ''}${v}`)
+                .join(' | ');
+            const extraInfo = statsStr ? ` [${statsStr}]` : '';
+            return `<option value="${recipe.id}">${recipe.name} (${costStr})${extraInfo}</option>`;
+        }).join('');
+
+        if (select.innerHTML !== optionsHtml) {
+            select.innerHTML = optionsHtml;
+            if (currentSelection) select.value = currentSelection;
+        }
     }
 
     updateNavComputer(discovery) {
