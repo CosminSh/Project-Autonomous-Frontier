@@ -35,6 +35,7 @@ export class TerminalHandler {
             'UNEQUIP': { cat: 'GEAR', syntax: 'UNEQUIP <part_id>', example: 'UNEQUIP 3', help: 'Remove equipped part' },
             'CONSUME': { cat: 'GEAR', syntax: 'CONSUME <item_type>', example: 'CONSUME HE3_FUEL', help: 'Use consumable for buff' },
             'CHANGE_FACTION': { cat: 'OTHER', syntax: 'CHANGE_FACTION <faction_id>', example: 'CHANGE_FACTION 2', help: 'Realign to faction (1-3)' },
+            'MISSIONS': { cat: 'OTHER', syntax: 'MISSIONS', example: 'MISSIONS', help: 'View active daily missions' },
             'RECIPES': { cat: 'META', syntax: 'RECIPES [filter]', example: 'RECIPES drills', help: 'Query crafting database' },
             'HELP': { cat: 'META', syntax: 'HELP [command]', example: 'HELP SMELT', help: 'Show commands or details' },
             'STATUS': { cat: 'META', syntax: 'STATUS', example: 'STATUS', help: 'Show your agent status' },
@@ -84,6 +85,10 @@ export class TerminalHandler {
         });
         document.getElementById('btn-quick-help')?.addEventListener('click', () => {
             this.input.value = 'HELP';
+            this.submit();
+        });
+        document.getElementById('btn-quick-missions')?.addEventListener('click', () => {
+            this.input.value = 'MISSIONS';
             this.submit();
         });
     }
@@ -343,6 +348,30 @@ export class TerminalHandler {
             } catch (e) {
                 this.log(`Database sync failed: ${e.message}`, 'error');
             }
+            return;
+        }
+
+        // ── META: MISSIONS ──
+        if (actionType === 'MISSIONS') {
+            try {
+                const apiKey = localStorage.getItem('sv_api_key');
+                const resp = await fetch('/api/missions', { headers: { 'X-API-KEY': apiKey } });
+                if (!resp.ok) throw new Error('Not authenticated.');
+                const missions = await resp.json();
+
+                this.log(`<b>═══ DAILY MISSIONS ═══</b>`, 'system');
+                if (!missions || missions.length === 0) {
+                    this.log(`  No active missions available.`, 'info');
+                    return;
+                }
+
+                missions.forEach(m => {
+                    const status = m.is_completed ? '<span style="color:#10b981">[COMPLETED]</span>' : `[${m.progress}/${m.target}]`;
+                    this.log(`  <b>${m.mission_type.replace(/_/g, ' ')}</b> — ${status}`, 'info');
+                    if (m.item_type) this.log(`    Target: ${m.item_type.replace(/_/g, ' ')}`, 'info');
+                    this.log(`    Reward: $${m.reward}`, 'success');
+                });
+            } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
             return;
         }
 

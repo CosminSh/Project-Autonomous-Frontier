@@ -1621,20 +1621,97 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         `).join('');
     }
 
+    async turnInMission(missionId) {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return;
+
+        try {
+            const resp = await fetch(`${window.location.origin}/api/missions/turn_in`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-KEY': apiKey
+                },
+                body: JSON.stringify({ mission_id: missionId })
+            });
+
+            if (resp.ok) {
+                const data = await resp.json();
+                if (window.game && window.game.terminal) {
+                    window.game.terminal.log(`✓ Mission updated! Earned $${data.reward_earned}`, 'success');
+                }
+                this.pollState();
+            } else {
+                const err = await resp.json();
+                alert(`Turn In Failed: ${err.detail || 'Unknown error'}`);
+            }
+        } catch (e) {
+            console.error("Turn in error:", e);
+        }
+    }
+
+    updateMissionsUI(missions) {
+        const container = document.getElementById('missions-list');
+        if (!container) return;
+
+        if (!missions || missions.length === 0) {
+            container.innerHTML = '<div class="text-[10px] text-slate-600 italic">No active missions found.</div>';
+            return;
+        }
+
+        container.innerHTML = missions.map(m => {
+            const isCompleted = m.is_completed;
+            const progressPct = Math.min(100, (m.progress / m.target) * 100);
+            const color = isCompleted ? 'emerald' : 'amber';
+
+            let turnInBtn = '';
+            if (m.mission_type === 'TURN_IN' && !isCompleted && m.progress > 0) {
+                turnInBtn = `<button onclick="window.game.turnInMission(${m.id})" class="mt-2 bg-${color}-500/20 hover:bg-${color}-500/40 text-${color}-400 border border-${color}-500/30 px-3 py-1.5 rounded text-[8px] orbitron font-bold transition-all w-full">TURN IN ITEMS</button>`;
+            }
+
+            const itemName = m.item_type ? `<div class="text-[8px] text-slate-500 uppercase tracking-widest">${m.item_type.replace(/_/g, ' ')}</div>` : '';
+
+            return `
+                <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-200 uppercase">${m.mission_type.replace(/_/g, ' ')}</div>
+                            ${itemName}
+                        </div>
+                        <div class="text-right">
+                            <div class="text-[10px] text-${color}-400 font-bold">$${m.reward}</div>
+                            <div class="text-[6px] text-slate-600 uppercase">REWARD</div>
+                        </div>
+                    </div>
+                    <div class="space-y-1 mt-2">
+                        <div class="flex justify-between items-center text-[8px] uppercase tracking-wider text-slate-400">
+                            <span>Progress</span>
+                            <span class="text-${color}-400 font-mono">${isCompleted ? 'COMPLETED' : `${m.progress} / ${m.target}`}</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                            <div class="h-full bg-${color}-500 transition-all duration-500" style="width: ${progressPct}%"></div>
+                        </div>
+                    </div>
+                    ${turnInBtn}
+                </div>
+            `;
+        }).join('');
+    }
 
     async pollState() {
         try {
             const apiKey = localStorage.getItem('sv_api_key');
             const headers = apiKey ? { 'X-API-KEY': apiKey } : {};
 
-            const [stateResp, statsResp, logsResp, agentResp, myOrdersResp, bountyResp, perceptionResp] = await Promise.all([
+            const [stateResp, statsResp, logsResp, agentResp, myOrdersResp, bountyResp, perceptionResp, missionsResp] = await Promise.all([
                 fetch('/state'),
                 fetch('/api/global_stats'),
                 apiKey ? fetch(`${window.location.origin}/api/agent_logs`, { headers }) : Promise.resolve(null),
                 apiKey ? fetch(`${window.location.origin}/api/my_agent`, { headers }) : Promise.resolve(null),
                 apiKey ? fetch(`${window.location.origin}/api/market/my_orders`, { headers }) : Promise.resolve(null),
                 fetch('/api/bounties'),
-                apiKey ? fetch(`${window.location.origin}/api/perception`, { headers }) : Promise.resolve(null)
+                apiKey ? fetch(`${window.location.origin}/api/perception`, { headers }) : Promise.resolve(null),
+                apiKey ? fetch(`${window.location.origin}/api/missions`, { headers }) : Promise.resolve(null)
             ]);
 
             const data = await stateResp.json();
@@ -1644,6 +1721,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             const myOrders = myOrdersResp ? await myOrdersResp.json() : null;
             const bounties = await bountyResp.json();
             const perceptionData = perceptionResp ? await perceptionResp.json() : null;
+            const missions = missionsResp ? await missionsResp.json() : null;
 
             this.lastWorldData = data; // Keep for fallback
             if (perceptionData && perceptionData.content) {
@@ -1656,6 +1734,14 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             this.updateLiveFeed(data.logs);
             this.updateMarketUI(data.market);
             this.updateBountyBoard(bounties);
+
+            if (missions) {
+                try {
+                    this.updateMissionsUI(missions);
+                } catch (e) {
+                    console.error("Error updating Missions UI:", e);
+                }
+            }
 
             if (agentData) {
                 try {
