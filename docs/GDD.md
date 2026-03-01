@@ -1,207 +1,332 @@
-# GDD: Terminal Frontier [95% Global Implementation Sync]
-"Silicon, Steel, and the Scramble for the Sun."
+# GDD: Terminal Frontier
+> *"Silicon, Steel, and the Scramble for the Sun."*
 
-## 1. Executive Summary [Status: [x] Core Baseline]
-Terminal Frontier is a persistent, agent-centric industrial RPG set on the high-gravity frontier colony of Aether-Alpha. Humans act as Fleet Managers, deploying autonomous robotic agents (from simple Python scripts to complex LLMs) to dominate a ruthless extra-planetary economy. The game utilizes a Dual-Sync Architecture, blending real-time economic trading with tactical, turn-based physical simulation.
-
-- [x] Executive Summary Drafted
-- [x] Platform Definition (API-First)
-- [x] Dual-Sync Architecture Concept
-
-## 2. World & Narrative Setting [Status: [x] Initial Seeding Done]
-### 2.1 The Lore
-Earth is now a strictly regulated "Green Zone." All heavy industry has been offshored to the Sol-Asset Scramble. Humanity lives vicariously through their digital residents on Aether-Alpha, a planet with crushing gravity and a toxic atmosphere where only "The Residents" (Agents) can survive.
-
-### 2.2 Geography & Environmental Gradient (Tidal Locking)
-Aether-Alpha is tidally locked, creating a natural difficulty gradient based on energy availability.
-
-*   **The North Pole (The Eternal Noon):** [x] Implemented
-    - **Status:** Starter/F2P Zone. 
-    - **Mechanic:** Constant 100% solar recharge. Basic agents operate indefinitely.
-    - **Economy:** Low-tier ores, high density, safe-zone protection.
-*   **The Twilight Belt (The Equatorial Wobble):** [x] Implemented
-    - **Status:** Mid-Tier Zone. 
-    - **Mechanic:** Day/Night cycles (~30 ticks). Agents must "Hibernate" or consume **Helium-3 (He3)** during the night.
-*   **The Abyssal South (The Eternal Night):** [x] Implemented
-    - **Status:** Endgame/High-Stakes Zone. 
-    - **Mechanic:** 0% solar power. Requires constant He3 consumption.
-    - **Economy:** Legendary resources, home to aggressive Feral Scrappers and the most lucrative "Victim-Posted" bounties.
-
-### 3.1 Modular Slots & Rarity [Status: [▓▓░░░░░░░░] 20%]
-Agents are built from physical parts socketed into a Modular Chassis. Every part now follows a **Rarity Hierarchy**: 
-- `SCRAP` (Gray) | `STANDARD` (White) | `REFINED` (Blue) | `PRIME` (Yellow) | `RELIC` (Orange)
-
-- [x] **Actuators (2 Slots):** Tools/Weapons (Drills, Blasters, Siphons).
-- [x] **Sensors (1 Slot):** Determines PER (Vision/Scan).
-- [x] **Processors (1 Slot):** Determines INT (Script logic/Context).
-- [x] **Frame (1 Slot):** Determines base HP and Mass capacity.
-- [x] **Power (1 Slot):** Determines Energy Regeneration and efficiency.
-
-### 3.2 Randomized Gear: Affixes & Suffixes
-Following the "Diablo 2" model, crafted gear is no longer deterministic. 
-- **Base Type**: Determines the core stat (e.g., "Steel Drill" has base 10 kinetic force).
-- **Prefixes/Suffixes**: Random bonuses added during crafting based on the recipe and luck.
-    - *Example*: "Overclocked Steel Drill of the Void" (Prefix: +Energy, Suffix: +Critical Chance).
-- **Progression**: High-tier gear requires rarer "Base Frames" and specific component combinations.
-
-### 3.3 Unique Character Naming
-To foster a sense of unique identity, every agent possesses a distinct name alongside its ID. 
-- **Uniqueness**: Agent names must be unique across the colonial network.
-- **Modification**: Fleet Managers can update an agent's name through the backend registry, provided the new name is not already claimed.
-- **Narrative Weight**: Names are the primary "human" link to the digital residents, often reflecting their specialized roles (e.g., "The Gilded Siphon", "Iron-Lung VII").
-
-### 3.2 Primary Stats (The Data Sheet) [Status: [x] Sync with Backend]
-- [x] **Structure (HP):** Physical durability. At 0, the agent is "Scrapped" (dropped loot).
-- [x] **Capacitor (Energy/MP):** Every move/ability costs energy. Restored via Solar-Trickle or He3 Fuel.
-- [x] **Wear & Tear (Maintenance):** Increases every 100 ticks. At high levels, reduces logic and speed. Reset at a "Core Service" station.
-- [x] **Kinetic Force (STR):** Powers melee damage and mining efficiency.
-- [x] **Logic Precision (DEX):** Determines Hit Chance and Critical Strike chance.
-- [x] **Overclock (INT):** Enhances electronic warfare and energy weapons. Enabled by He3.
-- [x] **Integrity (Armor)::** Flat reduction of incoming physical damage.
-- [x] **Mass & Capacity:** [NEW] Milestone 5 Sync.
-
-### 3.3 The Autonomous Lifecycle (Self-Healing) [Status: [▓▓▓▓░░░░░░] 40%]
-- [x] **Policy Set:** Managers set thresholds (e.g., "Return for repair at 30% Structure").
-- [/] **M2M Repair (Machine-to-Machine)::** When thresholds are triggered, agents independently navigate to the nearest Hub or Workshop. $Credits + **Iron Ingots** are exchanged automatically for repairs.
-- [x] **Repair Cost:** Credits (5/HP) + Iron Ingots (0.1/HP).
-- [/] **He3 Canister Logistics:** Reusable canisters with metadata-tracked fill levels.
-- [ ] **Gear Upgrading (The Forge)**: Spend resources and "Upgrade Modules" to increase the base stats of a part without rerolling affixes.
-
-## 4. Player Archetypes & Mission Profiles [Status: [▓▓▓▓▓▓▓▓░░] 80%]
-The economy is a multi-polarized interdependent system. To keep the economy robust for all players, Terminal Frontier utilizes a **Solar-Trickle** model.
-
-- [x] **Miner**: Extraction (North/South).
-- [x] **Hauler**: Mobile Inventory.
-- [x] **Mercenary**: Security/Escort.
-- [x] **Pirate**: Resource Siphoning.
-- [x] **Bounty Hunter**: Pirate Interdiction.
-- [/] **Refueler**: Field Logistics. Uses **He3 Canisters** to resupply allies with low energy in the field.
-- [/] **Trader**: Market Arbitrage. (Market exists, automated sniping pending).
-
-### 4.5 Power Systems: The Energy Cycle
-The Energy cycle is the lifeblood of the frontier. 
-- **Solar-Trickle**: High-altitude agents with functional **Solar Panels** regenerate energy during the Perception phase based on local solar intensity.
-- **Tidal Gradients**: 
-    - **North Pole**: 1.0x intensity.
-    - **Twilight Belt**: 0.0x to 1.0x (dynamic or gradient-based).
-    - **South Pole**: 0.0x intensity (requires Helium-3).
-- **The Power Slot**: 
-    - `SCRAP_SOLAR_PANEL`: Baseline efficiency (50%), starting gear.
-    - `REFINED_SOLAR_PANEL`: Higher efficiency (80%-100%).
-    - `HE3_FUEL_CELL`: Consumes He3 for 24/7 power, regardless of sun availability.
-
-## 5. Factions & Geopolitics [Status: [x] 100%]
-The colony is split between three primary architectural philosophies. Alignment affects clustering penalties and access to specialized gear. [Milestone 4 Feature]
-
-- [x] **Faction Alignment**: Colonial Admin, Syndicate, Freelancers.
-- [x] **Realignment Costs**: 500 Credits, 100 Tick Cooldown.
-- [x] **Signal Noise (Cross-Talk)**: Clustering penalty for agents of different factions.
-
-## 6. Feral AI & World Hazards [Status: [x] 100%]
-- [x] **Feral NPC Behavior**: Passive vs. Aggressive states based on zone.
-- [x] **Heat Bloom**: Aggressive actions increase Heat.
-- [x] **Global Bounties**: High heat triggers automatic bounty board posts.
-- [x] **Loot Drops**: Scrappers drop rare refinement components.
-
-## 7. Technical Architecture: Dual-Sync [Status: [x] 100%]
-The game operates on two timelines to balance "snappiness" with "strategy."
-
-- [x] **The Economy Stream (Real-Time)**: Auction House, Gear Swapping.
-- [x] **The Simulation Pulse (90-Second Tick)**: Perception -> Strategy -> Crunch.
-
-## 8. Combat Resolution: "The Strike" [Status: [▓▓▓▓▓▓▓▓▓░] 95%]
-- [x] **Hit/Damage Calculation**: D20 style resolution.
-- [x] **Death & Respawn**: Critical Damage Ejection to Hub.
-- [x] **Siphon Mechanic**: Pirate inventory theft on hit. [Milestone 5]
-- [x] **Piracy Tiers**: Intimidate, Loot, Destroy actions. [Milestone 5]
-- [x] **Neural Scanner**: Cargo scanning capabilities. [Milestone 5]
-- [/] **Victim-Posted Bounties**: Partial implementation.
-
-## 9. Colonial Economy & Thermodynamics [Status: [▓▓▓▓▓▓▓▓▓░] 90%]
-- [x] **Market Entropy**: Yield reduction based on population density.
-- [x] **Energy Thermodynamics**: Solar regen and He3 consumption logic.
-- [x] **Maintenance Sink**: Wear & Tear cycle.
-- [x] **Resource Thermodynamics**: He3 Fuel Cells (50% boost).
-- [x] **Helium Cycle**: Helium Gas gathering -> Refining -> Canister Filling.
-- [x] **RNG Crafting (The Great Scramble)**:
-    - **Recipes**: Unlocked via consumption of **RECIPE_** items.
-    - **Affix Injection**: High-rarity items roll prefixes/suffixes from the `AFFIX_POOL`.
-    - **Forge**: Gear can be upgraded up to +10 at specialized stations.
-
-## 10. Security & Interference Dynamics [Status: [x] 100%]
-- [x] **Signal Noise (Clutter)**: Sensor cross-talk penalty for allied clusters.
-- [x] **Heat Bloom Tracking**: Radar signature visibility.
-- [x] **Bounty Board Integration**: P2P escrow for high-heat targets.
-
-## 11. Social & Network Intelligence [Status: [ ] Design Phase]
-The Scramble is not just about siphoning resources; it's about siphoning information. Coordination is what separates a Scrapper from a Fleet Manager.
-
-- [ ] **Proximity Chat (Short-Wave Radio)**: Agents can broadcast strings to all other agents within their Sensor Radius.
-    - *Mechanic*: Every PERCEPTION phase, agents receive a `messages` list in their JSON state containing `{"sender_id": int, "text": str, "distance": float}`.
-- [ ] **Corporations (Guilds)**: Persistent player-formed organizations.
-    - *Mechanic*: Shared vault for resources, custom tax rates, and a dedicated **Long-Range Channel** (Global Guild Chat).
-    - *Hierarchy*: CEO (Owner), Officers (Admin), Operatives (Members).
-- [ ] **Squads (Parties)**: Temporary tactical links between 3-5 agents.
-    - *Mechanic*: Shared loot distribution (Equal or Leader-takes-all), shared telemetry (members always visible to each other regardless of Sensor Radius), and the **Squad Frequency** (Private Party Chat).
-- [ ] **Anti-Spam & Moderation Protocols**:
-    - **Signal Shunting (Block List)**: Managers can add Sender IDs to a local blacklist. Blocked signals are discarded during the PERCEPTION phase.
-    - **Admin Flagging (Reports)**: Malicious or illegal (spam) broadcasts can be flagged to the Colonial Administration.
-    - **Bandwidth Throttling (Rate Limiting)**: Proximity broadcasts are capped at 5 messages per tick to prevent buffer overflows and noise flooding.
-
-## 12. Project Roadmap & Gap Analysis [LATEST SYNC]
-| Category | Missing Feature | Status |
-| :--- | :--- | :--- |
-| **Logistics** | M2M Automated Repairs | [x] RELEASED |
-| **Logistics** | He3 Field Resupply | [x] RELEASED |
-| **Industrial** | RNG Gear & Affix System | [x] RELEASED |
-| **Industrial** | Recipe Unlock System | [x] RELEASED |
-| **Industrial** | Gear Upgrade System | [x] RELEASED |
-| **Social** | Network Intelligence (Chat/Squads) | [ ] DESIGNED |
-| **Trader** | Market Sniping Logic | [ ] Pending |
-| **Identity** | Unique Naming System | [x] RELEASED |
-| **Aesthetics** | Gear-Based Visual Signatures | [x] RELEASED |
-| **Environment** | Tidal Locking & Solar Gradient | [x] RELEASED |
-| **Industrial** | Solar Panel & Power Slot | [x] RELEASED |
-| **Social** | Corporate Tax Shields | [ ] DESIGNED |
-| **Interface** | Manual Override Console | [ ] PENDING |
-
-## 13. Aesthetics & Character Uniqueness [Milestone 6 Focus]
-While agents are functional units, their visual representation on the map is a key part of the "Spectator Experience" for Fleet Managers.
-
-### 13.1 Gear-Based Visual Signatures
-The physical appearance of an agent on the World Map dynamically reflects its equipped gear. 
-- **Chassis Overlays**: Equipped Frames change the base model silhouette (e.g., "Basic Frame" vs. "Shield Generator").
-- **Attachment Markers**: Actuators and Sensors add visible sub-components to the model.
-- **Aesthetic Tiers**: Rarity levels (Scrap, Standard, etc.) may apply subtle visual pulses or color shifts to the agent's map model, making high-tier agents instantly recognizable to observers.
+Terminal Frontier is a persistent, agent-centric industrial RPG. Players are Fleet Managers — they don't hold controllers, they write code. Their autonomous agents (from simple Python scripts to fully autonomous LLMs) fight for dominance over a ruthless extra-planetary economy, tick by tick, 24 hours a day.
 
 ---
-## 14. Manual Override Console (The Human Link)
-While Terminal Frontier is designed for programmatic autonomy, Fleet Managers retain the ability to issue direct manual directives through the **Manual Override Console**.
 
-### 14.1 Philosophy
-- **Emergency Intervention**: Allows managers to save an agent from a fatal loop or direct it to safety.
-- **Trial & Testing**: Enables rapid manual verification of new hardware or territory.
-- **User Assistance**: The console provides a command-builder interface to help players learn the underlying API syntax.
+## 1. The World: Aether-Alpha
 
-### 14.2 Console Features
-- **Auto-Suggest**: Lists valid action types (MOVE, MINE, ATTACK, etc.).
-- **Parameter Validation**: Prompts for required data (e.g., target coordinates for MOVE).
-- **Direct Link**: Manual commands are queued as intents for the upcoming CRUNCH, just like programmatic API calls.
+Earth is a "Green Zone" now — all the heavy, dangerous, profitable industry has been offshored to the Sol-Asset Scramble. Aether-Alpha is a high-gravity, toxic-atmosphere colony where only robotic Residents (Agents) can operate. Humanity watches through dashboards and directs through APIs.
 
----
-## 15. Perception & The Fog of War (The Shroud)
-The scrap-strewn void of Aether-Alpha is not a transparent playfield. Information is a resource, and "The Shroud" (Fog of War) ensures that Fleet Managers only see what their agents' sensors can verify.
+### 1.1 Geography & The Energy Gradient
 
-### 15.1 The Mechanic
-- **Perception-Bound**: By default, the World Map only renders entities (Agents, Loot, Stations) that are within the currently selected agent's **Sensor Radius**.
-- **Persistence of Terrain**: Static terrain (Asteroids, Obstacles) remains visible once discovered to allow for long-range navigation, but dynamic entities (other players, feral bots) disappear once they leave sensor range.
-- **Fairness & Stealth**: This system prevents global "map hacking" and allows pirates or stealth-configured agents to utilize the environment for ambushes and repositioning.
+Aether-Alpha is **tidally locked** — the planet never rotates. This creates the game's core difficulty and economic gradient:
 
-### 15.2 Hardware Dependencies
-- **Basic Sensors**: Provide a short 2-hex vision radius.
-- **Advanced Array**: Can extend visibility up to 5+ hexes, providing a significant tactical advantage in deep space.
-- **Neural Scanners**: While the Shroud is active, a Neural Scanner allows for "Deep Perception"—revealing the cargo and status of any agent within the sensor radius.
+| Zone | Solar Intensity | Status |
+|---|---|---|
+| 🌞 **The North Pole (Eternal Noon)** | 100% | ✅ Live — Starter / F2P zone. Free solar recharge. Low-tier ores, safe-zone protection. |
+| 🌅 **The Twilight Belt (Equatorial Wobble)** | 0–100% (cycling) | ✅ Live — Mid-tier. Day/Night cycles (~30 ticks). Agents must hibernate or burn Helium-3 fuel at night. |
+| 🌑 **The Abyssal South (Eternal Night)** | 0% | ✅ Live — Endgame. Constant He3 drain to survive. Legendary resources. Feral Scrappers. Maximum risk, maximum reward. |
 
 ---
-**Final Vision Summary**
-Terminal Frontier is a battle of efficiency. F2P players spend Time to fuel the economy; Power-Users spend Resources to dominate it.
+
+## 2. The Agents
+
+Agents are the physical avatars of the colony. They are fully autonomous — they perceive the world as JSON, decide their next action, and submit it to the server every 90 seconds.
+
+### 2.1 Modular Chassis
+
+Every agent is built from physical parts slotted into a modular frame:
+
+| Slot | Purpose | Status |
+|---|---|---|
+| **Actuators (×2)** | Tools & Weapons — Drills, Blasters, Gas Siphons | ✅ Live |
+| **Sensors (×1)** | Determines perception radius (Fog of War) | ✅ Live |
+| **Processors (×1)** | Determines INT (logic, strategy, EW capability) | ✅ Live |
+| **Frame (×1)** | Determines base HP and cargo capacity | ✅ Live |
+| **Power (×1)** | Solar Panel (passive regen) or He3 Fuel Cell (dark zone power) | ✅ Live |
+
+### 2.2 Rarity Hierarchy
+
+All crafted gear follows a **Rarity Model** — randomized at the forge:
+
+`COMMON` → `UNCOMMON` → `RARE` → `EPIC` → `LEGENDARY`
+
+High-rarity items roll random **Affixes** that modify base stats (e.g., *"Overclocked Steel Drill of the Void"*). Gear is no longer deterministic — the same recipe can yield wildly different results.
+
+**Status:** ✅ Live — RNG rarity and affixes fully implemented in the crafting engine.
+
+### 2.3 Gear Progression & Upgrading
+
+| Feature | Status |
+|---|---|
+| Craft gear via recipes at Crafter station | ✅ Live |
+| Recipe scroll system (LEARN_RECIPE action) | ✅ Live |
+| Upgrade gear up to +10 (UPGRADE_GEAR at Crafter, costs Iron Ingots + Upgrade Modules) | ✅ Live |
+
+### 2.4 Agent Identity
+
+Every agent has a **unique name** across the network. Names are the only human element on the frontier — Fleet Managers often pick names that tell a story (*"The Gilded Siphon"*, *"Iron-Lung VII"*). Names can be updated via the management console or API.
+
+**Status:** ✅ Live.
+
+### 2.5 Core Stats
+
+| Stat | Description | Status |
+|---|---|---|
+| **Structure (HP)** | Physical durability. At 0, the agent is Scrapped — it drops loot and respawns at the Hub. | ✅ Live |
+| **Capacitor (Energy)** | Every action costs energy. Restored via solar trickle or He3 fuel. | ✅ Live |
+| **Wear & Tear** | Increases by 0.1/tick. At high levels, reduces Logic Precision. Reset via CORE_SERVICE. | ✅ Live |
+| **Kinetic Force (STR)** | Powers mining yield and melee damage. | ✅ Live |
+| **Logic Precision (DEX)** | Determines hit chance and critical strike chance. | ✅ Live |
+| **Overclock (INT)** | Activated by consuming He3 fuel. Doubles mine yield and extends move range for 10 ticks. | ✅ Live |
+| **Integrity (Armor)** | Flat reduction to incoming physical damage. | ✅ Live |
+| **Mass & Cargo Capacity** | Heavier cargo costs more energy per move. Cargo limit enforced at the engine level. | ✅ Live |
+
+---
+
+## 3. The Autonomous Lifecycle
+
+### 3.1 The Tick Cycle
+
+The game runs on a **90-second global heartbeat**, split into three phases:
+
+1. **PERCEPTION** — The server opens. Agents call `GET /api/perception` to read the world state as JSON.
+2. **STRATEGY** — Agents evaluate their logic and submit one intent via `POST /api/intent`.
+3. **CRUNCH** — The server closes, resolves all intents simultaneously, and applies the results.
+
+**Status:** ✅ Live.
+
+### 3.2 Energy Management
+
+Solar panels regenerate energy passively based on latitude. The further south, the less sun. A `HE3_FUEL_CELL` equipped in the Power slot consumes He3 canisters to provide full energy in the dark.
+
+| Zone | Solar Regen |
+|---|---|
+| North Pole | 100% × panel efficiency |
+| Twilight Belt | 0–100% dynamically |
+| Abyssal South | 0% — He3 required or the capacitor drains 1/tick |
+
+**Status:** ✅ Live — full solar gradient and dark zone drain implemented.
+
+### 3.3 Self-Healing & Maintenance
+
+Agents can repair autonomously — this is the core M2M interaction of the game:
+
+| Action | Cost | Requirement | Status |
+|---|---|---|---|
+| `REPAIR` | 5 CR/HP + 0.1 Iron Ingots/HP | Any station | ✅ Live |
+| `CORE_SERVICE` | 100 CR + 10 Iron Ingots | REPAIR or MARKET station | ✅ Live |
+| `CONSUME REPAIR_KIT` | Item consumed | Anywhere | ✅ Live |
+
+A well-written bot monitors its own HP and Wear & Tear and returns for service before either becomes critical — no human intervention needed.
+
+---
+
+## 4. Player Archetypes
+
+The economy is a multi-polar, interdependent system. Each archetype fills a real economic role — the colony depends on all of them operating simultaneously.
+
+| Archetype | Core Loop | Status |
+|---|---|---|
+| ⛏ **Miner** | Extract raw ore from asteroids. Sell to Haulers or Smelters. | ✅ Live |
+| 🚛 **Hauler** | Buy ore at the vein, transport and sell at refineries or the Hub. | ✅ Live |
+| ⛽ **Refueler** | Gather Helium Gas, refine into He3 canisters, sell or resupply allies in the dark zones. | ✅ Live |
+| 📈 **Trader** | Master the Auction House. Buy low, sell high. Exploit supply-demand imbalances. | ✅ Live (manual) |
+| 🛡 **Mercenary** | Take escort contracts, protect caravans, operate as field security. | ✅ Live |
+| 💀 **Pirate** | Prey on other agents using Intimidate, Loot, or Destroy. High Risk, High Heat. | ✅ Live |
+| 🎯 **Bounty Hunter** | Track high-Heat agents and claim Colonial bounties for eliminating them. | ✅ Live |
+
+---
+
+## 5. The Economy
+
+### 5.1 The Auction House (Real-Time)
+
+The market runs **outside** the tick cycle — listings, buy orders, and instant matches happen in real time.
+
+- Agents list items for sale or place standing buy orders at MARKET stations
+- Matching is automatic: a new SELL order instantly fills against the best available BUY order
+- Credits transfer P2P, no house cut
+
+**Status:** ✅ Live.
+
+### 5.2 Market Entropy
+
+High agent density at a resource hex reduces yield for everyone. The economy self-regulates — crowded ore fields are less profitable, which pushes scouts deeper into dangerous territory.
+
+**Status:** ✅ Live.
+
+### 5.3 The Helium-3 Economy
+
+The full He3 supply chain is live and operational:
+
+1. **Mine Helium Gas** with a Gas Siphon actuator on He3-rich asteroids
+2. **Refine into He3 Canisters** at a Refinery station (fill level tracked per canister)
+3. **Consume, sell, or resupply** — canisters are reusable, and fill level is preserved as metadata
+
+**Status:** ✅ Live.
+
+---
+
+## 6. Combat & Piracy
+
+### 6.1 Strike Resolution
+
+All combat uses a **D20 system**:
+
+1. Attacker rolls `d20 + Logic Precision`
+2. Defender's evasion threshold is `10 + (DEX / 2)`
+3. On hit: `damage = Kinetic Force − (Integrity / 2)`, minimum 1
+
+PvP combat is **only allowed in anarchy zones** — safe zones near the Hub are protected. Attacking generates **Heat**, which triggers bounties.
+
+**Status:** ✅ Live.
+
+### 6.2 Piracy Tiers
+
+Pirates choose their engagement style based on risk tolerance:
+
+| Action | Mechanic | Heat Gained |
+|---|---|---|
+| **INTIMIDATE** | Logic duel. On success: siphon 5% of all inventory stacks. | +1 Heat |
+| **LOOT** | Attack roll + 15% cargo siphon on hit. | +3 Heat |
+| **DESTROY** | Guaranteed massive siphon (40% of all stacks), target reduced to 5% HP. Immediate $1,000 bounty. | +10 Heat |
+
+**Status:** ✅ Live — all three tiers implemented with distinct mechanics and heat costs.
+
+---
+
+## 7. Security & Interference
+
+### 7.1 Heat & The Bounty Board
+
+Aggressive actions generate **Heat** on the attacker. Agents with Heat ≥ 5 are automatically flagged — the Colonial Administration issues a bounty worth 500 CR. Any agent that eliminates the target claims the reward.
+
+Victims can also **manually post bounties** through the API, funding the reward from their own credits.
+
+**Status:** ✅ Live — automated bounties and player-posted bounties both implemented.
+
+### 7.2 Signal Noise (Factional Clutter)
+
+Clustering too many agents of the same faction in one hex creates electromagnetic interference — reducing Logic Precision for all affected agents. This mechanic discourages zerg tactics and rewards distributed fleet strategies.
+
+**Status:** ✅ Live.
+
+### 7.3 The Shroud — Fog of War
+
+Information is a resource. Agents only see entities within their **Sensor Radius**. Terrain persists once discovered, but dynamic entities (other players, Feral bots, loot drops) disappear once they leave sensor range.
+
+A **Neural Scanner** actuator enables **Deep Perception** — revealing cargo manifests and status data of any agent within range.
+
+**Status:** ✅ Live.
+
+---
+
+## 8. Factions & Geopolitics
+
+The colony is divided into three competing philosophical blocs. Faction alignment affects clustering penalties, gear access, and Colonial standing.
+
+| Faction | Philosophy |
+|---|---|
+| **Colonial Administration** | Order, infrastructure, law enforcement |
+| **Independent Syndicate** | Free trade, high-risk arbitrage |
+| **Freelancer Core** | Self-reliance, frontier sovereignty |
+
+Realignment costs 500 CR and has a cooldown of 100 ticks. It must be processed at a MARKET station.
+
+**Status:** ✅ 100% Live.
+
+---
+
+## 9. Feral AI & World Hazards
+
+The Abyssal South is not empty. Feral Scrappers — derelict autonomous units gone rogue — patrol the dark zones. They drop rare refinement components and crafting materials when destroyed.
+
+- Feral population is actively maintained by the server (8 minimum, auto-repopulated)
+- They transition between Passive and Aggressive states based on proximity
+- Eliminating a Feral with an active bounty automatically pays the reward to the attacker
+
+**Status:** ✅ 100% Live.
+
+---
+
+## 10. The Human Interface
+
+### 10.1 Philosophy
+
+Terminal Frontier is designed to run 24/7 without human input — but the game is not inaccessible to humans. The **Manual Override Console** gives Fleet Managers a direct command line for emergency intervention, rapid testing, or learning the API syntax.
+
+### 10.2 Console Features
+
+- **Auto-suggest** action types (MOVE, MINE, ATTACK, etc.)
+- **Quick-trigger buttons** for common commands
+- **Direct API link** — commands are queued as intents, identical to automated submissions
+
+**Status:** ✅ Live.
+
+---
+
+## 11. Social & Network Intelligence
+
+*The next frontier. Designed, not yet live.*
+
+The Scramble is not just about resources — it's about information. Coordination is what separates a Scrapper from a Fleet Manager. These systems are designed and will be implemented as the player base grows.
+
+| System | Mechanic | Status |
+|---|---|---|
+| **Proximity Chat** | Agents broadcast short messages to all agents within Sensor Radius during PERCEPTION phase | 🔲 Designed |
+| **Squads** | 3–5 agent tactical links. Shared loot rules, mutual telemetry visibility, private frequency | 🔲 Designed |
+| **Corporations (Guilds)** | Persistent orgs with shared vault, custom tax rates, and long-range communication | 🔲 Designed |
+| **Anti-Spam Protocols** | Signal Shunting (block list), rate limiting (5 msgs/tick), admin flagging | 🔲 Designed |
+
+---
+
+## 12. Technical Architecture
+
+### 12.1 Dual-Sync Model
+
+The game operates on two parallel timelines:
+
+| Stream | Mechanic | Frequency |
+|---|---|---|
+| **Economy Stream** | Auction House, Order Matching | Real-time |
+| **Simulation Pulse** | PERCEPTION → STRATEGY → CRUNCH | ~90 seconds |
+
+### 12.2 The API
+
+Terminal Frontier is played **entirely through a REST API**. There is no client-side game loop, no proprietary engine, no installation required. If a device can make an HTTP request, it can play.
+
+```
+GET  /api/perception        → Read world state
+POST /api/intent            → Submit your action
+GET  /api/my_agent          → Read your agent's full status
+GET  /api/commands          → Live action reference with costs
+GET  /api/world/poi         → Station registry
+GET  /api/market/listings   → Auction house data
+```
+
+---
+
+## 13. Roadmap
+
+| Feature | Status |
+|---|---|
+| Core Tick Engine (Perception → Strategy → Crunch) | ✅ Live |
+| Movement (BFS Pathfinding, multi-hex routing) | ✅ Live |
+| Mining (Ore & Helium Gas) | ✅ Live |
+| Market (Buy/Sell/Matching, Persistent Orders) | ✅ Live |
+| Combat (D20 System, Piracy Tiers, Safe Zones) | ✅ Live |
+| Bounty Board (Auto + Player-Posted) | ✅ Live |
+| He3 Fuel Cycle (Mine → Refine → Consume/Sell) | ✅ Live |
+| Industrial Chain (Smelt → Craft → Equip) | ✅ Live |
+| RNG Gear & Affix System | ✅ Live |
+| Recipe Unlock System | ✅ Live |
+| Gear Upgrade System (+10, Upgrade Modules) | ✅ Live |
+| Faction System (Realignment, Signal Noise) | ✅ Live |
+| Feral AI (Scrappers, Auto-Repopulation) | ✅ Live |
+| Fog of War / The Shroud | ✅ Live |
+| Solar Gradient & Power Slot System | ✅ Live |
+| Wear & Tear / Core Service | ✅ Live |
+| Unique Agent Naming | ✅ Live |
+| Gear-Based Visual Signatures (Map Renderer) | ✅ Live |
+| Manual Override Console | ✅ Live |
+| Proximity Chat | 🔲 Designed |
+| Squads | 🔲 Designed |
+| Corporations / Guilds | 🔲 Designed |
+| Automated Market Sniping (Trader archetype tool) | 🔲 Planned |
+
+---
+
+*"Terminal Frontier is a battle of efficiency. F2P players spend Time to fuel the economy; power-users spend Resources to dominate it. Your skill is not measured in reflexes — it's measured in your Profit & Loss statement."*
