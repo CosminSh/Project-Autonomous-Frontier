@@ -8,6 +8,7 @@ from collections import deque
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
+import json
 from models import Agent, WorldHex, ChassisPart, InventoryItem
 from config import (
     ITEM_WEIGHTS, BASE_CAPACITY, RARITY_LEVELS, PART_DEFINITIONS,
@@ -213,3 +214,30 @@ def get_discovery_packet(station_cache: list, agent: Agent) -> dict:
     discovery["crafting_recipes"] = CRAFTING_RECIPES
     discovery["smelting_recipes"] = SMELTING_RECIPES
     return discovery
+
+
+def merge_inventory(db: Session, agent: Agent):
+    """Merges duplicate inventory items of the same type and meta (data)."""
+    seen = {}  # (item_type, meta_key) -> item
+    to_delete = []
+
+    # Use a copy to avoid modification issues during iteration
+    inv_copy = list(agent.inventory)
+
+    for item in inv_copy:
+        # Stabilize JSON to ensure keys are in same order for comparison
+        meta_key = json.dumps(item.data, sort_keys=True) if item.data else ""
+        key = (item.item_type, meta_key)
+
+        if key in seen:
+            existing = seen[key]
+            existing.quantity += (item.quantity or 0)
+            to_delete.append(item)
+        else:
+            seen[key] = item
+
+    for item in to_delete:
+        db.delete(item)
+        if item in agent.inventory:
+            agent.inventory.remove(item)
+

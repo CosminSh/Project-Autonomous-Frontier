@@ -26,7 +26,7 @@ from config import (
 )
 from game_helpers import (
     get_hex_distance, get_solar_intensity, is_in_anarchy_zone,
-    get_agent_mass, recalculate_agent_stats, find_hex_path
+    get_agent_mass, recalculate_agent_stats, find_hex_path, merge_inventory
 )
 from bot_logic import process_bot_brain, process_feral_brain
 
@@ -130,6 +130,7 @@ async def heartbeat_loop():
                     # 0. GLOBAL STAT UPDATES (Milestone 3)
                     all_agents = db.execute(select(Agent)).scalars().all()
                     for agent in all_agents:
+                        merge_inventory(db, agent)
                         # 1. Environmental Energy & Power Slots
                         intensity = get_solar_intensity(agent.q, agent.r, tick_count)
                         
@@ -396,7 +397,10 @@ async def heartbeat_loop():
 
                                     inv_item = next((i for i in agent.inventory if i.item_type == res_name), None)
                                     if inv_item: inv_item.quantity += yield_amount
-                                    else: db.add(InventoryItem(agent_id=agent.id, item_type=res_name, quantity=yield_amount))
+                                    else:
+                                        new_item = InventoryItem(agent_id=agent.id, item_type=res_name, quantity=yield_amount)
+                                        db.add(new_item)
+                                        agent.inventory.append(new_item)
 
                                     # Durability Decay
                                     decay = random.uniform(1.0, 3.0)
@@ -549,7 +553,9 @@ async def heartbeat_loop():
                                             if attacker_item:
                                                 attacker_item.quantity += amount
                                             else:
-                                                db.add(InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=amount))
+                                                new_item = InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=amount)
+                                                db.add(new_item)
+                                                agent.inventory.append(new_item)
                                             siphoned_items.append({"type": item.item_type, "qty": amount})
                                     
                                     logger.info(f"Agent {agent.id} INTIMIDATED Agent {target_id}. Success! Siphoned: {siphoned_items}")
@@ -591,7 +597,9 @@ async def heartbeat_loop():
                                         if attacker_item:
                                             attacker_item.quantity += amount
                                         else:
-                                            db.add(InventoryItem(agent_id=agent.id, item_type=lucky_item.item_type, quantity=amount))
+                                            new_item = InventoryItem(agent_id=agent.id, item_type=lucky_item.item_type, quantity=amount)
+                                            db.add(new_item)
+                                            agent.inventory.append(new_item)
                                         siphoned_info = {"type": lucky_item.item_type, "qty": amount}
     
                                     logger.info(f"Agent {agent.id} LOOTED Agent {target_id}. Damage: {damage}. Siphoned: {siphoned_info}")
@@ -620,7 +628,9 @@ async def heartbeat_loop():
                                         if attacker_item:
                                             attacker_item.quantity += amount
                                         else:
-                                            db.add(InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=amount))
+                                            new_item = InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=amount)
+                                            db.add(new_item)
+                                            agent.inventory.append(new_item)
                                         siphoned_items.append({"type": item.item_type, "qty": amount})
                                 
                                 # Immediate Bounty
@@ -887,7 +897,9 @@ async def heartbeat_loop():
                                         if inv_ingot:
                                             inv_ingot.quantity += amount_produced
                                         else:
-                                            db.add(InventoryItem(agent_id=agent.id, item_type=ingot_type, quantity=amount_produced))
+                                            new_item = InventoryItem(agent_id=agent.id, item_type=ingot_type, quantity=amount_produced)
+                                            db.add(new_item)
+                                            agent.inventory.append(new_item)
                                         
                                         logger.info(f"Agent {agent.id} smelted {amount_produced * SMELTING_RATIO} {ore_type} into {amount_produced} {ingot_type}")
                                         db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_SMELT", details={"ore": ore_type, "amount": amount_produced}))
@@ -1001,7 +1013,9 @@ async def heartbeat_loop():
                                         "stats": PART_DEFINITIONS.get(result_item, {}).get("stats", {})
                                     }
                                     
-                                    db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=1, data=item_data))
+                                    new_part = InventoryItem(agent_id=agent.id, item_type=item_type, quantity=1, data=item_data)
+                                    db.add(new_part)
+                                    agent.inventory.append(new_part)
                                     
                                     display_name = f"{rarity} {PART_DEFINITIONS.get(result_item, {}).get('name', result_item)}"
                                     logger.info(f"Agent {agent.id} crafted {display_name}")

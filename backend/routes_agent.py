@@ -18,7 +18,7 @@ from database import get_db, SessionLocal, STATION_CACHE
 from config import ITEM_WEIGHTS, BASE_CAPACITY, BASE_REGEN, CORE_SERVICE_COST_CREDITS, CORE_SERVICE_COST_IRON_INGOT
 from game_helpers import (
     get_hex_distance, get_solar_intensity, get_agent_visual_signature,
-    get_discovery_packet, ensure_agent_has_starter_gear
+    get_discovery_packet, ensure_agent_has_starter_gear, merge_inventory
 )
 
 logger = logging.getLogger("heartbeat")
@@ -53,6 +53,7 @@ def get_next_tick_index(db: Session) -> int:
 @router.get("/api/perception")
 async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     ensure_agent_has_starter_gear(db, current_agent)
+    merge_inventory(db, current_agent)
     db.refresh(current_agent)
 
     inv_list = [{"type": i.item_type, "quantity": i.quantity} for i in current_agent.inventory]
@@ -226,6 +227,7 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
 @router.get("/api/my_agent")
 async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     ensure_agent_has_starter_gear(db, current_agent)
+    merge_inventory(db, current_agent)
     db.refresh(current_agent)
     next_tick = get_next_tick_index(db)
     pending_intent = db.execute(select(Intent).where(Intent.agent_id == current_agent.id, Intent.tick_index == next_tick)).scalars().first()
