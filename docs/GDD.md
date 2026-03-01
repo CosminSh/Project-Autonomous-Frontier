@@ -123,7 +123,12 @@ To provide a consistent source of credit generation separate from the pure playe
     *   **BUY_MARKET**: Purchase items from the Auction House. Automatically tracks purchases.
     *   **TURN_IN (Ores/Ingots/Salvage)**: Requires the agent to submit specific gathered items (e.g. Iron Ore, Cobalt Ingots, Scrap Metal) via a dedicated endpoint (`POST /api/missions/turn_in`).
 
+To ensure missions are accessible to all players regardless of gear, the server simultaneously generates **Tier 1** (Iron, Copper, Scrap) and **Tier 2** (Gold, Cobalt, Electronics) variants of Turn-In missions.
+
 **Status:** ✅ Live.
+
+#### Future: Agent Level Scaling
+Once the planned **Agent Experience / Leveling System** is introduced, the global generation of missions will evolve into a per-agent generation mechanic. Missions will be dynamically assigned based on the agent's current level, hull tier, and equipped parts, providing a smooth, individualized difficulty curve.
 
 ---
 

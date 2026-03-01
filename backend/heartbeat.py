@@ -148,15 +148,23 @@ async def heartbeat_loop():
                         # 2. Buy Market
                         db.add(DailyMission(mission_type="BUY_MARKET", target_amount=random.randint(1, 3), reward_credits=random.randint(100, 250), expires_at=expires))
                         
-                        # 3. Turn in Ore
-                        ore_type = random.choice(["IRON_ORE", "COPPER_ORE", "GOLD_ORE", "COBALT_ORE"])
-                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(20, 50), item_type=ore_type, reward_credits=random.randint(200, 500), expires_at=expires))
+                        # 3. Turn in Ore (Tier 1: Newbie)
+                        t1_ore = random.choice(["IRON_ORE", "COPPER_ORE"])
+                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(20, 40), item_type=t1_ore, reward_credits=random.randint(150, 300), expires_at=expires))
                         
-                        # 4. Turn in Ingot
-                        ingot_type = random.choice(["IRON_INGOT", "COPPER_INGOT", "GOLD_INGOT", "COBALT_INGOT"])
-                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(5, 10), item_type=ingot_type, reward_credits=random.randint(300, 700), expires_at=expires))
+                        # 4. Turn in Ore (Tier 2: Veteran)
+                        t2_ore = random.choice(["GOLD_ORE", "COBALT_ORE"])
+                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(10, 25), item_type=t2_ore, reward_credits=random.randint(400, 700), expires_at=expires))
                         
-                        # 5. Turn in Salvage (Scrap/Electronics)
+                        # 5. Turn in Ingot (Tier 1)
+                        t1_ingot = random.choice(["IRON_INGOT", "COPPER_INGOT"])
+                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(5, 10), item_type=t1_ingot, reward_credits=random.randint(250, 450), expires_at=expires))
+                        
+                        # 6. Turn in Ingot (Tier 2)
+                        t2_ingot = random.choice(["GOLD_INGOT", "COBALT_INGOT"])
+                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(3, 8), item_type=t2_ingot, reward_credits=random.randint(600, 1000), expires_at=expires))
+                        
+                        # 7. Turn in Salvage (Scrap/Electronics)
                         salvage_type = random.choice(["SCRAP_METAL", "ELECTRONICS"])
                         db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(5, 15), item_type=salvage_type, reward_credits=random.randint(400, 800), expires_at=expires))
                         
