@@ -528,8 +528,17 @@
                                 </div>
                                 <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
                                     <h4 class="text-[10px] text-amber-500 uppercase mb-4 tracking-widest font-bold">
-                                        Inventory Manifest</h4>
+                                        Resource Storage</h4>
                                     <div id="detailed-inventory" class="grid grid-cols-1 gap-2">
+                                        <div class="text-[10px] text-slate-600 italic">Cargo bay scan in progress...
+                                        </div>
+                                    </div>
+                                </div>
+                                <div
+                                    class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-indigo-500 md:col-span-2">
+                                    <h4 class="text-[10px] text-indigo-400 uppercase mb-4 tracking-widest font-bold">
+                                        Usable Equipment</h4>
+                                    <div id="equipment-inventory" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div class="text-[10px] text-slate-600 italic">Cargo bay scan in progress...
                                         </div>
                                     </div>
@@ -717,13 +726,8 @@
                                     Fabrication Unit</h4>
                                 <p class="text-[10px] text-slate-500 mb-4 font-mono">Convert ingots into advanced agent
                                     components. Requires proximity to a CRAFTER station.</p>
-                                <div class="flex items-center space-x-4">
-                                    <select id="craft-item-type"
-                                        class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-sky-500 outline-none">
-                                        <option value="">Syncing Forge Database...</option>
-                                    </select>
-                                    <button id="btn-craft"
-                                        class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">FABRICATE</button>
+                                <div id="forge-recipe-grid" class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                    <div class="text-[10px] text-slate-600 italic">Syncing Forge Database...</div>
                                 </div>
                             </div>
 

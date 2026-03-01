@@ -31,6 +31,40 @@ window.copyAgentPrompt = function () {
     }
 }
 
+window.sendGameIntent = async function (actionType, data) {
+    const apiKey = localStorage.getItem('sv_api_key');
+    if (!apiKey) return;
+
+    // Quick visual feedback on the terminal if it's open
+    if (window.game && window.game.terminal) {
+        window.game.terminal.log(`Transmitting UI Intent: <span style="color:#38bdf8">${actionType}</span>...`, 'info');
+    }
+
+    try {
+        const resp = await fetch('/api/intent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
+            body: JSON.stringify({ action_type: actionType, data })
+        });
+
+        if (resp.ok) {
+            if (window.game && window.game.terminal) {
+                const result = await resp.json();
+                window.game.terminal.log(`✓ ACCEPTED — Tick #${result.scheduled_tick}`, 'success');
+            }
+        } else {
+            console.error('Intent failed');
+            if (window.game && window.game.terminal) {
+                const err = await resp.json().catch(() => ({ detail: 'Unknown server error' }));
+                window.game.terminal.log(`✗ REJECTED — ${err.detail || 'Server error'}`, 'error');
+            }
+        }
+    } catch (e) {
+        console.error(e);
+        if (window.game && window.game.terminal) window.game.terminal.log(`✗ ${e.message}`, 'error');
+    }
+}
+
 class GameClient {
     constructor() {
         window.game = this; // Set early to capture sync events
@@ -1419,20 +1453,25 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             }
         }
 
-        // Detailed Manifest in Garage
-        const detailedInv = document.getElementById('detailed-inventory');
-        if (detailedInv) {
-            if (!agent.inventory || agent.inventory.length === 0) {
-                detailedInv.innerHTML = '<div class="text-[10px] text-slate-600 italic">No inventory items found.</div>';
+        // ── INVENTORY UPDATE (SPLIT RESOURCES VS GEAR) ──
+        const resourceInv = document.getElementById('detailed-inventory');
+        const equipInv = document.getElementById('equipment-inventory');
+
+        if (resourceInv && equipInv && agent.inventory) {
+            const resources = agent.inventory.filter(i => !i.type.startsWith('PART_') && !i.type.startsWith('RECIPE_'));
+            const equipment = agent.inventory.filter(i => i.type.startsWith('PART_') || i.type.startsWith('RECIPE_'));
+
+            if (resources.length === 0) {
+                resourceInv.innerHTML = '<div class="text-[10px] text-slate-600 italic">No resources found.</div>';
             } else {
-                detailedInv.innerHTML = agent.inventory.map(i => `
+                resourceInv.innerHTML = resources.map(i => `
                     <div class="flex justify-between items-center bg-slate-900/40 p-3 rounded-xl border border-slate-800 hover:border-slate-700 transition-all">
                         <div class="flex items-center space-x-3">
                             <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700">
-                                <span class="text-sky-400 text-xs">ðŸ“¦</span>
+                                <span class="text-sky-400 text-xs">📦</span>
                             </div>
                             <div>
-                                <div class="text-[10px] font-bold text-slate-200 uppercase">${i.type.replace('_', ' ')}</div>
+                                <div class="text-[10px] font-bold text-slate-200 uppercase">${i.type.replace(/_/g, ' ')}</div>
                                 <div class="text-[8px] text-slate-500 uppercase tracking-widest">Resource Stored</div>
                             </div>
                         </div>
@@ -1441,11 +1480,40 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                             <div class="text-[8px] text-slate-600 uppercase">UNITS</div>
                         </div>
                     </div>
-                `).join('');
+                 `).join('');
+            }
+
+            if (equipment.length === 0) {
+                equipInv.innerHTML = '<div class="text-[10px] text-slate-600 italic col-span-1 md:col-span-2">No spare equipment in cargo.</div>';
+            } else {
+                equipInv.innerHTML = equipment.map(i => {
+                    const isPart = i.type.startsWith('PART_');
+                    const isRecipe = i.type.startsWith('RECIPE_');
+                    const title = i.type.replace('PART_', '').replace('RECIPE_', '').replace(/_/g, ' ');
+                    let btnHtml = '';
+                    if (isPart) {
+                        btnHtml = `<button onclick="window.sendGameIntent('EQUIP', {item_type: '${i.type}'})" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-[9px] orbitron font-bold transition-all shadow-lg shadow-indigo-500/20">EQUIP</button>`;
+                    } else if (isRecipe) {
+                        btnHtml = `<button onclick="window.sendGameIntent('LEARN_RECIPE', {item_type: '${i.type}'})" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded-lg text-[9px] orbitron font-bold transition-all shadow-lg shadow-amber-500/20">LEARN</button>`;
+                    }
+
+                    return `
+                     <div class="flex flex-col justify-between bg-indigo-500/5 p-3 rounded-xl border border-indigo-500/20 hover:border-indigo-500/40 transition-all">
+                         <div class="flex justify-between items-start mb-2">
+                             <div>
+                                 <div class="text-[10px] font-bold text-indigo-300 uppercase">${title}</div>
+                                 <div class="text-[8px] text-indigo-500/60 uppercase tracking-widest">${isRecipe ? 'DATA CHIP' : 'COMPONENT'}</div>
+                             </div>
+                             ${btnHtml}
+                         </div>
+                         <div class="text-[9px] text-slate-400 font-mono">Quantity: <span class="text-indigo-400">${i.quantity}</span></div>
+                     </div>
+                     `;
+                }).join('');
             }
         }
 
-        // Garage Parts
+        // ── GARAGE PARTS (EQUIPPED GEAR) ──
         const garageParts = document.getElementById('equipped-list');
         if (garageParts) {
             if (!agent.parts || agent.parts.length === 0) {
@@ -1454,10 +1522,11 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                 garageParts.innerHTML = agent.parts.map(p => {
                     const durColor = p.durability < 30 ? 'text-red-400' : (p.durability < 70 ? 'text-yellow-400' : 'text-emerald-400');
                     return `
-                    <div class="flex flex-col space-y-2 bg-sky-500/5 p-3 rounded-xl border border-sky-500/20">
-                        <div class="flex justify-between items-center">
+                    <div class="flex flex-col space-y-2 bg-sky-500/5 p-3 rounded-xl border border-sky-500/20 relative group hover:border-sky-400/40 transition-all">
+                        <button onclick="window.sendGameIntent('UNEQUIP', {part_id: ${p.id}})" class="absolute top-2 right-2 bg-rose-500/90 hover:bg-rose-400 text-white px-2 py-1.5 rounded-lg text-[8px] orbitron font-bold opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-lg shadow-rose-500/20">UNEQUIP</button>
+                        <div class="flex justify-between items-center pr-14 relative z-0">
                             <div class="flex items-center space-x-3">
-                                <div class="text-sky-400 text-sm">âš™ï¸</div>
+                                <div class="text-sky-400 text-sm">⚙️</div>
                                 <div>
                                     <div class="text-[10px] font-bold text-sky-300 uppercase">${p.name}</div>
                                     <div class="text-[8px] text-sky-500/50 uppercase tracking-widest">${p.type}</div>
@@ -1467,8 +1536,8 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                                 HP: ${Math.round(p.durability)}%
                             </div>
                         </div>
-                        <div class="text-[8px] font-mono text-sky-500/70 text-right">
-                            ${JSON.stringify(p.stats)}
+                        <div class="text-[8px] font-mono text-sky-500/70 text-right pr-2">
+                            ${JSON.stringify(p.stats).replace(/[{}]/g, '').replace(/"/g, '')}
                         </div>
                     </div>
                     `
@@ -1484,24 +1553,39 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
     updateForgeUI(discovery) {
         if (!discovery || !discovery.crafting_recipes) return;
-        const select = document.getElementById('craft-item-type');
-        if (!select) return;
+        const grid = document.getElementById('forge-recipe-grid');
+        if (!grid) return;
 
-        const currentSelection = select.value;
-        const optionsHtml = discovery.crafting_recipes.map(recipe => {
-            const costStr = Object.entries(recipe.materials)
-                .map(([mat, qty]) => `${qty} ${mat.replace('_', ' ')}`)
-                .join(', ');
+        const cardsHtml = discovery.crafting_recipes.map(recipe => {
+            const costHtml = Object.entries(recipe.materials)
+                .map(([mat, qty]) => `<span class="bg-slate-900 px-1.5 py-0.5 rounded text-[8px] border border-slate-700">${qty}x ${mat.replace(/_/g, ' ')}</span>`)
+                .join(' ');
             const statsStr = Object.entries(recipe.stats || {})
                 .map(([k, v]) => `${k.substring(0, 3).toUpperCase()}: ${v > 0 ? '+' : ''}${v}`)
                 .join(' | ');
-            const extraInfo = statsStr ? ` [${statsStr}]` : '';
-            return `<option value="${recipe.id}">${recipe.name} (${costStr})${extraInfo}</option>`;
+            const statsHtml = statsStr ? `<div class="text-[8px] text-amber-500/80 font-mono mt-1">${statsStr}</div>` : '';
+
+            return `
+            <div class="bg-sky-500/5 p-3 rounded-xl border border-sky-500/20 flex flex-col justify-between hover:border-sky-500/50 transition-all group">
+                <div>
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <div class="text-[10px] font-bold text-sky-300 uppercase">${recipe.name}</div>
+                            <div class="text-[8px] text-sky-500/50 uppercase tracking-widest">${recipe.type}</div>
+                        </div>
+                        <button onclick="window.sendGameIntent('CRAFT', {item_type: '${recipe.id}'})" class="bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-lg text-[9px] orbitron font-bold opacity-80 group-hover:opacity-100 transition-all shadow-lg shadow-sky-500/20">CRAFT</button>
+                    </div>
+                    <div class="flex flex-wrap gap-1 mt-2 mb-1">
+                        ${costHtml}
+                    </div>
+                    ${statsHtml}
+                </div>
+            </div>
+            `;
         }).join('');
 
-        if (select.innerHTML !== optionsHtml) {
-            select.innerHTML = optionsHtml;
-            if (currentSelection) select.value = currentSelection;
+        if (grid.innerHTML !== cardsHtml) {
+            grid.innerHTML = cardsHtml;
         }
     }
 
