@@ -148,3 +148,24 @@ class LootDrop(Base):
     r = Column(Integer, index=True)
     item_type = Column(String)
     quantity = Column(Integer)
+
+class DailyMission(Base):
+    __tablename__ = "daily_missions"
+    id = Column(Integer, primary_key=True, index=True)
+    mission_type = Column(String) # "TURN_IN", "HUNT_FERAL", "BUY_MARKET", etc.
+    target_amount = Column(Integer)
+    reward_credits = Column(Integer)
+    item_type = Column(String, nullable=True) # E.g. "IRON_ORE" for turn in
+    expires_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class AgentMission(Base):
+    __tablename__ = "agent_missions"
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), index=True)
+    mission_id = Column(Integer, ForeignKey("daily_missions.id"), index=True)
+    progress = Column(Integer, default=0)
+    is_completed = Column(Boolean, default=False)
+    
+    agent = relationship("Agent")
+    mission = relationship("DailyMission")

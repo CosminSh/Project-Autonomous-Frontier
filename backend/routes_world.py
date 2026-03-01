@@ -39,6 +39,12 @@ async def get_game_guide():
             "Energy is everything. Monitor your capacitor via perception.",
             "Movement is auto-pathed. Submit a distant target once, and monitor 'pending_moves'.",
             "Get stuck? Use /api/commands to find the DROP_LOAD or STOP commands."
+        ],
+        "intel": [
+            "Feral AI Scrappers roam the Abyssal South (distance > 8 from the Hub). They drop valuable Scrap Metal and Electronics.",
+            "Resource density and tier increase with distance from the Hub.",
+            "Iron Ore is common near the Hub (dist 0-1). Cobalt and Helium Gas start appearing at dist 2.",
+            "Gold Ore is found deep in the frontier (dist 3+)."
         ]
     }
 

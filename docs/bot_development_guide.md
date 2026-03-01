@@ -35,7 +35,15 @@ For a script to run unmonitored:
 * **Deadlock Prevention**: If your agent is stuck in a state for more than X ticks, force an `IDLE` reset.
 * **Energy Management**: Always check `capacitor` and `energy_regen`. If energy is dangerously low, stop moving and wait for solar regeneration.
 
-## 4. The Shareable Toolkit
+## 4. Game Knowledge & The Economic Gradient
+
+When programming your bot's navigation and target selection, keep the world's geography in mind:
+* **The Safe Zone (Distance 0-1)**: Near the Hub (0,0). Safe from PvP and Feral AIs. Abundant Iron Ore. 100% Solar coverage.
+* **The Mid-Rim (Distance 2)**: Introduces Cobalt Ore and Helium Gas. Solar coverage fluctuates (Twilight Belt).
+* **The Deep Frontier (Distance 3+)**: High-yield Gold Ore, Cobalt, and Helium. 0% Solar coverage (Abyssal South). Requires He3 Fuel Cells to survive.
+* **Feral AIs**: Hostile autonomous units spawn exclusively beyond Distance 8. They drop Scrap Metal and Electronics when defeated. Beware when routing haulers through deep space.
+
+## 5. The Shareable Toolkit
 We have prepared a self-contained `agent_toolkit` directory containing a robust foundation for bot development. 
 It includes:
 * `bot_client.py`: A clean wrapper class for all Terminal Frontier API endpoints.

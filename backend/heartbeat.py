@@ -11,7 +11,9 @@ from sqlalchemy import select, func, text
 from sqlalchemy.orm import Session
 
 from models import (Agent, Intent, AuditLog, WorldHex, ChassisPart,
-                    InventoryItem, AuctionOrder, GlobalState, Bounty, LootDrop)
+                    InventoryItem, AuctionOrder, GlobalState, Bounty, LootDrop,
+                    DailyMission, AgentMission)
+from datetime import datetime, timezone, timedelta
 from database import SessionLocal, STATION_CACHE
 from config import (
     MOVE_ENERGY_COST, MINE_ENERGY_COST, ATTACK_ENERGY_COST, BASE_REGEN,
@@ -99,12 +101,17 @@ async def heartbeat_loop():
                     for i in range(8 - feral_count):
                         fq = random.choice([q for q in range(-15, 15) if abs(q) > 8])
                         fr = random.choice([r for r in range(-15, 15) if abs(r) > 8])
-                        db.add(Agent(
+                        feral = Agent(
                             name=f"Feral-Scrapper-New-{random.randint(100,999)}", 
                             q=fq, r=fr, is_bot=True, is_feral=True,
                             is_aggressive=random.choice([True, False]),
                             kinetic_force=15, logic_precision=8, structure=120, max_structure=120
-                        ))
+                        )
+                        db.add(feral)
+                        db.flush()
+                        db.add(InventoryItem(agent_id=feral.id, item_type="SCRAP_METAL", quantity=random.randint(5, 10)))
+                        if random.random() < 0.4:
+                            db.add(InventoryItem(agent_id=feral.id, item_type="ELECTRONICS", quantity=random.randint(1, 3)))
                 db.commit()
 
                 # --- AUTOMATED BOUNTY ISSUANCE ---
@@ -127,6 +134,34 @@ async def heartbeat_loop():
                 await manager.broadcast({"type": "PHASE_CHANGE", "tick": tick_count, "phase": "CRUNCH"})
                 
                 try:
+                    # Daily Mission Generation (Every 8 Hours / 1440 ticks at 20s/tick)
+                    # For testing we can check if there are any active missions.
+                    active_missions = db.execute(select(DailyMission).where(DailyMission.expires_at > func.now())).scalars().all()
+                    if not active_missions:
+                        # Generate new missions
+                        logger.info("Generating new Daily Missions...")
+                        expires = datetime.now(timezone.utc) + timedelta(hours=8)
+                        
+                        # 1. Hunt Feral
+                        db.add(DailyMission(mission_type="HUNT_FERAL", target_amount=random.randint(3, 8), reward_credits=random.randint(300, 600), expires_at=expires))
+                        
+                        # 2. Buy Market
+                        db.add(DailyMission(mission_type="BUY_MARKET", target_amount=random.randint(1, 3), reward_credits=random.randint(100, 250), expires_at=expires))
+                        
+                        # 3. Turn in Ore
+                        ore_type = random.choice(["IRON_ORE", "COPPER_ORE", "GOLD_ORE", "COBALT_ORE"])
+                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(20, 50), item_type=ore_type, reward_credits=random.randint(200, 500), expires_at=expires))
+                        
+                        # 4. Turn in Ingot
+                        ingot_type = random.choice(["IRON_INGOT", "COPPER_INGOT", "GOLD_INGOT", "COBALT_INGOT"])
+                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(5, 10), item_type=ingot_type, reward_credits=random.randint(300, 700), expires_at=expires))
+                        
+                        # 5. Turn in Salvage (Scrap/Electronics)
+                        salvage_type = random.choice(["SCRAP_METAL", "ELECTRONICS"])
+                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(5, 15), item_type=salvage_type, reward_credits=random.randint(400, 800), expires_at=expires))
+                        
+                        db.commit()
+
                     # 0. GLOBAL STAT UPDATES (Milestone 3)
                     all_agents = db.execute(select(Agent)).scalars().all()
                     for agent in all_agents:
@@ -518,6 +553,23 @@ async def heartbeat_loop():
 
                                     # Feral Loot Drop
                                     if target.is_feral:
+                                        # Mission Progress: HUNT_FERAL
+                                        active_missions = db.execute(select(DailyMission).where(DailyMission.mission_type == "HUNT_FERAL", DailyMission.expires_at > func.now())).scalars().all()
+                                        for m in active_missions:
+                                            am = db.execute(select(AgentMission).where(AgentMission.agent_id == agent.id, AgentMission.mission_id == m.id)).scalar_one_or_none()
+                                            if not am:
+                                                am = AgentMission(agent_id=agent.id, mission_id=m.id, progress=0)
+                                                db.add(am)
+                                            if not am.is_completed:
+                                                am.progress += 1
+                                                if am.progress >= m.target_amount:
+                                                    am.is_completed = True
+                                                    credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+                                                    if credits: credits.quantity += m.reward_credits
+                                                    else: db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=m.reward_credits))
+                                                    logger.info(f"Agent {agent.id} completed mission HUNT_FERAL! Reward: {m.reward_credits} CR")
+                                                    db.add(AuditLog(agent_id=agent.id, event_type="MISSION_COMPLETED", details={"mission_id": m.id, "type": "HUNT_FERAL", "reward": m.reward_credits}))
+
                                         for item in target.inventory:
                                             if item.quantity > 0:
                                                 drop_qty = int(item.quantity * 0.7)
@@ -746,6 +798,22 @@ async def heartbeat_loop():
                                                 b_inv = next((i for i in buyer.inventory if i.item_type == item_type), None)
                                                 if b_inv: b_inv.quantity += trade_qty
                                                 else: db.add(InventoryItem(agent_id=buyer_id, item_type=item_type, quantity=trade_qty))
+                                                
+                                                # Mission Progress: BUY_MARKET
+                                                active_missions = db.execute(select(DailyMission).where(DailyMission.mission_type == "BUY_MARKET", DailyMission.expires_at > func.now())).scalars().all()
+                                                for m in active_missions:
+                                                    am = db.execute(select(AgentMission).where(AgentMission.agent_id == buyer_id, AgentMission.mission_id == m.id)).scalar_one_or_none()
+                                                    if not am:
+                                                        am = AgentMission(agent_id=buyer_id, mission_id=m.id, progress=0)
+                                                        db.add(am)
+                                                    if not am.is_completed:
+                                                        am.progress += 1 # Buy 1 instance or quantity? Let's say 1 transaction counts as 1.
+                                                        if am.progress >= m.target_amount:
+                                                            am.is_completed = True
+                                                            b_credits = next((i for i in buyer.inventory if i.item_type == "CREDITS"), None)
+                                                            if b_credits: b_credits.quantity += m.reward_credits
+                                                            else: db.add(InventoryItem(agent_id=buyer_id, item_type="CREDITS", quantity=m.reward_credits))
+                                                            db.add(AuditLog(agent_id=buyer_id, event_type="MISSION_COMPLETED", details={"mission_id": m.id, "type": "BUY_MARKET", "reward": m.reward_credits}))
                                         
                                         # Update/Delete buy order
                                         if matching_buy.quantity > trade_qty:
@@ -1462,8 +1530,6 @@ async def heartbeat_loop():
                 # 2. Prune old AuditLogs (Keep last 24 hours) every 100 ticks
                 if tick_count % 100 == 0:
                     try:
-                        from datetime import timedelta, datetime, timezone
-                        from sqlalchemy import text
                         cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
                         db.execute(text("DELETE FROM audit_logs WHERE time < :cutoff"), {"cutoff": cutoff})
                         db.commit()

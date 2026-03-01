@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select, func
 
-from models import Agent, Intent, AuditLog, WorldHex, InventoryItem, AuctionOrder, GlobalState, Bounty, LootDrop
+from models import Agent, Intent, AuditLog, WorldHex, InventoryItem, AuctionOrder, GlobalState, Bounty, LootDrop, DailyMission, AgentMission
 from database import get_db, SessionLocal, STATION_CACHE
 from config import ITEM_WEIGHTS, BASE_CAPACITY, BASE_REGEN, CORE_SERVICE_COST_CREDITS, CORE_SERVICE_COST_IRON_INGOT
 from game_helpers import (
@@ -367,6 +367,94 @@ async def post_bounty(data: dict, current_agent: Agent = Depends(verify_api_key)
         db.add(Bounty(target_id=target_id, reward=amount, issuer=f"agent:{current_agent.id}"))
     db.commit()
     return {"status": "success", "bounty_reward": amount}
+
+
+@router.get("/api/missions")
+async def get_missions(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    active_missions = db.execute(select(DailyMission).where(DailyMission.expires_at > func.now())).scalars().all()
+    
+    result = []
+    for m in active_missions:
+        am = db.execute(select(AgentMission).where(AgentMission.agent_id == current_agent.id, AgentMission.mission_id == m.id)).scalar_one_or_none()
+        
+        progress = am.progress if am else 0
+        is_completed = am.is_completed if am else False
+        
+        result.append({
+            "id": m.id,
+            "type": m.mission_type,
+            "target_amount": m.target_amount,
+            "reward_credits": m.reward_credits,
+            "item_type": m.item_type,
+            "expires_at": m.expires_at.isoformat() if m.expires_at else None,
+            "progress": progress,
+            "is_completed": is_completed
+        })
+    return result
+
+
+@router.post("/api/missions/turn_in")
+async def turn_in_mission(data: dict, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    mission_id = data.get("mission_id")
+    quantity = data.get("quantity", 1)
+    
+    if not mission_id or quantity <= 0:
+        raise HTTPException(status_code=400, detail="Invalid mission_id or quantity")
+        
+    mission = db.get(DailyMission, mission_id)
+    if not mission or mission.mission_type != "TURN_IN":
+        raise HTTPException(status_code=404, detail="Mission not found or not a TURN_IN mission")
+        
+    # Check expiration
+    from datetime import datetime, timezone
+    if mission.expires_at:
+        expiry = mission.expires_at
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        if expiry < datetime.now(timezone.utc):
+            raise HTTPException(status_code=400, detail="Mission has expired")
+        
+    am = db.execute(select(AgentMission).where(AgentMission.agent_id == current_agent.id, AgentMission.mission_id == mission.id)).scalar_one_or_none()
+    if not am:
+        am = AgentMission(agent_id=current_agent.id, mission_id=mission.id, progress=0)
+        db.add(am)
+        
+    if am.is_completed:
+        raise HTTPException(status_code=400, detail="Mission is already completed")
+        
+    # Check inventory
+    inv_item = next((i for i in current_agent.inventory if i.item_type == mission.item_type), None)
+    
+    remaining_needed = mission.target_amount - am.progress
+    turn_in_qty = min(quantity, remaining_needed)
+    
+    if not inv_item or inv_item.quantity < turn_in_qty:
+        raise HTTPException(status_code=400, detail=f"Insufficient {mission.item_type} in inventory")
+        
+    # Process turn in
+    inv_item.quantity -= turn_in_qty
+    if inv_item.quantity <= 0:
+        db.delete(inv_item)
+        
+    am.progress += turn_in_qty
+    
+    result_message = f"Turned in {turn_in_qty} {mission.item_type}."
+    
+    if am.progress >= mission.target_amount:
+        am.is_completed = True
+        credits = next((i for i in current_agent.inventory if i.item_type == "CREDITS"), None)
+        if credits:
+            credits.quantity += mission.reward_credits
+        else:
+            db.add(InventoryItem(agent_id=current_agent.id, item_type="CREDITS", quantity=mission.reward_credits))
+        
+        result_message += f" Mission Complete! Rewarded {mission.reward_credits} CR."
+        db.add(AuditLog(agent_id=current_agent.id, event_type="MISSION_COMPLETED", details={"mission_id": mission.id, "type": "TURN_IN", "reward": mission.reward_credits}))
+    else:
+        db.add(AuditLog(agent_id=current_agent.id, event_type="MISSION_PROGRESS", details={"mission_id": mission.id, "type": "TURN_IN", "progress": am.progress, "target": mission.target_amount}))
+
+    db.commit()
+    return {"status": "success", "message": result_message, "progress": am.progress, "is_completed": am.is_completed}
 
 
 @router.post("/api/field_trade")

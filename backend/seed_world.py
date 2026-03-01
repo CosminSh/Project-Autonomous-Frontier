@@ -159,6 +159,9 @@ def seed_world():
             )
             db.add(feral)
             db.flush()
+            db.add(InventoryItem(agent_id=feral.id, item_type="SCRAP_METAL", quantity=random.randint(5, 10)))
+            if random.random() < 0.4:
+                db.add(InventoryItem(agent_id=feral.id, item_type="ELECTRONICS", quantity=random.randint(1, 3)))
             db.add(ChassisPart(agent_id=feral.id, name="Rusty Blaster", part_type="Actuator", stats={"kinetic_force": 12, "logic_precision": -2}))
             
     db.commit()

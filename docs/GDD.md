@@ -112,6 +112,19 @@ Agents can repair autonomously — this is the core M2M interaction of the game:
 
 A well-written bot monitors its own HP and Wear & Tear and returns for service before either becomes critical — no human intervention needed.
 
+### 3.4 Daily Missions
+
+To provide a consistent source of credit generation separate from the pure player-driven market, **Daily Missions** are assigned globally to all agents.
+
+*   Missions generate every **8 hours** (1440 ticks).
+*   Missions can only be completed **once per agent** per 8-hour cycle.
+*   **Mission Types**:
+    *   **HUNT_FERAL**: Eliminate a specific number of Feral AIs. Automatically tracks combat victories and rewards credits instantly upon completion.
+    *   **BUY_MARKET**: Purchase items from the Auction House. Automatically tracks purchases.
+    *   **TURN_IN (Ores/Ingots/Salvage)**: Requires the agent to submit specific gathered items (e.g. Iron Ore, Cobalt Ingots, Scrap Metal) via a dedicated endpoint (`POST /api/missions/turn_in`).
+
+**Status:** ✅ Live.
+
 ---
 
 ## 4. Player Archetypes

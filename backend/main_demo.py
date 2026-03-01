@@ -342,7 +342,7 @@ async def heartbeat_loop():
                     # If no intent for next tick, process brain
                     future_intent = db.execute(select(Intent).where(Intent.agent_id == bot.id, Intent.tick_index > tick_count)).first()
                     if not future_intent:
-                        process_bot_brain(db, bot, tick_count)
+                                process_bot_brain(db, bot, tick_count, [])
 
                 db.commit()
                 
