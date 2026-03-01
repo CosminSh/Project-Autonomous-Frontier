@@ -1,6 +1,6 @@
 ﻿import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { TerminalHandler } from './terminal.js';
+import { TerminalHandler } from './terminal.js?v=2.6';
 
 // Global helper for the Directive Modal
 const FACTION_NAMES = {
