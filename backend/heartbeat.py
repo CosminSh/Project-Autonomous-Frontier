@@ -174,7 +174,7 @@ async def heartbeat_loop():
                             agent.overclock_ticks -= 1
                         
                         # Wear & Tear Accrual
-                        agent.wear_and_tear = (agent.wear_and_tear or 0.0) + 0.1
+                        agent.wear_and_tear = (agent.wear_and_tear or 0.0) + 0.02
 
                         # 3. Factional Signal Noise (GDD Milestone 4)
                         # 3+ allied agents in same hex = DEX penalty
@@ -403,7 +403,7 @@ async def heartbeat_loop():
                                         agent.inventory.append(new_item)
 
                                     # Durability Decay
-                                    decay = random.uniform(1.0, 3.0)
+                                    decay = random.uniform(0.1, 0.3)
                                     active_drill.durability = getattr(active_drill, "durability", 100.0) - decay
                                     broken = False
                                     if active_drill.durability <= 0:

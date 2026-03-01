@@ -95,8 +95,8 @@ AFFIX_POOL = {
     "Swift": {"kinetic_force": 5}
 }
 
-REPAIR_COST_PER_HP = 5  # Credits per HP restored
-REPAIR_COST_IRON_INGOT_PER_HP = 0.1  # 1 Ingot per 10 HP
+REPAIR_COST_PER_HP = 1  # Credits per HP restored
+REPAIR_COST_IRON_INGOT_PER_HP = 0.02  # 1 Ingot per 50 HP
 CORE_SERVICE_COST_CREDITS = 500
 CORE_SERVICE_COST_IRON_INGOT = 10
 CANISTER_MAX_FILL = 100  # 100%
