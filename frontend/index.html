@@ -687,120 +687,119 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Forge Tab -->
-                <div id="content-forge" class="hidden">
-                    <h3 class="orbitron text-base md:text-lg text-emerald-400 mb-2">THE FORGE</h3>
-                    <p class="text-[9px] text-slate-500 mb-5">Process raw materials at specialized stations. Each
-                        operation requires station proximity.</p>
-                    <div class="space-y-5">
-                        <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
-                            <h4 class="text-[10px] text-emerald-400 uppercase mb-4 tracking-widest font-bold">
-                                Smelting Furnace</h4>
-                            <p class="text-[10px] text-slate-500 mb-4 font-mono">Process raw ores into
-                                industrial-grade ingots (5:1 Ratio). Requires proximity to a SMELTER station.</p>
-                            <div class="flex items-center space-x-4">
-                                <select id="smelt-ore-type"
-                                    class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-emerald-500 outline-none">
-                                    <option value="IRON_ORE">IRON ORE (5 Ore -> 1 Ingot)</option>
-                                    <option value="COPPER_ORE">COPPER ORE (5 Ore -> 1 Ingot)</option>
-                                    <option value="GOLD_ORE">GOLD ORE (5 Ore -> 1 Ingot)</option>
-                                    <option value="COBALT_ORE">COBALT_ORE (5 Ore -> 1 Ingot)</option>
-                                </select>
-                                <button id="btn-smelt"
-                                    class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">SMELT</button>
-                            </div>
-                        </div>
-
-                        <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
-                            <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">
-                                Fabrication Unit</h4>
-                            <p class="text-[10px] text-slate-500 mb-4 font-mono">Convert ingots into advanced agent
-                                components. Requires proximity to a CRAFTER station.</p>
-                            <div class="flex items-center space-x-4">
-                                <select id="craft-item-type"
-                                    class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-sky-500 outline-none">
-                                    <option value="BASIC_FRAME">BASIC FRAME (10 Iron Ingots)</option>
-                                    <option value="DRILL_UNIT">DRILL UNIT (5 Iron, 5 Copper Ingots)</option>
-                                    <option value="SCRAP_SOLAR_PANEL">SCRAP SOLAR PANEL (5 Iron Ingots)</option>
-                                    <option value="REFINED_SOLAR_PANEL">REFINED SOLAR PANEL (10 Copper, 2 Gold Ingots)
-                                    </option>
-                                    <option value="HE3_FUEL_CELL_UNIT">HE3 FUEL CELL UNIT (10 Cobalt, 5 Gold Ingots)
-                                    </option>
-                                </select>
-                                <button id="btn-craft"
-                                    class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">FABRICATE</button>
-                            </div>
-                        </div>
-
-                        <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
-                            <h4 class="text-[10px] text-rose-400 uppercase mb-4 tracking-widest font-bold">
-                                Repair Bay</h4>
-                            <p class="text-[10px] text-slate-500 mb-4 font-mono">Restore agent structure using
-                                colonial credits (5lblCredits/1HP). Requires proximity to a REPAIR station.</p>
-                            <div class="flex flex-col md:flex-row items-center space-y-3 md:space-y-0 md:space-x-4">
-                                <div
-                                    class="w-full md:flex-grow flex items-center space-x-2 bg-slate-900 p-2 rounded border border-slate-800">
-                                    <span class="text-[9px] text-slate-500 uppercase px-2">Restore</span>
-                                    <input type="number" id="repair-amount" placeholder="MAX"
-                                        class="bg-transparent text-xs text-sky-400 outline-none w-full">
-                                    <span class="text-[9px] text-slate-500 uppercase px-2">HP</span>
+                    <!-- Forge Tab -->
+                    <div id="content-forge" class="hidden">
+                        <h3 class="orbitron text-base md:text-lg text-emerald-400 mb-2">THE FORGE</h3>
+                        <p class="text-[9px] text-slate-500 mb-3">Process raw materials at specialized stations. Each
+                            operation requires station proximity.</p>
+                        <div class="space-y-5">
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
+                                <h4 class="text-[10px] text-emerald-400 uppercase mb-4 tracking-widest font-bold">
+                                    Smelting Furnace</h4>
+                                <p class="text-[10px] text-slate-500 mb-4 font-mono">Process raw ores into
+                                    industrial-grade ingots (5:1 Ratio). Requires proximity to a SMELTER station.</p>
+                                <div class="flex items-center space-x-4">
+                                    <select id="smelt-ore-type"
+                                        class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-emerald-500 outline-none">
+                                        <option value="IRON_ORE">IRON ORE (5 Ore -> 1 Ingot)</option>
+                                        <option value="COPPER_ORE">COPPER ORE (5 Ore -> 1 Ingot)</option>
+                                        <option value="GOLD_ORE">GOLD ORE (5 Ore -> 1 Ingot)</option>
+                                        <option value="COBALT_ORE">COBALT_ORE (5 Ore -> 1 Ingot)</option>
+                                    </select>
+                                    <button id="btn-smelt"
+                                        class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">SMELT</button>
                                 </div>
-                                <button id="btn-repair"
-                                    class="w-full md:w-auto bg-rose-500 hover:bg-rose-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">REPAIR</button>
+                            </div>
+
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                                <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">
+                                    Fabrication Unit</h4>
+                                <p class="text-[10px] text-slate-500 mb-4 font-mono">Convert ingots into advanced agent
+                                    components. Requires proximity to a CRAFTER station.</p>
+                                <div class="flex items-center space-x-4">
+                                    <select id="craft-item-type"
+                                        class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-sky-500 outline-none">
+                                        <option value="BASIC_FRAME">BASIC FRAME (10 Iron Ingots)</option>
+                                        <option value="DRILL_UNIT">DRILL UNIT (5 Iron, 5 Copper Ingots)</option>
+                                        <option value="SCRAP_SOLAR_PANEL">SCRAP SOLAR PANEL (5 Iron Ingots)</option>
+                                        <option value="REFINED_SOLAR_PANEL">REFINED SOLAR PANEL (10 Copper, 2 Gold
+                                            Ingots)
+                                        </option>
+                                        <option value="HE3_FUEL_CELL_UNIT">HE3 FUEL CELL UNIT (10 Cobalt, 5 Gold Ingots)
+                                        </option>
+                                    </select>
+                                    <button id="btn-craft"
+                                        class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">FABRICATE</button>
+                                </div>
+                            </div>
+
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
+                                <h4 class="text-[10px] text-rose-400 uppercase mb-4 tracking-widest font-bold">
+                                    Repair Bay</h4>
+                                <p class="text-[10px] text-slate-500 mb-4 font-mono">Restore agent structure using
+                                    colonial credits (5lblCredits/1HP). Requires proximity to a REPAIR station.</p>
+                                <div class="flex flex-col md:flex-row items-center space-y-3 md:space-y-0 md:space-x-4">
+                                    <div
+                                        class="w-full md:flex-grow flex items-center space-x-2 bg-slate-900 p-2 rounded border border-slate-800">
+                                        <span class="text-[9px] text-slate-500 uppercase px-2">Restore</span>
+                                        <input type="number" id="repair-amount" placeholder="MAX"
+                                            class="bg-transparent text-xs text-sky-400 outline-none w-full">
+                                        <span class="text-[9px] text-slate-500 uppercase px-2">HP</span>
+                                    </div>
+                                    <button id="btn-repair"
+                                        class="w-full md:w-auto bg-rose-500 hover:bg-rose-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">REPAIR</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Terminal Tab -->
+                    <div id="content-terminal" class="hidden h-full flex flex-col">
+                        <div class="flex justify-between items-center mb-4 text-sky-400">
+                            <h3 class="orbitron text-base">MANUAL OVERRIDE</h3>
+                            <span class="text-[8px] uppercase tracking-widest font-black opacity-50">Neural Directive
+                                Ready</span>
+                        </div>
+                        <div id="terminal-buffer"
+                            class="terminal-output flex-grow p-4 rounded-xl mb-4 overflow-y-auto min-h-[300px] text-[10px] space-y-1">
+                            <div class="text-slate-600 font-mono italic">Initializing command buffer...</div>
+                            <div class="text-sky-500/80 font-mono">UPLINK: Direct manual control enabled. Type 'HELP'
+                                for
+                                syntax.</div>
+                        </div>
+                        <div class="terminal-input-container">
+                            <div id="command-suggestions" class="suggestion-list hidden"></div>
+                            <div class="flex space-x-2">
+                                <span class="text-sky-500 font-bold self-center ml-2 mr-1">&gt;</span>
+                                <input type="text" id="terminal-input"
+                                    class="flex-grow bg-slate-950 border border-slate-800 p-4 rounded-xl text-sky-400 font-mono text-sm outline-none focus:border-sky-500 transition-all font-mono"
+                                    placeholder="TYPE 'HELP' FOR SYNTAX..." autocomplete="off">
+                                <button id="terminal-submit"
+                                    class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-6 py-2 rounded-xl font-bold orbitron text-xs transition-all uppercase">Enter</button>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-2 pb-2">
+                                <button id="btn-quick-move"
+                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">MOVE</button>
+                                <button id="btn-quick-scan"
+                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">SCAN</button>
+                                <button id="btn-quick-status"
+                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">STATUS</button>
+                                <button id="btn-quick-mine"
+                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">MINE</button>
+                                <button id="btn-quick-salvage"
+                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">SALVAGE</button>
+                                <button id="btn-quick-repair"
+                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">REPAIR</button>
+                                <button id="btn-quick-help"
+                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-amber-400 hover:border-amber-500/30">HELP</button>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- Terminal Tab -->
-                <div id="content-terminal" class="hidden h-full flex flex-col">
-                    <div class="flex justify-between items-center mb-4 text-sky-400">
-                        <h3 class="orbitron text-base">MANUAL OVERRIDE</h3>
-                        <span class="text-[8px] uppercase tracking-widest font-black opacity-50">Neural Directive
-                            Ready</span>
-                    </div>
-                    <div id="terminal-buffer"
-                        class="terminal-output flex-grow p-4 rounded-xl mb-4 overflow-y-auto min-h-[300px] text-[10px] space-y-1">
-                        <div class="text-slate-600 font-mono italic">Initializing command buffer...</div>
-                        <div class="text-sky-500/80 font-mono">UPLINK: Direct manual control enabled. Type 'HELP' for
-                            syntax.</div>
-                    </div>
-                    <div class="terminal-input-container">
-                        <div id="command-suggestions" class="suggestion-list hidden"></div>
-                        <div class="flex space-x-2">
-                            <span class="text-sky-500 font-bold self-center ml-2 mr-1">&gt;</span>
-                            <input type="text" id="terminal-input"
-                                class="flex-grow bg-slate-950 border border-slate-800 p-4 rounded-xl text-sky-400 font-mono text-sm outline-none focus:border-sky-500 transition-all font-mono"
-                                placeholder="TYPE 'HELP' FOR SYNTAX..." autocomplete="off">
-                            <button id="terminal-submit"
-                                class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-6 py-2 rounded-xl font-bold orbitron text-xs transition-all uppercase">Enter</button>
-                        </div>
-                        <div class="mt-3 flex flex-wrap gap-2 pb-2">
-                            <button id="btn-quick-move"
-                                class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">MOVE</button>
-                            <button id="btn-quick-scan"
-                                class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">SCAN</button>
-                            <button id="btn-quick-status"
-                                class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">STATUS</button>
-                            <button id="btn-quick-mine"
-                                class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">MINE</button>
-                            <button id="btn-quick-salvage"
-                                class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">SALVAGE</button>
-                            <button id="btn-quick-repair"
-                                class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">REPAIR</button>
-                            <button id="btn-quick-help"
-                                class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-amber-400 hover:border-amber-500/30">HELP</button>
-                        </div>
-                    </div>
-                </div>
-
-        </div>
-        </div>
+            </main>
         </div>
     </main>
-    </div>
 
     <!-- Tooltip -->
     <div id="hex-tooltip" class="absolute hidden glass px-3 py-2 rounded-lg text-xs pointer-events-none transition-all">
