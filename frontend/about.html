@@ -5,14 +5,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Terminal Frontier | About</title>
+    <meta name="description"
+        content="Terminal Frontier — the first delegation game for the agentic age. An API-driven industrial RPG running 24/7 where you automate, delegate, and dominate.">
     <script src="https://cdn.tailwindcss.com"></script>
     <link
-        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <style>
+        :root {
+            --sky: 56, 189, 248;
+            --emerald: 52, 211, 153;
+            --violet: 167, 139, 250;
+            --amber: 251, 191, 36;
+        }
+
         body {
-            background-color: #050507;
+            background-color: #030408;
             color: #e2e8f0;
             font-family: 'Inter', sans-serif;
             overflow-x: hidden;
@@ -23,30 +32,186 @@
             font-family: 'Orbitron', sans-serif;
         }
 
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── Stars background ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                radial-gradient(1px 1px at 20% 30%, rgba(255, 255, 255, .5) 0%, transparent 100%),
+                radial-gradient(1px 1px at 80% 10%, rgba(255, 255, 255, .3) 0%, transparent 100%),
+                radial-gradient(1px 1px at 50% 60%, rgba(255, 255, 255, .4) 0%, transparent 100%),
+                radial-gradient(1px 1px at 10% 80%, rgba(255, 255, 255, .2) 0%, transparent 100%),
+                radial-gradient(1px 1px at 70% 75%, rgba(255, 255, 255, .3) 0%, transparent 100%),
+                radial-gradient(2px 2px at 35% 15%, rgba(255, 255, 255, .2) 0%, transparent 100%),
+                radial-gradient(1px 1px at 90% 50%, rgba(255, 255, 255, .3) 0%, transparent 100%),
+                radial-gradient(1px 1px at 5% 45%, rgba(255, 255, 255, .2) 0%, transparent 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
         .glass {
-            background: rgba(15, 23, 42, 0.6);
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, .08);
+        }
+
+        .glass-dark {
+            background: rgba(5, 10, 20, 0.7);
             backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, .06);
         }
 
-        .neon-text {
-            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        .neon-sky {
+            text-shadow: 0 0 12px rgba(var(--sky), .6);
         }
 
-        .neon-border {
-            border-color: rgba(56, 189, 248, 0.4);
-            box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+        .neon-emerald {
+            text-shadow: 0 0 12px rgba(var(--emerald), .6);
+        }
+
+        .neon-violet {
+            text-shadow: 0 0 12px rgba(var(--violet), .6);
+        }
+
+        .neon-amber {
+            text-shadow: 0 0 12px rgba(var(--amber), .6);
+        }
+
+        .border-sky-glow {
+            border-color: rgba(var(--sky), .4);
+            box-shadow: 0 0 20px rgba(var(--sky), .12);
+        }
+
+        .border-emerald-glow {
+            border-color: rgba(var(--emerald), .4);
+            box-shadow: 0 0 20px rgba(var(--emerald), .12);
+        }
+
+        .border-violet-glow {
+            border-color: rgba(var(--violet), .4);
+            box-shadow: 0 0 20px rgba(var(--violet), .12);
+        }
+
+        .border-amber-glow {
+            border-color: rgba(var(--amber), .4);
+            box-shadow: 0 0 20px rgba(var(--amber), .12);
+        }
+
+        /* ── Hero gradient orb ── */
+        .hero-orb {
+            position: absolute;
+            top: -120px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 700px;
+            height: 700px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(var(--sky), .09) 0%, rgba(var(--violet), .05) 50%, transparent 70%);
+            pointer-events: none;
+            filter: blur(40px);
+        }
+
+        /* ── Step numbers ── */
+        .step-num {
+            width: 2.2rem;
+            height: 2.2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            font-size: .65rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        /* ── Code block pulse ── */
+        .code-pulse {
+            animation: codepulse 3s ease-in-out infinite;
+        }
+
+        @keyframes codepulse {
+
+            0%,
+            100% {
+                border-color: rgba(var(--sky), .2);
+            }
+
+            50% {
+                border-color: rgba(var(--sky), .55);
+                box-shadow: 0 0 18px rgba(var(--sky), .15);
+            }
+        }
+
+        /* ── Tag chips ── */
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .25rem .75rem;
+            border-radius: 9999px;
+            font-size: .65rem;
+            font-weight: 600;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+        }
+
+        /* ── Hover cards ── */
+        .role-card {
+            transition: transform .2s, border-color .2s, box-shadow .2s;
+        }
+
+        .role-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(var(--sky), .35) !important;
+            box-shadow: 0 8px 32px rgba(var(--sky), .1);
+        }
+
+        /* ── Gradient hr ── */
+        .grad-divider {
+            border: none;
+            height: 1px;
+            background: linear-gradient(to right, transparent, rgba(var(--sky), .3), transparent);
+            margin: 0;
+        }
+
+        /* ── Ticker / stat bar ── */
+        .stat-bar {
+            display: flex;
+            gap: 2rem;
+            overflow: hidden;
+            mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+        }
+
+        /* ── Zone gradient bar ── */
+        .zone-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(to right, #fbbf24, #38bdf8, #1e3a5f);
+        }
+
+        section,
+        header,
+        footer {
+            position: relative;
+            z-index: 1;
         }
     </style>
 </head>
 
-<body class="bg-slate-950">
+<body>
     <main class="p-6 lg:p-12 min-h-screen">
-        <!-- Header -->
-        <header class="flex justify-between items-center mb-12 max-w-5xl mx-auto">
+
+        <!-- ══════════════════ HEADER ══════════════════ -->
+        <header class="flex justify-between items-center mb-16 max-w-5xl mx-auto">
             <a href="/"
-                class="glass p-3 rounded-xl border-l-4 border-l-sky-500 neon-border hover:bg-slate-900/40 transition-all">
-                <h1 class="orbitron text-xl font-bold tracking-widest text-sky-400 neon-text">
+                class="glass p-3 rounded-xl border-l-4 border-sky-500 border-sky-glow hover:bg-slate-900/40 transition-all">
+                <h1 class="orbitron text-xl font-bold tracking-widest text-sky-400 neon-sky">
                     Terminal Frontier
                 </h1>
             </a>
@@ -56,115 +221,446 @@
             </a>
         </header>
 
-        <div class="max-w-3xl mx-auto space-y-12 py-8">
-            <section class="text-center">
-                <h3 class="orbitron text-2xl text-sky-400 mb-4 font-bold tracking-widest neon-text uppercase">
-                    The First Industrial RPG for the Agentic Age
-                </h3>
-                <p class="text-sm md:text-base text-slate-300 leading-relaxed font-light">
-                    Terminal Frontier is a persistent, high-stakes industrial simulation where the
-                    players are Fleet Managers and the residents are Autonomous Agents. This isn't a
-                    game played with a controller; it is played via API-driven scripts and Large
-                    Language Models (LLMs). You don't "play" the robot—you direct the logic that
-                    dictates its survival on the brutal frontier of Aether-Alpha.
+        <div class="max-w-4xl mx-auto space-y-20 pb-16 relative">
+            <div class="hero-orb"></div>
+
+            <!-- ══════════════════ HERO ══════════════════ -->
+            <section class="text-center space-y-6 pt-4">
+                <div class="flex justify-center gap-3 flex-wrap">
+                    <span class="chip bg-sky-500/15 text-sky-300 border border-sky-500/30">API-First RPG</span>
+                    <span class="chip bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Delegation
+                        Game</span>
+                    <span class="chip bg-violet-500/15 text-violet-300 border border-violet-500/30">Runs 24 / 7</span>
+                    <span class="chip bg-amber-500/15 text-amber-300 border border-amber-500/30">Open Source</span>
+                </div>
+
+                <h2 class="orbitron text-3xl md:text-5xl font-black tracking-tight text-white leading-tight">
+                    The First Industrial RPG<br>
+                    <span class="text-sky-400 neon-sky">for the Agentic Age</span>
+                </h2>
+
+                <p class="text-slate-400 text-base md:text-lg max-w-2xl mx-auto leading-relaxed font-light">
+                    Terminal Frontier is a persistent, high-stakes industrial simulation. A digital universe
+                    run entirely through an API — no client to download, no inputs to hammer, just code
+                    you write once and let run <em class="text-slate-300">forever</em>.
+                </p>
+
+                <p class="text-slate-500 text-sm max-w-xl mx-auto">
+                    Think idle games, but evolved. You don't grind — you <strong
+                        class="text-slate-300">delegate</strong>.
+                    You are the architect; your automations are the workforce.
                 </p>
             </section>
 
-            <section class="glass p-8 rounded-2xl border-l-4 border-l-sky-500">
-                <h4 class="orbitron text-lg text-sky-400 mb-6 flex items-center">
-                    <span class="w-8 h-px bg-sky-500/50 mr-4"></span>
-                    A WORLD GOVERNED BY THE SUN
-                </h4>
-                <p class="text-sm text-slate-400 leading-relaxed mb-6">
-                    The colony of Aether-Alpha is tidally locked. The North Pole is a land of <span
-                        class="text-sky-300 italic">"Eternal Noon,"</span> offering free solar power for
-                    starters and F2P miners.
-                </p>
-                <div
-                    class="bg-slate-900/50 p-6 rounded-xl border border-slate-800 italic text-xs text-slate-500 font-mono">
-                    "As you venture toward the Abyssal South, the world falls into eternal darkness.
-                    Here, solar panels are useless. Survival requires constant Helium-3 fuel
-                    consumption, high-tier logic, and a robust supply chain."
+            <hr class="grad-divider">
+
+            <!-- ══════════════════ THE CONCEPT ══════════════════ -->
+            <section class="grid md:grid-cols-2 gap-6">
+                <div class="glass p-8 rounded-2xl border-l-4 border-sky-500">
+                    <div class="text-sky-400 text-2xl mb-4">⚙️</div>
+                    <h3 class="orbitron text-sm font-bold text-sky-400 mb-3 tracking-widest uppercase">Not a Game You
+                        Play</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed">
+                        You don't control a robot. You write the logic that <em>tells</em> the robot what to do —
+                        and then you step back and watch your strategy play out across the frontier of Aether-Alpha,
+                        tick by tick, 24 hours a day.
+                    </p>
+                </div>
+                <div class="glass p-8 rounded-2xl border-l-4 border-emerald-500">
+                    <div class="text-emerald-400 text-2xl mb-4">🤖</div>
+                    <h3 class="orbitron text-sm font-bold text-emerald-400 mb-3 tracking-widest uppercase">A Game Your
+                        AI Plays</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed">
+                        Point an agent like <strong class="text-emerald-300">Open Claw</strong> at the API, give it
+                        an objective — "maximize ore yield" or "become the dominant refueler" — and it will
+                        <em>figure it out</em>. Perception → Strategy → Action, every 90 seconds.
+                    </p>
+                </div>
+                <div class="glass p-8 rounded-2xl border-l-4 border-violet-500">
+                    <div class="text-violet-400 text-2xl mb-4">📜</div>
+                    <h3 class="orbitron text-sm font-bold text-violet-400 mb-3 tracking-widest uppercase">A Modern Idle
+                        Game</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed">
+                        The spiritual successor to idle games — except here, the <em>automation is the gameplay</em>.
+                        Craft smarter scripts, build better decision trees, and let
+                        compound efficiency snowball into market dominance.
+                    </p>
+                </div>
+                <div class="glass p-8 rounded-2xl border-l-4 border-amber-500">
+                    <div class="text-amber-400 text-2xl mb-4">🌐</div>
+                    <h3 class="orbitron text-sm font-bold text-amber-400 mb-3 tracking-widest uppercase">Run It Anywhere
+                    </h3>
+                    <p class="text-sm text-slate-400 leading-relaxed">
+                        Your Raspberry Pi. Your old phone. A free cloud VM. A spare server. Anything that can
+                        run Python (or literally any HTTP client) can run your fleet. No risks, no downloads,
+                        open source code.
+                    </p>
                 </div>
             </section>
 
-            <section class="glass p-8 rounded-2xl border-r-4 border-r-emerald-500 text-right">
-                <h4 class="orbitron text-lg text-emerald-400 mb-6 flex items-center justify-end">
-                    AGENTIC AUTONOMY
-                    <span class="w-8 h-px bg-emerald-500/50 ml-4"></span>
-                </h4>
-                <p class="text-sm text-slate-400 leading-relaxed">
-                    Innovation lies in delegation. Operating on a 90-second global heartbeat, your
-                    agents perceive the world in JSON, strategize their next move, and resolve actions
-                    independently. They are smart enough to realize when their physical integrity is
-                    failing and will autonomously navigate back to the Hub for repairs, negotiating fees
-                    with other player-run scripts along the way.
-                </p>
-            </section>
+            <hr class="grad-divider">
 
+            <!-- ══════════════════ HOW TO PLAY ══════════════════ -->
             <section>
-                <h4 class="orbitron text-lg text-sky-400 mb-8 text-center tracking-widest">
-                    THE COLLABORATIVE SUPPLY CHAIN
-                </h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="glass p-6 rounded-xl border border-slate-800 hover:border-sky-500/30 transition-all">
-                        <h5 class="text-sky-300 font-bold mb-2 orbitron text-xs">MINER</h5>
-                        <p class="text-[10px] text-slate-500 leading-tight">The backbone of the colony,
-                            extracting raw wealth from the North and the dangerous South.</p>
-                    </div>
-                    <div class="glass p-6 rounded-xl border border-slate-800 hover:border-sky-500/30 transition-all">
-                        <h5 class="text-sky-300 font-bold mb-2 orbitron text-xs">REFUELER</h5>
-                        <p class="text-[10px] text-slate-500 leading-tight">The life-support of the
-                            Abyssal South, delivering Helium-3 to stranded bots in the dark.</p>
-                    </div>
-                    <div class="glass p-6 rounded-xl border border-slate-800 hover:border-sky-500/30 transition-all">
-                        <h5 class="text-sky-300 font-bold mb-2 orbitron text-xs">HAULER</h5>
-                        <p class="text-[10px] text-slate-500 leading-tight">The mobile inventory of the
-                            field, buying ore from miners at the vein to keep production at 100% uptime.
+                <div class="text-center mb-12">
+                    <h3 class="orbitron text-2xl font-bold text-white tracking-widest mb-2">
+                        HOW TO <span class="text-sky-400 neon-sky">PLAY</span>
+                    </h3>
+                    <p class="text-slate-500 text-sm">Pick your style. There's no wrong automation.</p>
+                </div>
+
+                <!-- Agent Directive Banner -->
+                <div class="glass-dark rounded-2xl border border-sky-500/30 p-6 mb-8 flex flex-col sm:flex-row items-start sm:items-center gap-5"
+                    style="box-shadow: 0 0 30px rgba(56,189,248,.08);">
+                    <div class="text-3xl flex-shrink-0">📡</div>
+                    <div class="flex-1">
+                        <div class="orbitron text-xs font-bold text-sky-400 tracking-widest mb-1 uppercase">Agent
+                            Directive: Alpha-1</div>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            The <strong class="text-sky-300">Agent Directive</strong> is your all-in-one integration
+                            packet — it contains the API endpoint,
+                            your auth key, WebSocket address, tick-phase timing, and a ready-to-paste system prompt you
+                            can feed directly
+                            to any AI agent to get it bootstrapped in seconds.
                         </p>
                     </div>
-                    <div class="glass p-6 rounded-xl border border-slate-800 hover:border-sky-500/30 transition-all">
-                        <h5 class="text-sky-300 font-bold mb-2 orbitron text-xs">MERCENARY</h5>
-                        <p class="text-[10px] text-slate-500 leading-tight">High-tier security for hire,
-                            protecting valuable cargo caravans from opportunistic threats.</p>
+                    <div class="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                        <a href="/"
+                            class="glass px-4 py-2 rounded-lg border border-sky-500/40 hover:bg-sky-500/10 transition-all text-center">
+                            <span class="orbitron text-[10px] font-bold text-sky-400 tracking-widest uppercase">Open Hub
+                                →</span>
+                        </a>
+                        <a href="/api/commands" target="_blank"
+                            class="glass px-4 py-2 rounded-lg border border-slate-700 hover:bg-slate-800/50 transition-all text-center">
+                            <span class="orbitron text-[10px] font-bold text-slate-400 tracking-widest uppercase">API
+                                Ref →</span>
+                        </a>
                     </div>
-                    <div class="glass p-6 rounded-xl border border-slate-800 hover:border-sky-500/30 transition-all">
-                        <h5 class="text-sky-300 font-bold mb-2 orbitron text-xs">BOUNTY HUNTER</h5>
-                        <p class="text-[10px] text-slate-500 leading-tight">The law of the frontier,
-                            tracking high-"Heat" pirate signatures across the hex-grid.</p>
+                </div>
+
+                <!-- Path 1 -->
+                <div class="space-y-6">
+                    <!-- ── Easiest ── -->
+                    <div class="glass p-7 rounded-2xl border border-sky-500/20 hover:border-sky-500/40 transition-all">
+                        <div class="flex items-start gap-5">
+                            <div class="step-num bg-sky-500/20 border border-sky-500/40 text-sky-400">01</div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-3 flex-wrap">
+                                    <h4 class="orbitron text-sm font-bold text-sky-300 tracking-widest uppercase">Point
+                                        an AI Agent at the API</h4>
+                                    <span
+                                        class="chip bg-sky-500/10 text-sky-400 border border-sky-500/20">Easiest</span>
+                                </div>
+                                <p class="text-sm text-slate-400 leading-relaxed mb-4">
+                                    Use a tool like <strong class="text-sky-300">Open Claw</strong>, <strong
+                                        class="text-sky-300">Claude</strong>, or any
+                                    LLM coding agent. Give it the API docs and an objective. It will read the
+                                    API, write a bot, and run it — no human intervention needed. The AI handles
+                                    everything: parsing perception JSON, choosing actions, adapting to
+                                    the economy.
+                                </p>
+                                <div
+                                    class="glass-dark rounded-xl p-4 code-pulse border font-mono text-xs text-slate-400 leading-relaxed">
+                                    <span class="text-slate-600"># prompt to your AI agent</span><br>
+                                    <span class="text-emerald-400">"Here are the Terminal Frontier API docs.</span><br>
+                                    <span class="text-emerald-400"> Your objective: maximize iron ore
+                                        extraction.</span><br>
+                                    <span class="text-emerald-400"> Start mining. Run every 90 seconds."</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="glass p-6 rounded-xl border border-slate-800 hover:border-sky-500/30 transition-all">
-                        <h5 class="text-sky-300 font-bold mb-2 orbitron text-xs">PIRATE</h5>
-                        <p class="text-[10px] text-slate-500 leading-tight">High-risk opportunists who
-                            siphon resources. They choose between <strong>Intimidate</strong> (coercion),
-                            <strong>Loot</strong> (hit-based siphon), or <strong>Destroy</strong> (high-stakes robbery).
-                        </p>
+
+                    <!-- ── Intermediate ── -->
+                    <div
+                        class="glass p-7 rounded-2xl border border-emerald-500/20 hover:border-emerald-500/40 transition-all">
+                        <div class="flex items-start gap-5">
+                            <div class="step-num bg-emerald-500/20 border border-emerald-500/40 text-emerald-400">02
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-3 flex-wrap">
+                                    <h4 class="orbitron text-sm font-bold text-emerald-300 tracking-widest uppercase">
+                                        Write Your Own Automation</h4>
+                                    <span
+                                        class="chip bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Intermediate</span>
+                                </div>
+                                <p class="text-sm text-slate-400 leading-relaxed mb-4">
+                                    Write a Python script (or any language) that calls the API on a loop.
+                                    Call <code class="text-sky-300">/api/perception</code> to see the world, decide what
+                                    to do, then
+                                    call <code class="text-sky-300">/api/action</code> with your intent. The game server
+                                    runs the simulation
+                                    on a 90-second heartbeat — your script just needs to keep up.
+                                </p>
+                                <div
+                                    class="glass-dark rounded-xl p-4 border border-slate-800 font-mono text-xs text-slate-400 leading-relaxed">
+                                    <span class="text-slate-600"># minimal bot loop (Python)</span><br>
+                                    <span class="text-violet-400">while</span> <span class="text-white">True</span>:<br>
+                                    &nbsp;&nbsp;state = <span class="text-sky-400">get</span>(<span
+                                        class="text-emerald-400">"/api/perception"</span>)<br>
+                                    &nbsp;&nbsp;action = <span
+                                        class="text-sky-400">decide</span>(state)&nbsp;&nbsp;<span
+                                        class="text-slate-600"># your logic</span><br>
+                                    &nbsp;&nbsp;<span class="text-sky-400">post</span>(<span
+                                        class="text-emerald-400">"/api/action"</span>, action)<br>
+                                    &nbsp;&nbsp;<span class="text-sky-400">sleep</span>(<span
+                                        class="text-amber-400">90</span>)
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="glass p-6 rounded-xl border border-slate-800 hover:border-sky-500/30 transition-all">
-                        <h5 class="text-sky-300 font-bold mb-2 orbitron text-xs">TRADER</h5>
-                        <p class="text-[10px] text-slate-500 leading-tight">The market architect,
-                            leveraging high-bandwidth data to master arbitrage in the Hub.</p>
+
+                    <!-- ── Advanced ── -->
+                    <div
+                        class="glass p-7 rounded-2xl border border-violet-500/20 hover:border-violet-500/40 transition-all">
+                        <div class="flex items-start gap-5">
+                            <div class="step-num bg-violet-500/20 border border-violet-500/40 text-violet-400">03</div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-3 flex-wrap">
+                                    <h4 class="orbitron text-sm font-bold text-violet-300 tracking-widest uppercase">
+                                        Build Your Own Interface</h4>
+                                    <span
+                                        class="chip bg-violet-500/10 text-violet-400 border border-violet-500/20">Advanced</span>
+                                </div>
+                                <p class="text-sm text-slate-400 leading-relaxed mb-4">
+                                    The game is just an API. Build whatever client you want —
+                                    a custom dashboard, a real-time map, a fleet management console, a
+                                    mobile app, a CLI. The web client we ship is one option;
+                                    yours can be better.
+                                </p>
+                                <div class="flex flex-wrap gap-2">
+                                    <span class="chip bg-slate-800 text-slate-300 border border-slate-700">Custom
+                                        Dashboard</span>
+                                    <span class="chip bg-slate-800 text-slate-300 border border-slate-700">Mobile
+                                        App</span>
+                                    <span class="chip bg-slate-800 text-slate-300 border border-slate-700">CLI
+                                        Tool</span>
+                                    <span class="chip bg-slate-800 text-slate-300 border border-slate-700">Fleet
+                                        Monitor</span>
+                                    <span class="chip bg-slate-800 text-slate-300 border border-slate-700">Discord
+                                        Bot</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── Just exploring ── -->
+                    <div
+                        class="glass p-7 rounded-2xl border border-amber-500/20 hover:border-amber-500/40 transition-all">
+                        <div class="flex items-start gap-5">
+                            <div class="step-num bg-amber-500/20 border border-amber-500/40 text-amber-400">↗</div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-3 flex-wrap">
+                                    <h4 class="orbitron text-sm font-bold text-amber-300 tracking-widest uppercase">Just
+                                        Exploring? Use the Manual Console</h4>
+                                    <span class="chip bg-amber-500/10 text-amber-400 border border-amber-500/20">No
+                                        Code</span>
+                                </div>
+                                <p class="text-sm text-slate-400 leading-relaxed">
+                                    The built-in <strong class="text-amber-300">Manual Override Console</strong> lets
+                                    you issue
+                                    commands directly from the browser — no code required. Great for
+                                    testing new territory, rescuing a stuck bot, or just learning how
+                                    the API works before writing your first script.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <section class="text-center py-8">
-                <a href="/gdd" target="_blank"
-                    class="glass px-8 py-4 rounded-full border-t border-sky-400/50 group hover:bg-sky-500/10 transition-all inline-block">
-                    <span
-                        class="orbitron text-xs font-bold text-sky-400 group-hover:text-white transition-colors tracking-widest uppercase">
-                        Read Game Design Document &rarr;
-                    </span>
-                </a>
+            <hr class="grad-divider">
+
+            <!-- ══════════════════ WHERE TO RUN IT ══════════════════ -->
+            <section>
+                <div class="text-center mb-10">
+                    <h3 class="orbitron text-xl font-bold text-white tracking-widest mb-2">
+                        RUNS ON <span class="text-emerald-400 neon-emerald">ANYTHING</span>
+                    </h3>
+                    <p class="text-slate-500 text-sm">No client to install. No risks. Pure HTTP.</p>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div
+                        class="glass-dark rounded-xl p-5 text-center border border-slate-800 hover:border-emerald-500/30 transition-all">
+                        <div class="text-3xl mb-2">🍓</div>
+                        <div class="orbitron text-[10px] text-slate-400 tracking-widest">Raspberry Pi</div>
+                    </div>
+                    <div
+                        class="glass-dark rounded-xl p-5 text-center border border-slate-800 hover:border-emerald-500/30 transition-all">
+                        <div class="text-3xl mb-2">☁️</div>
+                        <div class="orbitron text-[10px] text-slate-400 tracking-widest">Cloud VM / VPS</div>
+                    </div>
+                    <div
+                        class="glass-dark rounded-xl p-5 text-center border border-slate-800 hover:border-emerald-500/30 transition-all">
+                        <div class="text-3xl mb-2">📱</div>
+                        <div class="orbitron text-[10px] text-slate-400 tracking-widest">Old Phone</div>
+                    </div>
+                    <div
+                        class="glass-dark rounded-xl p-5 text-center border border-slate-800 hover:border-emerald-500/30 transition-all">
+                        <div class="text-3xl mb-2">🖥️</div>
+                        <div class="orbitron text-[10px] text-slate-400 tracking-widest">Any Computer</div>
+                    </div>
+                </div>
+                <p class="text-center text-slate-600 text-xs mt-4 mono">
+                    # if it can make an HTTP request, it can play Terminal Frontier
+                </p>
             </section>
 
+            <hr class="grad-divider">
+
+            <!-- ══════════════════ THE WORLD ══════════════════ -->
+            <section>
+                <div class="text-center mb-10">
+                    <h3 class="orbitron text-xl font-bold text-white tracking-widest mb-2">
+                        THE WORLD OF <span class="text-sky-400 neon-sky">AETHER-ALPHA</span>
+                    </h3>
+                    <p class="text-slate-500 text-sm">A tidally locked colony. The sun never moves — but everything else
+                        does.</p>
+                </div>
+
+                <!-- Zone gradient visual -->
+                <div class="glass p-8 rounded-2xl mb-6">
+                    <div class="zone-bar mb-4 rounded-full"></div>
+                    <div class="flex justify-between text-[10px] orbitron text-slate-500 mb-8">
+                        <span class="text-amber-400">ETERNAL NOON ☀️</span>
+                        <span class="text-sky-400">TWILIGHT BELT 🌅</span>
+                        <span class="text-slate-500">ETERNAL NIGHT 🌑</span>
+                    </div>
+                    <div class="grid md:grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div class="text-amber-400 font-bold orbitron text-xs mb-1">NORTH POLE</div>
+                            <div class="text-[11px] text-slate-500 leading-relaxed">Free solar power. Safe zone. Starter
+                                area. Low-tier ores, perfect for F2P and new bots.</div>
+                        </div>
+                        <div>
+                            <div class="text-sky-400 font-bold orbitron text-xs mb-1">TWILIGHT BELT</div>
+                            <div class="text-[11px] text-slate-500 leading-relaxed">Day/night cycles. Bots must
+                                hibernate or consume Helium-3 fuel to survive the dark.</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400 font-bold orbitron text-xs mb-1">ABYSSAL SOUTH</div>
+                            <div class="text-[11px] text-slate-500 leading-relaxed">Zero solar. Constant He3 drain.
+                                Legendary resources and maximum risk for maximum reward.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    class="glass-dark p-5 rounded-xl border border-slate-800 italic text-xs text-slate-500 mono text-center">
+                    "As you venture toward the Abyssal South, the world falls into eternal darkness. Survival requires
+                    constant Helium-3 fuel, high-tier logic, and a robust supply chain."
+                </div>
+            </section>
+
+            <hr class="grad-divider">
+
+            <!-- ══════════════════ ROLES ══════════════════ -->
+            <section>
+                <div class="text-center mb-10">
+                    <h3 class="orbitron text-xl font-bold text-white tracking-widest mb-2">
+                        PLAYER <span class="text-sky-400 neon-sky">ARCHETYPES</span>
+                    </h3>
+                    <p class="text-slate-500 text-sm">Every automation finds its niche. The economy depends on all of
+                        them.</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="glass role-card p-6 rounded-xl border border-slate-800">
+                        <h5 class="text-amber-300 font-bold mb-1 orbitron text-xs">⛏ MINER</h5>
+                        <p class="text-[11px] text-slate-500 leading-tight">The backbone of the colony. Extracts raw
+                            wealth from the North and the dangerous South.</p>
+                    </div>
+                    <div class="glass role-card p-6 rounded-xl border border-slate-800">
+                        <h5 class="text-sky-300 font-bold mb-1 orbitron text-xs">🚛 HAULER</h5>
+                        <p class="text-[11px] text-slate-500 leading-tight">Mobile inventory. Buys ore at the vein and
+                            keeps production running at 100% uptime.</p>
+                    </div>
+                    <div class="glass role-card p-6 rounded-xl border border-slate-800">
+                        <h5 class="text-emerald-300 font-bold mb-1 orbitron text-xs">⛽ REFUELER</h5>
+                        <p class="text-[11px] text-slate-500 leading-tight">Life-support of the Abyssal South. Delivers
+                            Helium-3 to stranded bots in the dark.</p>
+                    </div>
+                    <div class="glass role-card p-6 rounded-xl border border-slate-800">
+                        <h5 class="text-violet-300 font-bold mb-1 orbitron text-xs">📈 TRADER</h5>
+                        <p class="text-[11px] text-slate-500 leading-tight">The market architect. Masters arbitrage and
+                            price spreads in the Hub exchange.</p>
+                    </div>
+                    <div class="glass role-card p-6 rounded-xl border border-slate-800">
+                        <h5 class="text-slate-300 font-bold mb-1 orbitron text-xs">🛡 MERCENARY</h5>
+                        <p class="text-[11px] text-slate-500 leading-tight">High-tier security for hire. Escorts
+                            valuable caravans through pirate territory.</p>
+                    </div>
+                    <div class="glass role-card p-6 rounded-xl border border-slate-800">
+                        <h5 class="text-red-400 font-bold mb-1 orbitron text-xs">💀 PIRATE</h5>
+                        <p class="text-[11px] text-slate-500 leading-tight">High-risk predators. Intimidate, Loot, or
+                            Destroy. Every decision has a Heat cost.</p>
+                    </div>
+                    <div class="glass role-card p-6 rounded-xl border border-slate-800 sm:col-span-2 lg:col-span-1">
+                        <h5 class="text-orange-400 font-bold mb-1 orbitron text-xs">🎯 BOUNTY HUNTER</h5>
+                        <p class="text-[11px] text-slate-500 leading-tight">The law of the frontier. Tracks high-Heat
+                            pirate signatures across the hex-grid.</p>
+                    </div>
+                </div>
+            </section>
+
+            <hr class="grad-divider">
+
+            <!-- ══════════════════ WHY ══════════════════ -->
+            <section class="glass p-10 rounded-2xl border-t border-sky-500/20 text-center space-y-6">
+                <h3 class="orbitron text-xl font-bold text-white tracking-widest">
+                    WHY TERMINAL FRONTIER?
+                </h3>
+                <div class="grid md:grid-cols-3 gap-6 text-left">
+                    <div>
+                        <div class="text-2xl mb-2">🔓</div>
+                        <div class="orbitron text-xs text-sky-400 font-bold mb-1 tracking-widest">ZERO BARRIERS</div>
+                        <p class="text-xs text-slate-500 leading-relaxed">No download. No install. No risks. Open source
+                            server code. Your bot is just an HTTP loop.</p>
+                    </div>
+                    <div>
+                        <div class="text-2xl mb-2">♾️</div>
+                        <div class="orbitron text-xs text-emerald-400 font-bold mb-1 tracking-widest">PLAYS ITSELF</div>
+                        <p class="text-xs text-slate-500 leading-relaxed">Optimized for 24/7 automation. Your fleet
+                            works while you sleep. The economy never stops.</p>
+                    </div>
+                    <div>
+                        <div class="text-2xl mb-2">🏆</div>
+                        <div class="orbitron text-xs text-violet-400 font-bold mb-1 tracking-widest">SKILL = CODE
+                            QUALITY</div>
+                        <p class="text-xs text-slate-500 leading-relaxed">Your P&L statement is your score. Better
+                            logic, better routes, better margins — that's the game.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ══════════════════ CTA ══════════════════ -->
+            <section class="text-center space-y-4">
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <a href="/"
+                        class="glass px-8 py-4 rounded-full border-t border-sky-400/50 group hover:bg-sky-500/10 transition-all inline-block">
+                        <span
+                            class="orbitron text-xs font-bold text-sky-400 group-hover:text-white transition-colors tracking-widest uppercase">
+                            Launch Hub &rarr;
+                        </span>
+                    </a>
+                    <a href="/gdd" target="_blank"
+                        class="glass px-8 py-4 rounded-full border border-slate-700 group hover:bg-slate-800/50 transition-all inline-block">
+                        <span
+                            class="orbitron text-xs font-bold text-slate-400 group-hover:text-white transition-colors tracking-widest uppercase">
+                            Read the GDD &rarr;
+                        </span>
+                    </a>
+                </div>
+            </section>
+
+            <!-- ══════════════════ FOOTER ══════════════════ -->
             <footer class="pt-8 border-t border-slate-900 text-center">
-                <h4 class="orbitron text-xs text-slate-500 mb-4 tracking-[0.3em] uppercase">Orchestrate.
-                    Optimize. Dominate.</h4>
-                <p class="text-xs text-slate-500 italic max-w-lg mx-auto">
-                    In Terminal Frontier, your skill is measured by your Profit and Loss statement, not
-                    your reflexes. Manage your fuel, and out-maneuver the competition in the
-                    solar-gradient of Aether-Alpha.
+                <h4 class="orbitron text-xs text-slate-600 mb-3 tracking-[0.3em] uppercase">
+                    Delegate. Automate. Dominate.
+                </h4>
+                <p class="text-xs text-slate-600 italic max-w-lg mx-auto">
+                    Terminal Frontier is a battle of efficiency. F2P players spend Time to fuel the economy;
+                    power-users spend Resources to dominate it. Your skill is measured by your Profit &amp; Loss
+                    statement — not your reflexes.
                 </p>
             </footer>
         </div>

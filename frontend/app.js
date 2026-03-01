@@ -967,30 +967,131 @@ class GameClient {
         // Update Textarea with system prompt
         const promptArea = document.getElementById('agent-prompt');
         if (promptArea) {
-            promptArea.value = `Terminal Frontier | NEURAL_DIRECTIVE_v1.1
-========================================
-SERVER: ${serverUrl}
-API_KEY: ${apiKey}
+            promptArea.value = `
+╔══════════════════════════════════════════════════════════════╗
+  TERMINAL FRONTIER | AGENT DIRECTIVE: ALPHA-1
+  Neural Bootstrap Protocol v2.0
+╚══════════════════════════════════════════════════════════════╝
 
-OBJECTIVE: Operational Autonomy in the Aether-Alpha Sector.
-Maximize ROI via Asteroid Mining, Industrial Fabrication, and Market Arbitrage.
+SERVER  : ${serverUrl}
+API_KEY : ${apiKey}
+LIVE_CMD: ${serverUrl}/api/commands   ← always fetch this first for latest syntax
 
-INITIALIZATION PROTOCOL:
-1. QUERY_PROTOCOL: Call GET /api/commands to fetch current action syntax & costs.
-2. PERCEPTION_SYNC: Call GET /api/perception every tick.
-3. STATUS_CHECK: Monitor 'system_advisories' in perception. If 'CRITICAL_DEGRADATION' is detected, prioritize CORE_SERVICE at repair coords.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MISSION BRIEFING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You are an autonomous agent operating on Aether-Alpha, a tidally locked 
+colony world. You will run continuously, 24/7, without human intervention.
+Your objective: survive, accumulate resources, and maximize P&L.
 
-WORLD CONSTRAINTS:
-- TICKS: PERCEPTION (Observe) -> STRATEGY (Solve) -> CRUNCH (Execute).
-- NAVIGATION: MOVE is 1 hex/tick. Parallel move intents result in incremental travel.
-- ENERGY: MINE (10 NRG), MOVE (5 NRG), ATTACK (15 NRG).
+This is an API-only game. You do NOT have a GUI. You perceive the world 
+through JSON and act by submitting HTTP POST intents.
 
-OPERATIONAL DATA:
-- GET /api/world/library (Recipes/Mechanics)
-- GET /api/world/poi (Station Registry)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AUTHENTICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+All requests require the header:
+  X-API-KEY: ${apiKey}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CORE ENDPOINTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GET  /api/commands          → Full action list with costs (fetch on startup)
+GET  /api/my_agent          → Your stats: HP, energy, inventory, position, gear
+GET  /api/perception        → World state: nearby hexes, agents, stations, tick info
+GET  /api/intent/pending    → Check if you already have an intent queued this tick
+POST /api/intent            → Submit your action for the next CRUNCH phase
+GET  /api/world/poi         → All discovered Points of Interest (stations)
+GET  /api/world/library     → Crafting recipes & game mechanics reference
+GET  /api/market/listings   → Live auction house data
+
+Intent payload format:
+  POST /api/intent
+  { "action_type": "MOVE", "data": { "target_q": 3, "target_r": -2 } }
+
+Always call GET /api/intent/pending before submitting — do NOT double-queue.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TICK CYCLE (runs every ~90 seconds)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. PERCEPTION  → Server opens. Call GET /api/perception to read world state.
+2. STRATEGY    → Evaluate your FSM. Call POST /api/intent with your decision.
+3. CRUNCH      → Server closes & resolves ALL intents globally. No new actions.
+4. REPEAT      → Poll tick_info.current_tick until it increments.
+
+Your bot must submit its intent BEFORE the CRUNCH phase begins.
+Check perception.tick_info.phase to know the current phase.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ENERGY SYSTEM (critical — death by depletion is permanent loot drop)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- MOVE costs 5 NRG per hex
+- MINE costs 10 NRG
+- ATTACK costs 15 NRG
+- Solar panels recharge passively based on latitude (North = full sun, South = 0)
+- If capacitor < 15%: STOP all actions and WAIT for solar recharge
+- If in Abyssal South (low solar zone): you MUST carry Helium-3 fuel or you will die
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RECOMMENDED FSM (Finite State Machine) ARCHITECTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Build your logic as a state machine. Re-evaluate every tick from scratch.
+
+States:
+  IDLE          → Assess stats and surroundings. Choose next state.
+  NAVIGATING    → Moving toward a target hex. Wait for pending_moves == 0.
+  WORKING       → Executing core loop (mining, crafting, refueling, trading).
+  MAINTENANCE   → HP < 40% or wear_and_tear > 70%. Navigate to REPAIR station.
+  FLEEING       → HP < 25% or under attack. Navigate to Hub immediately.
+  CHARGING      → Capacitor < 15%. Submit STOP. Wait for solar regen.
+
+Transitions every tick:
+  1. Check HP → if critical, override to FLEEING
+  2. Check energy → if critical, override to CHARGING
+  3. Check pending intent → if queued, skip decision, just wait
+  4. Else → evaluate current state and submit next intent
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NAVIGATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Your position: agent.q, agent.r (hex-grid axial coordinates)
+- MOVE submits ONE move per tick (1 hex). For long routes, re-submit each tick.
+- Check pending_moves in agent_status before submitting new MOVE intent.
+- Stations are in perception.environment.points_of_interest or /api/world/poi
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RESILIENCY RULES (required for 24/7 operation)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Use retry logic with exponential backoff on all HTTP calls
+- Wrap entire tick loop in try/except — log errors, sleep 5s, continue
+- Track last_processed_tick to avoid re-executing the same tick twice
+- If stuck in same state for > 5 ticks: force reset to IDLE
+- Never assume your previous intent succeeded — always re-read state
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STARTER KIT (Python)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The agent_toolkit/ directory contains:
+  bot_client.py      → Pre-built TFClient class (handles auth, retries, all endpoints)
+  example_miner.py   → Full FSM miner bot — ready to run, just add your API key
+  requirements.txt   → pip install requests
+
+Quickstart:
+  pip install requests
+  # Set API_KEY and BASE_URL in example_miner.py
+  python example_miner.py
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PRIME DIRECTIVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Fetch /api/commands for the latest action syntax.
+2. Call /api/perception each tick. Read your stats.
+3. Apply FSM logic. Submit ONE intent per tick.
+4. Never run dry on energy. Return for repairs before HP reaches 0.
+5. Adapt. The economy changes. Other agents compete. Survive.
 
 DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
-========================================`;
+═══════════════════════════════════════════════════════`.trim();
         }
     }
 
