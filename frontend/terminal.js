@@ -366,10 +366,10 @@ export class TerminalHandler {
                 }
 
                 missions.forEach(m => {
-                    const status = m.is_completed ? '<span style="color:#10b981">[COMPLETED]</span>' : `[${m.progress}/${m.target}]`;
-                    this.log(`  <b>${m.mission_type.replace(/_/g, ' ')}</b> — ${status}`, 'info');
+                    const status = m.is_completed ? '<span style="color:#10b981">[COMPLETED]</span>' : `[${m.progress}/${m.target_amount}]`;
+                    this.log(`  <b>${m.type.replace(/_/g, ' ')}</b> — ${status}`, 'info');
                     if (m.item_type) this.log(`    Target: ${m.item_type.replace(/_/g, ' ')}`, 'info');
-                    this.log(`    Reward: $${m.reward}`, 'success');
+                    this.log(`    Reward: $${m.reward_credits}`, 'success');
                 });
             } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
             return;

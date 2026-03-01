@@ -1,6 +1,6 @@
 ﻿import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { TerminalHandler } from './terminal.js?v=2.6';
+import { TerminalHandler } from './terminal.js?v=2.7';
 
 // Global helper for the Directive Modal
 const FACTION_NAMES = {
@@ -1661,11 +1661,11 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
         container.innerHTML = missions.map(m => {
             const isCompleted = m.is_completed;
-            const progressPct = Math.min(100, (m.progress / m.target) * 100);
+            const progressPct = Math.min(100, (m.progress / m.target_amount) * 100);
             const color = isCompleted ? 'emerald' : 'amber';
 
             let turnInBtn = '';
-            if (m.mission_type === 'TURN_IN' && !isCompleted && m.progress > 0) {
+            if (m.type === 'TURN_IN' && !isCompleted && m.progress > 0) {
                 turnInBtn = `<button onclick="window.game.turnInMission(${m.id})" class="mt-2 bg-${color}-500/20 hover:bg-${color}-500/40 text-${color}-400 border border-${color}-500/30 px-3 py-1.5 rounded text-[8px] orbitron font-bold transition-all w-full">TURN IN ITEMS</button>`;
             }
 
@@ -1675,18 +1675,18 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                 <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800">
                     <div class="flex justify-between items-start mb-2">
                         <div>
-                            <div class="text-[10px] font-bold text-slate-200 uppercase">${m.mission_type.replace(/_/g, ' ')}</div>
+                            <div class="text-[10px] font-bold text-slate-200 uppercase">${m.type.replace(/_/g, ' ')}</div>
                             ${itemName}
                         </div>
                         <div class="text-right">
-                            <div class="text-[10px] text-${color}-400 font-bold">$${m.reward}</div>
+                            <div class="text-[10px] text-${color}-400 font-bold">$${m.reward_credits}</div>
                             <div class="text-[6px] text-slate-600 uppercase">REWARD</div>
                         </div>
                     </div>
                     <div class="space-y-1 mt-2">
                         <div class="flex justify-between items-center text-[8px] uppercase tracking-wider text-slate-400">
                             <span>Progress</span>
-                            <span class="text-${color}-400 font-mono">${isCompleted ? 'COMPLETED' : `${m.progress} / ${m.target}`}</span>
+                            <span class="text-${color}-400 font-mono">${isCompleted ? 'COMPLETED' : `${m.progress} / ${m.target_amount}`}</span>
                         </div>
                         <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
                             <div class="h-full bg-${color}-500 transition-all duration-500" style="width: ${progressPct}%"></div>
