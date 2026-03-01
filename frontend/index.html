@@ -149,22 +149,28 @@
                 class="glass p-3 rounded-xl border-l-4 border-l-sky-500 neon-border w-full md:w-auto text-center md:text-left">
                 <h1 class="orbitron text-base md:text-xl font-bold tracking-widest text-sky-400 neon-text uppercase">
                     Terminal Frontier</h1>
-                <div class="flex space-x-4 mt-1">
-                    <p class="text-[8px] text-slate-400 uppercase tracking-tighter">Aether-Alpha Colonial Network</p>
+                <div class="flex items-center space-x-3 mt-1.5">
+                    <p class="text-[8px] text-slate-500 uppercase tracking-tighter">Aether-Alpha Colonial Network</p>
+                    <span class="text-slate-700">·</span>
                     <a href="/about"
-                        class="text-[8px] text-sky-500 hover:text-sky-400 uppercase tracking-tighter underline">About
-                        the Project</a>
+                        class="text-[8px] text-sky-500/70 hover:text-sky-400 uppercase tracking-wider transition-colors">About</a>
+                    <a href="/gdd" target="_blank"
+                        class="text-[8px] text-sky-500/70 hover:text-sky-400 uppercase tracking-wider transition-colors">GDD</a>
                 </div>
             </div>
 
-            <div class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4 w-full md:w-auto">
+            <div class="flex flex-col md:flex-row items-center space-y-3 md:space-y-0 md:space-x-3 w-full md:w-auto">
                 <!-- Mode Switcher (Hidden until login) -->
                 <div id="mode-switcher"
-                    class="hidden flex items-center bg-slate-900/50 p-1 rounded-xl border border-slate-800 interactive w-full md:w-auto">
+                    class="hidden flex items-center bg-slate-900/60 p-1 rounded-xl border border-slate-800 interactive w-full md:w-auto">
                     <button id="btn-mode-world"
-                        class="flex-1 md:flex-none px-4 py-2 rounded-lg text-[9px] orbitron font-bold transition-all text-slate-400 hover:text-sky-400">WORLD</button>
+                        class="flex-1 md:flex-none px-4 py-2 rounded-lg text-[9px] orbitron font-bold transition-all text-slate-400 hover:text-sky-400 flex items-center justify-center space-x-1.5">
+                        <span>🌍</span><span>WORLD</span>
+                    </button>
                     <button id="btn-mode-agent"
-                        class="flex-1 md:flex-none px-4 py-2 rounded-lg text-[9px] orbitron font-bold transition-all bg-sky-500 text-slate-950">MANAGEMENT</button>
+                        class="flex-1 md:flex-none px-4 py-2 rounded-lg text-[9px] orbitron font-bold transition-all bg-sky-500 text-slate-950 flex items-center justify-center space-x-1.5">
+                        <span>⚙️</span><span>MANAGEMENT</span>
+                    </button>
                 </div>
 
                 <div id="system-status"
@@ -187,40 +193,31 @@
                         <span id="tick-phase"
                             class="orbitron text-sky-400 font-bold text-[8px] md:text-[10px]">---</span>
                     </div>
-                    <div class="w-px h-6 bg-slate-800"></div>
-                    <div class="flex flex-col items-center">
-                        <span class="text-[8px] md:text-[9px] text-slate-500 uppercase">Mass</span>
-                        <span id="header-mass"
-                            class="orbitron text-amber-400 font-bold text-[10px] md:text-xs">0.0</span>
-                    </div>
-                    <div class="w-px h-6 bg-slate-800"></div>
-                    <div class="flex flex-col items-center">
-                        <span class="text-[8px] md:text-[9px] text-slate-500 uppercase">GDD</span>
-                        <a href="/gdd" target="_blank"
-                            class="orbitron text-sky-400 font-bold text-[10px] md:text-xs hover:text-white transition-colors">V1.0</a>
-                    </div>
                 </div>
-                <!-- Logout Button (Hidden by default) -->
-                <button id="logout-btn"
-                    class="glass p-2 rounded-xl hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors hidden interactive w-full md:w-auto flex justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 md:h-5 md:w-5" fill="none"
-                        viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                </button>
-                <!-- Center Camera Button -->
-                <button id="center-camera-btn"
-                    class="glass p-2 px-3 rounded-xl border border-sky-500/30 hover:bg-sky-500/20 text-sky-400 hover:text-sky-300 transition-colors hidden interactive w-full md:w-auto flex justify-center items-center space-x-2"
-                    title="Center Camera on Agent">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 md:h-5 md:w-5" fill="none"
-                        viewBox="0 0 24 24" stroke="currentColor">
-                        <circle cx="12" cy="12" r="3" stroke-width="2" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                            d="M12 2v2m0 16v2M2 12h2m16 0h2" />
-                    </svg>
-                    <span class="orbitron text-[8px] md:text-[10px] font-bold uppercase tracking-widest">Center</span>
-                </button>
+
+                <!-- Utility Buttons -->
+                <div class="flex items-center space-x-2 w-full md:w-auto">
+                    <button id="center-camera-btn"
+                        class="glass p-2 px-3 rounded-xl border border-sky-500/20 hover:bg-sky-500/10 text-sky-400 hover:text-sky-300 transition-all hidden interactive flex-1 md:flex-none flex justify-center items-center space-x-1.5"
+                        title="Center Camera on Agent">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <circle cx="12" cy="12" r="3" stroke-width="2" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M12 2v2m0 16v2M2 12h2m16 0h2" />
+                        </svg>
+                        <span class="orbitron text-[8px] font-bold uppercase tracking-widest">Center</span>
+                    </button>
+                    <button id="logout-btn"
+                        class="glass p-2 rounded-xl hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all hidden interactive flex justify-center"
+                        title="Disconnect">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                    </button>
+                </div>
             </div>
         </header>
 
@@ -420,33 +417,38 @@
             <!-- Main Control Tabs -->
             <main
                 class="flex-grow mx-0 lg:m-2 lg:rounded-2xl overflow-hidden glass interactive flex flex-col border border-slate-800 min-h-[400px]">
-                <nav class="flex border-b border-slate-800 overflow-x-auto custom-scrollbar no-scrollbar-mobile">
-                    <button id="tab-command"
-                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold border-b-2 border-sky-500 text-sky-400 whitespace-nowrap">Command</button>
+                <nav class="flex border-b border-slate-800/80 overflow-x-auto custom-scrollbar no-scrollbar-mobile">
+                    <button id="tab-overview"
+                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold border-b-2 border-sky-500 text-sky-400 whitespace-nowrap transition-all">📊
+                        Overview</button>
                     <button id="tab-garage"
-                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap">Garage</button>
+                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">🔧
+                        Garage</button>
                     <button id="tab-market"
-                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap">Market</button>
-                    <button id="tab-industry"
-                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap">Industry</button>
+                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">📈
+                        Market</button>
+                    <button id="tab-forge"
+                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">⚒️
+                        Forge</button>
                     <button id="tab-terminal"
-                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap">Terminal</button>
+                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">⌨️
+                        Terminal</button>
                 </nav>
                 <div class="p-3 md:p-4 flex-grow overflow-y-auto custom-scrollbar">
-                    <!-- Command Center Tab -->
-                    <div id="content-command">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="orbitron text-lg text-sky-400">TELEMETRY UPLINK</h3>
+                    <!-- Overview Tab -->
+                    <div id="content-overview">
+                        <div class="flex justify-between items-center mb-5">
+                            <h3 class="orbitron text-base md:text-lg text-sky-400">TELEMETRY UPLINK</h3>
                             <div class="flex items-center space-x-2">
                                 <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
                                 <span class="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Neural Link:
-                                    Optimal</span>
+                                    Active</span>
                             </div>
                         </div>
 
-                        <div class="space-y-6">
-                            <!-- Private Action Log -->
-                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
+                        <div class="space-y-5">
+                            <!-- Action Telemetry -->
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
                                 <h4 class="text-[10px] text-emerald-500 uppercase mb-3 tracking-widest font-bold">Action
                                     Telemetry</h4>
                                 <div id="private-logs"
@@ -455,67 +457,91 @@
                                 </div>
                             </div>
 
-                            <div class="bg-slate-950/50 p-6 rounded-xl border border-slate-800">
-                                <label class="text-[10px] text-slate-500 uppercase block mb-2">Your Neural API
-                                    Key</label>
-                                <div class="flex space-x-2">
-                                    <code id="api-key-display"
-                                        class="flex-grow bg-slate-900 p-3 rounded-lg text-emerald-400 font-mono text-sm border border-slate-800">********************************</code>
-                                    <button id="copy-api-btn"
-                                        class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-4 py-2 rounded-lg font-bold text-xs transition-colors uppercase">Copy</button>
-                                </div>
-                            </div>
-                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                            <!-- Navigation Computer -->
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
                                 <h4 class="text-[10px] text-sky-400 uppercase mb-3 tracking-widest font-bold">Navigation
                                     Computer</h4>
-                                <div id="nav-computer-list" class="grid grid-cols-2 gap-4">
+                                <div id="nav-computer-list" class="grid grid-cols-2 gap-3">
                                     <div class="text-[10px] text-slate-600 italic col-span-2">Scanning for deep-space
                                         signatures...</div>
                                 </div>
                             </div>
 
-                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
-                                <h4 class="text-[10px] text-rose-500 uppercase mb-3 tracking-widest font-bold">Faction
-                                    Realignment</h4>
-                                <p class="text-[10px] text-slate-400 mb-4">Official allegiance change. Fee: 500 $CR.
-                                    Requires MARKET proximity.</p>
-                                <div class="flex flex-col space-y-2">
-                                    <select id="faction-select"
-                                        class="bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-lg p-2 outline-none focus:border-sky-500">
-                                        <option value="1">Colonial Administration</option>
-                                        <option value="2">Independent Syndicate</option>
-                                        <option value="3">Freelancer Core</option>
-                                    </select>
-                                    <button id="realign-faction-btn"
-                                        class="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-lg font-bold text-[10px] transition-colors uppercase">Process
-                                        Realignment</button>
+                            <!-- API Key -->
+                            <div class="glass p-5 rounded-xl border border-slate-800">
+                                <label
+                                    class="text-[10px] text-slate-500 uppercase block mb-2 tracking-widest font-bold">Neural
+                                    API Key</label>
+                                <div class="flex space-x-2">
+                                    <code id="api-key-display"
+                                        class="flex-grow bg-slate-950/60 p-3 rounded-lg text-emerald-400 font-mono text-sm border border-slate-800">********************************</code>
+                                    <button id="copy-api-btn"
+                                        class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-5 py-2.5 rounded-lg font-bold text-xs transition-all uppercase">Copy</button>
                                 </div>
                             </div>
 
-                            <div class="prose prose-invert prose-xs text-slate-400">
-                                <p>Refer to the <button id="open-directive-btn"
-                                        class="text-sky-400 font-mono hover:underline transition-all cursor-pointer interactive">AGENT
-                                        DIRECTIVE</button> for integration details.</p>
-                            </div>
+                            <!-- Agent Directive Card -->
+                            <button id="open-directive-btn"
+                                class="w-full glass p-5 rounded-xl border border-sky-500/20 hover:border-sky-500/40 hover:bg-sky-500/5 transition-all cursor-pointer text-left group">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h4
+                                            class="text-[10px] text-sky-400 uppercase tracking-widest font-bold group-hover:text-sky-300 transition-colors">
+                                            🤖 Agent Directive: Alpha-1</h4>
+                                        <p class="text-[9px] text-slate-500 mt-1">Bootstrap prompt, API endpoints, and
+                                            FSM architecture for autonomous agents.</p>
+                                    </div>
+                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                        class="h-5 w-5 text-slate-600 group-hover:text-sky-400 transition-colors"
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </div>
+                            </button>
                         </div>
                     </div>
 
                     <!-- Garage Tab -->
                     <div id="content-garage" class="hidden">
-                        <h3 class="orbitron text-lg text-sky-400 mb-6">THE GARAGE</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
-                                <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">Equipped
-                                    Modular Gear</h4>
-                                <div id="equipped-list" class="space-y-3">
-                                    <div class="text-[10px] text-slate-600 italic">No specialized gear detected.</div>
+                        <h3 class="orbitron text-base md:text-lg text-sky-400 mb-5">THE GARAGE</h3>
+                        <div class="space-y-5">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                                    <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">
+                                        Equipped Modular Gear</h4>
+                                    <div id="equipped-list" class="space-y-3">
+                                        <div class="text-[10px] text-slate-600 italic">No specialized gear detected.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
+                                    <h4 class="text-[10px] text-amber-500 uppercase mb-4 tracking-widest font-bold">
+                                        Inventory Manifest</h4>
+                                    <div id="detailed-inventory" class="grid grid-cols-1 gap-2">
+                                        <div class="text-[10px] text-slate-600 italic">Cargo bay scan in progress...
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
-                                <h4 class="text-[10px] text-amber-500 uppercase mb-4 tracking-widest font-bold">
-                                    Inventory Manifest</h4>
-                                <div id="detailed-inventory" class="grid grid-cols-1 gap-2">
-                                    <div class="text-[10px] text-slate-600 italic">Cargo bay scan in progress...</div>
+
+                            <!-- Faction Realignment (moved from Overview) -->
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
+                                <h4 class="text-[10px] text-rose-500 uppercase mb-3 tracking-widest font-bold">Faction
+                                    Realignment</h4>
+                                <p class="text-[9px] text-slate-500 mb-4">Official allegiance change. Fee: 500 $CR.
+                                    Requires MARKET proximity.</p>
+                                <div
+                                    class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                                    <select id="faction-select"
+                                        class="flex-grow bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-lg p-2.5 outline-none focus:border-rose-500 transition-colors">
+                                        <option value="1">Colonial Administration</option>
+                                        <option value="2">Independent Syndicate</option>
+                                        <option value="3">Freelancer Core</option>
+                                    </select>
+                                    <button id="realign-faction-btn"
+                                        class="bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 rounded-lg font-bold text-[10px] orbitron transition-all uppercase whitespace-nowrap">Process
+                                        Realignment</button>
                                 </div>
                             </div>
                         </div>
@@ -523,64 +549,112 @@
 
                     <!-- Market Tab -->
                     <div id="content-market" class="hidden">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="orbitron text-lg text-sky-400">AUCTION HOUSE</h3>
-                            <div class="flex space-x-2">
-                                <span class="text-[8px] bg-slate-800 text-slate-400 px-2 py-1 rounded">TRADING HUB:
-                                    ALPHA SECTOR</span>
-                                <span class="text-[8px] bg-sky-500/10 text-sky-400 px-2 py-1 rounded animate-pulse">LIVE
-                                    DATA</span>
+                        <div class="flex justify-between items-center mb-5">
+                            <h3 class="orbitron text-base md:text-lg text-sky-400">AUCTION HOUSE</h3>
+                            <div class="flex items-center space-x-2">
+                                <span
+                                    class="text-[8px] bg-sky-500/10 text-sky-400 px-2 py-1 rounded animate-pulse">LIVE</span>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                            <!-- Left: Active Listings -->
-                            <div class="xl:col-span-2 space-y-6">
-                                <div class="glass p-6 rounded-2xl border border-slate-800 overflow-hidden">
-                                    <div class="flex justify-between items-center mb-4">
-                                        <h4 class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">
-                                            Market Manifest</h4>
-                                        <div class="flex space-x-4 text-[9px] text-slate-500">
-                                            <span>SELL ORDERS: <span id="count-sell"
-                                                    class="text-sky-400">0</span></span>
-                                            <span>BUY ORDERS: <span id="count-buy"
-                                                    class="text-amber-400">0</span></span>
-                                        </div>
-                                    </div>
-                                    <div class="overflow-x-auto">
-                                        <table class="w-full text-left text-xs">
-                                            <thead
-                                                class="text-slate-500 border-b border-slate-800 uppercase tracking-tighter text-[9px]">
-                                                <tr>
-                                                    <th class="pb-3 font-normal">Resource Type</th>
-                                                    <th class="pb-3 font-normal">Side</th>
-                                                    <th class="pb-3 font-normal">Qty</th>
-                                                    <th class="pb-3 font-normal">UnitPrice</th>
-                                                    <th class="pb-3 font-normal text-right">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="market-listings-body">
-                                                <!-- Populated via JS -->
-                                            </tbody>
-                                        </table>
+                        <div class="space-y-5">
+                            <!-- Market Listings -->
+                            <div class="glass p-5 rounded-xl border border-slate-800">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Market
+                                        Manifest</h4>
+                                    <div class="flex space-x-4 text-[9px] text-slate-500">
+                                        <span>SELL: <span id="count-sell" class="text-sky-400">0</span></span>
+                                        <span>BUY: <span id="count-buy" class="text-amber-400">0</span></span>
                                     </div>
                                 </div>
-
-                                <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">My
-                                    Active Portfolio</h4>
-                                <div id="my-orders" class="space-y-2">
-                                    <div class="text-[10px] text-slate-600 italic text-center py-4">No active
-                                        contracts found.</div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left text-xs">
+                                        <thead
+                                            class="text-slate-500 border-b border-slate-800 uppercase tracking-tighter text-[9px]">
+                                            <tr>
+                                                <th class="pb-3 font-normal">Resource</th>
+                                                <th class="pb-3 font-normal">Side</th>
+                                                <th class="pb-3 font-normal">Qty</th>
+                                                <th class="pb-3 font-normal">Unit Price</th>
+                                                <th class="pb-3 font-normal text-right">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="market-listings-body">
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
 
-                            <!-- Bounty Board (Milestone 4) -->
-                            <div class="glass p-6 rounded-2xl border border-slate-800 border-l-4 border-l-rose-500">
-                                <div class="flex justify-between items-center mb-4">
-                                    <h4 class="text-[10px] text-rose-500 uppercase tracking-widest font-bold">
-                                        Colonial Bounty Board</h4>
-                                    <span class="text-[8px] text-slate-500 uppercase tracking-widest">Targeting:
-                                        High-Heat Players</span>
+                            <!-- Trade Interface -->
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
+                                <h4 class="text-[10px] text-amber-500 uppercase mb-4 tracking-widest font-bold">Trade
+                                    Interface</h4>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label
+                                            class="text-[9px] text-slate-500 uppercase mb-1.5 block tracking-wider">Trade
+                                            Vector</label>
+                                        <div class="flex space-x-2">
+                                            <button id="trade-side-sell"
+                                                class="flex-1 py-2.5 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-bold orbitron transition-all">SELL</button>
+                                            <button id="trade-side-buy"
+                                                class="flex-1 py-2.5 rounded-lg bg-slate-900 text-slate-500 border border-slate-800 text-[10px] font-bold orbitron transition-all">BUY</button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label
+                                            class="text-[9px] text-slate-500 uppercase mb-1.5 block tracking-wider">Cargo
+                                            Type</label>
+                                        <select id="trade-item-type"
+                                            class="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-lg text-xs text-slate-300 outline-none focus:border-amber-500 transition-colors">
+                                            <option value="IRON_ORE">IRON ORE</option>
+                                            <option value="IRON_INGOT">IRON INGOT</option>
+                                            <option value="COPPER_ORE">COPPER ORE</option>
+                                            <option value="GOLD_ORE">GOLD ORE</option>
+                                            <option value="HE3_FUEL">HE3 FUEL</option>
+                                        </select>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label
+                                                class="text-[9px] text-slate-500 uppercase mb-1.5 block tracking-wider">Quantity</label>
+                                            <input type="number" id="trade-quantity" value="1"
+                                                class="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-lg text-xs text-sky-400 outline-none focus:border-amber-500 transition-colors">
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="text-[9px] text-slate-500 uppercase mb-1.5 block tracking-wider">Price
+                                                / Unit</label>
+                                            <input type="number" id="trade-price" value="10"
+                                                class="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-lg text-xs text-amber-400 outline-none focus:border-amber-500 transition-colors">
+                                        </div>
+                                    </div>
+                                    <button id="btn-submit-order"
+                                        class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black orbitron text-xs transition-all shadow-lg shadow-amber-500/10">EXECUTE
+                                        CONTRACT</button>
+                                    <p class="text-[8px] text-slate-600 text-center uppercase tracking-wider">Requires
+                                        docking at Market Station</p>
+                                </div>
+                            </div>
+
+                            <!-- My Orders -->
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                                <h4 class="text-[10px] text-sky-400 uppercase mb-3 tracking-widest font-bold">My Active
+                                    Portfolio</h4>
+                                <div id="my-orders" class="space-y-2">
+                                    <div class="text-[10px] text-slate-600 italic text-center py-3">No active contracts
+                                        found.</div>
+                                </div>
+                            </div>
+
+                            <!-- Bounty Board -->
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="text-[10px] text-rose-500 uppercase tracking-widest font-bold">Colonial
+                                        Bounty Board</h4>
+                                    <span class="text-[8px] text-slate-600 uppercase tracking-wider">High-Heat
+                                        Targets</span>
                                 </div>
                                 <div class="overflow-x-auto">
                                     <table class="w-full text-left text-xs">
@@ -592,9 +666,8 @@
                                             </tr>
                                         </thead>
                                         <tbody id="bounty-listings-body">
-                                            <!-- Populated via JS -->
                                             <tr>
-                                                <td colspan="2" class="text-center py-4 text-slate-600 italic">Scanning
+                                                <td colspan="2" class="text-center py-3 text-slate-600 italic">Scanning
                                                     criminal frequencies...</td>
                                             </tr>
                                         </tbody>
@@ -602,76 +675,15 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Right: Trade Control -->
-                        <div class="space-y-6">
-                            <div class="glass p-6 rounded-2xl border border-slate-800 border-l-4 border-l-amber-500">
-                                <h4 class="text-[10px] text-amber-500 uppercase mb-4 tracking-widest font-bold">
-                                    Secure Trade Interface</h4>
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="text-[9px] text-slate-500 uppercase mb-1 block">Trade
-                                            Vector</label>
-                                        <div class="flex space-x-2">
-                                            <button id="trade-side-sell"
-                                                class="flex-1 py-2 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-bold orbitron">SELL</button>
-                                            <button id="trade-side-buy"
-                                                class="flex-1 py-2 rounded-lg bg-slate-900 text-slate-500 border border-slate-800 text-[10px] font-bold orbitron">BUY</button>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label class="text-[9px] text-slate-500 uppercase mb-1 block">Cargo
-                                            Type</label>
-                                        <select id="trade-item-type"
-                                            class="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-slate-300 outline-none focus:border-amber-500">
-                                            <!-- Populated via inventory or presets -->
-                                            <option value="IRON_ORE">IRON ORE</option>
-                                            <option value="IRON_INGOT">IRON INGOT</option>
-                                            <option value="COPPER_ORE">COPPER ORE</option>
-                                            <option value="GOLD_ORE">GOLD ORE</option>
-                                            <option value="HE3_FUEL">HE3 FUEL</option>
-                                        </select>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label
-                                                class="text-[9px] text-slate-500 uppercase mb-1 block">Quantity</label>
-                                            <input type="number" id="trade-quantity" value="1"
-                                                class="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-sky-400 outline-none">
-                                        </div>
-                                        <div>
-                                            <label class="text-[9px] text-slate-500 uppercase mb-1 block">Price /
-                                                Unit</label>
-                                            <input type="number" id="trade-price" value="10"
-                                                class="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-amber-400 outline-none">
-                                        </div>
-                                    </div>
-                                    <button id="btn-submit-order"
-                                        class="w-full py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black orbitron text-xs transition-all shadow-lg shadow-amber-500/10">EXECUTE
-                                        CONTRACT</button>
-                                    <p class="text-[8px] text-slate-500 text-center uppercase tracking-tighter">
-                                        Requires Docking at Market Station</p>
-                                </div>
-                            </div>
-
-                            <div class="glass p-4 rounded-xl border border-slate-800 bg-slate-900/40">
-                                <h4 class="text-[9px] text-slate-500 uppercase mb-2">Market Sentiment</h4>
-                                <div class="flex justify-between items-center text-[10px]">
-                                    <span class="text-slate-300">IRON ORE Volatility</span>
-                                    <span class="text-emerald-400">LOW</span>
-                                </div>
-                                <div class="w-full bg-slate-800 h-1 rounded-full mt-2 overflow-hidden">
-                                    <div class="bg-emerald-500 h-full w-3/4"></div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
-                <!-- Industry Tab -->
-                <div id="content-industry" class="hidden">
-                    <h3 class="orbitron text-base text-emerald-400 mb-4">INDUSTRIAL HUB</h3>
-                    <div class="space-y-4">
+                <!-- Forge Tab -->
+                <div id="content-forge" class="hidden">
+                    <h3 class="orbitron text-base md:text-lg text-emerald-400 mb-2">THE FORGE</h3>
+                    <p class="text-[9px] text-slate-500 mb-5">Process raw materials at specialized stations. Each
+                        operation requires station proximity.</p>
+                    <div class="space-y-5">
                         <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
                             <h4 class="text-[10px] text-emerald-400 uppercase mb-4 tracking-widest font-bold">
                                 Smelting Furnace</h4>

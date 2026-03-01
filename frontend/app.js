@@ -373,7 +373,7 @@ class GameClient {
         document.getElementById('btn-mode-agent').addEventListener('click', () => this.setUIMode('management'));
 
         // Tab Listeners
-        ['command', 'garage', 'market', 'industry', 'terminal'].forEach(tab => {
+        ['overview', 'garage', 'market', 'forge', 'terminal'].forEach(tab => {
             const el = document.getElementById(`tab-${tab}`);
             if (el) el.addEventListener('click', () => this.switchTab(tab));
         });
@@ -577,7 +577,7 @@ class GameClient {
     }
 
     switchTab(tabId) {
-        const tabs = ['command', 'garage', 'market', 'industry', 'terminal'];
+        const tabs = ['overview', 'garage', 'market', 'forge', 'terminal'];
         tabs.forEach(t => {
             const content = document.getElementById(`content-${t}`);
             const btn = document.getElementById(`tab-${t}`);
@@ -1287,7 +1287,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
     }
 
     centerOnAgent() {
-        const myAgentId = localStorage.getItem('sv_agent_id');
+        const myAgentId = parseInt(localStorage.getItem('sv_agent_id'));
         const mesh = this.agents.get(myAgentId);
 
         if (!mesh || !this.controls || !this.camera) {
