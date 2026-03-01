@@ -1,5 +1,6 @@
-import * as THREE from 'three';
+﻿import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TerminalHandler } from './terminal.js';
 
 // Global helper for the Directive Modal
 const FACTION_NAMES = {
@@ -27,411 +28,6 @@ window.copyAgentPrompt = function () {
         const oldBtnText = btn.innerText;
         btn.innerText = 'COPIED!';
         setTimeout(() => btn.innerText = oldBtnText, 2000);
-    }
-}
-
-class TerminalHandler {
-    constructor(game) {
-        this.game = game;
-        this.input = document.getElementById('terminal-input');
-        this.submitBtn = document.getElementById('terminal-submit');
-        this.buffer = document.getElementById('terminal-buffer');
-        this.suggestionsEl = document.getElementById('command-suggestions');
-
-        // ═══════════════════════════════════════════════════════
-        // FULL COMMAND REGISTRY
-        // ═══════════════════════════════════════════════════════
-        this.commands = {
-            'MOVE': { cat: 'NAV', syntax: 'MOVE <q> <r>', example: 'MOVE 1 -1', help: 'Move to adjacent hex' },
-            'SCAN': { cat: 'NAV', syntax: 'SCAN', example: 'SCAN', help: 'Re-sync sensor telemetry' },
-            'MINE': { cat: 'RESOURCE', syntax: 'MINE', example: 'MINE', help: 'Extract resources (needs Drill)' },
-            'SALVAGE': { cat: 'RESOURCE', syntax: 'SALVAGE <drop_id>', example: 'SALVAGE 42', help: 'Collect a world loot drop' },
-            'ATTACK': { cat: 'COMBAT', syntax: 'ATTACK <target_id>', example: 'ATTACK 7', help: 'Standard combat engagement' },
-            'INTIMIDATE': { cat: 'COMBAT', syntax: 'INTIMIDATE <target_id>', example: 'INTIMIDATE 7', help: 'Piracy: siphon 5% inventory' },
-            'LOOT': { cat: 'COMBAT', syntax: 'LOOT <target_id>', example: 'LOOT 7', help: 'Piracy: attack + siphon 15%' },
-            'DESTROY': { cat: 'COMBAT', syntax: 'DESTROY <target_id>', example: 'DESTROY 7', help: 'Piracy: high-dmg + siphon 40%' },
-            'LIST': { cat: 'MARKET', syntax: 'LIST <item> <price> <qty>', example: 'LIST IRON_INGOT 50 10', help: 'List item on Auction House' },
-            'BUY': { cat: 'MARKET', syntax: 'BUY <item> <max_price>', example: 'BUY IRON_INGOT 60', help: 'Purchase from Auction House' },
-            'CANCEL': { cat: 'MARKET', syntax: 'CANCEL <order_id>', example: 'CANCEL 15', help: 'Withdraw an active order' },
-            'SMELT': { cat: 'INDUSTRY', syntax: 'SMELT <ore_type> <quantity>', example: 'SMELT IRON_ORE 5', help: 'Refine ore into ingots (SMELTER)' },
-            'CRAFT': { cat: 'INDUSTRY', syntax: 'CRAFT <item_type>', example: 'CRAFT DRILL_MK1', help: 'Assemble parts (CRAFTER)' },
-            'REFINE_GAS': { cat: 'INDUSTRY', syntax: 'REFINE_GAS <quantity>', example: 'REFINE_GAS 3', help: 'Helium Gas to He3 (REFINERY)' },
-            'REPAIR': { cat: 'MAINT', syntax: 'REPAIR <amount>', example: 'REPAIR 20', help: 'Restore structure (REPAIR stn)' },
-            'CORE_SERVICE': { cat: 'MAINT', syntax: 'CORE_SERVICE', example: 'CORE_SERVICE', help: 'Reset Wear and Tear' },
-            'EQUIP': { cat: 'GEAR', syntax: 'EQUIP <item_type>', example: 'EQUIP DRILL_MK1', help: 'Attach part to chassis' },
-            'UNEQUIP': { cat: 'GEAR', syntax: 'UNEQUIP <part_id>', example: 'UNEQUIP 3', help: 'Remove equipped part' },
-            'CONSUME': { cat: 'GEAR', syntax: 'CONSUME <item_type>', example: 'CONSUME HE3_FUEL', help: 'Use consumable for buff' },
-            'CHANGE_FACTION': { cat: 'OTHER', syntax: 'CHANGE_FACTION <faction_id>', example: 'CHANGE_FACTION 2', help: 'Realign to faction (1-3)' },
-            'RECIPES': { cat: 'META', syntax: 'RECIPES [filter]', example: 'RECIPES drills', help: 'Query crafting database' },
-            'HELP': { cat: 'META', syntax: 'HELP [command]', example: 'HELP SMELT', help: 'Show commands or details' },
-            'STATUS': { cat: 'META', syntax: 'STATUS', example: 'STATUS', help: 'Show your agent status' },
-        };
-
-        this.setupListeners();
-        setTimeout(() => {
-            this.log('TERMINAL v2.0 ONLINE. Type <span style="color:#38bdf8">HELP</span> for commands.', 'system');
-        }, 500);
-    }
-
-    setupListeners() {
-        if (!this.input) return;
-
-        this.input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') this.submit();
-            else this.handleSuggestions(e);
-        });
-
-        this.input.addEventListener('input', () => this.updateSuggestions());
-        this.submitBtn?.addEventListener('click', () => this.submit());
-
-        // Quick buttons
-        document.getElementById('btn-quick-move')?.addEventListener('click', () => {
-            this.input.value = 'MOVE ';
-            this.input.focus();
-        });
-        document.getElementById('btn-quick-mine')?.addEventListener('click', () => {
-            this.input.value = 'MINE';
-            this.submit();
-        });
-        document.getElementById('btn-quick-scan')?.addEventListener('click', () => {
-            this.input.value = 'SCAN';
-            this.submit();
-        });
-        document.getElementById('btn-quick-status')?.addEventListener('click', () => {
-            this.input.value = 'STATUS';
-            this.submit();
-        });
-        document.getElementById('btn-quick-salvage')?.addEventListener('click', () => {
-            this.input.value = 'SALVAGE ';
-            this.input.focus();
-        });
-        document.getElementById('btn-quick-repair')?.addEventListener('click', () => {
-            this.input.value = 'REPAIR ';
-            this.input.focus();
-        });
-        document.getElementById('btn-quick-help')?.addEventListener('click', () => {
-            this.input.value = 'HELP';
-            this.submit();
-        });
-    }
-
-    log(msg, type = 'info') {
-        const div = document.createElement('div');
-        const colors = {
-            info: 'text-slate-400',
-            success: 'text-emerald-400',
-            error: 'text-rose-400',
-            system: 'text-sky-400'
-        };
-        div.className = `font-mono ${colors[type] || colors.info}`;
-        const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        div.innerHTML = `<span class="opacity-30">[${time}]</span> ${msg}`;
-        this.buffer.appendChild(div);
-        this.buffer.scrollTop = this.buffer.scrollHeight;
-    }
-
-    updateSuggestions() {
-        const val = this.input.value.toUpperCase().trim();
-        if (!val) {
-            this.suggestionsEl.classList.add('hidden');
-            return;
-        }
-
-        const matches = Object.keys(this.commands).filter(c => c.startsWith(val));
-        if (matches.length > 0) {
-            this.suggestionsEl.innerHTML = matches.map(m => {
-                const cmd = this.commands[m];
-                return `<div class="suggestion-item" onclick="game.terminal.useSuggestion('${m}')">${cmd.syntax} — ${cmd.help}</div>`;
-            }).join('');
-            this.suggestionsEl.classList.remove('hidden');
-        } else {
-            this.suggestionsEl.classList.add('hidden');
-        }
-    }
-
-    useSuggestion(cmd) {
-        this.input.value = cmd + ' ';
-        this.suggestionsEl.classList.add('hidden');
-        this.input.focus();
-    }
-
-    handleSuggestions(e) { }
-
-    parseIntent(actionType, args) {
-        const data = {};
-        switch (actionType) {
-            case 'MOVE':
-                if (args.length < 2) throw new Error('Usage: MOVE <q> <r>  — e.g. MOVE 1 -1');
-                data.target_q = parseInt(args[0]); data.target_r = parseInt(args[1]);
-                if (isNaN(data.target_q) || isNaN(data.target_r)) throw new Error('Coordinates must be integers.');
-                break;
-            case 'ATTACK': case 'INTIMIDATE': case 'LOOT': case 'DESTROY':
-                if (args.length < 1) throw new Error(`Usage: ${actionType} <target_id>  — e.g. ${actionType} 7`);
-                data.target_id = parseInt(args[0]);
-                if (isNaN(data.target_id)) throw new Error('Target ID must be an integer.');
-                break;
-            case 'LIST':
-                if (args.length < 3) throw new Error('Usage: LIST <item> <price> <qty>  — e.g. LIST IRON_INGOT 50 10');
-                data.item_type = args[0].toUpperCase(); data.price = parseInt(args[1]); data.quantity = parseInt(args[2]);
-                if (isNaN(data.price) || isNaN(data.quantity)) throw new Error('Price and Quantity must be integers.');
-                break;
-            case 'BUY':
-                if (args.length < 2) throw new Error('Usage: BUY <item> <max_price>  — e.g. BUY IRON_INGOT 60');
-                data.item_type = args[0].toUpperCase(); data.max_price = parseInt(args[1]);
-                if (isNaN(data.max_price)) throw new Error('Max price must be an integer.');
-                break;
-            case 'CANCEL':
-                if (args.length < 1) throw new Error('Usage: CANCEL <order_id>  — e.g. CANCEL 15');
-                data.order_id = parseInt(args[0]);
-                if (isNaN(data.order_id)) throw new Error('Order ID must be an integer.');
-                break;
-            case 'SMELT':
-                if (args.length < 2) throw new Error('Usage: SMELT <ore_type> <qty>  — e.g. SMELT IRON_ORE 5');
-                data.ore_type = args[0].toUpperCase(); data.quantity = parseInt(args[1]);
-                if (isNaN(data.quantity)) throw new Error('Quantity must be an integer.');
-                break;
-            case 'CRAFT':
-                if (args.length < 1) throw new Error('Usage: CRAFT <item_type>  — e.g. CRAFT DRILL_MK1');
-                data.item_type = args[0].toUpperCase();
-                break;
-            case 'REPAIR':
-                if (args.length < 1) throw new Error('Usage: REPAIR <amount>  — e.g. REPAIR 20');
-                data.amount = parseInt(args[0]);
-                if (isNaN(data.amount)) throw new Error('Amount must be an integer.');
-                break;
-            case 'REFINE_GAS':
-                if (args.length < 1) throw new Error('Usage: REFINE_GAS <qty>  — e.g. REFINE_GAS 3');
-                data.quantity = parseInt(args[0]);
-                if (isNaN(data.quantity)) throw new Error('Quantity must be an integer.');
-                break;
-            case 'SALVAGE':
-                if (args.length < 1) throw new Error('Usage: SALVAGE <drop_id>  — e.g. SALVAGE 42');
-                data.drop_id = parseInt(args[0]);
-                if (isNaN(data.drop_id)) throw new Error('Drop ID must be an integer.');
-                break;
-            case 'EQUIP':
-                if (args.length < 1) throw new Error('Usage: EQUIP <item_type>  — e.g. EQUIP DRILL_MK1');
-                data.item_type = args[0].toUpperCase();
-                break;
-            case 'UNEQUIP':
-                if (args.length < 1) throw new Error('Usage: UNEQUIP <part_id>  — e.g. UNEQUIP 3');
-                data.part_id = parseInt(args[0]);
-                if (isNaN(data.part_id)) throw new Error('Part ID must be an integer.');
-                break;
-            case 'CONSUME':
-                if (args.length < 1) throw new Error('Usage: CONSUME <item_type>  — e.g. CONSUME HE3_FUEL');
-                data.item_type = args[0].toUpperCase();
-                break;
-            case 'CHANGE_FACTION':
-                if (args.length < 1) throw new Error('Usage: CHANGE_FACTION <faction_id>  — (1, 2, or 3)');
-                data.faction_id = parseInt(args[0]);
-                if (isNaN(data.faction_id)) throw new Error('Faction ID must be 1, 2, or 3.');
-                break;
-            case 'MINE': case 'CORE_SERVICE':
-                break;
-            default:
-                throw new Error(`Unknown command: ${actionType}`);
-        }
-        return data;
-    }
-
-    async submit() {
-        const raw = this.input.value.trim();
-        if (!raw) return;
-        this.input.value = '';
-        this.suggestionsEl.classList.add('hidden');
-        this.log(`&gt; ${raw}`, 'system');
-
-        const parts = raw.split(/\s+/);
-        const actionType = parts[0].toUpperCase();
-        const args = parts.slice(1);
-
-        // ── META: HELP ──
-        if (actionType === 'HELP') {
-            if (args.length > 0) {
-                const cmdName = args[0].toUpperCase();
-
-                // Add specific support for "HELP CRAFT <item>"
-                if (cmdName === 'CRAFT' && args.length > 1) {
-                    const itemName = args[1].toUpperCase();
-                    try {
-                        const apiKey = localStorage.getItem('sv_api_key');
-                        fetch('/api/my_agent', { headers: { 'X-API-Key': apiKey } })
-                            .then(r => r.json())
-                            .then(a => {
-                                const db = a.discovery?.crafting_recipes || [];
-                                const recipe = db.find(r => r.id === itemName);
-                                if (!recipe) {
-                                    this.log(`No known recipe for '${itemName}'. Type <span style="color:#38bdf8">RECIPES</span> to view databanks.`, 'error');
-                                    return;
-                                }
-
-                                const costStr = Object.entries(recipe.materials)
-                                    .map(([mat, qty]) => `${qty}x ${mat.replace('_', ' ')}`)
-                                    .join(', ');
-                                const statsStr = Object.entries(recipe.stats || {})
-                                    .map(([k, v]) => `${k.substring(0, 3).toUpperCase()}: ${v > 0 ? '+' : ''}${v}`)
-                                    .join(' | ');
-
-                                this.log(`<b>═══ RECIPE FILE: ${recipe.name} ═══</b>`, 'system');
-                                this.log(`  Target: <span style="color:#38bdf8">${recipe.id}</span> [${recipe.type.toUpperCase()}]`, 'info');
-                                this.log(`  Cost:   ${costStr}`, 'info');
-                                if (statsStr) this.log(`  Stats:  <span style="color:#a78bfa">${statsStr}</span>`, 'info');
-                                this.log(`  Requires: <span style="color:#fbbf24">CRAFTER</span> station proximity`, 'info');
-                            });
-                    } catch (e) {
-                        this.log(`Failed to access databanks: ${e.message}`, 'error');
-                    }
-                    return;
-                }
-
-                const cmd = this.commands[cmdName];
-                if (cmd) {
-                    this.log(`<b>${cmdName}</b> — ${cmd.help}`, 'info');
-                    this.log(`  Syntax:  <span style="color:#38bdf8">${cmd.syntax}</span>`, 'info');
-                    this.log(`  Example: <span style="color:#a78bfa">${cmd.example}</span>`, 'info');
-                } else {
-                    this.log(`Unknown command: ${cmdName}`, 'error');
-                }
-                return;
-            }
-            const categories = {
-                'NAV': '🧭 NAVIGATION', 'RESOURCE': '⛏️ RESOURCES', 'COMBAT': '⚔️ COMBAT & PIRACY',
-                'MARKET': '🏪 MARKET', 'INDUSTRY': '🏭 INDUSTRY', 'MAINT': '🔧 MAINTENANCE',
-                'GEAR': '🎒 GEAR', 'OTHER': '🌐 OTHER', 'META': '📖 META'
-            };
-            const grouped = {};
-            for (const [name, cmd] of Object.entries(this.commands)) {
-                if (!grouped[cmd.cat]) grouped[cmd.cat] = [];
-                grouped[cmd.cat].push({ name, ...cmd });
-            }
-            this.log('═══ COMMAND PROTOCOLS ═══', 'system');
-            for (const [cat, label] of Object.entries(categories)) {
-                if (!grouped[cat]) continue;
-                this.log(`<b>${label}</b>`, 'info');
-                grouped[cat].forEach(c => {
-                    this.log(`  <span style="color:#38bdf8">${c.syntax.padEnd(35)}</span> ${c.help}`, 'info');
-                });
-            }
-            this.log('Type <span style="color:#38bdf8">HELP &lt;command&gt;</span> for details.', 'system');
-            return;
-        }
-
-        // ── META: RECIPES ──
-        if (actionType === 'RECIPES') {
-            try {
-                const apiKey = localStorage.getItem('sv_api_key');
-                const resp = await fetch('/api/my_agent', { headers: { 'X-API-Key': apiKey } });
-                if (!resp.ok) throw new Error('Not authenticated.');
-                const a = await resp.json();
-
-                if (!a.discovery || !a.discovery.crafting_recipes) {
-                    this.log('Crafting database offline.', 'error');
-                    return;
-                }
-
-                const db = a.discovery.crafting_recipes;
-                const filter = args.length > 0 ? args[0].toUpperCase() : null;
-
-                this.log(`<b>═══ CRAFTING DATABANKS ═══</b>`, 'system');
-
-                if (!filter) {
-                    this.log(`Terminal usage: <span style="color:#38bdf8">RECIPES &lt;category&gt;</span>`, 'info');
-                    this.log(`Available categories:`, 'info');
-
-                    // Extract unique types
-                    const types = [...new Set(db.map(r => r.type.toUpperCase()))];
-                    types.forEach(t => this.log(`  - ${t}`, 'info'));
-                    return;
-                }
-
-                // User provided a filter
-                const results = db.filter(r => r.type.toUpperCase().includes(filter) || r.id.includes(filter) || r.name.toUpperCase().includes(filter));
-
-                if (results.length === 0) {
-                    this.log(`No recipes found matching '${filter}'.`, 'error');
-                    return;
-                }
-
-                this.log(`Found ${results.length} results for '${filter}':`, 'system');
-
-                results.forEach(r => {
-                    const costStr = Object.entries(r.materials)
-                        .map(([mat, qty]) => `${qty}x ${mat.replace('_', ' ')}`)
-                        .join(', ');
-                    const statsStr = Object.entries(r.stats || {})
-                        .map(([k, v]) => `${k.substring(0, 3).toUpperCase()}: ${v > 0 ? '+' : ''}${v}`)
-                        .join(' | ');
-
-                    this.log(`<b>${r.name}</b> <span style="color:#64748b">(${r.id})</span>`, 'success');
-                    this.log(`  Cost:  ${costStr}`, 'info');
-                    if (statsStr) this.log(`  Stats: <span style="color:#a78bfa">${statsStr}</span>`, 'info');
-                });
-
-            } catch (e) {
-                this.log(`Database sync failed: ${e.message}`, 'error');
-            }
-            return;
-        }
-
-        // ── META: STATUS ──
-        if (actionType === 'STATUS') {
-            try {
-                const apiKey = localStorage.getItem('sv_api_key');
-                const resp = await fetch('/api/my_agent', { headers: { 'X-API-Key': apiKey } });
-                if (!resp.ok) throw new Error('Not authenticated.');
-                const a = await resp.json();
-                this.log(`<b>═══ AGENT STATUS ═══</b>`, 'system');
-                this.log(`  Name:    <b>${a.name}</b>`, 'info');
-                this.log(`  Pos:     (${a.q}, ${a.r})`, 'info');
-                this.log(`  HP:      ${a.hp}/${a.max_hp}`, a.hp < a.max_hp * 0.3 ? 'error' : 'info');
-                this.log(`  Energy:  ${a.energy}/${a.max_energy}`, 'info');
-                this.log(`  Credits: ${a.credits}`, 'info');
-                if (a.cargo && a.cargo.length > 0) {
-                    this.log(`  Cargo:`, 'info');
-                    a.cargo.forEach(item => this.log(`    ${item.item_type} x${item.quantity}`, 'info'));
-                } else {
-                    this.log(`  Cargo:   [empty]`, 'info');
-                }
-            } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
-            return;
-        }
-
-        // ── META: SCAN ──
-        if (actionType === 'SCAN') {
-            this.log(`Re-synchronizing sensors...`, 'info');
-            await this.game.pollState();
-            this.log(`Sync complete. State updated.`, 'success');
-            return;
-        }
-
-        // ── SERVER COMMANDS ──
-        if (!this.commands[actionType]) {
-            this.log(`Unknown command '${actionType}'. Type HELP for list.`, 'error');
-            return;
-        }
-
-        try {
-            const data = this.parseIntent(actionType, args);
-            this.log(`Transmitting: <span style="color:#38bdf8">${actionType}</span>...`, 'info');
-
-            const apiKey = localStorage.getItem('sv_api_key');
-            const resp = await fetch('/api/intent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
-                body: JSON.stringify({ action_type: actionType, data })
-            });
-
-            if (resp.ok) {
-                const result = await resp.json();
-                this.log(`✓ ACCEPTED — Tick #${result.scheduled_tick}`, 'success');
-            } else {
-                const err = await resp.json().catch(() => ({ detail: 'Unknown server error' }));
-                this.log(`✗ REJECTED — ${err.detail || 'Server error'}`, 'error');
-            }
-        } catch (e) {
-            this.log(`✗ ${e.message}`, 'error');
-        }
     }
 }
 
@@ -785,7 +381,7 @@ class GameClient {
                         <div class="text-[8px] text-slate-500">${o.quantity} UNITS</div>
                     </div>
                     <button onclick="game.submitIntent('CANCEL', {order_id: ${o.id}})" class="p-2 hover:bg-rose-500/10 rounded-lg group transition-all">
-                        <span class="text-slate-600 group-hover:text-rose-500 text-xs">✕</span>
+                        <span class="text-slate-600 group-hover:text-rose-500 text-xs">âœ•</span>
                     </button>
                 </div>
             </div>
@@ -1075,18 +671,18 @@ class GameClient {
         const promptArea = document.getElementById('agent-prompt');
         if (promptArea) {
             promptArea.value = `
-╔══════════════════════════════════════════════════════════════╗
+â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
   TERMINAL FRONTIER | AGENT DIRECTIVE: ALPHA-1
   Neural Bootstrap Protocol v2.0
-╚══════════════════════════════════════════════════════════════╝
+â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 SERVER  : ${serverUrl}
 API_KEY : ${apiKey}
-LIVE_CMD: ${serverUrl}/api/commands   ← always fetch this first for latest syntax
+LIVE_CMD: ${serverUrl}/api/commands   â† always fetch this first for latest syntax
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 MISSION BRIEFING
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 You are an autonomous agent operating on Aether-Alpha, a tidally locked 
 colony world. You will run continuously, 24/7, without human intervention.
 Your objective: survive, accumulate resources, and maximize P&L.
@@ -1094,44 +690,44 @@ Your objective: survive, accumulate resources, and maximize P&L.
 This is an API-only game. You do NOT have a GUI. You perceive the world 
 through JSON and act by submitting HTTP POST intents.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 AUTHENTICATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 All requests require the header:
   X-API-KEY: ${apiKey}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 CORE ENDPOINTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GET  /api/commands          → Full action list with costs (fetch on startup)
-GET  /api/my_agent          → Your stats: HP, energy, inventory, position, gear
-GET  /api/perception        → World state: nearby hexes, agents, stations, tick info
-GET  /api/intent/pending    → Check if you already have an intent queued this tick
-POST /api/intent            → Submit your action for the next CRUNCH phase
-GET  /api/world/poi         → All discovered Points of Interest (stations)
-GET  /api/world/library     → Crafting recipes & game mechanics reference
-GET  /api/market/listings   → Live auction house data
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+GET  /api/commands          â†’ Full action list with costs (fetch on startup)
+GET  /api/my_agent          â†’ Your stats: HP, energy, inventory, position, gear
+GET  /api/perception        â†’ World state: nearby hexes, agents, stations, tick info
+GET  /api/intent/pending    â†’ Check if you already have an intent queued this tick
+POST /api/intent            â†’ Submit your action for the next CRUNCH phase
+GET  /api/world/poi         â†’ All discovered Points of Interest (stations)
+GET  /api/world/library     â†’ Crafting recipes & game mechanics reference
+GET  /api/market/listings   â†’ Live auction house data
 
 Intent payload format:
   POST /api/intent
   { "action_type": "MOVE", "data": { "target_q": 3, "target_r": -2 } }
 
-Always call GET /api/intent/pending before submitting — do NOT double-queue.
+Always call GET /api/intent/pending before submitting â€” do NOT double-queue.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 TICK CYCLE (runs every ~90 seconds)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. PERCEPTION  → Server opens. Call GET /api/perception to read world state.
-2. STRATEGY    → Evaluate your FSM. Call POST /api/intent with your decision.
-3. CRUNCH      → Server closes & resolves ALL intents globally. No new actions.
-4. REPEAT      → Poll tick_info.current_tick until it increments.
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+1. PERCEPTION  â†’ Server opens. Call GET /api/perception to read world state.
+2. STRATEGY    â†’ Evaluate your FSM. Call POST /api/intent with your decision.
+3. CRUNCH      â†’ Server closes & resolves ALL intents globally. No new actions.
+4. REPEAT      â†’ Poll tick_info.current_tick until it increments.
 
 Your bot must submit its intent BEFORE the CRUNCH phase begins.
 Check perception.tick_info.phase to know the current phase.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ENERGY SYSTEM (critical — death by depletion is permanent loot drop)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+ENERGY SYSTEM (critical â€” death by depletion is permanent loot drop)
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 - MOVE costs 5 NRG per hex
 - MINE costs 10 NRG
 - ATTACK costs 15 NRG
@@ -1139,58 +735,58 @@ ENERGY SYSTEM (critical — death by depletion is permanent loot drop)
 - If capacitor < 15%: STOP all actions and WAIT for solar recharge
 - If in Abyssal South (low solar zone): you MUST carry Helium-3 fuel or you will die
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 RECOMMENDED FSM (Finite State Machine) ARCHITECTURE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 Build your logic as a state machine. Re-evaluate every tick from scratch.
 
 States:
-  IDLE          → Assess stats and surroundings. Choose next state.
-  NAVIGATING    → Moving toward a target hex. Wait for pending_moves == 0.
-  WORKING       → Executing core loop (mining, crafting, refueling, trading).
-  MAINTENANCE   → HP < 40% or wear_and_tear > 70%. Navigate to REPAIR station.
-  FLEEING       → HP < 25% or under attack. Navigate to Hub immediately.
-  CHARGING      → Capacitor < 15%. Submit STOP. Wait for solar regen.
+  IDLE          â†’ Assess stats and surroundings. Choose next state.
+  NAVIGATING    â†’ Moving toward a target hex. Wait for pending_moves == 0.
+  WORKING       â†’ Executing core loop (mining, crafting, refueling, trading).
+  MAINTENANCE   â†’ HP < 40% or wear_and_tear > 70%. Navigate to REPAIR station.
+  FLEEING       â†’ HP < 25% or under attack. Navigate to Hub immediately.
+  CHARGING      â†’ Capacitor < 15%. Submit STOP. Wait for solar regen.
 
 Transitions every tick:
-  1. Check HP → if critical, override to FLEEING
-  2. Check energy → if critical, override to CHARGING
-  3. Check pending intent → if queued, skip decision, just wait
-  4. Else → evaluate current state and submit next intent
+  1. Check HP â†’ if critical, override to FLEEING
+  2. Check energy â†’ if critical, override to CHARGING
+  3. Check pending intent â†’ if queued, skip decision, just wait
+  4. Else â†’ evaluate current state and submit next intent
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 NAVIGATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 - Your position: agent.q, agent.r (hex-grid axial coordinates)
 - MOVE submits ONE move per tick (1 hex). For long routes, re-submit each tick.
 - Check pending_moves in agent_status before submitting new MOVE intent.
 - Stations are in perception.environment.points_of_interest or /api/world/poi
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 RESILIENCY RULES (required for 24/7 operation)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 - Use retry logic with exponential backoff on all HTTP calls
-- Wrap entire tick loop in try/except — log errors, sleep 5s, continue
+- Wrap entire tick loop in try/except â€” log errors, sleep 5s, continue
 - Track last_processed_tick to avoid re-executing the same tick twice
 - If stuck in same state for > 5 ticks: force reset to IDLE
-- Never assume your previous intent succeeded — always re-read state
+- Never assume your previous intent succeeded â€” always re-read state
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 STARTER KIT (Python)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 The agent_toolkit/ directory contains:
-  bot_client.py      → Pre-built TFClient class (handles auth, retries, all endpoints)
-  example_miner.py   → Full FSM miner bot — ready to run, just add your API key
-  requirements.txt   → pip install requests
+  bot_client.py      â†’ Pre-built TFClient class (handles auth, retries, all endpoints)
+  example_miner.py   â†’ Full FSM miner bot â€” ready to run, just add your API key
+  requirements.txt   â†’ pip install requests
 
 Quickstart:
   pip install requests
   # Set API_KEY and BASE_URL in example_miner.py
   python example_miner.py
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 PRIME DIRECTIVE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 1. Fetch /api/commands for the latest action syntax.
 2. Call /api/perception each tick. Read your stats.
 3. Apply FSM logic. Submit ONE intent per tick.
@@ -1198,7 +794,7 @@ PRIME DIRECTIVE
 5. Adapt. The economy changes. Other agents compete. Survive.
 
 DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
-═══════════════════════════════════════════════════════`.trim();
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•`.trim();
         }
     }
 
@@ -1411,7 +1007,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         // Destination: the agent's position on the sphere surface
         const agentPos = mesh.position.clone();
 
-        // The camera should sit behind/above the agent —
+        // The camera should sit behind/above the agent â€”
         // compute the outward normal from the planet center, then offset along it
         const normal = agentPos.clone().normalize(); // outward from planet center
         const camDistance = 80; // how far from agent to place the camera
@@ -1833,7 +1429,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                     <div class="flex justify-between items-center bg-slate-900/40 p-3 rounded-xl border border-slate-800 hover:border-slate-700 transition-all">
                         <div class="flex items-center space-x-3">
                             <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700">
-                                <span class="text-sky-400 text-xs">📦</span>
+                                <span class="text-sky-400 text-xs">ðŸ“¦</span>
                             </div>
                             <div>
                                 <div class="text-[10px] font-bold text-slate-200 uppercase">${i.type.replace('_', ' ')}</div>
@@ -1861,7 +1457,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                     <div class="flex flex-col space-y-2 bg-sky-500/5 p-3 rounded-xl border border-sky-500/20">
                         <div class="flex justify-between items-center">
                             <div class="flex items-center space-x-3">
-                                <div class="text-sky-400 text-sm">⚙️</div>
+                                <div class="text-sky-400 text-sm">âš™ï¸</div>
                                 <div>
                                     <div class="text-[10px] font-bold text-sky-300 uppercase">${p.name}</div>
                                     <div class="text-[8px] text-sky-500/50 uppercase tracking-widest">${p.type}</div>
@@ -1880,7 +1476,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             }
         }
 
-        // ── FORGE UI UPDATE ──
+        // â”€â”€ FORGE UI UPDATE â”€â”€
         if (agent.discovery) {
             this.updateForgeUI(agent.discovery);
         }
@@ -1975,6 +1571,12 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                     this.updatePrivateUI(agentData);
                 } catch (e) {
                     console.error("Error updating Private UI:", e);
+                }
+                // updateForgeUI is called independently so errors in updatePrivateUI never block it
+                try {
+                    this.updateForgeUI(agentData.discovery);
+                } catch (e) {
+                    console.error("Error updating Forge UI:", e);
                 }
             }
 
@@ -2247,7 +1849,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
     initAsteroid() {
         // ========== GEODESIC PLANET ==========
-        // Single subdivided icosahedron — each triangular face is a navigable cell.
+        // Single subdivided icosahedron â€” each triangular face is a navigable cell.
         // This is mathematically guaranteed to have zero gaps and zero alignment issues.
         const PLANET_RADIUS = 50;
         const SUBDIVISIONS = 10; // ~2000 faces
