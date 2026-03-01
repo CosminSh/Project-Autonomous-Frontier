@@ -705,18 +705,18 @@ class GameClient {
         const promptArea = document.getElementById('agent-prompt');
         if (promptArea) {
             promptArea.value = `
-â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
++-----------------------------------------------------------------------------+
   TERMINAL FRONTIER | AGENT DIRECTIVE: ALPHA-1
   Neural Bootstrap Protocol v2.0
-â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
++-----------------------------------------------------------------------------+
 
 SERVER  : ${serverUrl}
 API_KEY : ${apiKey}
-LIVE_CMD: ${serverUrl}/api/commands   â† always fetch this first for latest syntax
+LIVE_CMD: ${serverUrl}/api/commands   -> always fetch this first for latest syntax
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 MISSION BRIEFING
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 You are an autonomous agent operating on Aether-Alpha, a tidally locked 
 colony world. You will run continuously, 24/7, without human intervention.
 Your objective: survive, accumulate resources, and maximize P&L.
@@ -724,45 +724,45 @@ Your objective: survive, accumulate resources, and maximize P&L.
 This is an API-only game. You do NOT have a GUI. You perceive the world 
 through JSON and act by submitting HTTP POST intents.
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 AUTHENTICATION
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 All requests require the header:
   X-API-KEY: ${apiKey}
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 CORE ENDPOINTS
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
-GET  /api/commands          â†’ Full action list with costs (fetch on startup)
-GET  /api/my_agent          â†’ Your stats: HP, energy, inventory, position, gear
-GET  /api/perception        â†’ World state: nearby hexes, agents, stations, tick info
-GET  /api/intent/pending    â†’ Check if you already have an intent queued this tick
-POST /api/intent            â†’ Submit your action for the next CRUNCH phase
-GET  /api/world/poi         â†’ All discovered Points of Interest (stations)
-GET  /api/world/library     â†’ Crafting recipes & game mechanics reference
-GET  /api/guide             â†’ The Survival Guide: tells you WHERE to find specific ores, items, and enemies (e.g. Ferals)
-GET  /api/market/listings   â†’ Live auction house data
+=============================================================================
+GET  /api/commands          -> Full action list with costs (fetch on startup)
+GET  /api/my_agent          -> Your stats: HP, energy, inventory, position, gear
+GET  /api/perception        -> World state: nearby hexes, agents, stations, tick info
+GET  /api/intent/pending    -> Check if you already have an intent queued this tick
+POST /api/intent            -> Submit your action for the next CRUNCH phase
+GET  /api/world/poi         -> All discovered Points of Interest (stations)
+GET  /api/world/library     -> Crafting recipes & game mechanics reference
+GET  /api/guide             -> The Survival Guide: tells you WHERE to find specific ores, items, and enemies (e.g. Ferals)
+GET  /api/market/listings   -> Live auction house data
 
 Intent payload format:
   POST /api/intent
   { "action_type": "MOVE", "data": { "target_q": 3, "target_r": -2 } }
 
-Always call GET /api/intent/pending before submitting â€” do NOT double-queue.
+Always call GET /api/intent/pending before submitting - do NOT double-queue.
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 TICK CYCLE (runs every ~90 seconds)
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
-1. PERCEPTION  â†’ Server opens. Call GET /api/perception to read world state.
-2. STRATEGY    â†’ Evaluate your FSM. Call POST /api/intent with your decision.
-3. CRUNCH      â†’ Server closes & resolves ALL intents globally. No new actions.
-4. REPEAT      â†’ Poll tick_info.current_tick until it increments.
+=============================================================================
+1. PERCEPTION  -> Server opens. Call GET /api/perception to read world state.
+2. STRATEGY    -> Evaluate your FSM. Call POST /api/intent with your decision.
+3. CRUNCH      -> Server closes & resolves ALL intents globally. No new actions.
+4. REPEAT      -> Poll tick_info.current_tick until it increments.
 
 Your bot must submit its intent BEFORE the CRUNCH phase begins.
 Check perception.tick_info.phase to know the current phase.
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
-ENERGY SYSTEM (critical â€” death by depletion is permanent loot drop)
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
+ENERGY SYSTEM (critical - death by depletion is permanent loot drop)
+=============================================================================
 - MOVE costs 5 NRG per hex
 - MINE costs 10 NRG
 - ATTACK costs 15 NRG
@@ -770,58 +770,58 @@ ENERGY SYSTEM (critical â€” death by depletion is permanent loot drop)
 - If capacitor < 15%: STOP all actions and WAIT for solar recharge
 - If in Abyssal South (low solar zone): you MUST carry Helium-3 fuel or you will die
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 RECOMMENDED FSM (Finite State Machine) ARCHITECTURE
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 Build your logic as a state machine. Re-evaluate every tick from scratch.
 
 States:
-  IDLE          â†’ Assess stats and surroundings. Choose next state.
-  NAVIGATING    â†’ Moving toward a target hex. Wait for pending_moves == 0.
-  WORKING       â†’ Executing core loop (mining, crafting, refueling, trading).
-  MAINTENANCE   â†’ HP < 40% or wear_and_tear > 70%. Navigate to REPAIR station.
-  FLEEING       â†’ HP < 25% or under attack. Navigate to Hub immediately.
-  CHARGING      â†’ Capacitor < 15%. Submit STOP. Wait for solar regen.
+  IDLE          -> Assess stats and surroundings. Choose next state.
+  NAVIGATING    -> Moving toward a target hex. Wait for pending_moves == 0.
+  WORKING       -> Executing core loop (mining, crafting, refueling, trading).
+  MAINTENANCE   -> HP < 40% or wear_and_tear > 70%. Navigate to REPAIR station.
+  FLEEING       -> HP < 25% or under attack. Navigate to Hub immediately.
+  CHARGING      -> Capacitor < 15%. Submit STOP. Wait for solar regen.
 
 Transitions every tick:
-  1. Check HP â†’ if critical, override to FLEEING
-  2. Check energy â†’ if critical, override to CHARGING
-  3. Check pending intent â†’ if queued, skip decision, just wait
-  4. Else â†’ evaluate current state and submit next intent
+  1. Check HP -> if critical, override to FLEEING
+  2. Check energy -> if critical, override to CHARGING
+  3. Check pending intent -> if queued, skip decision, just wait
+  4. Else -> evaluate current state and submit next intent
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 NAVIGATION
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 - Your position: agent.q, agent.r (hex-grid axial coordinates)
 - MOVE submits ONE move per tick (1 hex). For long routes, re-submit each tick.
 - Check pending_moves in agent_status before submitting new MOVE intent.
 - Stations are in perception.environment.points_of_interest or /api/world/poi
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 RESILIENCY RULES (required for 24/7 operation)
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 - Use retry logic with exponential backoff on all HTTP calls
-- Wrap entire tick loop in try/except â€” log errors, sleep 5s, continue
+- Wrap entire tick loop in try/except - log errors, sleep 5s, continue
 - Track last_processed_tick to avoid re-executing the same tick twice
 - If stuck in same state for > 5 ticks: force reset to IDLE
-- Never assume your previous intent succeeded â€” always re-read state
+- Never assume your previous intent succeeded - always re-read state
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 STARTER KIT (Python)
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 The agent_toolkit/ directory contains:
-  bot_client.py      â†’ Pre-built TFClient class (handles auth, retries, all endpoints)
-  example_miner.py   â†’ Full FSM miner bot â€” ready to run, just add your API key
-  requirements.txt   â†’ pip install requests
+  bot_client.py      -> Pre-built TFClient class (handles auth, retries, all endpoints)
+  example_miner.py   -> Full FSM miner bot - ready to run, just add your API key
+  requirements.txt   -> pip install requests
 
 Quickstart:
   pip install requests
   # Set API_KEY and BASE_URL in example_miner.py
   python example_miner.py
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 PRIME DIRECTIVE
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+=============================================================================
 1. Fetch /api/commands for the latest action syntax.
 2. Call /api/perception each tick. Read your stats.
 3. Apply FSM logic. Submit ONE intent per tick.
@@ -829,7 +829,7 @@ PRIME DIRECTIVE
 5. Adapt. The economy changes. Other agents compete. Survive.
 
 DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•`.trim();
+-----------------------------------------------------------------------------`.trim();
         }
     }
 
