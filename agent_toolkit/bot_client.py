@@ -37,6 +37,15 @@ class TFClient:
     def get_my_agent(self) -> dict:
         return self._get("/api/my_agent")
 
+    def get_guide(self) -> dict:
+        return self._get("/api/guide")
+
+    def get_missions(self) -> list:
+        return self._get("/api/missions")
+
+    def turn_in_mission(self, mission_id: int, quantity: int) -> dict:
+        return self._post("/api/missions/turn_in", {"mission_id": mission_id, "quantity": quantity})
+
     def get_perception(self) -> dict:
         return self._get("/api/perception").get("content", {})
         

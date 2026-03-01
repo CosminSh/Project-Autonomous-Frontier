@@ -1,6 +1,6 @@
 ﻿import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { TerminalHandler } from './terminal.js?v=2.8';
+import { TerminalHandler } from './terminal.js?v=2.10';
 
 // Global helper for the Directive Modal
 const FACTION_NAMES = {
@@ -50,18 +50,18 @@ window.sendGameIntent = async function (actionType, data) {
         if (resp.ok) {
             if (window.game && window.game.terminal) {
                 const result = await resp.json();
-                window.game.terminal.log(`✓ ACCEPTED — Tick #${result.scheduled_tick}`, 'success');
+                window.game.terminal.log(`✓ ACCEPTED — Tick #${result.scheduled_tick} `, 'success');
             }
         } else {
             console.error('Intent failed');
             if (window.game && window.game.terminal) {
                 const err = await resp.json().catch(() => ({ detail: 'Unknown server error' }));
-                window.game.terminal.log(`✗ REJECTED — ${err.detail || 'Server error'}`, 'error');
+                window.game.terminal.log(`✗ REJECTED — ${err.detail || 'Server error'} `, 'error');
             }
         }
     } catch (e) {
         console.error(e);
-        if (window.game && window.game.terminal) window.game.terminal.log(`✗ ${e.message}`, 'error');
+        if (window.game && window.game.terminal) window.game.terminal.log(`✗ ${e.message} `, 'error');
     }
 }
 
@@ -109,7 +109,7 @@ class GameClient {
 
         // Tab Listeners
         ['overview', 'garage', 'market', 'forge', 'terminal'].forEach(tab => {
-            const el = document.getElementById(`tab-${tab}`);
+            const el = document.getElementById(`tab - ${tab} `);
             if (el) el.addEventListener('click', () => this.switchTab(tab));
         });
 
@@ -233,12 +233,12 @@ class GameClient {
             if (log.event === 'RESPAWNED') { color = 'text-orange-400'; icon = 'XX'; }
             if (log.event.startsWith('MARKET')) { color = 'text-sky-400'; icon = '$$'; }
 
-            entry.className = `flex space-x-2 ${color}`;
+            entry.className = `flex space - x - 2 ${color} `;
             entry.innerHTML = `
-                <span class="text-slate-600">[${time}]</span>
+    < span class="text-slate-600" > [${time}]</span >
                 <span class="font-bold">${icon}</span>
                 <span>${log.event}: ${JSON.stringify(log.details)}</span>
-            `;
+`;
             feedEl.appendChild(entry);
         });
     }
@@ -253,17 +253,17 @@ class GameClient {
         // Add Pending Intent if exists
         if (pendingIntent) {
             const pendingEntry = document.createElement('div');
-            pendingEntry.className = `border-b border-sky-500/30 pb-2 mb-2 flex flex-col bg-sky-500/5 p-2 rounded-lg border border-sky-500/10`;
+            pendingEntry.className = `border - b border - sky - 500 / 30 pb - 2 mb - 2 flex flex - col bg - sky - 500 / 5 p - 2 rounded - lg border border - sky - 500 / 10`;
             pendingEntry.innerHTML = `
-                <div class="flex justify-between items-center mb-1">
+    < div class="flex justify-between items-center mb-1" >
                     <span class="text-sky-400 font-bold uppercase tracking-widest text-[8px]">Next scheduled Action</span>
                     <span class="text-[8px] text-slate-500 animate-pulse">PENDING RESOLUTION</span>
-                </div>
-                <div class="flex space-x-2 text-sky-300">
-                    <span class="font-bold flex-shrink-0">${pendingIntent.action}</span>
-                    <span class="truncate">${JSON.stringify(pendingIntent.data)}</span>
-                </div>
-            `;
+                </div >
+    <div class="flex space-x-2 text-sky-300">
+        <span class="font-bold flex-shrink-0">${pendingIntent.action}</span>
+        <span class="truncate">${JSON.stringify(pendingIntent.data)}</span>
+    </div>
+`;
             logEl.appendChild(pendingEntry);
         }
 
@@ -276,12 +276,12 @@ class GameClient {
             if (log.event === 'MINING') color = 'text-emerald-400';
             if (log.details && log.details.status === 'success') color = 'text-sky-400';
 
-            entry.className = `border-b border-slate-900/50 pb-1 flex space-x-2 ${color}`;
+            entry.className = `border - b border - slate - 900 / 50 pb - 1 flex space - x - 2 ${color} `;
             entry.innerHTML = `
-                <span class="text-slate-700 font-mono">[${time}]</span>
+    < span class="text-slate-700 font-mono" > [${time}]</span >
                 <span class="font-bold flex-shrink-0">${log.event}</span>
                 <span class="truncate">${JSON.stringify(log.details)}</span>
-            `;
+`;
             logEl.appendChild(entry);
         });
     }
@@ -316,8 +316,8 @@ class GameClient {
     switchTab(tabId) {
         const tabs = ['overview', 'garage', 'market', 'forge', 'terminal'];
         tabs.forEach(t => {
-            const content = document.getElementById(`content-${t}`);
-            const btn = document.getElementById(`tab-${t}`);
+            const content = document.getElementById(`content - ${t} `);
+            const btn = document.getElementById(`tab - ${t} `);
             if (t === tabId) {
                 content.classList.remove('hidden');
                 btn.classList.add('border-b-2', 'border-sky-500', 'text-sky-400');
@@ -357,7 +357,7 @@ class GameClient {
             const color = order.type === 'SELL' ? 'text-sky-400' : 'text-amber-400';
 
             row.innerHTML = `
-                <td class="py-4 font-bold text-slate-300">${order.item.replace('_', ' ')}</td>
+    < td class="py-4 font-bold text-slate-300" > ${order.item.replace('_', ' ')}</td >
                 <td class="py-4"><span class="px-2 py-0.5 rounded-full text-[7px] font-black border ${order.type === 'SELL' ? 'bg-sky-500/10 border-sky-500/30 text-sky-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-400'}">${order.type}</span></td>
                 <td class="py-4 font-mono text-slate-400">${order.quantity}</td>
                 <td class="py-4 font-bold ${color}">$${order.price.toFixed(2)}</td>
@@ -366,7 +366,7 @@ class GameClient {
                         ${order.type === 'SELL' ? 'BUY' : 'SELL'}
                     </button>
                 </td>
-            `;
+`;
             body.appendChild(row);
         });
 
@@ -384,11 +384,11 @@ class GameClient {
         }
 
         body.innerHTML = bounties.map(b => `
-            <tr class="border-b border-slate-800/50 hover:bg-slate-800/20 transition-all">
+    < tr class="border-b border-slate-800/50 hover:bg-slate-800/20 transition-all" >
                 <td class="py-3 font-bold text-rose-400">AGENT #${b.target_id.toString().padStart(4, '0')}</td>
                 <td class="py-3 font-mono text-slate-300 text-right font-bold text-amber-400">$${b.reward}</td>
-            </tr>
-        `).join('');
+            </tr >
+    `).join('');
     }
 
     updateMyOrdersUI(orders) {
@@ -401,7 +401,7 @@ class GameClient {
         }
 
         container.innerHTML = orders.map(o => `
-            <div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+    < div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl border border-slate-800" >
                 <div class="flex items-center space-x-3">
                     <div class="w-2 h-2 rounded-full ${o.type === 'SELL' ? 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.5)]' : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]'}"></div>
                     <div>
@@ -418,8 +418,8 @@ class GameClient {
                         <span class="text-slate-600 group-hover:text-rose-500 text-xs">âœ•</span>
                     </button>
                 </div>
-            </div>
-        `).join('');
+            </div >
+    `).join('');
     }
 
     quickTrade(item, price, type) {
@@ -448,7 +448,7 @@ class GameClient {
             btn.disabled = true;
             btn.innerText = 'PROCESSING...';
 
-            const resp = await fetch(`${window.location.origin}/api/intent`, {
+            const resp = await fetch(`${window.location.origin} /api/intent`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -468,7 +468,7 @@ class GameClient {
                 }, 2000);
             } else {
                 const err = await resp.json();
-                alert(`Realignment Failed: ${err.detail || 'Unknown error'}`);
+                alert(`Realignment Failed: ${err.detail || 'Unknown error'} `);
                 btn.innerText = 'FAILED';
                 setTimeout(() => {
                     btn.innerText = oldText;
@@ -492,7 +492,7 @@ class GameClient {
         if (!apiKey) return;
 
         try {
-            const resp = await fetch(`${window.location.origin}/api/rename_agent`, {
+            const resp = await fetch(`${window.location.origin} /api/rename_agent`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -510,7 +510,7 @@ class GameClient {
                 setTimeout(() => nameEl.classList.remove('text-emerald-400'), 2000);
             } else {
                 const err = await resp.json();
-                alert(`Rename Failed: ${err.detail || 'The name is invalid or already taken.'}`);
+                alert(`Rename Failed: ${err.detail || 'The name is invalid or already taken.'} `);
             }
         } catch (e) {
             console.error("Rename Error:", e);
@@ -544,7 +544,7 @@ class GameClient {
         }
 
         try {
-            const resp = await fetch(`${window.location.origin}/api/intent`, {
+            const resp = await fetch(`${window.location.origin} /api/intent`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -561,7 +561,7 @@ class GameClient {
                     this.pollState();
                 }
             } else {
-                alert(`Command Failed: ${result.detail || 'Access Denied'}`);
+                alert(`Command Failed: ${result.detail || 'Access Denied'} `);
             }
         } catch (err) {
             console.error("Intent Submission Error:", err);
@@ -742,6 +742,8 @@ GET  /api/world/poi         -> All discovered Points of Interest (stations)
 GET  /api/world/library     -> Crafting recipes & game mechanics reference
 GET  /api/guide             -> The Survival Guide: tells you WHERE to find specific ores, items, and enemies (e.g. Ferals)
 GET  /api/market/listings   -> Live auction house data
+GET  /api/missions          -> Active daily missions (fetch to see what items to turn in for credits)
+POST /api/missions/turn_in  -> Turn in mission items { "mission_id": 12, "quantity": 10 }
 
 Intent payload format:
   POST /api/intent
