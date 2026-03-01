@@ -165,7 +165,7 @@ export class TerminalHandler {
                 break;
             case 'CRAFT':
                 if (args.length < 1) throw new Error('Usage: CRAFT <item_type>  — e.g. CRAFT DRILL_MK1');
-                data.item_type = args[0].toUpperCase();
+                data.item_type = args.join('_').toUpperCase();
                 break;
             case 'REPAIR':
                 if (args.length < 1) throw new Error('Usage: REPAIR <amount>  — e.g. REPAIR 20');
@@ -184,7 +184,7 @@ export class TerminalHandler {
                 break;
             case 'EQUIP':
                 if (args.length < 1) throw new Error('Usage: EQUIP <item_type>  — e.g. EQUIP DRILL_MK1');
-                data.item_type = args[0].toUpperCase();
+                data.item_type = args.join('_').toUpperCase();
                 break;
             case 'UNEQUIP':
                 if (args.length < 1) throw new Error('Usage: UNEQUIP <part_id>  — e.g. UNEQUIP 3');
@@ -193,7 +193,7 @@ export class TerminalHandler {
                 break;
             case 'CONSUME':
                 if (args.length < 1) throw new Error('Usage: CONSUME <item_type>  — e.g. CONSUME HE3_FUEL');
-                data.item_type = args[0].toUpperCase();
+                data.item_type = args.join('_').toUpperCase();
                 break;
             case 'CHANGE_FACTION':
                 if (args.length < 1) throw new Error('Usage: CHANGE_FACTION <faction_id>  — (1, 2, or 3)');

@@ -1293,11 +1293,13 @@ async def heartbeat_loop():
 
                         elif intent.action_type == "EQUIP":
                             # Equip part from inventory
-                            item_type = intent.data.get("item_type")
-                            if not item_type or not item_type.startswith("PART_"):
+                            raw_item_type = intent.data.get("item_type") or ""
+                            item_type = raw_item_type if raw_item_type.startswith("PART_") else f"PART_{raw_item_type}"
+                            
+                            if not raw_item_type:
                                  db.add(AuditLog(agent_id=agent.id, event_type="EQUIP_FAILED", details={
                                      "reason": "INVALID_ITEM_FORMAT", 
-                                     "item": item_type,
+                                     "item": raw_item_type,
                                      "help": "Equipment must be a valid 'PART_' item. Raw materials like IRON_ORE cannot be equipped. Use /api/industry/craft to create parts."
                                  }))
                                  continue
