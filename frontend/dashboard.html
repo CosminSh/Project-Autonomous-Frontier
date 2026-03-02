@@ -113,7 +113,10 @@
                 <div class="space-y-4">
                     <div class="flex justify-between items-end">
                         <span id="agent-display-name" class="orbitron text-xl">UNIT-1</span>
-                        <span id="agent-coords" class="text-[10px] font-mono text-slate-500 tracking-tight">Q:0,
+                        <span id="agent-lvl"
+                            class="bg-indigo-500/20 text-indigo-400 text-[10px] px-2 py-0.5 rounded border border-indigo-500/30 font-bold orbitron ml-2">LVL
+                            1</span>
+                        <span id="agent-coords" class="text-[10px] font-mono text-slate-500 tracking-tight ml-auto">Q:0,
                             R:0</span>
                     </div>
 
@@ -135,6 +138,16 @@
                             </div>
                             <div class="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
                                 <div id="energy-bar" class="h-full bg-sky-500 transition-all duration-500"
+                                    style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-[9px] uppercase mb-1">
+                                <span>Experience</span>
+                                <span id="xp-text">0</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
+                                <div id="xp-bar" class="h-full bg-indigo-500 transition-all duration-500"
                                     style="width: 0%"></div>
                             </div>
                         </div>

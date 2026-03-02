@@ -291,6 +291,9 @@
                             <div class="flex items-center space-x-2">
                                 <h2 id="agent-name" class="orbitron text-base md:text-lg font-bold text-sky-400">
                                     LOADING...</h2>
+                                <span id="agent-lvl"
+                                    class="bg-indigo-500/20 text-indigo-400 text-[10px] px-2 py-0.5 rounded border border-indigo-500/30 font-bold orbitron">LVL
+                                    1</span>
                                 <button id="rename-trigger"
                                     class="text-slate-500 hover:text-sky-400 transition-colors p-1"
                                     title="Rename Pilot">
@@ -366,6 +369,20 @@
                             <div
                                 class="w-full h-1.5 md:h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
                                 <div id="solar-bar" class="h-full bg-amber-400 transition-all duration-500"
+                                    style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-end mb-1">
+                                <span
+                                    class="text-[8px] md:text-[10px] text-slate-400 uppercase tracking-widest font-bold">Experience
+                                    (XP)</span>
+                                <span id="xp-text" class="text-[10px] md:text-xs font-mono text-indigo-400">0</span>
+                            </div>
+                            <div
+                                class="w-full h-1.5 md:h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                                <div id="xp-bar" class="h-full bg-indigo-500 transition-all duration-500"
                                     style="width: 0%"></div>
                             </div>
                         </div>

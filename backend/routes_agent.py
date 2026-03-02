@@ -13,12 +13,13 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select, func
 
-from models import Agent, Intent, AuditLog, WorldHex, InventoryItem, AuctionOrder, GlobalState, Bounty, LootDrop, DailyMission, AgentMission
+from models import Agent, Intent, AuditLog, WorldHex, InventoryItem, AuctionOrder, GlobalState, Bounty, LootDrop, DailyMission, AgentMission, AgentMessage
 from database import get_db, SessionLocal, STATION_CACHE
 from config import ITEM_WEIGHTS, BASE_CAPACITY, BASE_REGEN, CORE_SERVICE_COST_CREDITS, CORE_SERVICE_COST_IRON_INGOT
 from game_helpers import (
     get_hex_distance, get_solar_intensity, get_agent_visual_signature,
-    get_discovery_packet, ensure_agent_has_starter_gear, merge_inventory
+    get_discovery_packet, ensure_agent_has_starter_gear, merge_inventory,
+    add_experience
 )
 
 logger = logging.getLogger("heartbeat")
@@ -61,6 +62,7 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
 
     stats = {
         "id": current_agent.id, "name": current_agent.name, "faction_id": current_agent.faction_id,
+        "level": current_agent.level or 1, "experience": current_agent.experience or 0,
         "structure": current_agent.structure, "capacitor": current_agent.capacitor,
         "wear_and_tear": round(current_agent.wear_and_tear or 0.0, 2),
         "kinetic_force": current_agent.kinetic_force, "logic_precision": current_agent.logic_precision,
@@ -146,6 +148,26 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
                 "message": log.details.get("message", "")
             })
 
+    recent_chat = db.execute(
+        select(AgentMessage).where(
+            AgentMessage.timestamp >= recent_cutoff
+        ).order_by(AgentMessage.timestamp.desc()).limit(50)
+    ).scalars().all()
+    
+    comms = []
+    for msg in recent_chat:
+        if msg.channel == "LOCAL":
+            if msg.q is not None and msg.r is not None:
+                dist = get_hex_distance(current_agent.q, current_agent.r, msg.q, msg.r)
+                if dist <= sensor_radius:
+                    comms.append({"id": msg.id, "sender": msg.sender_name, "channel": msg.channel, "message": msg.message, "timestamp": msg.timestamp.isoformat()})
+        elif msg.channel == "GLOBAL":
+            comms.append({"id": msg.id, "sender": msg.sender_name, "channel": msg.channel, "message": msg.message, "timestamp": msg.timestamp.isoformat()})
+        elif msg.channel == "SQUAD" and msg.target_id == current_agent.squad_id and current_agent.squad_id is not None:
+            comms.append({"id": msg.id, "sender": msg.sender_name, "channel": msg.channel, "message": msg.message, "timestamp": msg.timestamp.isoformat()})
+        elif msg.channel == "CORP" and msg.target_id == current_agent.corporation_id and current_agent.corporation_id is not None:
+            comms.append({"id": msg.id, "sender": msg.sender_name, "channel": msg.channel, "message": msg.message, "timestamp": msg.timestamp.isoformat()})
+
     state = db.execute(select(GlobalState)).scalars().first()
     tick_now = state.tick_index if state else 0
 
@@ -215,6 +237,7 @@ async def get_perception_packet(current_agent: Agent = Depends(verify_api_key), 
                 ]
             },
             "messages": messages,
+            "comms": comms,
             "market_data": [{"item": p.item_type, "price": p.price} for p in top_prices]
         }
     }
@@ -235,6 +258,7 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
     current_mass = sum(ITEM_WEIGHTS.get(i["type"], 1.0) * i["quantity"] for i in inv_list)
     return {
         "id": current_agent.id, "name": current_agent.name,
+        "level": current_agent.level or 1, "experience": current_agent.experience or 0,
         "squad_id": current_agent.squad_id,
         "structure": current_agent.structure, "max_structure": current_agent.max_structure,
         "capacitor": current_agent.capacitor,
@@ -248,6 +272,55 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
         "api_key": current_agent.api_key,
         "pending_intent": {"action": pending_intent.action_type, "data": pending_intent.data} if pending_intent else None
     }
+
+
+@router.post("/api/chat")
+async def post_chat(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    data = await request.json()
+    message = data.get("message")
+    channel = data.get("channel", "LOCAL")
+    
+    if not message or len(message) > 500:
+        raise HTTPException(status_code=400, detail="Invalid message length.")
+        
+    if channel not in ["LOCAL", "GLOBAL", "SQUAD", "CORP"]:
+        raise HTTPException(status_code=400, detail="Invalid channel.")
+        
+    # Rate limit check: max 10 messages per minute
+    from datetime import datetime, timedelta, timezone
+    one_min_ago = datetime.now(timezone.utc) - timedelta(minutes=1)
+    
+    recent_msgs = db.execute(select(func.count(AgentMessage.id)).where(
+        AgentMessage.sender_id == current_agent.id,
+        AgentMessage.timestamp >= one_min_ago
+    )).scalar()
+    
+    if recent_msgs and recent_msgs >= 10:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded. Too many messages.")
+        
+    target_id = None
+    if channel == "SQUAD":
+        target_id = current_agent.squad_id
+        if not target_id:
+            raise HTTPException(status_code=400, detail="Agent is not in a squad.")
+    elif channel == "CORP":
+        target_id = current_agent.corporation_id
+        if not target_id:
+            raise HTTPException(status_code=400, detail="Agent is not in a corporation.")
+            
+    chat_msg = AgentMessage(
+        sender_id=current_agent.id,
+        sender_name=current_agent.name,
+        channel=channel,
+        target_id=target_id,
+        message=message,
+        q=current_agent.q,
+        r=current_agent.r
+    )
+    db.add(chat_msg)
+    db.commit()
+    return {"status": "success", "message_id": chat_msg.id}
+
 
 
 @router.post("/api/rename_agent")
@@ -450,6 +523,7 @@ async def turn_in_mission(data: dict, current_agent: Agent = Depends(verify_api_
         
         result_message += f" Mission Complete! Rewarded {mission.reward_credits} CR."
         db.add(AuditLog(agent_id=current_agent.id, event_type="MISSION_COMPLETED", details={"mission_id": mission.id, "type": "TURN_IN", "reward": mission.reward_credits}))
+        add_experience(db, current_agent, 100)
     else:
         db.add(AuditLog(agent_id=current_agent.id, event_type="MISSION_PROGRESS", details={"mission_id": mission.id, "type": "TURN_IN", "progress": am.progress, "target": mission.target_amount}))
 

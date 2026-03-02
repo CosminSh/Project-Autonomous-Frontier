@@ -67,6 +67,9 @@ class DashboardClient {
         document.getElementById('agent-display-name').innerText = agent.name;
         document.getElementById('agent-coords').innerText = `Q:${agent.q}, R:${agent.r}`;
 
+        const lvlEl = document.getElementById('agent-lvl');
+        if (lvlEl) lvlEl.innerText = `LVL ${agent.level || 1}`;
+
         const hpPct = (agent.structure / agent.max_structure) * 100;
         document.getElementById('hp-bar').style.width = `${hpPct}%`;
         document.getElementById('hp-text').innerText = `${agent.structure}/${agent.max_structure}`;
@@ -74,6 +77,13 @@ class DashboardClient {
         const enPct = (agent.capacitor / 100) * 100;
         document.getElementById('energy-bar').style.width = `${enPct}%`;
         document.getElementById('energy-text').innerText = `${agent.capacitor}/100`;
+
+        const exp = agent.experience || 0;
+        const lvl = agent.level || 1;
+        const nextLvlXp = lvl * 100;
+        const xpPct = Math.min(100, (exp / nextLvlXp) * 100);
+        document.getElementById('xp-bar').style.width = `${xpPct}%`;
+        document.getElementById('xp-text').innerText = `${exp}/${nextLvlXp}`;
 
         const massPct = Math.min(100, (agent.mass / agent.capacity) * 100);
         document.getElementById('mass-bar').style.width = `${massPct}%`;

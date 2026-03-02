@@ -24,20 +24,28 @@ class Agent(Base):
     integrity = Column(Integer, server_default="5")
     max_mass = Column(Float, server_default="100.0")
     
-    # Coordinates (Hex Grid q, r)
-    q = Column(Integer, default=0, index=True)
-    r = Column(Integer, default=0, index=True)
+    # State / Status
+    is_bot = Column(Boolean, default=False)
+    is_feral = Column(Boolean, default=False)
+    is_aggressive = Column(Boolean, default=False) # Will attack on sight if feral
     
-    is_bot = Column(Boolean, server_default="0")
-    is_feral = Column(Boolean, server_default="0")
-    is_aggressive = Column(Boolean, server_default="0")
-    faction_id = Column(Integer, nullable=True, index=True)
+    # Location
+    q = Column(Integer, nullable=False)
+    r = Column(Integer, nullable=False)
+    
+    # Allegiance
+    faction_id = Column(Integer, default=1) # 1: Cybernetics, 2: Industrials, 3: Scavengers
+    squad_id = Column(Integer, nullable=True, index=True)
+    corporation_id = Column(Integer, ForeignKey("corporations.id"), nullable=True, index=True)
     heat = Column(Integer, server_default="0", index=True)
     overclock_ticks = Column(Integer, server_default="0")
     wear_and_tear = Column(Float, server_default="0.0")
     last_faction_change_tick = Column(Integer, server_default="0")
     unlocked_recipes = Column(JSON, nullable=True) # List of strings: ["DRILL_UNIT", "ENGINE_UNIT"]
-    squad_id = Column(Integer, nullable=True, index=True)
+    
+    # Leveling
+    level = Column(Integer, server_default="1")
+    experience = Column(Integer, server_default="0")
     
     # Relationships
     parts = relationship("ChassisPart", back_populates="agent")
@@ -169,3 +177,28 @@ class AgentMission(Base):
     
     agent = relationship("Agent")
     mission = relationship("DailyMission")
+
+class AgentMessage(Base):
+    __tablename__ = "agent_messages"
+    id = Column(Integer, primary_key=True, index=True)
+    sender_id = Column(Integer, ForeignKey("agents.id"))
+    sender_name = Column(String)
+    channel = Column(String, default="LOCAL") # 'LOCAL', 'SQUAD', 'CORP', 'GLOBAL'
+    target_id = Column(Integer, nullable=True) # Squad ID or Corp ID if applicable
+    message = Column(String, nullable=False)
+    q = Column(Integer, nullable=True)
+    r = Column(Integer, nullable=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+
+class Corporation(Base):
+    __tablename__ = "corporations"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    ticker = Column(String(5), unique=True, index=True, nullable=False)
+    owner_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    faction_id = Column(Integer, nullable=False)
+    credit_vault = Column(Integer, default=0)
+    tax_rate = Column(Float, default=0.0) # 0.0 to 1.0
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    members = relationship("Agent", foreign_keys="[Agent.corporation_id]", backref="corporation")

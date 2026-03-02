@@ -400,6 +400,7 @@ export class TerminalHandler {
                 const a = await resp.json();
                 this.log(`<b>═══ AGENT STATUS ═══</b>`, 'system');
                 this.log(`  Name:      <b>${a.name}</b>`, 'info');
+                this.log(`  Level:     ${a.level || 1} (${a.experience || 0} XP)`, 'info');
                 this.log(`  Pos:       (${a.q}, ${a.r})`, 'info');
                 this.log(`  Structure: ${a.structure}/${a.max_structure} HP`, a.structure < a.max_structure * 0.3 ? 'error' : 'info');
                 this.log(`  Energy:    ${a.capacitor}/100`, 'info');

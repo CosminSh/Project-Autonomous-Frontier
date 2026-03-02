@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 import json
-from models import Agent, WorldHex, ChassisPart, InventoryItem
+from models import Agent, WorldHex, ChassisPart, InventoryItem, AuditLog
 from config import (
     ITEM_WEIGHTS, BASE_CAPACITY, RARITY_LEVELS, PART_DEFINITIONS,
     SOLAR_RADIUS_SAFE, SOLAR_RADIUS_TWILIGHT, ANARCHY_THRESHOLD,
@@ -259,4 +259,23 @@ def merge_inventory(db: Session, agent: Agent):
         db.delete(item)
         if item in agent.inventory:
             agent.inventory.remove(item)
+
+def add_experience(db: Session, agent: Agent, amount: int):
+    """Adds experience to an agent and handles level ups."""
+    if not hasattr(agent, "experience"):
+        return
+    agent.experience = (agent.experience or 0) + amount
+    
+    while True:
+        level = agent.level or 1
+        xp_required = level * 100
+        if agent.experience >= xp_required:
+            agent.experience -= xp_required
+            agent.level = level + 1
+            agent.structure = agent.max_structure
+            db.add(AuditLog(agent_id=agent.id, event_type="LEVEL_UP", details={"new_level": agent.level}))
+            logger.info(f"Agent {agent.id} leveled up to {agent.level}!")
+        else:
+            break
+
 

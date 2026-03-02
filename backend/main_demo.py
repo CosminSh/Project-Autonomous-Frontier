@@ -76,7 +76,7 @@ async def heartbeat_loop():
                         
                     # 1.1 Process Bot Brain for the NEXT tick if this is a bot
                     if agent.is_bot:
-                        process_bot_brain(db, agent, tick_count)
+                        process_bot_brain(db, agent, tick_count, [])
 
                     if intent.action_type == "MOVE":
                         if agent.capacitor < MOVE_ENERGY_COST:

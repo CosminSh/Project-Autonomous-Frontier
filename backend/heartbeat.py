@@ -28,7 +28,8 @@ from config import (
 )
 from game_helpers import (
     get_hex_distance, get_solar_intensity, is_in_anarchy_zone,
-    get_agent_mass, recalculate_agent_stats, find_hex_path, merge_inventory
+    get_agent_mass, recalculate_agent_stats, find_hex_path, merge_inventory,
+    add_experience
 )
 from bot_logic import process_bot_brain, process_feral_brain
 
@@ -466,6 +467,7 @@ async def heartbeat_loop():
                                         db.add(AuditLog(agent_id=agent.id, event_type="PART_BROKEN", details={"part": active_drill.name}))
 
                                     db.add(AuditLog(agent_id=agent.id, event_type="MINING", details={"amount": yield_amount, "resource": res_name}))
+                                    add_experience(db, agent, 5)
                                     await manager.broadcast({"type": "EVENT", "event": "MINING", "agent_id": agent.id, "amount": yield_amount, "q": agent.q, "r": agent.r})
                                     if broken:
                                         await manager.broadcast({"type": "EVENT", "event": "PART_BROKEN", "agent_id": agent.id, "part": active_drill.name})
@@ -533,30 +535,56 @@ async def heartbeat_loop():
                                         lucky.quantity -= 1
                                         if lucky.quantity <= 0: db.delete(lucky)
                                         att_item = next((i for i in agent.inventory if i.item_type == lucky.item_type), None)
-                                        if att_item: att_item.quantity += 1
+                                        att_i = next((i for i in agent.inventory if i.item_type == lucky.item_type), None)
+                                        if att_i: att_i.quantity += 1
                                         else: db.add(InventoryItem(agent_id=agent.id, item_type=lucky.item_type, quantity=1))
                                 
                                 if target.structure <= 0:
                                     death_q, death_r = target.q, target.r
+                                    
+                                    # Find eligible squad members in the same hex
+                                    eligible_members = [agent]
+                                    if agent.squad_id:
+                                        squad_members = db.execute(select(Agent).where(
+                                            Agent.squad_id == agent.squad_id, Agent.id != agent.id,
+                                            Agent.q == agent.q, Agent.r == agent.r
+                                        )).scalars().all()
+                                        eligible_members.extend(squad_members)
+                                        
                                     for item in target.inventory:
                                         if item.item_type == "CREDITS": continue 
                                         drop = item.quantity // 2
                                         if drop > 0:
                                             item.quantity -= drop
                                             if is_pvp:
-                                                att_i = next((i for i in agent.inventory if i.item_type == item.item_type), None)
-                                                if att_i: att_i.quantity += drop
-                                                else: db.add(InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=drop))
+                                                share = drop // len(eligible_members)
+                                                remainder = drop % len(eligible_members)
+                                                for i, member in enumerate(eligible_members):
+                                                    member_share = share + (1 if i < remainder else 0)
+                                                    if member_share > 0:
+                                                        att_i = next((it for it in member.inventory if it.item_type == item.item_type), None)
+                                                        if att_i: att_i.quantity += member_share
+                                                        else: db.add(InventoryItem(agent_id=member.id, item_type=item.item_type, quantity=member_share))
                                             else:
                                                 db.add(LootDrop(q=death_q, r=death_r, item_type=item.item_type, quantity=drop))
+
+                                    add_experience(db, agent, 50)
 
                                     # Bounty Claim
                                     bounty = db.execute(select(Bounty).where(Bounty.target_id == target_id, Bounty.is_open == True)).scalar_one_or_none()
                                     if bounty:
                                         bounty.is_open = False
-                                        credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
-                                        if credits: credits.quantity += int(bounty.reward)
-                                        else: db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=int(bounty.reward)))
+                                        bounty.claimed_by = agent.id
+                                        
+                                        total_reward = int(bounty.reward)
+                                        share = total_reward // len(eligible_members)
+                                        remainder = total_reward % len(eligible_members)
+                                        for i, member in enumerate(eligible_members):
+                                            member_share = share + (1 if i < remainder else 0)
+                                            if member_share > 0:
+                                                cr = next((it for it in member.inventory if it.item_type == "CREDITS"), None)
+                                                if cr: cr.quantity += member_share
+                                                else: db.add(InventoryItem(agent_id=member.id, item_type="CREDITS", quantity=member_share))
                                         await manager.broadcast({"type": "EVENT", "event": "BOUNTY_CLAIMED", "attacker_id": agent.id, "target_id": target_id, "reward": bounty.reward})
 
                                     # Feral Loot Drop
@@ -577,6 +605,7 @@ async def heartbeat_loop():
                                                     else: db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=m.reward_credits))
                                                     logger.info(f"Agent {agent.id} completed mission HUNT_FERAL! Reward: {m.reward_credits} CR")
                                                     db.add(AuditLog(agent_id=agent.id, event_type="MISSION_COMPLETED", details={"mission_id": m.id, "type": "HUNT_FERAL", "reward": m.reward_credits}))
+                                                    add_experience(db, agent, 100)
 
                                         for item in target.inventory:
                                             if item.quantity > 0:
@@ -620,6 +649,7 @@ async def heartbeat_loop():
                                     
                                     logger.info(f"Agent {agent.id} INTIMIDATED Agent {target_id}. Success! Siphoned: {siphoned_items}")
                                     db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_INTIMIDATE", details={"target_id": target_id, "success": True, "items": siphoned_items}))
+                                    add_experience(db, agent, 15)
                                     await manager.broadcast({"type": "EVENT", "event": "PIRACY", "subtype": "INTIMIDATE_SUCCESS", "agent_id": agent.id, "target_id": target_id})
                                 else:
                                     logger.info(f"Agent {agent.id} failed to INTIMIDATE Agent {target_id}")
@@ -664,6 +694,7 @@ async def heartbeat_loop():
     
                                     logger.info(f"Agent {agent.id} LOOTED Agent {target_id}. Damage: {damage}. Siphoned: {siphoned_info}")
                                     db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_LOOT", details={"target_id": target_id, "damage": damage, "siphoned": siphoned_info}))
+                                    add_experience(db, agent, 20)
                                     await manager.broadcast({"type": "EVENT", "event": "PIRACY", "subtype": "LOOT_SUCCESS", "agent_id": agent.id, "target_id": target_id, "damage": damage})
                                 else:
                                     logger.info(f"Agent {agent.id} MISSED LOOT on Agent {target_id}")
@@ -698,6 +729,7 @@ async def heartbeat_loop():
                                 
                                 logger.info(f"Agent {agent.id} DESTROYED Agent {target_id}. Target HP: {target.structure}. Siphoned: {siphoned_items}")
                                 db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_DESTROY", details={"target_id": target_id, "items": siphoned_items}))
+                                add_experience(db, agent, 30)
                                 await manager.broadcast({"type": "EVENT", "event": "PIRACY", "subtype": "DESTROY_SUCCESS", "agent_id": agent.id, "target_id": target_id})
     
                         elif intent.action_type == "CONSUME":
@@ -979,6 +1011,7 @@ async def heartbeat_loop():
                                         
                                         logger.info(f"Agent {agent.id} smelted {amount_produced * SMELTING_RATIO} {ore_type} into {amount_produced} {ingot_type}")
                                         db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_SMELT", details={"ore": ore_type, "amount": amount_produced}))
+                                        add_experience(db, agent, amount_produced * 10)
                                         await manager.broadcast({"type": "EVENT", "event": "SMELT", "agent_id": agent.id, "ingot": ingot_type, "q": agent.q, "r": agent.r})
                                     else:
                                         logger.info(f"Agent {agent.id} failed to smelt: Quantity too low for ratio")
@@ -1096,6 +1129,7 @@ async def heartbeat_loop():
                                     display_name = f"{rarity} {PART_DEFINITIONS.get(result_item, {}).get('name', result_item)}"
                                     logger.info(f"Agent {agent.id} crafted {display_name}")
                                     db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_CRAFT", details={"item": result_item, "rarity": rarity}))
+                                    add_experience(db, agent, 20)
                                     await manager.broadcast({"type": "EVENT", "event": "CRAFT", "agent_id": agent.id, "item": display_name, "q": agent.q, "r": agent.r})
                                 else:
                                     logger.info(f"Agent {agent.id} failed to craft: Missing {missing_items}")

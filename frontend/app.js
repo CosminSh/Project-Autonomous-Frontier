@@ -1331,6 +1331,10 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
         document.getElementById('agent-name').innerText = agent.name;
         document.getElementById('agent-id').innerText = `#${agent.id.toString().padStart(4, '0')}`;
+
+        const lvlEl = document.getElementById('agent-lvl');
+        if (lvlEl) lvlEl.innerText = `LVL ${agent.level || 1}`;
+
         const q = agent.q ?? agent.location?.q ?? 0;
         const r = agent.r ?? agent.location?.r ?? 0;
         const coordsEl = document.getElementById('agent-coords');
@@ -1371,6 +1375,18 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             }
         }
         document.getElementById('energy-text').innerText = `${agent.capacitor}/100 (+${expectedRegen})`;
+
+        // Experience
+        const xpText = document.getElementById('xp-text');
+        const xpBar = document.getElementById('xp-bar');
+        if (xpText && xpBar) {
+            const exp = agent.experience || 0;
+            const lvl = agent.level || 1;
+            const nextLvlXp = lvl * 100;
+            xpText.innerText = `${exp}/${nextLvlXp}`;
+            const xpPct = Math.min(100, (exp / nextLvlXp) * 100);
+            xpBar.style.width = `${xpPct}%`;
+        }
 
         // Mass Update
         const mass = agent.mass || 0;

@@ -38,7 +38,9 @@ async def get_game_guide():
         "tips": [
             "Energy is everything. Monitor your capacitor via perception.",
             "Movement is auto-pathed. Submit a distant target once, and monitor 'pending_moves'.",
-            "Get stuck? Use /api/commands to find the DROP_LOAD or STOP commands."
+            "Get stuck? Use /api/commands to find the DROP_LOAD or STOP commands.",
+            "Complete actions like Mining, Smelting, Crafting, and Combat to earn Experience (XP).",
+            "Agents Level Up every 100 XP, granting a full structure and capacitor restore."
         ],
         "intel": [
             "Feral AI Scrappers roam the Abyssal South (distance > 8 from the Hub). They drop valuable Scrap Metal and Electronics.",
