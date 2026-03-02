@@ -36,6 +36,7 @@ export class TerminalHandler {
             'CONSUME': { cat: 'GEAR', syntax: 'CONSUME <item_type>', example: 'CONSUME HE3_FUEL', help: 'Use consumable for buff' },
             'CHANGE_FACTION': { cat: 'OTHER', syntax: 'CHANGE_FACTION <faction_id>', example: 'CHANGE_FACTION 2', help: 'Realign to faction (1-3)' },
             'MISSIONS': { cat: 'OTHER', syntax: 'MISSIONS', example: 'MISSIONS', help: 'View active daily missions' },
+            'TURN_IN': { cat: 'OTHER', syntax: 'TURN_IN <mission_id> <qty>', example: 'TURN_IN 15 5', help: 'Complete daily mission objectives' },
             'RECIPES': { cat: 'META', syntax: 'RECIPES [filter]', example: 'RECIPES drills', help: 'Query crafting database' },
             'HELP': { cat: 'META', syntax: 'HELP [command]', example: 'HELP SMELT', help: 'Show commands or details' },
             'STATUS': { cat: 'META', syntax: 'STATUS', example: 'STATUS', help: 'Show your agent status' },
@@ -419,6 +420,32 @@ export class TerminalHandler {
             this.log(`Re-synchronizing sensors...`, 'info');
             await this.game.pollState();
             this.log(`Sync complete. State updated.`, 'success');
+            return;
+        }
+
+        // ── DIRECT COMMANDS (NO INTENT) ──
+        if (actionType === 'TURN_IN') {
+            if (args.length < 2) {
+                this.log(`✗ Usage: TURN_IN <mission_id> <quantity> (e.g. TURN_IN 12 5)`, 'error');
+                return;
+            }
+            try {
+                const apiKey = localStorage.getItem('sv_api_key');
+                const resp = await fetch('/api/missions/turn_in', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
+                    body: JSON.stringify({ mission_id: parseInt(args[0]), quantity: parseInt(args[1]) })
+                });
+                if (resp.ok) {
+                    const result = await resp.json();
+                    this.log(`✓ ${result.message}`, 'success');
+                } else {
+                    const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
+                    this.log(`✗ ${err.detail || 'Server error'}`, 'error');
+                }
+            } catch (e) {
+                this.log(`✗ ${e.message}`, 'error');
+            }
             return;
         }
 

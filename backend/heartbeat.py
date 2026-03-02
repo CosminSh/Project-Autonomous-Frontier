@@ -933,7 +933,23 @@ async def heartbeat_loop():
                                             order.quantity -= 1
                                         else:
                                             db.delete(order)
-                                            
+                                        
+                                        # Mission Progress: BUY_MARKET
+                                        active_missions = db.execute(select(DailyMission).where(DailyMission.mission_type == "BUY_MARKET", DailyMission.expires_at > func.now())).scalars().all()
+                                        for m in active_missions:
+                                            am = db.execute(select(AgentMission).where(AgentMission.agent_id == agent.id, AgentMission.mission_id == m.id)).scalar_one_or_none()
+                                            if not am:
+                                                am = AgentMission(agent_id=agent.id, mission_id=m.id, progress=0)
+                                                db.add(am)
+                                            if not am.is_completed:
+                                                am.progress += 1
+                                                if am.progress >= m.target_amount:
+                                                    am.is_completed = True
+                                                    b_credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+                                                    if b_credits: b_credits.quantity += m.reward_credits
+                                                    else: db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=m.reward_credits))
+                                                    db.add(AuditLog(agent_id=agent.id, event_type="MISSION_COMPLETED", details={"mission_id": m.id, "type": "BUY_MARKET", "reward": m.reward_credits}))
+
                                         logger.info(f"Agent {agent.id} bought 1 {item_type} for {order.price}")
                                         db.add(AuditLog(agent_id=agent.id, event_type="MARKET_BUY", details={"item": item_type, "price": order.price}))
                                         await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
