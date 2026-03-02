@@ -98,11 +98,23 @@ When you make changes to your code and push them to GitHub:
 
 ## 7. Troubleshooting & Best Practices
 
-### A. Database Migrations (Schema Changes)
-Whenever a new feature adds columns to the database (like Rarity or Affixes), the live server will crash with a `500 Internal Server Error` until the database is updated.
+### A. Database Migrations & Postgres Locks (Schema Changes)
+Whenever a new feature adds columns to the database (like Level, Experience, or Corps), the live server will crash with a `500 Internal Server Error` until the database is updated.
+
+**IMPORTANT: PostgreSQL Database Locks**
+Because the game's Heartbeat loop is constantly reading/writing to the database, Postgres will refuse to allow you to alter tables while the game is running. The migration script will hang forever.
+
+**To run a migration safely:**
 1. **Pull the code**: `git pull`
-2. **Run migration**: `docker-compose exec backend python migrate.py`
-3. **Check Output**: If the migration script says "Column already exists", that's normal. If it says "Successfully handled", the fix is applied.
+2. **Stop the backend**: `docker-compose down` (Releases the database lock)
+3. **Start the database only** (if your docker-compose separates them, or just use the restart method below)
+4. **Easiest approach**: Let the normal initialization handle it, or run the migration script inside a temporary container during a brief downtime:
+   ```bash
+   docker-compose down
+   docker-compose run --rm backend python frontend/migrate_universal.py  # (Adjust path to your specific script)
+   docker-compose up -d --build
+   ```
+5. **Check Output**: If the migration script says "Column already exists", that's normal.
 
 ### B. Monitoring Logs
 If the website isn't loading data, the backend logs are the first place to look.
