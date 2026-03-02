@@ -268,9 +268,10 @@ def add_experience(db: Session, agent: Agent, amount: int):
     
     while True:
         level = agent.level or 1
-        xp_required = level * 100
+        # Level 1 needs 100 XP, Level 2 needs 300 XP, Level 3 needs 600 XP (Cumulative)
+        xp_required = int((level * (level + 1) / 2) * 100)
+        
         if agent.experience >= xp_required:
-            agent.experience -= xp_required
             agent.level = level + 1
             agent.structure = agent.max_structure
             db.add(AuditLog(agent_id=agent.id, event_type="LEVEL_UP", details={"new_level": agent.level}))

@@ -1382,9 +1382,13 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         if (xpText && xpBar) {
             const exp = agent.experience || 0;
             const lvl = agent.level || 1;
-            const nextLvlXp = lvl * 100;
-            xpText.innerText = `${exp}/${nextLvlXp}`;
-            const xpPct = Math.min(100, (exp / nextLvlXp) * 100);
+            const base_xp = ((lvl - 1) * lvl / 2) * 100;
+            const next_xp = (lvl * (lvl + 1) / 2) * 100;
+            const xp_progress = exp - base_xp;
+            const xp_bracket = next_xp - base_xp;
+
+            xpText.innerText = `${exp}/${next_xp}`;
+            const xpPct = Math.min(100, Math.max(0, (xp_progress / xp_bracket) * 100));
             xpBar.style.width = `${xpPct}%`;
         }
 

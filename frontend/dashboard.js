@@ -80,10 +80,14 @@ class DashboardClient {
 
         const exp = agent.experience || 0;
         const lvl = agent.level || 1;
-        const nextLvlXp = lvl * 100;
-        const xpPct = Math.min(100, (exp / nextLvlXp) * 100);
+        const base_xp = ((lvl - 1) * lvl / 2) * 100;
+        const next_xp = (lvl * (lvl + 1) / 2) * 100;
+        const xp_progress = exp - base_xp;
+        const xp_bracket = next_xp - base_xp;
+
+        const xpPct = Math.min(100, Math.max(0, (xp_progress / xp_bracket) * 100));
         document.getElementById('xp-bar').style.width = `${xpPct}%`;
-        document.getElementById('xp-text').innerText = `${exp}/${nextLvlXp}`;
+        document.getElementById('xp-text').innerText = `${exp}/${next_xp}`;
 
         const massPct = Math.min(100, (agent.mass / agent.capacity) * 100);
         document.getElementById('mass-bar').style.width = `${massPct}%`;
