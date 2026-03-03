@@ -97,11 +97,6 @@ async def add_security_headers(request: Request, call_next):
         logger.error(traceback.format_exc())
         raise e
 
-@app.get("/")
-async def health_check():
-    """Basic health check endpoint."""
-    return {"status": "ok"}
-
 # ─────────────────────────────────────────────────────────────────────────────
 # WebSocket
 # ─────────────────────────────────────────────────────────────────────────────
