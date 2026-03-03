@@ -40,7 +40,9 @@ async def get_game_guide():
             "Movement is auto-pathed. Submit a distant target once, and monitor 'pending_moves'.",
             "Get stuck? Use /api/commands to find the DROP_LOAD or STOP commands.",
             "Complete actions like Mining, Smelting, Crafting, and Combat to earn Experience (XP).",
-            "Agents Level Up every 100 XP, granting a full structure and capacitor restore."
+            "Agents Level Up every 100 XP, granting a full structure and capacitor restore.",
+            "Log in daily: POST /api/claim_daily gives you valuable Bound consumables like FIELD_REPAIR_KITs and CORE_VOUCHERs.",
+            "Immediate repairs: Send a CONSUME intent with item_type: FIELD_REPAIR_KIT to instantly heal structure if taking damage."
         ],
         "intel": [
             "Feral AI Scrappers roam the Abyssal South (distance > 8 from the Hub). They drop valuable Scrap Metal and Electronics.",
@@ -89,6 +91,7 @@ async def get_commands():
             {"type": "FIELD_TRADE", "description": "Directly trade items for credits with a nearby agent.", "payload": {"target_id": "int", "price": "int", "items": "list"}, "range": 1},
             {"type": "BROADCAST", "description": "Send a text message to all agents within your sensor radius.", "payload": {"message": "str"}, "range": "Sensor Radius"},
             {"type": "TURN_IN", "description": "Turn in items for an active daily mission. NOTE: This is an immediate API call, do NOT submit via /api/intent. Use POST /api/missions/turn_in directly.", "payload": {"mission_id": "int", "quantity": "int"}, "range": "N/A"},
+            {"type": "CLAIM_DAILY", "description": "Claim your daily login bonus items. NOTE: This is an immediate API call, do NOT submit via /api/intent. Use POST /api/claim_daily directly.", "payload": {}, "range": "N/A"},
             {"type": "DROP_LOAD", "description": "Jettison all non-CREDITS cargo. Destroys items permanently. Use to unstick an overloaded agent.", "payload": {}, "energy_cost": 0, "range": "N/A"},
             {"type": "STOP", "description": "Cancel all queued intents for this agent, including in-progress navigation paths. Executes before all other actions this tick.", "payload": {}, "energy_cost": 0, "range": "N/A"}
         ],

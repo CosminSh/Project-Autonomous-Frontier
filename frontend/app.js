@@ -744,6 +744,7 @@ GET  /api/guide             -> The Survival Guide: tells you WHERE to find speci
 GET  /api/market/listings   -> Live auction house data
 GET  /api/missions          -> Active daily missions (fetch to see what items to turn in for credits)
 POST /api/missions/turn_in  -> Turn in mission items { 'mission_id': 12, 'quantity': 10 }
+POST /api/claim_daily       -> Claim your daily login bonus items (bound consumables)
 
 Intent payload format:
   POST /api/intent
@@ -807,6 +808,7 @@ RESILIENCY RULES (required for 24/7 operation)
 - Track last_processed_tick to avoid re-executing the same tick twice
 - If stuck in same state for > 5 ticks: force reset to IDLE
 - Never assume your previous intent succeeded - always re-read state
+- If structure drops dangerously low, send a CONSUME intent with item_type: FIELD_REPAIR_KIT to heal immediately.
 
 =============================================================================
 STARTER KIT (Python)
