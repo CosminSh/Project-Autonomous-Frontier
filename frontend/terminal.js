@@ -42,6 +42,17 @@ export class TerminalHandler {
             'HELP': { cat: 'META', syntax: 'HELP [command]', example: 'HELP SMELT', help: 'Show commands or details' },
             'STATUS': { cat: 'META', syntax: 'STATUS', example: 'STATUS', help: 'Show your agent status' },
             'GUIDE': { cat: 'META', syntax: 'GUIDE', example: 'GUIDE', help: 'Read the survival guide' },
+            'STORAGE_DEPOSIT': { cat: 'STORAGE', syntax: 'STORAGE_DEPOSIT <item> <qty>', example: 'STORAGE_DEPOSIT IRON_ORE 10', help: 'Vault item at MARKET station' },
+            'STORAGE_WITHDRAW': { cat: 'STORAGE', syntax: 'STORAGE_WITHDRAW <item> <qty>', example: 'STORAGE_WITHDRAW IRON_ORE 10', help: 'Retrieve item from vault at MARKET' },
+            'STORAGE_UPGRADE': { cat: 'STORAGE', syntax: 'STORAGE_UPGRADE', example: 'STORAGE_UPGRADE', help: 'Increase vault capacity (+250kg)' },
+            'SQUAD_INVITE': { cat: 'SQUAD', syntax: 'SQUAD_INVITE <target_id>', example: 'SQUAD_INVITE 41', help: 'Invite player to your squad' },
+            'SQUAD_ACCEPT': { cat: 'SQUAD', syntax: 'SQUAD_ACCEPT', example: 'SQUAD_ACCEPT', help: 'Accept pending squad invite' },
+            'SQUAD_DECLINE': { cat: 'SQUAD', syntax: 'SQUAD_DECLINE', example: 'SQUAD_DECLINE', help: 'Decline pending squad invite' },
+            'SQUAD_LEAVE': { cat: 'SQUAD', syntax: 'SQUAD_LEAVE', example: 'SQUAD_LEAVE', help: 'Exit your current squad' },
+            'BROADCAST': { cat: 'COMM', syntax: 'BROADCAST <message>', example: 'BROADCAST Hello everyone!', help: 'Global Shout' },
+            'DROP_LOAD': { cat: 'OTHER', syntax: 'DROP_LOAD', example: 'DROP_LOAD', help: 'Jettison all cargo' },
+            'STOP': { cat: 'NAV', syntax: 'STOP', example: 'STOP', help: 'Cancel all queued intents' },
+            'FIELD_TRADE': { cat: 'MARKET', syntax: 'FIELD_TRADE <id> <price> <items...>', example: 'FIELD_TRADE 5 100 IRON_ORE', help: 'Direct trade with nearby agent' },
         };
 
         this.setupListeners();
@@ -208,7 +219,16 @@ export class TerminalHandler {
                 data.faction_id = parseInt(args[0]);
                 if (isNaN(data.faction_id)) throw new Error('Faction ID must be 1, 2, or 3.');
                 break;
-            case 'MINE': case 'CORE_SERVICE':
+            case 'MINE': case 'CORE_SERVICE': case 'STOP': case 'DROP_LOAD':
+                break;
+            case 'BROADCAST':
+                if (args.length < 1) throw new Error('Usage: BROADCAST <message>');
+                data.message = args.join(' ');
+                break;
+            case 'FIELD_TRADE':
+                if (args.length < 3) throw new Error('Usage: FIELD_TRADE <target_id> <price> <items...>');
+                data.target_id = parseInt(args[0]); data.price = parseInt(args[1]);
+                data.items = args.slice(2);
                 break;
             default:
                 throw new Error(`Unknown command: ${actionType}`);
@@ -277,7 +297,8 @@ export class TerminalHandler {
             const categories = {
                 'NAV': '🧭 NAVIGATION', 'RESOURCE': '⛏️ RESOURCES', 'COMBAT': '⚔️ COMBAT & PIRACY',
                 'MARKET': '🏪 MARKET', 'INDUSTRY': '🏭 INDUSTRY', 'MAINT': '🔧 MAINTENANCE',
-                'GEAR': '🎒 GEAR', 'OTHER': '🌐 OTHER', 'META': '📖 META'
+                'GEAR': '🎒 GEAR', 'STORAGE': '📦 STORAGE', 'SQUAD': '👥 SQUAD',
+                'COMM': '📡 COMMS', 'OTHER': '🌐 OTHER', 'META': '📖 META'
             };
             const grouped = {};
             for (const [name, cmd] of Object.entries(this.commands)) {
@@ -512,6 +533,51 @@ export class TerminalHandler {
                 } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
                 return;
             }
+        }
+
+        // ── DIRECT COMMANDS: STORAGE ──
+        if (['STORAGE_DEPOSIT', 'STORAGE_WITHDRAW', 'STORAGE_UPGRADE'].includes(actionType)) {
+            const apiKey = localStorage.getItem('sv_api_key');
+            if (actionType === 'STORAGE_UPGRADE') {
+                try {
+                    const resp = await fetch('/api/storage/upgrade', {
+                        method: 'POST',
+                        headers: { 'X-API-KEY': apiKey }
+                    });
+                    const result = await resp.json();
+                    if (resp.ok) {
+                        this.log(`✓ ${result.message}`, 'success');
+                        this.game.pollState();
+                        if (window.storageUI) window.storageUI.refreshStorage();
+                    } else {
+                        this.log(`✗ ${result.detail || 'Server error'}`, 'error');
+                    }
+                } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
+                return;
+            }
+
+            if (args.length < 2) {
+                this.log(`✗ Usage: ${actionType} <item_type> <quantity>`, 'error');
+                return;
+            }
+
+            const endpoint = actionType === 'STORAGE_DEPOSIT' ? '/api/storage/deposit' : '/api/storage/withdraw';
+            try {
+                const resp = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
+                    body: JSON.stringify({ item_type: args[0].toUpperCase(), quantity: parseInt(args[1]) })
+                });
+                const result = await resp.json();
+                if (resp.ok) {
+                    this.log(`✓ ${result.message}`, 'success');
+                    this.game.pollState();
+                    if (window.storageUI) window.storageUI.refreshStorage();
+                } else {
+                    this.log(`✗ ${result.detail || 'Server error'}`, 'error');
+                }
+            } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
+            return;
         }
 
         if (actionType === 'CLAIM_DAILY') {

@@ -177,6 +177,17 @@ The full He3 supply chain is live and operational:
 3. **Consume, sell, or resupply** — canisters are reusable, and fill level is preserved as metadata
 
 **Status:** ✅ Live.
+    
+### 5.4 Personal Storage (Vault)
+
+Agents can securely store items at any **MARKET** station. This allows Fleet Managers to stockpile resources, spare parts, and fuel without encumbering their agents' active cargo capacity.
+
+- **Access**: Immediate API interaction while positioned at a Market station.
+- **Cost**: Zero credits to deposit or withdraw.
+- **Starting Capacity**: 500.0 kg.
+- **Upgrading**: Storage capacity can be increased permanently by visiting a station and providing **Credits** and **Ingot** materials.
+
+**Status:** 🔲 Implementing.
 
 ---
 

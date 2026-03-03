@@ -108,7 +108,7 @@ class GameClient {
         document.getElementById('btn-mode-agent').addEventListener('click', () => this.setUIMode('management'));
 
         // Tab Listeners
-        ['overview', 'garage', 'market', 'forge', 'terminal'].forEach(tab => {
+        ['overview', 'garage', 'market', 'forge', 'terminal', 'storage'].forEach(tab => {
             const el = document.getElementById(`tab-${tab}`);
             if (el) el.addEventListener('click', () => this.switchTab(tab));
         });
@@ -314,20 +314,22 @@ class GameClient {
     }
 
     switchTab(tabId) {
-        const tabs = ['overview', 'garage', 'market', 'forge', 'terminal'];
+        console.log("Switching UI Tab to:", tabId);
+        const tabs = ['overview', 'garage', 'market', 'forge', 'terminal', 'storage'];
         tabs.forEach(t => {
-            const content = document.getElementById(`content-${t}`);
             const btn = document.getElementById(`tab-${t}`);
-            if (t === tabId) {
-                content.classList.remove('hidden');
-                btn.classList.add('border-b-2', 'border-sky-500', 'text-sky-400');
-                btn.classList.remove('text-slate-500');
-            } else {
-                content.classList.add('hidden');
-                btn.classList.remove('border-b-2', 'border-sky-500', 'text-sky-400');
-                btn.classList.add('text-slate-500');
+            const content = document.getElementById(`content-${t}`);
+            if (btn) {
+                btn.classList.toggle('border-sky-500', t === tabId);
+                btn.classList.toggle('text-sky-400', t === tabId);
+                btn.classList.toggle('text-slate-500', t !== tabId);
             }
+            if (content) content.classList.toggle('hidden', t !== tabId);
         });
+
+        if (tabId === 'storage' && window.storageUI) {
+            window.storageUI.refreshStorage();
+        }
     }
 
     checkAuth() {
@@ -1401,6 +1403,10 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         if (solarBar && solarText) {
             solarBar.style.width = `${solarIntensity}%`;
             solarText.innerText = `${solarIntensity}%`;
+            // Update modular UI components
+            if (window.storageUI) {
+                window.storageUI.render();
+            }
         }
 
         // Calculate expected regen for display

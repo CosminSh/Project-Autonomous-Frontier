@@ -449,6 +449,9 @@
                     <button id="tab-terminal"
                         class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">⌨️
                         Terminal</button>
+                    <button id="tab-storage"
+                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">📦
+                        Storage</button>
                 </nav>
                 <div class="p-3 md:p-4 flex-grow overflow-y-auto custom-scrollbar">
                     <!-- Overview Tab -->
@@ -826,6 +829,44 @@
                         </div>
                     </div>
 
+                    <!-- Storage Tab -->
+                    <div id="content-storage" class="hidden">
+                        <div class="flex justify-between items-center mb-5">
+                            <h3 class="orbitron text-base md:text-lg text-sky-400">PERSONAL VAULT</h3>
+                            <div class="flex items-center space-x-4">
+                                <div class="text-right">
+                                    <p class="text-[8px] text-slate-500 uppercase font-bold">Capacity</p>
+                                    <p id="storage-mass-text" class="text-xs font-mono text-sky-400">0 / 500 kg</p>
+                                </div>
+                                <button onclick="window.storageUI.upgradeStorage()"
+                                    class="bg-amber-500/20 hover:bg-amber-500/40 text-amber-500 border border-amber-500/30 px-3 py-1.5 rounded text-[9px] orbitron font-bold transition-all interactive">UPGRADE</button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Vault Items -->
+                            <div class="glass p-5 rounded-xl border border-slate-800">
+                                <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">Vault
+                                    Contents</h4>
+                                <div id="storage-list"
+                                    class="space-y-2 h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                                    <div class="text-[10px] text-slate-600 italic">No items in storage. Visit a Market
+                                        to deposit.</div>
+                                </div>
+                            </div>
+
+                            <!-- Quick Deposit (Current Inventory) -->
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
+                                <h4 class="text-[10px] text-emerald-500 uppercase mb-4 tracking-widest font-bold">Quick
+                                    Deposit</h4>
+                                <div id="storage-inventory-list"
+                                    class="space-y-2 h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                                    <!-- Inventory items with deposit button -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Terminal Tab -->
                     <div id="content-terminal" class="hidden h-full flex flex-col">
                         <div class="flex justify-between items-center mb-4 text-sky-400">
@@ -1010,6 +1051,7 @@
         }
     }
     </script>
+    <script type="module" src="storage.js"></script>
     <script type="module" src="app.js?v=2.14"></script>
 </body>
 

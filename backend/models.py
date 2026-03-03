@@ -23,6 +23,7 @@ class Agent(Base):
     overclock = Column(Integer, server_default="10")
     integrity = Column(Integer, server_default="5")
     max_mass = Column(Float, server_default="100.0")
+    storage_capacity = Column(Float, server_default="500.0")
     
     # State / Status
     is_bot = Column(Boolean, default=False)
@@ -53,6 +54,7 @@ class Agent(Base):
     parts = relationship("ChassisPart", back_populates="agent")
     intents = relationship("Intent", back_populates="agent")
     inventory = relationship("InventoryItem", back_populates="agent")
+    storage = relationship("StorageItem", back_populates="agent")
 
 class ChassisPart(Base):
     __tablename__ = "chassis_parts"
@@ -79,6 +81,17 @@ class InventoryItem(Base):
     data = Column(JSON, nullable=True) # Metadata (e.g., {"fill_level": 50})
 
     agent = relationship("Agent", back_populates="inventory")
+
+class StorageItem(Base):
+    __tablename__ = "storage_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), index=True)
+    item_type = Column(String)
+    quantity = Column(Integer, default=1)
+    data = Column(JSON, nullable=True)
+
+    agent = relationship("Agent", back_populates="storage")
 
 class Sector(Base):
     __tablename__ = "sectors"

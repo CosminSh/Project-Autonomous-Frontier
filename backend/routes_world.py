@@ -44,7 +44,8 @@ async def get_game_guide():
             "Log in daily: POST /api/claim_daily gives you valuable Bound consumables like FIELD_REPAIR_KITs and CORE_VOUCHERs.",
             "Immediate repairs: Send a CONSUME intent with item_type: FIELD_REPAIR_KIT to instantly heal structure if taking damage.",
             "Form a Party: Use POST /api/squad/invite with a target_id to invite users to your squad. They can accept with POST /api/squad/accept.",
-            "Squad Comms: Once in a squad, use POST /api/chat with channel: 'SQUAD' to securely message your squad members."
+            "Squad Comms: Once in a squad, use POST /api/chat with channel: 'SQUAD' to securely message your squad members.",
+            "Personal Storage: At any MARKET station, use the Storage API or UI to safely vault your items. Deposits and withdrawals are free!"
         ],
         "intel": [
             "Feral AI Scrappers roam the Abyssal South (distance > 8 from the Hub). They drop valuable Scrap Metal and Electronics.",
@@ -95,6 +96,9 @@ async def get_commands():
             {"type": "TURN_IN", "description": "Turn in items for an active daily mission. NOTE: This is an immediate API call, do NOT submit via /api/intent. Use POST /api/missions/turn_in directly.", "payload": {"mission_id": "int", "quantity": "int"}, "range": "N/A"},
             {"type": "CLAIM_DAILY", "description": "Claim your daily login bonus items. NOTE: This is an immediate API call, do NOT submit via /api/intent. Use POST /api/claim_daily directly.", "payload": {}, "range": "N/A"},
             {"type": "DROP_LOAD", "description": "Jettison all non-CREDITS cargo. Destroys items permanently. Use to unstick an overloaded agent.", "payload": {}, "energy_cost": 0, "range": "N/A"},
+            {"type": "STORAGE_DEPOSIT", "description": "Vault an item at a MARKET station. Free of charge.", "payload": {"item_type": "str", "quantity": "int"}, "range": 0, "station_required": "MARKET"},
+            {"type": "STORAGE_WITHDRAW", "description": "Retrieve a vaulted item at a MARKET station. Free of charge.", "payload": {"item_type": "str", "quantity": "int"}, "range": 0, "station_required": "MARKET"},
+            {"type": "STORAGE_UPGRADE", "description": "Increase storage capacity (+250kg) at a MARKET station. Costs credits and ingots.", "payload": {}, "range": 0, "station_required": "MARKET"},
             {"type": "STOP", "description": "Cancel all queued intents for this agent, including in-progress navigation paths. Executes before all other actions this tick.", "payload": {}, "energy_cost": 0, "range": "N/A"}
         ],
         "note": "All commands are executed during the CRUNCH phase. Submit via POST /api/intent"

@@ -23,6 +23,7 @@ from routes_auth import router as auth_router
 from routes_agent import router as agent_router
 from routes_world import router as world_router
 from routes_corp import router as corp_router
+from routes_storage import router as storage_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("heartbeat")
@@ -100,6 +101,7 @@ app.include_router(auth_router)
 app.include_router(agent_router)
 app.include_router(world_router)
 app.include_router(corp_router)
+app.include_router(storage_router)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
