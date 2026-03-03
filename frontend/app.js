@@ -95,11 +95,19 @@ class GameClient {
     updateForgeUI(discovery) { return this.ui.updateForgeUI(discovery); }
     updatePrivateLogs(logs, pending) { return this.ui.updatePrivateLogs(logs, pending); }
     updateMyOrdersUI(orders) { return this.ui.updateMyOrdersUI(orders); }
-    handleWorldEvent(data) { return this.renderer.handleWorldEvent ? this.renderer.handleWorldEvent(data) : null; }
+    handleWorldEvent(data) { return this.renderer.handleWorldEvent(data); }
+    updateAgentMesh(data) { return this.renderer.updateAgentMesh(data); }
+    createHex(data) { return this.renderer.createHex(data); }
+    centerOnAgent() { return this.renderer.centerOnAgent(); }
 
     // Internal state access helpers
     get apiKey() { return localStorage.getItem('sv_api_key'); }
     get agentData() { return this.lastWorldData?.agents?.find(a => a.id === parseInt(localStorage.getItem('sv_agent_id'))); }
+    get hexes() { return this.renderer.hexes; }
+    get agents() { return this.renderer.agents; }
+    get planetMesh() { return this.renderer.planetMesh; }
+    get hasCenteredInitially() { return this.renderer.hasCenteredInitially; }
+    set hasCenteredInitially(v) { this.renderer.hasCenteredInitially = v; }
 }
 
 // Global initialization
