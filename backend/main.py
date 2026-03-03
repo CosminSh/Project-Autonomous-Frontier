@@ -35,8 +35,24 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database...")
     from models import Base
     from seed_world import seed_world
+    from sqlalchemy import text
     
     Base.metadata.create_all(engine)
+
+    # Safe column migrations: add new columns to existing tables without dropping data.
+    # PostgreSQL's "ADD COLUMN IF NOT EXISTS" is idempotent — safe to run every startup.
+    safe_migrations = [
+        "ALTER TABLE bounties ADD COLUMN IF NOT EXISTS claimed_by INTEGER REFERENCES agents(id)",
+        "ALTER TABLE bounties ADD COLUMN IF NOT EXISTS claim_tick BIGINT",
+    ]
+    if "sqlite" not in str(engine.url):
+        with engine.connect() as conn:
+            for stmt in safe_migrations:
+                try:
+                    conn.execute(text(stmt))
+                    conn.commit()
+                except Exception as e:
+                    logger.warning(f"Migration skipped (may already exist): {e}")
 
     with SessionLocal() as db:
         if db.execute(select(func.count(WorldHex.id))).scalar() == 0:
