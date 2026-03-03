@@ -804,6 +804,25 @@
                                     Fabrication Unit</h4>
                                 <p class="text-[10px] text-slate-500 mb-4 font-mono">Convert ingots into advanced agent
                                     components. Requires proximity to a CRAFTER station.</p>
+
+                                <!-- Forge Filters -->
+                                <div class="flex flex-wrap gap-2 mb-6" id="forge-filters">
+                                    <button onclick="game.ui.setForgeFilter('All')"
+                                        class="forge-filter-btn active px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-sky-500/30 text-sky-400 bg-sky-500/10 transition-all">All</button>
+                                    <button onclick="game.ui.setForgeFilter('Frame')"
+                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Frame</button>
+                                    <button onclick="game.ui.setForgeFilter('Actuator')"
+                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Actuator</button>
+                                    <button onclick="game.ui.setForgeFilter('Power')"
+                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Power</button>
+                                    <button onclick="game.ui.setForgeFilter('Sensor')"
+                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Sensor</button>
+                                    <button onclick="game.ui.setForgeFilter('Engine')"
+                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Engine</button>
+                                    <button onclick="game.ui.setForgeFilter('Material')"
+                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Material</button>
+                                </div>
+
                                 <div id="forge-recipe-grid" class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                                     <div class="text-[10px] text-slate-600 italic">Syncing Forge Database...</div>
                                 </div>

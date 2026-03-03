@@ -13,10 +13,36 @@ from models import Agent, WorldHex, ChassisPart, InventoryItem, AuditLog
 from config import (
     ITEM_WEIGHTS, BASE_CAPACITY, RARITY_LEVELS, PART_DEFINITIONS,
     SOLAR_RADIUS_SAFE, SOLAR_RADIUS_TWILIGHT, ANARCHY_THRESHOLD,
-    BASE_REGEN, CLUTTER_PENALTY
+    BASE_REGEN, CLUTTER_PENALTY,
+    CRAFTING_RECIPES, SMELTING_RECIPES, CORE_RECIPES
 )
 
 logger = logging.getLogger("heartbeat")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Module-level Recipe Cache
+# Built once at startup; reused on every /api/my_agent poll to avoid
+# creating hundreds of temporary dicts/lists per request.
+# ─────────────────────────────────────────────────────────────────────────────
+def _build_recipe_cache() -> list:
+    result = []
+    for item_key, materials in CRAFTING_RECIPES.items():
+        is_part = item_key in PART_DEFINITIONS
+        part_data = PART_DEFINITIONS.get(item_key, {})
+        inventory_type = f"PART_{item_key}" if is_part else item_key
+        result.append({
+            "id": item_key,
+            "name": part_data.get("name", item_key.replace("_", " ").title()),
+            "type": part_data.get("type", "Material"),
+            "materials": materials,
+            "stats": part_data.get("stats", {}),
+            "weight": ITEM_WEIGHTS.get(inventory_type, 1.0),
+            "is_core": item_key in CORE_RECIPES
+        })
+    return result
+
+_CACHED_CRAFTING_RECIPES: list = _build_recipe_cache()
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -199,7 +225,14 @@ def get_nearest_station(station_cache: list, agent: Agent, station_type: str):
     relevant = [s for s in station_cache if s["station_type"] == station_type]
     if not relevant:
         return None
-    return min(relevant, key=lambda s: get_hex_distance(agent.q, agent.r, s["q"], s["r"]))
+    best = min(relevant, key=lambda s: get_hex_distance(agent.q, agent.r, s["q"], s["r"]))
+    
+    # Compatibility wrapper for attribute access (q, r)
+    class _S:
+        def __init__(self, d):
+            self.q = d["q"]
+            self.r = d["r"]
+    return _S(best)
 
 
 def get_discovery_packet(station_cache: list, agent: Agent) -> dict:
@@ -211,28 +244,9 @@ def get_discovery_packet(station_cache: list, agent: Agent) -> dict:
             nearest = min(relevant, key=lambda s: get_hex_distance(agent.q, agent.r, s["q"], s["r"]))
             dist = get_hex_distance(agent.q, agent.r, nearest["q"], nearest["r"])
             discovery[st] = {"q": nearest["q"], "r": nearest["r"], "distance": dist}
-            
-    from config import CRAFTING_RECIPES, SMELTING_RECIPES, PART_DEFINITIONS, ITEM_WEIGHTS, CORE_RECIPES
-    
-    enriched_crafting = []
-    for item_key, materials in CRAFTING_RECIPES.items():
-        is_part = item_key in PART_DEFINITIONS
-        part_data = PART_DEFINITIONS.get(item_key, {})
-        
-        # Calculate resulting item type for weight lookup
-        inventory_type = f"PART_{item_key}" if is_part else item_key
-        
-        enriched_crafting.append({
-            "id": item_key,
-            "name": part_data.get("name", item_key.replace("_", " ").title()),
-            "type": part_data.get("type", "Material"),
-            "materials": materials,
-            "stats": part_data.get("stats", {}),
-            "weight": ITEM_WEIGHTS.get(inventory_type, 1.0),
-            "is_core": item_key in CORE_RECIPES
-        })
-        
-    discovery["crafting_recipes"] = enriched_crafting
+
+    # Use pre-built cached recipes — no per-request allocation
+    discovery["crafting_recipes"] = _CACHED_CRAFTING_RECIPES
     discovery["smelting_recipes"] = SMELTING_RECIPES
     return discovery
 

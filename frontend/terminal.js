@@ -623,7 +623,8 @@ export class TerminalHandler {
                 this.log(`✓ ACCEPTED — Tick #${result.scheduled_tick}`, 'success');
             } else {
                 const err = await resp.json().catch(() => ({ detail: 'Unknown server error' }));
-                this.log(`✗ REJECTED — ${err.detail || 'Server error'}`, 'error');
+                const errorDetail = typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail;
+                this.log(`✗ REJECTED — ${errorDetail || 'Server error'}`, 'error');
             }
         } catch (e) {
             this.log(`✗ ${e.message}`, 'error');

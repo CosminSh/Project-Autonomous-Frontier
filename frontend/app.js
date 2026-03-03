@@ -82,6 +82,14 @@ class GameClient {
 
     // Proxy Methods for backward compatibility or cross-module ease
     pollState() { return this.api.pollState(); }
+    handleLogin(response) { return this.auth.handleLogin(response); }
+    handleGuestLogin() { return this.auth.handleGuestLogin(); }
+    logout() { return this.auth.logout(); }
+    claimDaily() { return this.api.claimDaily(); }
+    acceptSquad() { return this.api.acceptSquad(); }
+    declineSquad() { return this.api.declineSquad(); }
+    inviteSquad() { return this.api.inviteSquad(); }
+    leaveSquad() { return this.api.leaveSquad(); }
     setAuthenticated(status) { return this.auth.setAuthenticated(status); }
     setUIMode(mode) { return this.ui.setUIMode(mode); }
     toggleDirectiveModal(show) { return this.ui.toggleDirectiveModal(show); }

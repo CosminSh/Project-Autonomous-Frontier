@@ -10,6 +10,7 @@ export const FACTION_NAMES = {
 export class UIManager {
     constructor(game) {
         this.game = game;
+        this.activeForgeFilter = 'All';
     }
 
     setUIMode(mode) {
@@ -249,6 +250,13 @@ export class UIManager {
             this.updateForgeUI(agent.discovery);
         }
 
+        if (agent.solar_intensity !== undefined) {
+            const solarBar = document.getElementById('solar-bar');
+            const solarText = document.getElementById('solar-text');
+            if (solarBar) solarBar.style.width = `${agent.solar_intensity}%`;
+            if (solarText) solarText.innerText = `${agent.solar_intensity}%`;
+        }
+
         const invList = document.getElementById('inventory-list');
         if (invList && agent.inventory) {
             invList.innerHTML = agent.inventory.map(i => `
@@ -258,25 +266,145 @@ export class UIManager {
                 </div>
             `).join('');
         }
+
+        // --- GARAGE CATEGORIZATION ---
+        const equippedEl = document.getElementById('equipped-list');
+        const detailedInvEl = document.getElementById('detailed-inventory');
+        const equipmentInvEl = document.getElementById('equipment-inventory');
+        const consumableInvEl = document.getElementById('consumable-inventory');
+
+        if (equippedEl && agent.parts) {
+            if (agent.parts.length === 0) {
+                equippedEl.innerHTML = `<div class="text-[10px] text-slate-600 italic">No specialized gear detected.</div>`;
+            } else {
+                equippedEl.innerHTML = agent.parts.map(p => `
+                    <div class="flex flex-col p-3 bg-sky-500/5 border border-sky-500/20 rounded-xl relative group overflow-hidden">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-[10px] font-bold text-sky-300 uppercase leading-none">${p.name}</span>
+                            <span class="text-[8px] bg-sky-500/20 px-1 py-0.5 rounded text-sky-400 font-bold">${p.rarity}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1 text-[8px] text-slate-400">
+                            ${Object.entries(p.stats || {}).map(([s, v]) => `<div>${s}: <span class="text-slate-200">${v}</span></div>`).join('')}
+                        </div>
+                        <div class="absolute inset-y-0 right-0 w-1 bg-sky-500"></div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        if (agent.inventory) {
+            const resources = agent.inventory.filter(i => i.type.includes('_ORE') || i.type.includes('_INGOT') || ['SULFUR', 'CARBON'].includes(i.type));
+            const items = agent.inventory.filter(i => i.type.includes('SCANNER'));
+            const consumables = agent.inventory.filter(i => i.type.includes('REPAIR_KIT') || i.type.includes('FUEL_CELL') || i.type.includes('STIM') || i.type.includes('RATION') || i.type.includes('CANISTER'));
+
+            if (detailedInvEl) {
+                if (resources.length === 0) detailedInvEl.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-2">Cargo bay empty.</div>`;
+                else detailedInvEl.innerHTML = resources.map(i => `
+                    <div class="flex justify-between items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                        <span class="text-[9px] uppercase font-bold text-slate-400">${i.type.replace('_', ' ')}</span>
+                        <span class="text-amber-500 text-[9px] font-mono">${i.quantity} units</span>
+                    </div>
+                `).join('');
+            }
+
+            if (equipmentInvEl) {
+                if (items.length === 0) equipmentInvEl.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-2">No specialized equipment.</div>`;
+                else equipmentInvEl.innerHTML = items.map(i => `
+                    <div class="bg-indigo-500/5 p-3 rounded-xl border border-indigo-500/20 flex justify-between items-center">
+                        <span class="text-[9px] font-bold text-indigo-300 uppercase">${i.type.replace('_', ' ')}</span>
+                        <div class="flex items-center space-x-3">
+                            <span class="text-indigo-400 text-[10px] font-mono">${i.quantity}</span>
+                            <button onclick="console.log('Use ${i.type}')" class="bg-indigo-500 text-slate-950 px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all">USE</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            if (consumableInvEl) {
+                if (consumables.length === 0) consumableInvEl.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-2">No consumables detected.</div>`;
+                else consumableInvEl.innerHTML = consumables.map(i => `
+                    <div class="bg-rose-500/5 p-3 rounded-xl border border-rose-500/20 flex justify-between items-center">
+                        <span class="text-[9px] font-bold text-rose-300 uppercase">${i.type.replace('_', ' ')}</span>
+                        <div class="flex items-center space-x-3">
+                            <span class="text-rose-400 text-[10px] font-mono">${i.quantity}</span>
+                            <button onclick="console.log('Consume ${i.type}')" class="bg-rose-500 text-white px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all">Consume</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
     }
 
     updateNavComputer(discovery) {
         const navList = document.getElementById('nav-computer-list');
         if (!navList) return;
-        navList.innerHTML = Object.entries(discovery)
-            .filter(([type, data]) => data && data.distance !== undefined)
-            .map(([type, data]) => `<div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800 text-[10px] text-sky-400">${type}: ${data.q}, ${data.r}</div>`)
+
+        const entries = Object.entries(discovery).filter(([type, data]) => data && data.distance !== undefined);
+        if (entries.length === 0) {
+            navList.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-4">Scanning... No deep-space signatures found.</div>`;
+            return;
+        }
+
+        navList.innerHTML = entries
+            .map(([type, data]) => `<div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800 text-[10px] text-sky-400">${type}: ${data.q}, ${data.r} (Dist: ${data.distance.toFixed(1)})</div>`)
             .join('');
+    }
+
+    setForgeFilter(category) {
+        this.activeForgeFilter = category;
+        // Update filter buttons UI
+        const buttons = document.querySelectorAll('.forge-filter-btn');
+        buttons.forEach(btn => {
+            if (btn.innerText.toLowerCase() === category.toLowerCase()) {
+                btn.classList.add('active', 'bg-sky-500/10', 'text-sky-400', 'border-sky-500/30');
+                btn.classList.remove('text-slate-500', 'border-slate-800');
+            } else {
+                btn.classList.remove('active', 'bg-sky-500/10', 'text-sky-400', 'border-sky-500/30');
+                btn.classList.add('text-slate-500', 'border-slate-800');
+            }
+        });
+
+        // Trigger UI refresh if we have a state
+        if (this.game.lastAgentData) {
+            this.updateForgeUI(this.game.lastAgentData.discovery);
+        }
     }
 
     updateForgeUI(discovery) {
         if (!discovery || !discovery.crafting_recipes) return;
         const grid = document.getElementById('forge-recipe-grid');
         if (!grid) return;
-        grid.innerHTML = discovery.crafting_recipes.map(r => `
+
+        let recipes = discovery.crafting_recipes;
+        if (this.activeForgeFilter !== 'All') {
+            recipes = recipes.filter(r => r.type === this.activeForgeFilter);
+        }
+
+        if (recipes.length === 0) {
+            grid.innerHTML = `<div class="col-span-full text-center py-8 text-slate-700 italic border border-dashed border-slate-800 rounded-2xl">No recipes found in this category.</div>`;
+            return;
+        }
+
+        grid.innerHTML = recipes.map(r => `
             <div class="bg-sky-500/5 p-3 rounded-xl border border-sky-500/20">
-                <div class="text-[10px] font-bold text-sky-300 uppercase">${r.name}</div>
-                <button onclick="game.api.submitIndustryIntent('CRAFT', {item_type: '${r.id}'})" class="bg-sky-600 text-white px-3 py-1 rounded text-[9px] mt-2">CRAFT</button>
+                <div class="flex justify-between items-start mb-2">
+                    <div class="text-[10px] font-bold text-sky-300 uppercase">${r.name}</div>
+                    <span class="text-[8px] text-slate-500 font-mono">${r.type}</span>
+                </div>
+                <div class="text-[8px] text-slate-400 mb-3 uppercase tracking-widest font-bold">Materials Needed:</div>
+                <div class="space-y-1 mb-3">
+                    ${Object.entries(r.materials || {}).map(([m, q]) => `
+                        <div class="flex justify-between text-[8px] font-mono">
+                            <span class="text-slate-500">${m.replace('_', ' ')}</span>
+                            <span class="text-sky-400">x${q}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="text-[8px] text-slate-400 mb-1 uppercase tracking-widest font-bold">Projected Stats:</div>
+                <div class="grid grid-cols-2 gap-1 mb-4">
+                    ${Object.entries(r.stats || {}).map(([s, v]) => `<div class="text-[8px] text-slate-300">${s}: <span class="text-emerald-400">${v}</span></div>`).join('')}
+                </div>
+                <button onclick="game.api.submitIndustryIntent('CRAFT', {item_type: '${r.id}'})" class="w-full bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded text-[9px] font-bold orbitron transition-all">INITIATE ASSEMBLY</button>
             </div>
         `).join('');
     }
@@ -284,12 +412,56 @@ export class UIManager {
     updateMissionsUI(missions) {
         const container = document.getElementById('missions-list');
         if (!container || !missions) return;
-        container.innerHTML = missions.map(m => `
-            <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800 text-[10px]">
-                <div class="font-bold text-slate-200">${m.type}</div>
-                <div class="text-amber-400 mt-1">${m.progress} / ${m.target_amount}</div>
-            </div>
-        `).join('');
+
+        if (missions.length === 0) {
+            container.innerHTML = '<div class="text-[10px] text-slate-600 italic text-center py-4">Checking for local activity...</div>';
+            return;
+        }
+
+        // Get agent inventory to check for turn-in readiness
+        const inv = (this.game.lastAgentData && this.game.lastAgentData.inventory) ? this.game.lastAgentData.inventory : [];
+
+        container.innerHTML = missions.map(m => {
+            const isCompleted = m.is_completed;
+            const isItemMission = m.type === "TURN_IN";
+            const progress = m.progress || 0;
+            const target = m.target || 1;
+
+            let canTurnIn = false;
+            if (isItemMission && !isCompleted) {
+                const item = inv.find(i => i.type === m.item_type);
+                if (item && item.quantity >= target) canTurnIn = true;
+            }
+
+            return `
+                <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800 text-[10px] flex flex-col ${isCompleted ? 'opacity-50' : ''}">
+                    <div class="flex justify-between items-center mb-1">
+                        <div class="font-bold text-slate-200 uppercase">${m.type.replace('_', ' ')}</div>
+                        <span class="text-amber-500 font-bold">$${m.reward_credits}</span>
+                    </div>
+                    <div class="text-slate-500 text-[8px] mb-2 uppercase tracking-tighter">${m.description}</div>
+                    
+                    ${isCompleted ? `
+                        <div class="text-emerald-400 font-bold text-center py-1 bg-emerald-500/10 rounded uppercase tracking-widest border border-emerald-500/20">Mission Secure</div>
+                    ` : `
+                        ${isItemMission ? `
+                            <div class="flex justify-between items-center mt-2">
+                                <span class="text-[8px] text-slate-400 uppercase">Target: ${target} ${m.item_type}</span>
+                                <button onclick="game.api.submitIntent('TURN_IN', {mission_id: ${m.id}})" 
+                                    class="${canTurnIn ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20' : 'bg-slate-800 text-slate-500 cursor-not-allowed'} px-3 py-1 rounded text-[8px] font-bold uppercase transition-all">
+                                    Turn In
+                                </button>
+                            </div>
+                        ` : `
+                            <div class="w-full h-1 bg-slate-950 rounded-full overflow-hidden mb-1">
+                                <div class="h-full bg-amber-500" style="width: ${(progress / target) * 100}%"></div>
+                            </div>
+                            <div class="text-emerald-400 font-mono text-right text-[8px]">${progress}/${target} Complete</div>
+                        `}
+                    `}
+                </div>
+            `;
+        }).join('');
     }
 
     toggleDirectiveModal(show) {

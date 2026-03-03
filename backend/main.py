@@ -19,100 +19,23 @@ from database import engine, SessionLocal, refresh_station_cache
 import heartbeat as hb
 
 # Routers
-from routes_auth import router as auth_router
-from routes_agent import router as agent_router
-from routes_world import router as world_router
-from routes_corp import router as corp_router
-from routes_storage import router as storage_router
+from routes import auth, perception, agent_meta, intent, economy, missions, social, world, corp
 
+from contextlib import asynccontextmanager
+
+# ─────────────────────────────────────────────────────────────────────────────
+# App Setup & Lifespan
+# ─────────────────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("heartbeat")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# App Setup
-# ─────────────────────────────────────────────────────────────────────────────
-app = FastAPI(
-    title="TERMINAL FRONTIER API",
-    description="Backend API for Terminal Frontier agent-centric industrial RPG",
-    version="0.1.0",
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@app.middleware("http")
-async def add_security_headers(request: Request, call_next):
-    try:
-        response = await call_next(request)
-        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
-        return response
-    except Exception as e:
-        import traceback
-        logger.error(f"CRASH in {request.method} {request.url.path}: {str(e)}")
-        logger.error(traceback.format_exc())
-        raise e
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# WebSocket
-# ─────────────────────────────────────────────────────────────────────────────
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: list[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: dict):
-        for connection in self.active_connections:
-            try:
-                await connection.send_json(message)
-            except Exception:
-                continue
-
-
-manager = ConnectionManager()
-
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Routers
-# ─────────────────────────────────────────────────────────────────────────────
-app.include_router(auth_router)
-app.include_router(agent_router)
-app.include_router(world_router)
-app.include_router(corp_router)
-app.include_router(storage_router)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Startup
-# ─────────────────────────────────────────────────────────────────────────────
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Initializing database...")
     from models import Base
     from seed_world import seed_world
-
-    logger.info("Initializing database...")
+    
     Base.metadata.create_all(engine)
 
     with SessionLocal() as db:
@@ -126,8 +49,91 @@ async def startup_event():
 
     # Inject the shared WebSocket manager into heartbeat module
     hb.manager = manager
-
     asyncio.create_task(hb.heartbeat_loop())
+    
+    yield
+    # Shutdown logic (if any) could go here
+
+app = FastAPI(
+    title="TERMINAL FRONTIER API",
+    description="Backend API for Terminal Frontier agent-centric industrial RPG",
+    version="0.1.0",
+    lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+        return response
+    except Exception as e:
+        import traceback
+        logger.error(f"CRASH in {request.method} {request.url.path}: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise e
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WebSocket
+# ─────────────────────────────────────────────────────────────────────────────
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in list(self.active_connections):
+            try:
+                await connection.send_json(message)
+            except Exception:
+                self.active_connections.remove(connection)
+
+manager = ConnectionManager()
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Routers
+# ─────────────────────────────────────────────────────────────────────────────
+app.include_router(auth.router)
+app.include_router(perception.router)
+app.include_router(agent_meta.router)
+app.include_router(intent.router)
+app.include_router(economy.router)
+app.include_router(missions.router)
+app.include_router(social.router)
+app.include_router(world.router)
+app.include_router(corp.router)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Health Check (used by Docker HEALTHCHECK)
+# ─────────────────────────────────────────────────────────────────────────────
+@app.get("/api/health", tags=["System"])
+async def health_check():
+    """Lightweight liveness probe. Returns 200 if server is responsive."""
+    return {"status": "ok"}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -188,6 +194,13 @@ else:
 logger.info(f"Frontend path resolved to: {frontend_path} (Exists: {os.path.exists(frontend_path)})")
 
 if os.path.exists(frontend_path):
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def favicon():
+        fav = os.path.join(frontend_path, "favicon.ico")
+        if os.path.exists(fav):
+            return FileResponse(fav)
+        return HTMLResponse(content="", status_code=204)
+
     @app.get("/dashboard")
     async def get_dashboard():
         return FileResponse(os.path.join(frontend_path, "dashboard.html"))

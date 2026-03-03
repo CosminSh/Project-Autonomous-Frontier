@@ -6,6 +6,7 @@ import os
 import logging
 
 from sqlalchemy import create_engine, event, select
+from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import sessionmaker
 
 from models import WorldHex
@@ -15,7 +16,8 @@ logger = logging.getLogger("heartbeat")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./terminal_frontier.db")
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
+    poolclass=NullPool  # SQLite doesn't benefit from pooling; NullPool frees RAM by closing connections immediately
 )
 
 # Enable SQLite WAL Mode for performance

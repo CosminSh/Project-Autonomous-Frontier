@@ -163,6 +163,8 @@ class Bounty(Base):
     reward = Column(Float)
     issuer = Column(String, default="Colonial Administration")
     is_open = Column(Boolean, default=True, index=True)
+    claimed_by = Column(Integer, ForeignKey("agents.id"), nullable=True)
+    claim_tick = Column(BigInteger, nullable=True)
 
 class LootDrop(Base):
     __tablename__ = "loot_drops"

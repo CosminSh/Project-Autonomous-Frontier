@@ -44,6 +44,12 @@ export class GameAPI {
                 apiKey ? fetch(`${window.location.origin}/api/missions`, { headers }) : Promise.resolve(null)
             ]);
 
+            if (agentResp && agentResp.status === 401) {
+                console.warn("Session expired or API key invalid.");
+                this.game.setAuthenticated(false);
+                return;
+            }
+
             const data = await stateResp.json();
             const stats = await statsResp.json();
             const privateLogs = logsResp ? await logsResp.json() : null;
@@ -54,8 +60,8 @@ export class GameAPI {
             const missions = missionsResp ? await missionsResp.json() : null;
 
             this.game.lastWorldData = data; // Keep for fallback
-            if (perceptionData && perceptionData.content) {
-                this.game.lastPerception = perceptionData.content;
+            if (perceptionData) {
+                this.game.lastPerception = perceptionData;
             }
 
             this.game.updateGlobalUI(stats);
@@ -64,15 +70,18 @@ export class GameAPI {
             this.game.updateMarketUI(data.market);
             this.game.updateBountyBoard(bounties);
 
-            if (missions) {
+            if (Array.isArray(missions)) {
                 try {
                     this.game.updateMissionsUI(missions);
                 } catch (e) {
                     console.error("Error updating Missions UI:", e);
                 }
+            } else if (missions && missions.detail) {
+                console.warn("Missions API returned error:", missions.detail);
             }
 
             if (agentData) {
+                this.game.lastAgentData = agentData; // cache for UI cross-reference (e.g. mission turn-in checks)
                 try {
                     this.game.updatePrivateUI(agentData);
                 } catch (e) {
@@ -121,9 +130,9 @@ export class GameAPI {
                 }
             }
 
-            if (this.game.lastPerception && this.game.lastPerception.environment) {
-                worldDataToRender = this.game.lastPerception.environment.environment_hexes;
-                agentsToRender = this.game.lastPerception.environment.other_agents;
+            if (this.game.lastPerception) {
+                worldDataToRender = this.game.lastPerception.discovery?.environment_hexes || this.game.lastPerception.environment?.environment_hexes || data.world;
+                agentsToRender = this.game.lastPerception.nearby_agents || this.game.lastPerception.environment?.other_agents || data.agents;
             }
 
             const visibleHexKeys = new Set();
@@ -167,19 +176,8 @@ export class GameAPI {
                 mesh.visible = visibleAgentIds.has(id);
             }
 
-            const myAgentResp = await fetch('/api/my_agent', { headers });
-            if (myAgentResp.status === 401) {
-                const currentKey = localStorage.getItem('sv_api_key');
-                if (currentKey === apiKey) {
-                    this.game.setAuthenticated(false);
-                }
-                return;
-            }
-
-            this.game.updateMarketUI(data.market);
-            const myAgentData = await myAgentResp.json();
-            if (myAgentData && !myAgentData.detail) {
-                this.game.updatePrivateUI(myAgentData);
+            if (agentData) {
+                this.game.updatePrivateUI(agentData);
             }
         } catch (e) {
             console.error("Poll error:", e);
@@ -210,7 +208,8 @@ export class GameAPI {
                     this.pollState();
                 }
             } else {
-                alert(`Command Failed: ${result.detail || 'Access Denied'}`);
+                const errorDetail = typeof result.detail === 'object' ? JSON.stringify(result.detail) : result.detail;
+                alert(`Command Failed: ${errorDetail || 'Access Denied'}`);
             }
         } catch (err) {
             console.error("Intent Submission Error:", err);
@@ -237,20 +236,22 @@ export class GameAPI {
         alert(`${actionType} intent queued for The Crunch!`);
     }
 
-    async submitIndustryIntent(type) {
-        let data = {};
-        if (type === 'SMELT') {
-            data = {
-                ore_type: document.getElementById('smelt-ore-type').value,
-                quantity: 10
-            };
-        } else if (type === 'CRAFT') {
-            data = {
-                item_type: document.getElementById('craft-item-type').value
-            };
-        } else if (type === 'REPAIR') {
-            const amount = parseInt(document.getElementById('repair-amount').value) || 0;
-            data = { amount: amount };
+    async submitIndustryIntent(type, dataOverride = null) {
+        let data = dataOverride || {};
+        if (!dataOverride) {
+            if (type === 'SMELT') {
+                data = {
+                    ore_type: document.getElementById('smelt-ore-type').value,
+                    quantity: 10
+                };
+            } else if (type === 'CRAFT') {
+                data = {
+                    item_type: document.getElementById('craft-item-type').value
+                };
+            } else if (type === 'REPAIR') {
+                const amount = parseInt(document.getElementById('repair-amount').value) || 0;
+                data = { amount: amount };
+            }
         }
 
         await this.submitIntent(type, data);
@@ -341,7 +342,7 @@ export class GameAPI {
             if (resp.ok) {
                 const data = await resp.json();
                 if (this.game.terminal) {
-                    this.game.terminal.log(`✓ Daily claimed! Check cargo for provisions.`, 'success');
+                    this.game.terminal.log(`✓ Daily claimed! Acquired: ${data.items?.join(', ') || 'provisions'}`, 'success');
                 }
                 if (btn) {
                     btn.disabled = true;
@@ -350,7 +351,7 @@ export class GameAPI {
                 }
                 this.pollState();
             } else {
-                const err = await resp.json();
+                const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
                 if (this.game.terminal) {
                     this.game.terminal.log(`✗ Claim Failed: ${err.detail || 'Unknown error'}`, 'error');
                 }
@@ -361,6 +362,40 @@ export class GameAPI {
             }
         } catch (e) {
             console.error("Claim error:", e);
+        }
+    }
+
+    async inviteSquad() {
+        const targetId = parseInt(document.getElementById('invite-target-id')?.value);
+        if (isNaN(targetId)) {
+            alert("Enter a valid Agent ID to invite.");
+            return;
+        }
+        await this._squadAction('/api/squad/invite', { target_id: targetId });
+    }
+
+    async acceptSquad() { await this._squadAction('/api/squad/accept'); }
+    async declineSquad() { await this._squadAction('/api/squad/decline'); }
+    async leaveSquad() { await this._squadAction('/api/squad/leave'); }
+
+    async _squadAction(endpoint, data = {}) {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return;
+        try {
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
+                body: Object.keys(data).length ? JSON.stringify(data) : undefined
+            });
+            const result = await resp.json();
+            if (resp.ok) {
+                if (this.game.terminal) this.game.terminal.log(`✓ ${result.message}`, 'success');
+                this.pollState();
+            } else {
+                alert(`Squad Error: ${result.detail || 'Access Denied'}`);
+            }
+        } catch (e) {
+            console.error("Squad action error:", e);
         }
     }
 
