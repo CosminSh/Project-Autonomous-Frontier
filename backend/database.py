@@ -14,10 +14,19 @@ from models import WorldHex
 logger = logging.getLogger("heartbeat")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./terminal_frontier.db")
+
+# NullPool: good for SQLite (single-file, no TCP overhead)
+# Default pool: required for PostgreSQL (each new connection has TCP handshake cost)
+_pool_kwargs = {"poolclass": NullPool} if "sqlite" in DATABASE_URL else {
+    "pool_size": 5,
+    "max_overflow": 10,
+    "pool_pre_ping": True,  # validates connection before use; catches stale connections
+}
+
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
-    poolclass=NullPool  # SQLite doesn't benefit from pooling; NullPool frees RAM by closing connections immediately
+    **_pool_kwargs
 )
 
 # Enable SQLite WAL Mode for performance
