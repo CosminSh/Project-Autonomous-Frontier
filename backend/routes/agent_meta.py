@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from database import get_db
@@ -7,8 +8,44 @@ from game_helpers import get_agent_mass, get_agent_visual_signature, get_discove
 from database import STATION_CACHE
 from routes.common import verify_api_key
 from datetime import datetime
+import logging
 
+logger = logging.getLogger("heartbeat")
 router = APIRouter(tags=["Agent Meta"])
+
+class RenameRequest(BaseModel):
+    new_name: str
+
+@router.post("/api/rename_agent")
+async def rename_agent(
+    req: RenameRequest,
+    agent: Agent = Depends(verify_api_key),
+    db: Session = Depends(get_db)
+):
+    """Updates the agent's display name."""
+    new_name = req.new_name.strip()
+    
+    if len(new_name) < 3:
+        raise HTTPException(status_code=400, detail="Name too short (min 3 chars)")
+    
+    # Check if name is taken
+    existing = db.execute(select(Agent).where(Agent.name == new_name)).scalar_one_or_none()
+    if existing and existing.id != agent.id:
+        raise HTTPException(status_code=400, detail="Name already taken by another agent")
+    
+    old_name = agent.name
+    agent.name = new_name
+    
+    # Log it
+    db.add(AuditLog(
+        agent_id=agent.id,
+        event_type="IDENTITY_UPDATE",
+        details={"old_name": old_name, "new_name": new_name}
+    ))
+    
+    db.commit()
+    logger.info(f"Agent {agent.id} renamed from {old_name} to {new_name}")
+    return {"status": "success", "new_name": new_name}
 
 @router.post("/api/claim_daily")
 async def claim_daily_reward(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
