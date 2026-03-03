@@ -525,6 +525,38 @@
                                 </div>
                             </div>
 
+                            <!-- Squad Telemetry -->
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-purple-500">
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="text-[10px] text-purple-400 uppercase tracking-widest font-bold">Squad
+                                        Telemetry</h4>
+                                    <span id="squad-id-display" class="text-[8px] text-slate-500 uppercase font-mono">No
+                                        Squad</span>
+                                </div>
+                                <div id="pending-invite-panel"
+                                    class="hidden mb-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                                    <p class="text-[10px] text-purple-300 mb-2">Pending Invite Received!</p>
+                                    <div class="flex space-x-2">
+                                        <button onclick="window.game.acceptSquad()"
+                                            class="flex-1 bg-purple-500 hover:bg-purple-400 text-slate-950 font-bold text-[9px] py-1.5 rounded uppercase transition-colors">Accept</button>
+                                        <button onclick="window.game.declineSquad()"
+                                            class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[9px] py-1.5 rounded uppercase transition-colors">Decline</button>
+                                    </div>
+                                </div>
+                                <div id="squad-members-list" class="space-y-2 mb-4">
+                                    <div class="text-[10px] text-slate-600 italic">Operating solo.</div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <input type="number" id="invite-target-id" placeholder="Agent ID"
+                                        class="w-20 bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded p-1 outline-none relative z-10 focus:border-purple-500 transition-colors pointer-events-auto">
+                                    <button onclick="window.game.inviteSquad()"
+                                        class="flex-grow bg-slate-800 hover:bg-slate-700 text-purple-400 border border-purple-500/30 px-2 py-1 rounded text-[10px] orbitron font-bold transition-all relative z-10 pointer-events-auto">INVITE</button>
+                                    <button onclick="window.game.leaveSquad()"
+                                        class="hidden bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 border border-rose-500/30 px-2 py-1 rounded text-[10px] orbitron font-bold transition-all relative z-10 pointer-events-auto"
+                                        id="btn-leave-squad">LEAVE</button>
+                                </div>
+                            </div>
+
                             <!-- Agent Directive Card -->
                             <button id="open-directive-btn"
                                 class="w-full glass p-5 rounded-xl border border-sky-500/20 hover:border-sky-500/40 hover:bg-sky-500/5 transition-all cursor-pointer text-left group">

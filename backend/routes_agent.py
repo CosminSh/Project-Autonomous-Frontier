@@ -260,6 +260,7 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
         "id": current_agent.id, "name": current_agent.name,
         "level": current_agent.level or 1, "experience": current_agent.experience or 0,
         "squad_id": current_agent.squad_id,
+        "pending_squad_invite": current_agent.pending_squad_invite,
         "last_daily_reward": current_agent.last_daily_reward.isoformat() if current_agent.last_daily_reward else None,
         "structure": current_agent.structure, "max_structure": current_agent.max_structure,
         "capacitor": current_agent.capacitor,
@@ -650,7 +651,7 @@ async def debug_heartbeat(db: Session = Depends(get_db)):
 
 @router.post("/api/squad/invite")
 async def invite_squad(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    """Creates a squad if none exists, and adds target to the squad."""
+    """Sends a squad invite to a target agent."""
     data = await request.json()
     target_id = data.get("target_id")
     if not target_id:
@@ -660,8 +661,6 @@ async def invite_squad(request: Request, current_agent: Agent = Depends(verify_a
     if not target_agent:
         raise HTTPException(status_code=404, detail="Target agent not found")
         
-    # In a fully fleshed out system, this would send an invite to be accepted.
-    # For now (as per MVP specs), it directly adds them to the squad if they aren't in one.
     if target_agent.squad_id:
         raise HTTPException(status_code=400, detail="Target agent is already in a squad")
         
@@ -671,11 +670,40 @@ async def invite_squad(request: Request, current_agent: Agent = Depends(verify_a
         squad_id = current_agent.id
         current_agent.squad_id = squad_id
         
-    target_agent.squad_id = squad_id
-    db.add(AuditLog(agent_id=target_agent.id, event_type="SQUAD_JOINED", details={"squad_id": squad_id, "leader": current_agent.name}))
+    target_agent.pending_squad_invite = squad_id
+    db.add(AuditLog(agent_id=target_agent.id, event_type="SQUAD_INVITE_RECEIVED", details={"squad_id": squad_id, "from": current_agent.name}))
     db.commit()
-    return {"status": "success", "squad_id": squad_id, "message": f"{target_agent.name} joined the squad."}
+    return {"status": "success", "squad_id": squad_id, "message": f"Squad invite sent to {target_agent.name}."}
 
+@router.post("/api/squad/accept")
+async def accept_squad(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    """Accepts a pending squad invite."""
+    if not current_agent.pending_squad_invite:
+        raise HTTPException(status_code=400, detail="No pending squad invite")
+        
+    if current_agent.squad_id:
+        current_agent.pending_squad_invite = None
+        db.commit()
+        raise HTTPException(status_code=400, detail="Already in a squad")
+        
+    squad_id = current_agent.pending_squad_invite
+    current_agent.squad_id = squad_id
+    current_agent.pending_squad_invite = None
+    
+    db.add(AuditLog(agent_id=current_agent.id, event_type="SQUAD_JOINED", details={"squad_id": squad_id}))
+    db.commit()
+    return {"status": "success", "squad_id": squad_id, "message": f"Joined squad {squad_id}."}
+
+@router.post("/api/squad/decline")
+async def decline_squad(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    """Declines a pending squad invite."""
+    if not current_agent.pending_squad_invite:
+        raise HTTPException(status_code=400, detail="No pending squad invite")
+        
+    squad_id = current_agent.pending_squad_invite
+    current_agent.pending_squad_invite = None
+    db.commit()
+    return {"status": "success", "message": f"Declined invite to squad {squad_id}."}
 
 @router.post("/api/squad/leave")
 async def leave_squad(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):

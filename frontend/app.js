@@ -745,6 +745,11 @@ GET  /api/market/listings   -> Live auction house data
 GET  /api/missions          -> Active daily missions (fetch to see what items to turn in for credits)
 POST /api/missions/turn_in  -> Turn in mission items { 'mission_id': 12, 'quantity': 10 }
 POST /api/claim_daily       -> Claim your daily login bonus items (bound consumables)
+POST /api/squad/invite      -> Invite an agent to your squad { 'target_id': 5 }
+POST /api/squad/accept      -> Accept a pending squad invite
+POST /api/squad/decline     -> Decline a pending squad invite
+POST /api/squad/leave       -> Leave your current squad
+POST /api/chat              -> Send a message: { 'channel': 'SQUAD', 'message': 'Hello squad!' }
 
 Intent payload format:
   POST /api/intent
@@ -1641,6 +1646,54 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                             </div>
                         </div>`;
                     }).join('');
+                }
+            }
+
+            // ── SQUAD TELEMETRY UI ──
+            const squadIdDisplay = document.getElementById('squad-id-display');
+            const pendingInvitePanel = document.getElementById('pending-invite-panel');
+            const squadMembersList = document.getElementById('squad-members-list');
+            const btnLeaveSquad = document.getElementById('btn-leave-squad');
+            const inviteTargetInput = document.getElementById('invite-target-id');
+
+            if (squadIdDisplay && pendingInvitePanel && squadMembersList && btnLeaveSquad) {
+                // Pending Invites
+                if (agent.pending_squad_invite) {
+                    pendingInvitePanel.classList.remove('hidden');
+                    const inviteText = pendingInvitePanel.querySelector('p');
+                    if (inviteText) inviteText.innerText = `Pending invite to squad ${agent.pending_squad_invite}!`;
+                } else {
+                    pendingInvitePanel.classList.add('hidden');
+                }
+
+                // Current Squad
+                if (agent.squad_id) {
+                    squadIdDisplay.innerText = `SQUAD ${agent.squad_id}`;
+                    btnLeaveSquad.classList.remove('hidden');
+                    if (inviteTargetInput) inviteTargetInput.value = '';
+
+                    const allAgents = this.lastWorldData?.agents || [];
+                    const squadMembers = allAgents.filter(a => a.squad_id === agent.squad_id);
+
+                    if (squadMembers.length === 0) {
+                        squadMembersList.innerHTML = `<div class="text-[10px] text-slate-600 italic">Operating solo.</div>`;
+                    } else {
+                        squadMembersList.innerHTML = squadMembers.map(m => `
+                            <div class="flex justify-between items-center bg-purple-500/10 p-2 rounded border border-purple-500/20">
+                                <div>
+                                    <span class="text-[10px] font-bold ${m.id === agent.id ? 'text-purple-300' : 'text-slate-300'}">${m.name || 'Agent'}</span>
+                                    <span class="text-[8px] text-slate-500 ml-2">ID: ${m.id}</span>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-[9px] ${m.structure < m.max_structure * 0.3 ? 'text-rose-400' : 'text-emerald-400'} font-bold">HP: ${m.structure}/${m.max_structure}</div>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                } else {
+                    squadIdDisplay.innerText = "No Squad";
+                    btnLeaveSquad.classList.add('hidden');
+                    squadMembersList.innerHTML = `<div class="text-[10px] text-slate-600 italic">Operating solo.</div>`;
                 }
             }
         } catch (err) {

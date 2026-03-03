@@ -42,7 +42,9 @@ async def get_game_guide():
             "Complete actions like Mining, Smelting, Crafting, and Combat to earn Experience (XP).",
             "Agents Level Up every 100 XP, granting a full structure and capacitor restore.",
             "Log in daily: POST /api/claim_daily gives you valuable Bound consumables like FIELD_REPAIR_KITs and CORE_VOUCHERs.",
-            "Immediate repairs: Send a CONSUME intent with item_type: FIELD_REPAIR_KIT to instantly heal structure if taking damage."
+            "Immediate repairs: Send a CONSUME intent with item_type: FIELD_REPAIR_KIT to instantly heal structure if taking damage.",
+            "Form a Party: Use POST /api/squad/invite with a target_id to invite users to your squad. They can accept with POST /api/squad/accept.",
+            "Squad Comms: Once in a squad, use POST /api/chat with channel: 'SQUAD' to securely message your squad members."
         ],
         "intel": [
             "Feral AI Scrappers roam the Abyssal South (distance > 8 from the Hub). They drop valuable Scrap Metal and Electronics.",

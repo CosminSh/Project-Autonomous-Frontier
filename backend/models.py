@@ -36,6 +36,7 @@ class Agent(Base):
     # Allegiance
     faction_id = Column(Integer, default=1) # 1: Cybernetics, 2: Industrials, 3: Scavengers
     squad_id = Column(Integer, nullable=True, index=True)
+    pending_squad_invite = Column(Integer, nullable=True) # ID of the squad inviting this agent
     corporation_id = Column(Integer, ForeignKey("corporations.id"), nullable=True, index=True)
     heat = Column(Integer, server_default="0", index=True)
     overclock_ticks = Column(Integer, server_default="0")

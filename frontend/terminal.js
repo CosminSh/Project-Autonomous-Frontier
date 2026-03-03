@@ -450,6 +450,70 @@ export class TerminalHandler {
             return;
         }
 
+        // ── DIRECT COMMANDS: SQUAD ──
+        if (['SQUAD_INVITE', 'SQUAD_ACCEPT', 'SQUAD_DECLINE', 'SQUAD_LEAVE'].includes(actionType)) {
+            const apiKey = localStorage.getItem('sv_api_key');
+            if (actionType === 'SQUAD_INVITE') {
+                if (args.length < 1) {
+                    this.log(`✗ Usage: SQUAD_INVITE <target_id> (e.g. SQUAD_INVITE 41)`, 'error');
+                    return;
+                }
+                try {
+                    const resp = await fetch('/api/squad/invite', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
+                        body: JSON.stringify({ target_id: parseInt(args[0]) })
+                    });
+                    if (resp.ok) {
+                        const result = await resp.json();
+                        this.log(`✓ ${result.message}`, 'success');
+                        this.game.pollState();
+                    } else {
+                        const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
+                        this.log(`✗ ${err.detail || 'Server error'}`, 'error');
+                    }
+                } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
+                return;
+            }
+
+            if (['SQUAD_ACCEPT', 'SQUAD_DECLINE'].includes(actionType)) {
+                const endpoint = actionType === 'SQUAD_ACCEPT' ? '/api/squad/accept' : '/api/squad/decline';
+                try {
+                    const resp = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey }
+                    });
+                    if (resp.ok) {
+                        const result = await resp.json();
+                        this.log(`✓ ${result.message}`, 'success');
+                        this.game.pollState();
+                    } else {
+                        const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
+                        this.log(`✗ ${err.detail || 'Server error'}`, 'error');
+                    }
+                } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
+                return;
+            }
+
+            if (actionType === 'SQUAD_LEAVE') {
+                try {
+                    const resp = await fetch('/api/squad/leave', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey }
+                    });
+                    if (resp.ok) {
+                        const result = await resp.json();
+                        this.log(`✓ ${result.message}`, 'success');
+                        this.game.pollState();
+                    } else {
+                        const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
+                        this.log(`✗ ${err.detail || 'Server error'}`, 'error');
+                    }
+                } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
+                return;
+            }
+        }
+
         if (actionType === 'CLAIM_DAILY') {
             try {
                 const apiKey = localStorage.getItem('sv_api_key');
