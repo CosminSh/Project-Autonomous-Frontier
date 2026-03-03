@@ -73,7 +73,7 @@ app.add_middleware(
 async def add_security_headers(request: Request, call_next):
     try:
         response = await call_next(request)
-        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+        # Removed explicit COOP to allow Google Identity iFrame/postMessage
         return response
     except Exception as e:
         import traceback

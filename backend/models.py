@@ -149,6 +149,7 @@ class AuditLog(Base):
     event_type = Column(String)
     details = Column(JSON)
 
+
 class GlobalState(Base):
     __tablename__ = "global_state"
     
