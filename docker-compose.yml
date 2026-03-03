@@ -9,11 +9,21 @@ services:
       - POSTGRES_PASSWORD=password
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d terminal_frontier -U admin"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
   backend:
     build: ./backend
@@ -30,6 +40,22 @@ services:
     depends_on:
       - db
       - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "autoheal=true"
+
+  autoheal:
+    image: willfarrell/autoheal:latest
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   postgres_data:
