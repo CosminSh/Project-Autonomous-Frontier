@@ -37,6 +37,8 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         "id": agent.id, "name": agent.name, "q": agent.q, "r": agent.r,
         "capacitor": agent.capacitor, "structure": agent.structure, "max_structure": agent.max_structure,
         "level": agent.level, "experience": agent.experience, "faction": agent.faction_id,
+        "wear_and_tear": agent.wear_and_tear, "mass": get_agent_mass(agent), "max_mass": agent.max_mass,
+        "heat": agent.heat,
         "inventory": [{"type": i.item_type, "quantity": i.quantity, "data": i.data} for i in agent.inventory],
         "discovery": get_discovery_packet(STATION_CACHE, agent),
         "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity} for p in agent.parts],

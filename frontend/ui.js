@@ -240,10 +240,54 @@ export class UIManager {
         // Populate sidebars and bars...
         document.getElementById('agent-name').innerText = agent.name;
         document.getElementById('agent-id').innerText = `#${agent.id.toString().padStart(4, '0')}`;
+        document.getElementById('agent-lvl').innerText = `LVL ${agent.level}`;
+        document.getElementById('agent-coords').innerText = `Q:${agent.q}, R:${agent.r}`;
+
+        const factions = { 1: 'Cybernetics', 2: 'Industrials', 3: 'Scavengers' };
+        document.getElementById('agent-faction').innerText = factions[agent.faction] || 'No Faction';
+
         document.getElementById('hp-bar').style.width = `${(agent.structure / agent.max_structure) * 100}%`;
         document.getElementById('hp-text').innerText = `${agent.structure}/${agent.max_structure}`;
+
         document.getElementById('energy-bar').style.width = `${agent.capacitor}%`;
         document.getElementById('energy-text').innerText = `${agent.capacitor}/100`;
+
+        // XP
+        const nextLevelXP = agent.level * 1000;
+        const xpProgress = (agent.experience / nextLevelXP) * 100;
+        const xpBar = document.getElementById('xp-bar');
+        const xpText = document.getElementById('xp-text');
+        if (xpBar) xpBar.style.width = `${xpProgress}%`;
+        if (xpText) xpText.innerText = `${agent.experience}`;
+
+        // Mass / Cargo
+        const massBar = document.getElementById('mass-bar');
+        const massText = document.getElementById('mass-text');
+        if (massBar) massBar.style.width = `${(agent.mass / agent.max_mass) * 100}%`;
+        if (massText) massText.innerText = `${agent.mass.toFixed(1)}/${agent.max_mass.toFixed(1)}`;
+
+        // Wear & Tear
+        const wearBar = document.getElementById('wear-bar');
+        const wearText = document.getElementById('wear-text');
+        const wearWarn = document.getElementById('wear-warning');
+        if (wearBar) wearBar.style.width = `${agent.wear_and_tear}%`;
+        if (wearText) wearText.innerText = `${Math.floor(agent.wear_and_tear)}%`;
+        if (wearWarn) {
+            if (agent.wear_and_tear > 80) wearWarn.classList.remove('hidden');
+            else wearWarn.classList.add('hidden');
+        }
+
+        // Heat
+        const heatTag = document.getElementById('agent-heat-tag');
+        const heatVal = document.getElementById('agent-heat-val');
+        if (heatTag && heatVal) {
+            if (agent.heat > 0) {
+                heatTag.classList.remove('hidden');
+                heatVal.innerText = `HEAT: ${agent.heat}`;
+            } else {
+                heatTag.classList.add('hidden');
+            }
+        }
 
         if (agent.discovery) {
             this.updateNavComputer(agent.discovery);
