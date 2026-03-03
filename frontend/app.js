@@ -972,7 +972,7 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        this.controls.minDistance = 60;   // Planet radius is 50
+        this.controls.minDistance = 51.5;   // Planet radius is 50, allowing very close zoom
         this.controls.maxDistance = 500;
 
         // Lighting
@@ -1193,6 +1193,39 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
 
                 // Track for stacking: { label, faceIndex }
                 this.poiLabels.set(faceIndex, { label, faceIndex });
+            }
+        }
+
+        // Display resource markers (3D crystals)
+        if (resource) {
+            let resColor = 0xffffff;
+            let scale = 0.8;
+            if (resource === 'IRON_ORE' || resource === 'ORE') resColor = 0x94a3b8; // Silver
+            else if (resource === 'COBALT_ORE') resColor = 0x38bdf8; // Bright blue
+            else if (resource === 'GOLD_ORE') { resColor = 0xfbbf24; scale = 1.0; } // Gold, slightly larger
+
+            // Create a small, sharp crystal sticking out of the ground
+            const geom = new THREE.TetrahedronGeometry(scale, 0);
+            // Give it a slightly shiny, gem-like material
+            const mat = new THREE.MeshStandardMaterial({
+                color: resColor,
+                roughness: 0.2,
+                metalness: 0.8,
+                flatShading: true
+            });
+            const crystalMesh = new THREE.Mesh(geom, mat);
+
+            // Re-find the exact centroid of the face so we can anchor the crystal
+            const centroid = this.faceCentroids[faceIndex];
+            if (centroid) {
+                // Orient the crystal pointing outwards from the planet
+                crystalMesh.position.copy(centroid.clone().normalize().multiplyScalar(50.2));
+                crystalMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), centroid.clone().normalize());
+                // Rotate a bit randomly for variety
+                crystalMesh.rotateY(Math.random() * Math.PI);
+                // Stretch it vertically so it looks like a spike
+                crystalMesh.scale.set(0.6, 1.2, 0.6);
+                this.scene.add(crystalMesh);
             }
         }
     }
