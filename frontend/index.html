@@ -494,6 +494,10 @@
                                 <div id="missions-list" class="space-y-3">
                                     <div class="text-[10px] text-slate-600 italic">Syncing mission data...</div>
                                 </div>
+                                <button id="btn-claim-daily" onclick="window.game.claimDaily()"
+                                    class="w-full mt-4 bg-sky-500/20 hover:bg-sky-500/40 text-sky-400 border border-sky-500/30 px-3 py-2 rounded text-[10px] orbitron font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                    CLAIM DAILY REWARD
+                                </button>
                             </div>
 
                             <!-- API Key -->
@@ -569,6 +573,15 @@
                                     <h4 class="text-[10px] text-indigo-400 uppercase mb-4 tracking-widest font-bold">
                                         Usable Equipment</h4>
                                     <div id="equipment-inventory" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="text-[10px] text-slate-600 italic">Cargo bay scan in progress...
+                                        </div>
+                                    </div>
+                                </div>
+                                <div
+                                    class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-rose-500 md:col-span-2">
+                                    <h4 class="text-[10px] text-rose-500 uppercase mb-4 tracking-widest font-bold">
+                                        Consumable Field Supplies</h4>
+                                    <div id="consumable-inventory" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div class="text-[10px] text-slate-600 italic">Cargo bay scan in progress...
                                         </div>
                                     </div>

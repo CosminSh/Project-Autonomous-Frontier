@@ -254,12 +254,13 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
     db.refresh(current_agent)
     next_tick = get_next_tick_index(db)
     pending_intent = db.execute(select(Intent).where(Intent.agent_id == current_agent.id, Intent.tick_index == next_tick)).scalars().first()
-    inv_list = [{"type": i.item_type, "quantity": i.quantity} for i in current_agent.inventory]
+    inv_list = [{"type": i.item_type, "quantity": i.quantity, "data": i.data} for i in current_agent.inventory]
     current_mass = sum(ITEM_WEIGHTS.get(i["type"], 1.0) * i["quantity"] for i in inv_list)
     return {
         "id": current_agent.id, "name": current_agent.name,
         "level": current_agent.level or 1, "experience": current_agent.experience or 0,
         "squad_id": current_agent.squad_id,
+        "last_daily_reward": current_agent.last_daily_reward.isoformat() if current_agent.last_daily_reward else None,
         "structure": current_agent.structure, "max_structure": current_agent.max_structure,
         "capacitor": current_agent.capacitor,
         "solar_intensity": int(get_solar_intensity(current_agent.q, current_agent.r, next_tick - 1) * 100),
@@ -272,6 +273,35 @@ async def get_my_agent(current_agent: Agent = Depends(verify_api_key), db: Sessi
         "api_key": current_agent.api_key,
         "pending_intent": {"action": pending_intent.action_type, "data": pending_intent.data} if pending_intent else None
     }
+
+
+@router.post("/api/claim_daily")
+async def claim_daily_reward(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    from datetime import datetime, timezone, timedelta
+    now_utc = datetime.now(timezone.utc)
+    
+    # Check cooldown
+    if current_agent.last_daily_reward:
+        last_reward = current_agent.last_daily_reward
+        if last_reward.tzinfo is None:
+            last_reward = last_reward.replace(tzinfo=timezone.utc)
+        
+        if now_utc < last_reward + timedelta(hours=24):
+            time_left = (last_reward + timedelta(hours=24)) - now_utc
+            hours, remainder = divmod(time_left.seconds, 3600)
+            minutes, _ = divmod(remainder, 60)
+            raise HTTPException(status_code=400, detail=f"Daily reward not ready. Try again in {hours}h {minutes}m.")
+    
+    # Grant items
+    db.add(InventoryItem(agent_id=current_agent.id, item_type="FIELD_REPAIR_KIT", quantity=1, data={"is_tradable": False}))
+    db.add(InventoryItem(agent_id=current_agent.id, item_type="CORE_VOUCHER", quantity=1, data={"is_tradable": False}))
+    db.add(InventoryItem(agent_id=current_agent.id, item_type="HE3_CANISTER", quantity=1, data={"is_tradable": False, "fill_level": 100}))
+    
+    current_agent.last_daily_reward = now_utc
+    db.add(AuditLog(agent_id=current_agent.id, event_type="DAILY_REWARD_CLAIMED", details={"rewards": ["FIELD_REPAIR_KIT", "CORE_VOUCHER", "HE3_CANISTER"]}))
+    db.commit()
+    
+    return {"status": "success", "message": "Daily reward claimed! Received: Bound Field Repair Kit, Bound Core Voucher, Full Bound He3 Canister."}
 
 
 @router.post("/api/chat")
@@ -448,6 +478,9 @@ async def get_missions(current_agent: Agent = Depends(verify_api_key), db: Sessi
     
     result = []
     for m in active_missions:
+        if current_agent.level < m.min_level or current_agent.level > m.max_level:
+            continue
+            
         am = db.execute(select(AgentMission).where(AgentMission.agent_id == current_agent.id, AgentMission.mission_id == m.id)).scalar_one_or_none()
         
         progress = am.progress if am else 0

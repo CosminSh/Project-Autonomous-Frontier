@@ -140,34 +140,30 @@ async def heartbeat_loop():
                     active_missions = db.execute(select(DailyMission).where(DailyMission.expires_at > func.now())).scalars().all()
                     if not active_missions:
                         # Generate new missions
-                        logger.info("Generating new Daily Missions...")
+                        logger.info("Generating new Daily Missions for all tiers...")
                         expires = datetime.now(timezone.utc) + timedelta(hours=8)
                         
-                        # 1. Hunt Feral
-                        db.add(DailyMission(mission_type="HUNT_FERAL", target_amount=random.randint(3, 8), reward_credits=random.randint(300, 600), expires_at=expires))
-                        
-                        # 2. Buy Market
-                        db.add(DailyMission(mission_type="BUY_MARKET", target_amount=random.randint(1, 3), reward_credits=random.randint(100, 250), expires_at=expires))
-                        
-                        # 3. Turn in Ore (Tier 1: Newbie)
-                        t1_ore = random.choice(["IRON_ORE", "COPPER_ORE"])
-                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(20, 40), item_type=t1_ore, reward_credits=random.randint(150, 300), expires_at=expires))
-                        
-                        # 4. Turn in Ore (Tier 2: Veteran)
-                        t2_ore = random.choice(["GOLD_ORE", "COBALT_ORE"])
-                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(10, 25), item_type=t2_ore, reward_credits=random.randint(400, 700), expires_at=expires))
-                        
-                        # 5. Turn in Ingot (Tier 1)
-                        t1_ingot = random.choice(["IRON_INGOT", "COPPER_INGOT"])
-                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(5, 10), item_type=t1_ingot, reward_credits=random.randint(250, 450), expires_at=expires))
-                        
-                        # 6. Turn in Ingot (Tier 2)
-                        t2_ingot = random.choice(["GOLD_INGOT", "COBALT_INGOT"])
-                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(3, 8), item_type=t2_ingot, reward_credits=random.randint(600, 1000), expires_at=expires))
-                        
-                        # 7. Turn in Salvage (Scrap/Electronics)
+                        # Tier 1 (Level 1-2):
+                        db.add(DailyMission(mission_type="HUNT_FERAL", target_amount=1, reward_credits=200, min_level=1, max_level=2, expires_at=expires))
+                        db.add(DailyMission(mission_type="BUY_MARKET", target_amount=1, reward_credits=100, min_level=1, max_level=2, expires_at=expires))
+                        db.add(DailyMission(mission_type="TURN_IN", target_amount=10, item_type="IRON_ORE", reward_credits=100, min_level=1, max_level=2, expires_at=expires))
+                        db.add(DailyMission(mission_type="TURN_IN", target_amount=5, item_type="IRON_INGOT", reward_credits=150, min_level=1, max_level=2, expires_at=expires))
+
+                        # Tier 2 (Level 3-5):
+                        db.add(DailyMission(mission_type="HUNT_FERAL", target_amount=3, reward_credits=450, min_level=3, max_level=5, expires_at=expires))
+                        db.add(DailyMission(mission_type="BUY_MARKET", target_amount=2, reward_credits=300, min_level=3, max_level=5, expires_at=expires))
+                        t1_more = random.choice(["COPPER_ORE", "GOLD_ORE"])
+                        db.add(DailyMission(mission_type="TURN_IN", target_amount=20, item_type=t1_more, reward_credits=400, min_level=3, max_level=5, expires_at=expires))
                         salvage_type = random.choice(["SCRAP_METAL", "ELECTRONICS"])
-                        db.add(DailyMission(mission_type="TURN_IN", target_amount=random.randint(5, 15), item_type=salvage_type, reward_credits=random.randint(400, 800), expires_at=expires))
+                        db.add(DailyMission(mission_type="TURN_IN", target_amount=10, item_type=salvage_type, reward_credits=500, min_level=3, max_level=5, expires_at=expires))
+
+                        # Tier 3 (Level 6+):
+                        db.add(DailyMission(mission_type="HUNT_FERAL", target_amount=5, reward_credits=800, min_level=6, max_level=99, expires_at=expires))
+                        db.add(DailyMission(mission_type="BUY_MARKET", target_amount=3, reward_credits=500, min_level=6, max_level=99, expires_at=expires))
+                        t2_ore = random.choice(["GOLD_ORE", "COBALT_ORE"])
+                        db.add(DailyMission(mission_type="TURN_IN", target_amount=30, item_type=t2_ore, reward_credits=800, min_level=6, max_level=99, expires_at=expires))
+                        t2_ingot = random.choice(["GOLD_INGOT", "COBALT_INGOT"])
+                        db.add(DailyMission(mission_type="TURN_IN", target_amount=15, item_type=t2_ingot, reward_credits=1000, min_level=6, max_level=99, expires_at=expires))
                         
                         db.commit()
 
@@ -200,11 +196,14 @@ async def heartbeat_loop():
                                         canister.data = {}
                         await asyncio.sleep(0) # Yield loop
                         
-                        # Calculate final regen
                         if fuel_bypass:
                             regen = int(BASE_REGEN * efficiency)
                         else:
                             regen = int(BASE_REGEN * intensity * efficiency)
+                            
+                        # Town Safe Haven Bonus
+                        if agent.q == 0 and agent.r == 0:
+                            regen *= 2
                         
                         if agent.capacitor < 100:
                             agent.capacitor = min(100, agent.capacitor + regen)
@@ -736,7 +735,7 @@ async def heartbeat_loop():
                             item_type = intent.data.get("item_type")
                             inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
                             if inv_item and inv_item.quantity >= 1:
-                                if item_type in ["HE3_FUEL", "HE3_FUEL_CELL", "HE3_CANISTER", "REPAIR_KIT"]:
+                                if item_type in ["HE3_FUEL", "HE3_FUEL_CELL", "HE3_CANISTER", "REPAIR_KIT", "FIELD_REPAIR_KIT", "CORE_VOUCHER"]:
                                     if item_type == "REPAIR_KIT":
                                         actual_repair = min(50, agent.max_structure - agent.structure)
                                         agent.structure += actual_repair
@@ -744,6 +743,29 @@ async def heartbeat_loop():
                                         if inv_item.quantity <= 0: db.delete(inv_item)
                                         logger.info(f"Agent {agent.id} consumed REPAIR_KIT: +{actual_repair} HP")
                                         db.add(AuditLog(agent_id=agent.id, event_type="CONSUME", details={"item": "REPAIR_KIT", "gain": actual_repair}))
+                                    elif item_type == "FIELD_REPAIR_KIT":
+                                        actual_repair = min(int(agent.max_structure * 0.25), agent.max_structure - agent.structure)
+                                        agent.structure += actual_repair
+                                        agent.capacitor = min(100, agent.capacitor + 25)
+                                        for part in agent.parts:
+                                            if hasattr(part, "durability"):
+                                                part.durability = 100.0
+                                        inv_item.quantity -= 1
+                                        if inv_item.quantity <= 0: db.delete(inv_item)
+                                        logger.info(f"Agent {agent.id} consumed FIELD_REPAIR_KIT: +{actual_repair} HP, +25 Cap, gear repaired.")
+                                        db.add(AuditLog(agent_id=agent.id, event_type="CONSUME", details={"item": "FIELD_REPAIR_KIT", "gain": actual_repair}))
+                                    elif item_type == "CORE_VOUCHER":
+                                        hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
+                                        if hex_data and hex_data.is_station:
+                                            agent.wear_and_tear = 0.0
+                                            inv_item.quantity -= 1
+                                            if inv_item.quantity <= 0: db.delete(inv_item)
+                                            logger.info(f"Agent {agent.id} consumed CORE_VOUCHER: Wear & Tear reset.")
+                                            db.add(AuditLog(agent_id=agent.id, event_type="CONSUME", details={"item": "CORE_VOUCHER"}))
+                                        else:
+                                            logger.info(f"Agent {agent.id} attempted to consume CORE_VOUCHER not at a station")
+                                            db.add(AuditLog(agent_id=agent.id, event_type="CONSUME_FAILED", details={"reason": "NOT_AT_STATION", "item": "CORE_VOUCHER"}))
+                                            continue
                                     elif item_type == "HE3_CANISTER":
                                         # Use fill level from data
                                         fill = (inv_item.data or {}).get("fill_level", 0)
@@ -808,6 +830,11 @@ async def heartbeat_loop():
                                 
                                 inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
                                 if inv_item and inv_item.quantity >= quantity:
+                                    if (inv_item.data or {}).get("is_tradable") is False:
+                                        logger.info(f"Agent {agent.id} failed to LIST: Item is bound and non-tradable")
+                                        db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "ITEM_BOUND", "item": item_type}))
+                                        continue
+                                        
                                     # Milestone 2: Immediate matching against BUY orders
                                     matching_buy = db.execute(select(AuctionOrder)
                                         .where(AuctionOrder.item_type == item_type, AuctionOrder.order_type == "BUY", AuctionOrder.price >= price)

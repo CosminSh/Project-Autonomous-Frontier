@@ -155,6 +155,8 @@ def ensure_agent_has_starter_gear(db: Session, agent: Agent):
         dirty = True
 
     if dirty:
+        # Starter Care Package
+        db.add(InventoryItem(agent_id=agent.id, item_type="FIELD_REPAIR_KIT", quantity=2, data={"is_tradable": False}))
         db.commit()
         db.refresh(agent)
         recalculate_agent_stats(db, agent)

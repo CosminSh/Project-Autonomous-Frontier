@@ -42,6 +42,7 @@ class Agent(Base):
     wear_and_tear = Column(Float, server_default="0.0")
     last_faction_change_tick = Column(Integer, server_default="0")
     unlocked_recipes = Column(JSON, nullable=True) # List of strings: ["DRILL_UNIT", "ENGINE_UNIT"]
+    last_daily_reward = Column(DateTime(timezone=True), nullable=True)
     
     # Leveling
     level = Column(Integer, server_default="1")
@@ -164,6 +165,8 @@ class DailyMission(Base):
     target_amount = Column(Integer)
     reward_credits = Column(Integer)
     item_type = Column(String, nullable=True) # E.g. "IRON_ORE" for turn in
+    min_level = Column(Integer, default=1)
+    max_level = Column(Integer, default=99)
     expires_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

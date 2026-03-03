@@ -1447,6 +1447,20 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         const factionEl = document.getElementById('agent-faction');
         const heatTag = document.getElementById('agent-heat-tag');
         const heatVal = document.getElementById('agent-heat-val');
+        const btnClaim = document.getElementById('btn-claim-daily');
+
+        if (btnClaim && agent.last_daily_reward) {
+            const lastClaim = new Date(agent.last_daily_reward).getTime();
+            const now = new Date().getTime();
+            // 24 hours in ms
+            if (now - lastClaim < 24 * 60 * 60 * 1000) {
+                btnClaim.disabled = true;
+                btnClaim.innerText = "ON COOLDOWN";
+            } else {
+                btnClaim.disabled = false;
+                btnClaim.innerText = "CLAIM DAILY REWARD";
+            }
+        }
 
         if (factionEl) {
             factionEl.innerText = FACTION_NAMES[agent.faction_id] || "No Faction (Independent)";
@@ -1480,9 +1494,12 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
         try {
             const resourceInv = document.getElementById('detailed-inventory');
             const equipInv = document.getElementById('equipment-inventory');
+            const consumInv = document.getElementById('consumable-inventory');
 
-            if (resourceInv && equipInv && agent.inventory) {
-                const resources = agent.inventory.filter(i => i && i.type && !i.type.startsWith('PART_') && !i.type.startsWith('RECIPE_'));
+            if (resourceInv && equipInv && consumInv && agent.inventory) {
+                const consumableTypes = ['FIELD_REPAIR_KIT', 'CORE_VOUCHER', 'HE3_CANISTER', 'REPAIR_KIT'];
+                const resources = agent.inventory.filter(i => i && i.type && !i.type.startsWith('PART_') && !i.type.startsWith('RECIPE_') && !consumableTypes.includes(i.type));
+                const consumables = agent.inventory.filter(i => i && i.type && consumableTypes.includes(i.type));
                 const equipment = agent.inventory.filter(i => i && i.type && (i.type.startsWith('PART_') || i.type.startsWith('RECIPE_')));
 
                 if (resources.length === 0) {
@@ -1532,6 +1549,30 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
                                 ${btnHtml}
                             </div>
                             <div class="text-[9px] text-slate-400 font-mono">Quantity: <span class="text-indigo-400">${i.quantity || 0}</span></div>
+                        </div>`;
+                    }).join('');
+                }
+
+                if (consumables.length === 0) {
+                    consumInv.innerHTML = '<div class="text-[10px] text-slate-600 italic col-span-1 md:col-span-2">No active provisions or supplies.</div>';
+                } else {
+                    consumInv.innerHTML = consumables.map(i => {
+                        const title = (i.type || '').replace(/_/g, ' ');
+                        let desc = "Standard consumable supply.";
+                        if (i.type === 'FIELD_REPAIR_KIT') desc = "Restores 25% max Structure & 25 Capacitor. Completely repairs equipped parts.";
+                        if (i.type === 'CORE_VOUCHER') desc = "Resets chassis wear & tear to 0%. Must be used while docked at a Station.";
+                        if (i.type === 'HE3_CANISTER') desc = "Refills energy stores.";
+                        if (i.type === 'REPAIR_KIT') desc = "Restores baseline structure.";
+
+                        return `<div class="col-span-1 md:col-span-2 flex flex-col justify-between bg-rose-500/5 p-3 rounded-xl border border-rose-500/20 hover:border-rose-500/40 transition-all">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <div class="text-[10px] font-bold text-rose-400 uppercase">${title}</div>
+                                    <div class="text-[8px] text-rose-500/80 tracking-widest mt-1">${desc}</div>
+                                </div>
+                                <button onclick="window.sendGameIntent('CONSUME', {item_type: '${i.type}'})" class="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-lg text-[9px] orbitron font-bold transition-all shadow-lg shadow-rose-500/20 ml-2">USE</button>
+                            </div>
+                            <div class="text-[9px] text-slate-400 font-mono mt-1">Quantity: <span class="text-rose-400">${i.quantity || 0}</span></div>
                         </div>`;
                     }).join('');
                 }
@@ -1670,6 +1711,46 @@ DIRECTIVE: Minimize latency. Maximize efficiency. Survive.
             }
         } catch (e) {
             console.error("Turn in error:", e);
+        }
+    }
+
+    async claimDaily() {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return;
+
+        try {
+            const resp = await fetch(`${window.location.origin}/api/claim_daily`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-KEY': apiKey
+                }
+            });
+
+            const btn = document.getElementById('btn-claim-daily');
+            if (resp.ok) {
+                const data = await resp.json();
+                if (window.game && window.game.terminal) {
+                    window.game.terminal.log(`✓ Daily claimed! Check cargo for provisions.`, 'success');
+                }
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerText = "CLAIMED TODAY";
+                    btn.classList.add("opacity-50", "cursor-not-allowed");
+                }
+                this.pollState();
+            } else {
+                const err = await resp.json();
+                if (window.game && window.game.terminal) {
+                    window.game.terminal.log(`✗ Claim Failed: ${err.detail || 'Unknown error'}`, 'error');
+                }
+                if (btn && err.detail && err.detail.includes("24 hours")) {
+                    btn.disabled = true;
+                    btn.innerText = "ON COOLDOWN";
+                }
+            }
+        } catch (e) {
+            console.error("Claim error:", e);
         }
     }
 

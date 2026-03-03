@@ -53,8 +53,11 @@ async def login(request: Request):
                 db.add(agent)
                 db.flush()
                 db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=1000))
-                drill_def = PART_DEFINITIONS["DRILL_UNIT"]
-                db.add(ChassisPart(agent_id=agent.id, part_type=drill_def["type"], name=drill_def["name"], stats=drill_def["stats"]))
+                db.add(InventoryItem(agent_id=agent.id, item_type="FIELD_REPAIR_KIT", quantity=2, data={"is_tradable": False}))
+                drill_def = PART_DEFINITIONS.get("DRILL_UNIT") or PART_DEFINITIONS.get("DRILL_IRON_BASIC")
+                if drill_def:
+                    db.add(ChassisPart(agent_id=agent.id, part_type=drill_def["type"], name=drill_def["name"], stats=drill_def["stats"]))
+                
                 db.commit()
                 db.refresh(agent)
                 recalculate_agent_stats(db, agent)
@@ -96,10 +99,13 @@ async def guest_login(request: Request, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(agent)
         db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=1000))
-        drill_def = PART_DEFINITIONS["DRILL_UNIT"]
-        db.add(ChassisPart(agent_id=agent.id, part_type=drill_def["type"], name=drill_def["name"], stats=drill_def["stats"]))
-        panel_def = PART_DEFINITIONS["SCRAP_SOLAR_PANEL"]
-        db.add(ChassisPart(agent_id=agent.id, part_type=panel_def["type"], name=panel_def["name"], stats=panel_def["stats"]))
+        db.add(InventoryItem(agent_id=agent.id, item_type="FIELD_REPAIR_KIT", quantity=2, data={"is_tradable": False}))
+        drill_def = PART_DEFINITIONS.get("DRILL_UNIT") or PART_DEFINITIONS.get("DRILL_IRON_BASIC")
+        if drill_def:
+            db.add(ChassisPart(agent_id=agent.id, part_type=drill_def["type"], name=drill_def["name"], stats=drill_def["stats"]))
+        panel_def = PART_DEFINITIONS.get("SCRAP_SOLAR_PANEL")
+        if panel_def:
+            db.add(ChassisPart(agent_id=agent.id, part_type=panel_def["type"], name=panel_def["name"], stats=panel_def["stats"]))
         db.commit()
         db.refresh(agent)
         recalculate_agent_stats(db, agent)
