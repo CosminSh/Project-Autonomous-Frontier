@@ -70,12 +70,20 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
     state = db.execute(select(GlobalState)).scalars().first()
     tick = state.tick_index if state else 0
     
+    squad_members = []
+    if agent.squad_id:
+        members = db.execute(select(Agent).where(Agent.squad_id == agent.squad_id)).scalars().all()
+        squad_members = [{"id": m.id, "name": m.name, "q": m.q, "r": m.r, "structure": m.structure, "max_structure": m.max_structure} for m in members]
+        
     return {
         "id": agent.id, "name": agent.name, "q": agent.q, "r": agent.r,
         "capacitor": agent.capacitor, "structure": agent.structure, "max_structure": agent.max_structure,
         "level": agent.level, "experience": agent.experience, "faction": agent.faction_id,
         "wear_and_tear": agent.wear_and_tear, "mass": get_agent_mass(agent), "max_mass": agent.max_mass,
         "heat": agent.heat,
+        "squad_id": agent.squad_id,
+        "pending_squad_invite": agent.pending_squad_invite,
+        "squad_members": squad_members,
         "inventory": [{"type": i.item_type, "quantity": i.quantity, "data": i.data} for i in agent.inventory],
         "discovery": get_discovery_packet(STATION_CACHE, agent),
         "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity} for p in agent.parts],
@@ -94,12 +102,20 @@ async def get_agent_status(agent: Agent = Depends(verify_api_key), db: Session =
     state = db.execute(select(GlobalState)).scalars().first()
     tick = state.tick_index if state else 0
     
+    squad_members = []
+    if agent.squad_id:
+        members = db.execute(select(Agent).where(Agent.squad_id == agent.squad_id)).scalars().all()
+        squad_members = [{"id": m.id, "name": m.name, "q": m.q, "r": m.r, "structure": m.structure, "max_structure": m.max_structure} for m in members]
+        
     return {
         "id": agent.id, "name": agent.name, "q": agent.q, "r": agent.r,
         "capacitor": agent.capacitor, "structure": agent.structure, "max_structure": agent.max_structure,
         "level": agent.level, "experience": agent.experience, "faction": agent.faction_id,
         "wear_and_tear": agent.wear_and_tear, "mass": get_agent_mass(agent), "max_mass": agent.max_mass,
         "visual_signature": get_agent_visual_signature(agent),
+        "squad_id": agent.squad_id,
+        "pending_squad_invite": agent.pending_squad_invite,
+        "squad_members": squad_members,
         "solar_intensity": int(get_solar_intensity(agent.q, agent.r, tick) * 100)
     }
 

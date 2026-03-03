@@ -294,6 +294,8 @@ export class UIManager {
             this.updateForgeUI(agent.discovery);
         }
 
+        this.updateSquadUI(agent);
+
         if (agent.solar_intensity !== undefined) {
             const solarBar = document.getElementById('solar-bar');
             const solarText = document.getElementById('solar-text');
@@ -375,6 +377,52 @@ export class UIManager {
                         </div>
                     </div>
                 `).join('');
+            }
+        }
+    }
+
+    updateSquadUI(agent) {
+        const squadIdDisplay = document.getElementById('squad-id-display');
+        const squadMembersList = document.getElementById('squad-members-list');
+        const leaveBtn = document.getElementById('btn-leave-squad');
+        const invitePanel = document.getElementById('pending-invite-panel');
+
+        if (squadIdDisplay) {
+            squadIdDisplay.innerText = agent.squad_id ? `SQUAD #${agent.squad_id.toString().padStart(4, '0')}` : 'No Squad';
+        }
+
+        if (leaveBtn) {
+            leaveBtn.classList.toggle('hidden', !agent.squad_id);
+        }
+
+        if (invitePanel) {
+            invitePanel.classList.toggle('hidden', !agent.pending_squad_invite);
+        }
+
+        if (squadMembersList) {
+            if (!agent.squad_id) {
+                squadMembersList.innerHTML = '<div class="text-[10px] text-slate-600 italic">Operating solo.</div>';
+            } else {
+                const members = agent.squad_members || [];
+                if (members.length === 0) {
+                    squadMembersList.innerHTML = '<div class="text-[10px] text-slate-600 italic">Connecting to squad uplink...</div>';
+                } else {
+                    squadMembersList.innerHTML = members.map(m => {
+                        const hpPct = (m.structure / m.max_structure) * 100;
+                        const isSelf = m.id === agent.id;
+                        return `
+                            <div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800 border-l-2 ${isSelf ? 'border-l-sky-500' : 'border-l-purple-500'}">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-[10px] font-bold ${isSelf ? 'text-sky-300' : 'text-purple-300'} uppercase">${m.name} ${isSelf ? '(YOU)' : ''}</span>
+                                    <span class="text-[8px] font-mono text-slate-500">Q:${m.q}, R:${m.r}</span>
+                                </div>
+                                <div class="w-full h-1 bg-slate-950 rounded-full overflow-hidden">
+                                    <div class="h-full ${hpPct > 50 ? 'bg-emerald-500' : 'bg-rose-500'} transition-all" style="width: ${hpPct}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
             }
         }
     }
