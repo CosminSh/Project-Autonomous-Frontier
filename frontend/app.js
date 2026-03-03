@@ -1,8 +1,8 @@
-﻿import { GameAPI } from './api.js';
-import { AuthManager } from './auth.js';
-import { GameRenderer } from './renderer.js';
-import { UIManager } from './ui.js';
-import { TerminalHandler } from './terminal.js';
+﻿import { GameAPI } from './api.js?v=2.16';
+import { AuthManager } from './auth.js?v=2.16';
+import { GameRenderer } from './renderer.js?v=2.16';
+import { UIManager } from './ui.js?v=2.16';
+import { TerminalHandler } from './terminal.js?v=2.16';
 
 /**
  * app.js — Main Bootstrapper
