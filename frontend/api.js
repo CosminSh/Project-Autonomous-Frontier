@@ -33,42 +33,54 @@ export class GameAPI {
             const apiKey = localStorage.getItem('sv_api_key');
             const headers = apiKey ? { 'X-API-KEY': apiKey } : {};
 
-            const [stateResp, statsResp, logsResp, agentResp, myOrdersResp, bountyResp, perceptionResp, missionsResp] = await Promise.all([
-                fetch('/state'),
-                fetch('/api/global_stats'),
-                apiKey ? fetch(`${window.location.origin}/api/agent_logs`, { headers }) : Promise.resolve(null),
-                apiKey ? fetch(`${window.location.origin}/api/my_agent`, { headers }) : Promise.resolve(null),
-                apiKey ? fetch(`${window.location.origin}/api/market/my_orders`, { headers }) : Promise.resolve(null),
-                fetch('/api/bounties'),
-                apiKey ? fetch(`${window.location.origin}/api/perception`, { headers }) : Promise.resolve(null),
-                apiKey ? fetch(`${window.location.origin}/api/missions`, { headers }) : Promise.resolve(null)
+            // Use allSettled so a single 500 doesn't crash the entire poll
+            const results = await Promise.allSettled([
+                fetch('/state'),                                                                                          // 0
+                fetch('/api/global_stats'),                                                                               // 1
+                apiKey ? fetch(`${window.location.origin}/api/agent_logs`, { headers }) : Promise.resolve(null),         // 2
+                apiKey ? fetch(`${window.location.origin}/api/my_agent`, { headers }) : Promise.resolve(null),           // 3
+                apiKey ? fetch(`${window.location.origin}/api/market/my_orders`, { headers }) : Promise.resolve(null),   // 4
+                fetch('/api/bounties'),                                                                                   // 5
+                apiKey ? fetch(`${window.location.origin}/api/perception`, { headers }) : Promise.resolve(null),         // 6
+                apiKey ? fetch(`${window.location.origin}/api/missions`, { headers }) : Promise.resolve(null)            // 7
             ]);
 
-            if (agentResp && agentResp.status === 401) {
+            // Helper: safely get JSON from a settled result (returns null on failure)
+            const safeJson = async (settled) => {
+                if (settled.status === 'rejected' || !settled.value) return null;
+                const resp = settled.value;
+                if (!resp.ok) { console.warn(`API error ${resp.status} on ${resp.url}`); return null; }
+                try { return await resp.json(); } catch { return null; }
+            };
+
+            const [stateR, statsR, logsR, agentR, myOrdersR, bountyR, perceptionR, missionsR] = results;
+
+            // Check for auth expiry
+            if (agentR.value && agentR.value.status === 401) {
                 console.warn("Session expired or API key invalid.");
                 this.game.setAuthenticated(false);
                 return;
             }
 
-            const data = await stateResp.json();
-            const stats = await statsResp.json();
-            const privateLogs = logsResp ? await logsResp.json() : null;
-            const agentData = agentResp ? await agentResp.json() : null;
-            const myOrders = myOrdersResp ? await myOrdersResp.json() : null;
-            const bounties = await bountyResp.json();
-            const perceptionData = perceptionResp ? await perceptionResp.json() : null;
-            const missions = missionsResp ? await missionsResp.json() : null;
+            const data = await safeJson(stateR);
+            const stats = await safeJson(statsR);
+            const privateLogs = await safeJson(logsR);
+            const agentData = await safeJson(agentR);
+            const myOrders = await safeJson(myOrdersR);
+            const bounties = await safeJson(bountyR);
+            const perceptionData = await safeJson(perceptionR);
+            const missions = await safeJson(missionsR);
 
-            this.game.lastWorldData = data; // Keep for fallback
-            if (perceptionData) {
-                this.game.lastPerception = perceptionData;
+            if (data) this.game.lastWorldData = data;
+            if (perceptionData) this.game.lastPerception = perceptionData;
+
+            if (stats) this.game.updateGlobalUI(stats);
+            if (data) {
+                this.game.updateTickUI(data.tick, data.phase);
+                this.game.updateLiveFeed(data.logs);
+                this.game.updateMarketUI(data.market);
             }
-
-            this.game.updateGlobalUI(stats);
-            this.game.updateTickUI(data.tick, data.phase);
-            this.game.updateLiveFeed(data.logs);
-            this.game.updateMarketUI(data.market);
-            this.game.updateBountyBoard(bounties);
+            if (bounties) this.game.updateBountyBoard(bounties);
 
             if (Array.isArray(missions)) {
                 try {
