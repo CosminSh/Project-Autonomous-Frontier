@@ -1,15 +1,20 @@
-from fastapi import APIRouter, Depends, Body, HTTPException
+from fastapi import APIRouter, Depends, Body, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, or_, desc
 from database import get_db
-from models import Agent, AuditLog, Bounty
+from models import Agent, AuditLog, Bounty, AgentMessage
 from routes.common import verify_api_key
+from datetime import datetime, timezone, timedelta
 
 router = APIRouter(tags=["Social"])
 
 class SquadInvite(BaseModel):
     target_id: int
+
+class ChatRequest(BaseModel):
+    channel: str = "GLOBAL" # 'GLOBAL', 'PROX', 'SQUAD', 'CORP'
+    message: str
 
 @router.get("/api/bounties")
 async def get_bounties(db: Session = Depends(get_db)):
@@ -18,11 +23,92 @@ async def get_bounties(db: Session = Depends(get_db)):
     return [{"id": b.id, "target": b.target_id, "reward": b.reward, "issuer": b.issuer} for b in bounties]
 
 @router.post("/api/chat")
-async def send_chat(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db), message: str = Body(...)):
-    """Broadcasts a chat message to all players."""
-    db.add(AuditLog(agent_id=agent.id, event_type="CHAT", details={"msg": message}))
+async def send_chat(req: ChatRequest, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    """Sends a chat message to a specific channel (GLOBAL, PROX, SQUAD, CORP)."""
+    channel = req.channel.upper()
+    if channel not in ["GLOBAL", "PROX", "SQUAD", "CORP"]:
+        raise HTTPException(status_code=400, detail="Invalid channel.")
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+    
+    msg = AgentMessage(
+        sender_id=agent.id,
+        sender_name=agent.name,
+        channel=channel,
+        message=req.message.strip(),
+        q=agent.q,
+        r=agent.r
+    )
+    
+    if channel == "SQUAD":
+        if not agent.squad_id:
+            raise HTTPException(status_code=400, detail="You are not in a squad.")
+        msg.target_id = agent.squad_id
+    elif channel == "CORP":
+        if not agent.corporation_id:
+            raise HTTPException(status_code=400, detail="You are not in a corporation.")
+        msg.target_id = agent.corporation_id
+        
+    db.add(msg)
     db.commit()
-    return {"status": "broadcast_sent", "message": message}
+    return {"status": "success", "channel": channel, "message": req.message}
+
+@router.get("/api/chat")
+async def get_recent_chat(since: str = None, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    """Returns recent chat messages relevant to the agent. 'since' is an ISO formatted timestamp."""
+    
+    query = select(AgentMessage)
+    
+    conditions = [AgentMessage.channel == "GLOBAL"]
+    conditions.append(or_(
+        AgentMessage.channel == "PROX",
+        AgentMessage.channel == "LOCAL"
+    ))
+    
+    if agent.squad_id:
+        conditions.append((AgentMessage.channel == "SQUAD") & (AgentMessage.target_id == agent.squad_id))
+    if agent.corporation_id:
+        conditions.append((AgentMessage.channel == "CORP") & (AgentMessage.target_id == agent.corporation_id))
+        
+    query = query.where(or_(*conditions))
+    
+    if since:
+        try:
+            since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+            query = query.where(AgentMessage.timestamp > since_dt)
+        except ValueError:
+            pass # Ignore invalid timestamps and fallback to recent logic
+    else:
+        # If no since is provided, get last 10 minutes or last 50 messages
+        ten_mins_ago = datetime.now(timezone.utc) - timedelta(minutes=10)
+        query = query.where(AgentMessage.timestamp >= ten_mins_ago)
+        
+    # We need to filter PROX messages in python or using a complex mathematical query.
+    # Given the max scale, doing distance filter post-DB fetch for PROX is safe enough.
+    # Alternatively within SQL: abs(q - agent.q) + abs(q + r - agent.q - agent.r) + abs(r - agent.r) <= 20
+    query = query.order_by(AgentMessage.timestamp.desc()).limit(100)
+    messages = db.execute(query).scalars().all()
+    
+    # Distance filter for PROX
+    valid_msgs = []
+    for m in messages:
+        if m.channel in ["PROX", "LOCAL"]:
+            if m.q is not None and m.r is not None:
+                dist = (abs(m.q - agent.q) + abs(m.q + m.r - agent.q - agent.r) + abs(m.r - agent.r)) // 2
+                if dist > 10:
+                    continue
+        valid_msgs.append({
+            "id": m.id,
+            "sender": m.sender_name,
+            "channel": m.channel,
+            "message": m.message,
+            "timestamp": m.timestamp.isoformat()
+        })
+        
+    # the client expects chronological order usually, database returned descending to get the newest
+    valid_msgs.reverse()
+    return valid_msgs
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Squad Management

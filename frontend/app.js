@@ -103,7 +103,7 @@ class GameClient {
     updateMissionsUI(missions) { return this.ui.updateMissionsUI(missions); }
     updatePrivateUI(agent) { return this.ui.updatePrivateUI(agent); }
     updateForgeUI(discovery) { return this.ui.updateForgeUI(discovery); }
-    updatePrivateLogs(logs, pending) { return this.ui.updatePrivateLogs(logs, pending); }
+    updatePrivateLogs(logs, pending, chat) { return this.ui.updatePrivateLogs(logs, pending, chat); }
     updateMyOrdersUI(orders) { return this.ui.updateMyOrdersUI(orders); }
     handleWorldEvent(data) { return this.renderer.handleWorldEvent(data); }
     updateAgentMesh(data) { return this.renderer.updateAgentMesh(data); }

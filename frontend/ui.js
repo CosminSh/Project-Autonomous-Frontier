@@ -144,8 +144,8 @@ export class UIManager {
         });
     }
 
-    updatePrivateLogs(logs, pendingIntent) {
-        if (!logs) return;
+    updatePrivateLogs(logs, pendingIntent, chatMessages = []) {
+        if (!logs && chatMessages.length === 0) return;
         const logEl = document.getElementById('private-logs');
         if (!logEl) return;
         logEl.innerHTML = '';
@@ -157,16 +157,33 @@ export class UIManager {
             logEl.appendChild(pendingEntry);
         }
 
-        logs.forEach(log => {
-            const entry = document.createElement('div');
-            const time = new Date(log.time).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            let color = 'text-slate-400';
-            if (log.event === 'COMBAT_HIT') color = 'text-rose-400';
-            if (log.event === 'MINING') color = 'text-emerald-400';
-            if (log.details?.status === 'success') color = 'text-sky-400';
+        const combined = [...(logs || []), ...chatMessages].sort((a, b) => new Date(b.time || b.timestamp) - new Date(a.time || a.timestamp));
 
-            entry.className = `border-b border-slate-900/50 pb-1 flex space-x-2 ${color}`;
-            entry.innerHTML = `<span class="text-slate-700 font-mono">[${time}]</span><span class="font-bold flex-shrink-0">${log.event}</span><span class="truncate">${JSON.stringify(log.details)}</span>`;
+        combined.forEach(item => {
+            const isChat = !!item.channel;
+            const timeStr = item.time || item.timestamp;
+            const time = new Date(timeStr).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            const entry = document.createElement('div');
+            entry.className = `border-b border-slate-900/50 pb-1 flex space-x-2`;
+
+            if (isChat) {
+                let badgeColor = 'bg-slate-500 text-white';
+                if (item.channel === 'GLOBAL') badgeColor = 'bg-indigo-600 text-indigo-100';
+                if (item.channel === 'PROX' || item.channel === 'LOCAL') badgeColor = 'bg-emerald-600 text-emerald-100';
+                if (item.channel === 'SQUAD') badgeColor = 'bg-sky-600 text-sky-100';
+                if (item.channel === 'CORP') badgeColor = 'bg-amber-600 text-amber-100';
+
+                entry.innerHTML = `<span class="text-slate-700 font-mono flex-shrink-0">[${time}]</span><span class="${badgeColor} px-1 rounded text-[10px] font-bold tracking-widest leading-none flex items-center flex-shrink-0">${item.channel}</span><span class="text-slate-300 font-bold flex-shrink-0">${item.sender}:</span><span class="text-slate-100" style="word-break: break-all;">${item.message}</span>`;
+            } else {
+                let color = 'text-slate-400';
+                if (item.event === 'COMBAT_HIT') color = 'text-rose-400';
+                if (item.event === 'MINING') color = 'text-emerald-400';
+                if (item.details?.status === 'success') color = 'text-sky-400';
+
+                entry.classList.add(color);
+                entry.innerHTML = `<span class="text-slate-700 font-mono flex-shrink-0">[${time}]</span><span class="font-bold flex-shrink-0">${item.event}</span><span class="truncate">${JSON.stringify(item.details)}</span>`;
+            }
             logEl.appendChild(entry);
         });
     }

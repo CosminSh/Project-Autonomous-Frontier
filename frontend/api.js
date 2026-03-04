@@ -42,7 +42,8 @@ export class GameAPI {
                 apiKey ? fetch(`${window.location.origin}/api/market/my_orders`, { headers }) : Promise.resolve(null),   // 4
                 fetch('/api/bounties'),                                                                                   // 5
                 apiKey ? fetch(`${window.location.origin}/api/perception`, { headers }) : Promise.resolve(null),         // 6
-                apiKey ? fetch(`${window.location.origin}/api/missions`, { headers }) : Promise.resolve(null)            // 7
+                apiKey ? fetch(`${window.location.origin}/api/missions`, { headers }) : Promise.resolve(null),           // 7
+                apiKey ? fetch(`${window.location.origin}/api/chat`, { headers }) : Promise.resolve(null)                // 8
             ]);
 
             // Helper: safely get JSON from a settled result (returns null on failure)
@@ -53,7 +54,7 @@ export class GameAPI {
                 try { return await resp.json(); } catch { return null; }
             };
 
-            const [stateR, statsR, logsR, agentR, myOrdersR, bountyR, perceptionR, missionsR] = results;
+            const [stateR, statsR, logsR, agentR, myOrdersR, bountyR, perceptionR, missionsR, chatR] = results;
 
             // Check for auth expiry
             if (agentR.value && agentR.value.status === 401) {
@@ -70,6 +71,7 @@ export class GameAPI {
             const bounties = await safeJson(bountyR);
             const perceptionData = await safeJson(perceptionR);
             const missions = await safeJson(missionsR);
+            const chatMessages = await safeJson(chatR);
 
             if (data) this.game.lastWorldData = data;
             if (perceptionData) this.game.lastPerception = perceptionData;
@@ -106,11 +108,11 @@ export class GameAPI {
                 }
             }
 
-            if (privateLogs) {
+            if (privateLogs || chatMessages) {
                 try {
-                    this.game.updatePrivateLogs(privateLogs, agentData ? agentData.pending_intent : null);
+                    this.game.updatePrivateLogs(privateLogs, agentData ? agentData.pending_intent : null, chatMessages);
                 } catch (e) {
-                    console.error("Error updating Private Logs:", e);
+                    console.error("Error updating RM Logs:", e);
                 }
             }
 

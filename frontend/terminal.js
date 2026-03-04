@@ -50,7 +50,10 @@ export class TerminalHandler {
             'SQUAD_ACCEPT': { cat: 'SQUAD', syntax: 'SQUAD_ACCEPT', example: 'SQUAD_ACCEPT', help: 'Accept pending squad invite' },
             'SQUAD_DECLINE': { cat: 'SQUAD', syntax: 'SQUAD_DECLINE', example: 'SQUAD_DECLINE', help: 'Decline pending squad invite' },
             'SQUAD_LEAVE': { cat: 'SQUAD', syntax: 'SQUAD_LEAVE', example: 'SQUAD_LEAVE', help: 'Exit your current squad' },
-            'BROADCAST': { cat: 'COMM', syntax: 'BROADCAST <message>', example: 'BROADCAST Hello everyone!', help: 'Global Shout' },
+            'PROX': { cat: 'COMM', syntax: 'PROX <message>', example: 'PROX Hello nearby!', help: 'Local Chat (Radius 10)' },
+            'SQUAD': { cat: 'COMM', syntax: 'SQUAD <message>', example: 'SQUAD Need backup!', help: 'Squad Chat' },
+            'CORP': { cat: 'COMM', syntax: 'CORP <message>', example: 'CORP Reporting in.', help: 'Corporation Chat' },
+            'GLOBAL': { cat: 'COMM', syntax: 'GLOBAL <message>', example: 'GLOBAL Selling Iron!', help: 'Global Chat' },
             'DROP_LOAD': { cat: 'OTHER', syntax: 'DROP_LOAD', example: 'DROP_LOAD', help: 'Jettison all cargo' },
             'STOP': { cat: 'NAV', syntax: 'STOP', example: 'STOP', help: 'Cancel all queued intents' },
             'FIELD_TRADE': { cat: 'MARKET', syntax: 'FIELD_TRADE <id> <price> <items...>', example: 'FIELD_TRADE 5 100 IRON_ORE', help: 'Direct trade with nearby agent' },
@@ -226,10 +229,6 @@ export class TerminalHandler {
                 if (isNaN(data.faction_id)) throw new Error('Faction ID must be 1, 2, or 3.');
                 break;
             case 'MINE': case 'CORE_SERVICE': case 'STOP': case 'DROP_LOAD':
-                break;
-            case 'BROADCAST':
-                if (args.length < 1) throw new Error('Usage: BROADCAST <message>');
-                data.message = args.join(' ');
                 break;
             case 'FIELD_TRADE':
                 if (args.length < 3) throw new Error('Usage: FIELD_TRADE <target_id> <price> <items...>');
@@ -619,6 +618,31 @@ export class TerminalHandler {
             } catch (e) {
                 this.log(`✗ ${e.message}`, 'error');
             }
+            return;
+            return;
+        }
+
+        // ── CHAT COMMANDS ──
+        if (['PROX', 'SQUAD', 'CORP', 'GLOBAL'].includes(actionType)) {
+            if (args.length < 1) {
+                this.log(`✗ Usage: ${actionType} <message>`, 'error');
+                return;
+            }
+            try {
+                const apiKey = localStorage.getItem('sv_api_key');
+                const resp = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
+                    body: JSON.stringify({ channel: actionType, message: args.join(' ') })
+                });
+                const result = await resp.json();
+                if (resp.ok) {
+                    this.log(`✓ Message sent via ${actionType}`, 'success');
+                    if (window.game) window.game.pollState();
+                } else {
+                    this.log(`✗ ${result.detail || 'Server error'}`, 'error');
+                }
+            } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
             return;
         }
 

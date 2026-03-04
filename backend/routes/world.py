@@ -153,7 +153,16 @@ async def get_world_state():
     """Returns global public game state. Sensitive entity data removed for performance and fairness."""
     with SessionLocal() as db:
         state = db.execute(select(GlobalState)).scalars().first()
-        logs = db.execute(select(AuditLog).order_by(AuditLog.time.desc()).limit(15)).scalars().all()
+        public_events = [
+            "GLOBAL_CHAT", "MARKET_LISTING", "BOUNTY_CLAIMED", 
+            "BOUNTY_POSTED", "SERVER_RESTART", "COMBAT_HIT", "LEVEL_UP"
+        ]
+        logs = db.execute(
+            select(AuditLog)
+            .where(AuditLog.event_type.in_(public_events))
+            .order_by(AuditLog.time.desc())
+            .limit(15)
+        ).scalars().all()
         orders = db.execute(select(AuctionOrder).order_by(AuctionOrder.created_at.desc()).limit(10)).scalars().all()
         return {
             "tick": state.tick_index if state else 0,

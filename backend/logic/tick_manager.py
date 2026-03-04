@@ -4,7 +4,8 @@ import logging
 import random
 from sqlalchemy import select, func
 from database import SessionLocal
-from models import GlobalState, Agent, InventoryItem, Intent
+from models import GlobalState, Agent, InventoryItem, Intent, AgentMessage
+from datetime import datetime, timezone, timedelta
 from config import (
     PHASE_PERCEPTION_DURATION, PHASE_STRATEGY_DURATION, PHASE_CRUNCH_DURATION
 )
@@ -60,6 +61,10 @@ class TickManager:
         with SessionLocal() as db:
             generate_daily_missions(db)
             await self._process_player_intents(db)
+            
+            if self.tick_count % 100 == 0:
+                self._cleanup_old_messages(db)
+                
             db.commit()
         await asyncio.sleep(PHASE_CRUNCH_DURATION)
 
@@ -144,3 +149,13 @@ class TickManager:
             if agent:
                 await self.processor.process_intent(db, agent, intent, self.tick_count)
             db.delete(intent) # Intent is consumed
+
+    def _cleanup_old_messages(self, db):
+        """Deletes chat messages older than 48 hours to prevent bloat."""
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+        # Using delete() directly for performance
+        from sqlalchemy import delete
+        stmt = delete(AgentMessage).where(AgentMessage.timestamp < cutoff)
+        result = db.execute(stmt)
+        if result.rowcount > 0:
+            logger.info(f"Cleaned up {result.rowcount} old chat messages.")
