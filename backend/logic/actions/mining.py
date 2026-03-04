@@ -17,30 +17,40 @@ async def handle_mine(db, agent, intent, tick_count, manager):
         db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "NOT_ON_RESOURCE_HEX"}))
         return
 
-    active_drill = next((p for p in agent.parts if p.part_type == "Actuator" and "Drill" in p.name), None)
-    if not active_drill:
+    drills = [p for p in agent.parts if p.part_type == "Actuator" and "Drill" in p.name]
+    if not drills:
         db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "MISSING_DRILL"}))
         return
 
-    # Drill Tier Check
+    # Drill Tier Check: Pick the BEST drill for requirements
     res_name = hex_data.resource_type if "_ORE" in hex_data.resource_type or "GAS" in hex_data.resource_type else f"{hex_data.resource_type}_ORE"
-    part_key = next((k for k, v in PART_DEFINITIONS.items() if v["name"] == active_drill.name), "DRILL_UNIT")
     
+    # Calculate effective max tier from all drills
+    max_drill_tier = 0
+    best_drill_info = None
+    for d in drills:
+        part_key = next((k for k, v in PART_DEFINITIONS.items() if v["name"] == d.name), "DRILL_UNIT")
+        info = DRILL_TIERS.get(part_key, {"tier": 1, "advanced": False})
+        if info["tier"] > max_drill_tier:
+            max_drill_tier = info["tier"]
+            best_drill_info = info
+        elif info["tier"] == max_drill_tier and info.get("advanced"):
+            best_drill_info = info
+
     if "GAS" in res_name and not any(p.part_type == "Actuator" and "Siphon" in p.name for p in agent.parts):
         db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "MISSING_GAS_SIPHON"}))
         return
 
     if "GAS" not in res_name:
         res_tier = MINING_TIERS.get(res_name, {"tier": 1})["tier"]
-        drill_info = DRILL_TIERS.get(part_key, {"tier": 1, "advanced": False})
-        drill_tier = drill_info["tier"]
-        is_advanced = drill_info["advanced"]
+        drill_tier = best_drill_info["tier"] if best_drill_info else 1
+        is_advanced = best_drill_info["advanced"] if best_drill_info else False
         
         if res_tier > drill_tier and not (is_advanced and res_tier == drill_tier + 1):
             db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "DRILL_TIER_TOO_LOW"}))
             return
 
-    # Yield Calculation
+    # Yield Calculation (Already uses agent.kinetic_force which sums all parts)
     roll = random.randint(1, 10)
     base_yield = (roll + ((agent.kinetic_force or 10) / 2)) * (hex_data.resource_density or 1.0)
     if (agent.overclock_ticks or 0) > 0: base_yield *= 2.0
@@ -72,15 +82,12 @@ async def handle_mine(db, agent, intent, tick_count, manager):
         yield_amount = min(yield_amount, hex_data.resource_quantity)
         hex_data.resource_quantity -= yield_amount
         
-        # If exhausted, revert to VOID
         if hex_data.resource_quantity <= 0:
             hex_data.terrain_type = "VOID"
             hex_data.resource_type = None
             hex_data.resource_density = 0.0
             hex_data.resource_quantity = 0
             db.add(AuditLog(agent_id=agent.id, event_type="NODE_DEPLETED", details={"resource": res_name, "q": hex_data.q, "r": hex_data.r}))
-            
-            # Optionally broadcast that the node shattered (handled by front-end naturally if it disappears from perception)
 
     # Update Inventory
     inv_item = next((i for i in agent.inventory if i.item_type == res_name), None)
@@ -92,15 +99,20 @@ async def handle_mine(db, agent, intent, tick_count, manager):
 
     agent.capacitor -= MINE_ENERGY_COST
     
-    # Durability Decay
-    active_drill.durability = (active_drill.durability or 100.0) - random.uniform(0.1, 0.3)
-    if active_drill.durability <= 0:
-        active_drill.durability = 0
-        db.delete(active_drill)
-        recalculate_agent_stats(db, agent)
-        db.add(AuditLog(agent_id=agent.id, event_type="PART_BROKEN", details={"part": active_drill.name}))
+    # Durability Decay: Decay ALL drills simultaneously
+    decay_amount = random.uniform(0.1, 0.3)
+    for d in drills:
+        d.durability = (d.durability or 100.0) - decay_amount
+        if d.durability <= 0:
+            d.durability = 0
+            db.delete(d)
+            db.add(AuditLog(agent_id=agent.id, event_type="PART_BROKEN", details={"part": d.name}))
+            # Recalculate stats after the loop to avoid list mutation issues or redundant calls
+    
+    db.flush()
+    recalculate_agent_stats(db, agent)
 
-    db.add(AuditLog(agent_id=agent.id, event_type="MINING", details={"amount": yield_amount, "resource": res_name}))
+    db.add(AuditLog(agent_id=agent.id, event_type="MINING", details={"amount": yield_amount, "resource": res_name, "drills_active": len(drills)}))
     add_experience(db, agent, 5)
     
     if manager:

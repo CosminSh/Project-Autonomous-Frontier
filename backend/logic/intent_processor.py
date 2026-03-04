@@ -1,5 +1,5 @@
 import logging
-from logic.actions import movement, mining, combat, industry, economy, utility
+from logic.actions import movement, mining, combat, industry, economy, utility, garage
 from logic.mission_logic import handle_turn_in
 
 logger = logging.getLogger("heartbeat.intent_processor")
@@ -29,6 +29,8 @@ class IntentProcessor:
             "CHANGE_FACTION": utility.handle_change_faction,
             "LEARN_RECIPE": utility.handle_learn_recipe,
             "UPGRADE_GEAR": utility.handle_upgrade_gear,
+            "EQUIP": garage.handle_equip,
+            "UNEQUIP": garage.handle_unequip,
             "TURN_IN": handle_turn_in
         }
 

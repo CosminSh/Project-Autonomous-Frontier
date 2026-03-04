@@ -2,7 +2,7 @@ import requests
 import time
 from sqlalchemy import create_engine, text
 
-BASE_URL = "http://localhost:8001"
+BASE_URL = "http://localhost:8000"
 DB_PATH = "sqlite:///demo.db"
 engine = create_engine(DB_PATH)
 

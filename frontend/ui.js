@@ -371,7 +371,10 @@ export class UIManager {
                     <div class="flex flex-col p-3 bg-sky-500/5 border border-sky-500/20 rounded-xl relative group overflow-hidden">
                         <div class="flex justify-between items-start mb-2">
                             <span class="text-[10px] font-bold text-sky-300 uppercase leading-none">${p.name}</span>
-                            <span class="text-[8px] bg-sky-500/20 px-1 py-0.5 rounded text-sky-400 font-bold">${p.rarity}</span>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[8px] bg-sky-500/20 px-1 py-0.5 rounded text-sky-400 font-bold">${p.rarity}</span>
+                                <button onclick="game.api.submitIntent('UNEQUIP', {part_id: ${p.id}})" class="bg-rose-500 hover:bg-rose-400 text-white px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all">UNEQUIP</button>
+                            </div>
                         </div>
                         <div class="grid grid-cols-2 gap-1 text-[8px] text-slate-400">
                             ${Object.entries(p.stats || {}).map(([s, v]) => `<div>${s}: <span class="text-slate-200">${v}</span></div>`).join('')}
@@ -404,7 +407,7 @@ export class UIManager {
                         <span class="text-[9px] font-bold text-indigo-300 uppercase">${i.type.replace('_', ' ')}</span>
                         <div class="flex items-center space-x-3">
                             <span class="text-indigo-400 text-[10px] font-mono">${i.quantity}</span>
-                            <button onclick="console.log('Use ${i.type}')" class="bg-indigo-500 text-slate-950 px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all">USE</button>
+                            <button onclick="game.api.submitIntent('EQUIP', {item_type: '${i.type}'})" class="bg-indigo-500 text-slate-950 px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all">EQUIP</button>
                         </div>
                     </div>
                 `).join('');
