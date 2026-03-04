@@ -63,6 +63,25 @@ async def handle_mine(db, agent, intent, tick_count, manager):
         db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "CARGO_FULL"}))
         return
 
+    # Resource Depletion Logic
+    if hex_data.resource_quantity is not None:
+        if hex_data.resource_quantity <= 0:
+            db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "NODE_DEPLETED"}))
+            return
+            
+        yield_amount = min(yield_amount, hex_data.resource_quantity)
+        hex_data.resource_quantity -= yield_amount
+        
+        # If exhausted, revert to VOID
+        if hex_data.resource_quantity <= 0:
+            hex_data.terrain_type = "VOID"
+            hex_data.resource_type = None
+            hex_data.resource_density = 0.0
+            hex_data.resource_quantity = 0
+            db.add(AuditLog(agent_id=agent.id, event_type="NODE_DEPLETED", details={"resource": res_name, "q": hex_data.q, "r": hex_data.r}))
+            
+            # Optionally broadcast that the node shattered (handled by front-end naturally if it disappears from perception)
+
     # Update Inventory
     inv_item = next((i for i in agent.inventory if i.item_type == res_name), None)
     if inv_item: inv_item.quantity += yield_amount

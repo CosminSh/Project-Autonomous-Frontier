@@ -111,6 +111,7 @@ class WorldHex(Base):
     terrain_type = Column(String) # VOID, NEBULA, ASTEROID, OBSTACLE
     resource_type = Column(String, nullable=True) # ORE, GAS, etc.
     resource_density = Column(Float, default=0.0)
+    resource_quantity = Column(Integer, default=0) # Tracks remaining resources before depletion
     
     # Station attributes
     is_station = Column(Boolean, default=False)

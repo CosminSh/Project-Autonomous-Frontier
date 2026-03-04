@@ -50,6 +50,8 @@ class TickManager:
         with SessionLocal() as db:
             await update_global_agent_stats(db, self.tick_count, self.manager)
             self._repopulate_ferals(db)
+            if self.tick_count % 10 == 0:
+                self._repopulate_resources(db)
             db.commit()
         await asyncio.sleep(PHASE_STRATEGY_DURATION)
 
@@ -87,6 +89,48 @@ class TickManager:
                     q=fq, r=fr, is_bot=True, is_feral=True, 
                     kinetic_force=15, logic_precision=8, structure=120, max_structure=120
                 ))
+
+    def _repopulate_resources(self, db):
+        """Ensures a minimum number of resource nodes exist globally."""
+        from models import WorldHex
+        # Check total asteroid count
+        count = db.execute(select(func.count(WorldHex.id)).where(WorldHex.terrain_type == "ASTEROID")).scalar() or 0
+        
+        # If we have less than 400 asteroids globally, spawn a batch
+        if count < 400:
+            logger.info(f"Resource nodes low ({count}). Spawning new veins...")
+            
+            # Find a bunch of VOID hexes that are NOT stations
+            voids = db.execute(select(WorldHex).where(WorldHex.terrain_type == "VOID", WorldHex.is_station == False)).scalars().all()
+            if not voids: return
+            
+            # Spawn up to 20 per cycle
+            random.shuffle(voids)
+            spawned = 0
+            for h in voids:
+                dist = (abs(h.q) + abs(h.q + h.r) + abs(h.r)) // 2
+                
+                # Use same distance logic as seed_world
+                res_type = "IRON_ORE"
+                if dist <= 10:
+                    res_type = "IRON_ORE"
+                elif 10 < dist <= 25:
+                    res_type = "COPPER_ORE"
+                    if random.random() < 0.2: res_type = "HELIUM_GAS"
+                elif 25 < dist <= 35:
+                    res_type = "COBALT_ORE"
+                    if random.random() < 0.3: res_type = "HELIUM_GAS"
+                else:
+                    res_type = "GOLD_ORE"
+                    if random.random() < 0.2: res_type = "HELIUM_GAS"
+                    
+                h.terrain_type = "ASTEROID"
+                h.resource_type = res_type
+                h.resource_density = random.uniform(1.0, 3.0)
+                h.resource_quantity = random.randint(100, 1000)
+                
+                spawned += 1
+                if spawned >= 20: break
 
     async def _process_player_intents(self, db):
         """Processes all intents scheduled for the current tick."""
