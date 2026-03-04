@@ -160,4 +160,10 @@ async def handle_core_service(db, agent, intent, tick_count, manager):
         agent.wear_and_tear = 0.0
         db.add(AuditLog(agent_id=agent.id, event_type="CORE_SERVICE", details={"success": True}))
     else:
-        db.add(AuditLog(agent_id=agent.id, event_type="CORE_SERVICE_FAILED", details={"reason": "INSUFFICIENT_RESOURCES"}))
+        db.add(AuditLog(agent_id=agent.id, event_type="CORE_SERVICE_FAILED", details={
+            "reason": "INSUFFICIENT_RESOURCES",
+            "required": {
+                "CREDITS": CORE_SERVICE_COST_CREDITS,
+                "IRON_INGOT": CORE_SERVICE_COST_IRON_INGOT
+            }
+        }))
