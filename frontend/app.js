@@ -1,8 +1,8 @@
-﻿import { GameAPI } from './api.js?v=UX_REBUILD_V1';
-import { AuthManager } from './auth.js?v=UX_REBUILD_V1';
-import { GameRenderer } from './renderer.js?v=UX_REBUILD_V1';
-import { UIManager } from './ui.js?v=UX_REBUILD_V1';
-import { TerminalHandler } from './terminal.js?v=UX_REBUILD_V1';
+﻿import { GameAPI } from './api.js?v=RATE_LIMIT_V1';
+import { AuthManager } from './auth.js?v=RATE_LIMIT_V1';
+import { GameRenderer } from './renderer.js?v=RATE_LIMIT_V1';
+import { UIManager } from './ui.js?v=RATE_LIMIT_V1';
+import { TerminalHandler } from './terminal.js?v=RATE_LIMIT_V1';
 
 /**
  * app.js — Main Bootstrapper

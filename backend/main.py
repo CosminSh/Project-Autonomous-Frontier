@@ -85,11 +85,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import redis.asyncio as aioredis
+
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+_rate_limit_redis = aioredis.from_url(REDIS_URL, decode_responses=True)
+
+RATE_LIMIT_MAX = 60       # max requests
+RATE_LIMIT_WINDOW = 10    # per N seconds
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     try:
+        # Skip rate limiting for health checks and WebSocket upgrades
+        path = request.url.path
+        if path == "/api/health" or request.headers.get("upgrade") == "websocket":
+            return await call_next(request)
+
+        # ── Redis Rate Limiter ──
+        client_ip = request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip() or request.client.host
+        rate_key = f"rl:{client_ip}"
+        try:
+            current = await _rate_limit_redis.incr(rate_key)
+            if current == 1:
+                await _rate_limit_redis.expire(rate_key, RATE_LIMIT_WINDOW)
+            if current > RATE_LIMIT_MAX:
+                from fastapi.responses import JSONResponse
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Rate limit exceeded. Slow down."}
+                )
+        except Exception:
+            pass  # If Redis is down, don't block requests
+
         response = await call_next(request)
-        # Removed explicit COOP to allow Google Identity iFrame/postMessage
         return response
     except Exception as e:
         import traceback

@@ -5,7 +5,8 @@ export class GameAPI {
     constructor(game) {
         this.game = game;
         this.socket = null;
-        this._pollCycle = 0; // Track poll cycles for throttled sub-requests
+        this._pollCycle = 0;
+        this._polling = false;  // Concurrency guard
     }
 
     setupWebSocket() {
@@ -25,55 +26,82 @@ export class GameAPI {
         };
 
         this.socket.onclose = () => {
-            setTimeout(() => this.setupWebSocket(), 3000);
+            setTimeout(() => this.setupWebSocket(), 5000);
         };
     }
 
     async pollState() {
+        // ── Concurrency guard: skip if previous poll is still in-flight ──
+        if (this._polling) return;
+        this._polling = true;
+
         try {
             const apiKey = localStorage.getItem('sv_api_key');
             const headers = apiKey ? { 'X-API-KEY': apiKey } : {};
+            const isSecondary = (this._pollCycle % 3 === 0);  // every 30s
+            const isSlow = (this._pollCycle % 6 === 0);        // every 60s
 
-            // Use allSettled so a single 500 doesn't crash the entire poll
-            const results = await Promise.allSettled([
-                fetch('/state'),                                                                                          // 0
-                fetch('/api/global_stats'),                                                                               // 1
-                apiKey ? fetch(`${window.location.origin}/api/agent_logs`, { headers }) : Promise.resolve(null),         // 2
-                apiKey ? fetch(`${window.location.origin}/api/my_agent`, { headers }) : Promise.resolve(null),           // 3
-                apiKey ? fetch(`${window.location.origin}/api/market/my_orders`, { headers }) : Promise.resolve(null),   // 4
-                fetch('/api/bounties'),                                                                                   // 5
-                apiKey ? fetch(`${window.location.origin}/api/perception`, { headers }) : Promise.resolve(null),         // 6
-                apiKey ? fetch(`${window.location.origin}/api/missions`, { headers }) : Promise.resolve(null),           // 7
-                (apiKey && this._pollCycle % 3 === 0) ? fetch(`${window.location.origin}/api/chat`, { headers }) : Promise.resolve(null) // 8 (every 3rd cycle ~15s)
+            // ── CRITICAL TIER (every 10s): state + agent ──
+            const criticalResults = await Promise.allSettled([
+                fetch('/state'),
+                apiKey ? fetch(`${window.location.origin}/api/my_agent`, { headers }) : Promise.resolve(null),
             ]);
 
-            // Helper: safely get JSON from a settled result (returns null on failure)
+            // ── SECONDARY TIER (every 30s): stats, logs, orders, bounties, perception, missions ──
+            let secondaryResults = null;
+            if (isSecondary) {
+                secondaryResults = await Promise.allSettled([
+                    fetch('/api/global_stats'),
+                    apiKey ? fetch(`${window.location.origin}/api/agent_logs`, { headers }) : Promise.resolve(null),
+                    apiKey ? fetch(`${window.location.origin}/api/market/my_orders`, { headers }) : Promise.resolve(null),
+                    fetch('/api/bounties'),
+                    apiKey ? fetch(`${window.location.origin}/api/perception`, { headers }) : Promise.resolve(null),
+                    apiKey ? fetch(`${window.location.origin}/api/missions`, { headers }) : Promise.resolve(null),
+                ]);
+            }
+
+            // ── SLOW TIER (every 60s): chat ──
+            let chatResult = null;
+            if (isSlow && apiKey) {
+                const [cr] = await Promise.allSettled([
+                    fetch(`${window.location.origin}/api/chat`, { headers })
+                ]);
+                chatResult = cr;
+            }
+
+            // Helper: safely get JSON from a settled result
             const safeJson = async (settled) => {
-                if (settled.status === 'rejected' || !settled.value) return null;
+                if (!settled || settled.status === 'rejected' || !settled.value) return null;
                 const resp = settled.value;
-                if (!resp.ok) { console.warn(`API error ${resp.status} on ${resp.url}`); return null; }
+                if (!resp.ok) { if (resp.status !== 429) console.warn(`API error ${resp.status} on ${resp.url}`); return null; }
                 try { return await resp.json(); } catch { return null; }
             };
 
-            const [stateR, statsR, logsR, agentR, myOrdersR, bountyR, perceptionR, missionsR, chatR] = results;
+            // ── Parse Critical ──
+            const data = await safeJson(criticalResults[0]);
+            const agentData = await safeJson(criticalResults[1]);
 
             // Check for auth expiry
-            if (agentR.value && agentR.value.status === 401) {
+            if (criticalResults[1].value && criticalResults[1].value.status === 401) {
                 console.warn("Session expired or API key invalid.");
                 this.game.setAuthenticated(false);
                 return;
             }
 
-            const data = await safeJson(stateR);
-            const stats = await safeJson(statsR);
-            const privateLogs = await safeJson(logsR);
-            const agentData = await safeJson(agentR);
-            const myOrders = await safeJson(myOrdersR);
-            const bounties = await safeJson(bountyR);
-            const perceptionData = await safeJson(perceptionR);
-            const missions = await safeJson(missionsR);
-            const chatMessages = await safeJson(chatR);
+            // ── Parse Secondary (only when polled) ──
+            let stats = null, privateLogs = null, myOrders = null, bounties = null, perceptionData = null, missions = null;
+            if (secondaryResults) {
+                stats = await safeJson(secondaryResults[0]);
+                privateLogs = await safeJson(secondaryResults[1]);
+                myOrders = await safeJson(secondaryResults[2]);
+                bounties = await safeJson(secondaryResults[3]);
+                perceptionData = await safeJson(secondaryResults[4]);
+                missions = await safeJson(secondaryResults[5]);
+            }
 
+            const chatMessages = await safeJson(chatResult);
+
+            // ── Update game state ──
             if (data) this.game.lastWorldData = data;
             if (perceptionData) this.game.lastPerception = perceptionData;
 
@@ -96,7 +124,7 @@ export class GameAPI {
             }
 
             if (agentData) {
-                this.game.lastAgentData = agentData; // cache for UI cross-reference (e.g. mission turn-in checks)
+                this.game.lastAgentData = agentData;
                 try {
                     this.game.updatePrivateUI(agentData);
                 } catch (e) {
@@ -226,6 +254,8 @@ export class GameAPI {
             }
         } catch (e) {
             console.error("Poll error:", e);
+        } finally {
+            this._polling = false;
         }
     }
 
@@ -233,7 +263,7 @@ export class GameAPI {
         setInterval(() => {
             this._pollCycle++;
             this.pollState();
-        }, 5000);
+        }, 10000);  // 10 seconds base interval
     }
 
     async submitIntent(actionType, data) {
@@ -247,40 +277,33 @@ export class GameAPI {
             const resp = await fetch(`${window.location.origin}/api/intent`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
-                body: JSON.stringify({ action_type: actionType, data: data })
+                body: JSON.stringify({ action_type: actionType, data })
             });
-            const result = await resp.json();
-            if (result.status === 'success') {
-                console.log(`${actionType} intent recorded.`);
-                alert(`${actionType} Recorded. Awaiting the next game tick for processing.`);
-                if (actionType === 'CANCEL') {
-                    this.pollState();
+
+            if (resp.ok) {
+                const result = await resp.json();
+                if (this.game.terminal) {
+                    this.game.terminal.log(`✓ ACCEPTED — Scheduled for Tick #${result.scheduled_tick}`, 'success');
                 }
             } else {
-                const errorDetail = typeof result.detail === 'object' ? JSON.stringify(result.detail) : result.detail;
-                alert(`Command Failed: ${errorDetail || 'Access Denied'}`);
+                const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
+                const detail = typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail;
+                if (this.game.terminal) {
+                    this.game.terminal.log(`✗ REJECTED — ${detail || 'Server error'}`, 'error');
+                }
             }
-        } catch (err) {
-            console.error("Intent Submission Error:", err);
-            alert("Uplink failed. Check console.");
+        } catch (e) {
+            console.error("Intent error:", e);
         }
     }
 
-    async submitTradeIntent() {
-        const itemType = document.getElementById('trade-item-type').value;
-        const price = parseFloat(document.getElementById('trade-price').value);
-        const quantity = parseInt(document.getElementById('trade-quantity').value);
-
-        if (!itemType || isNaN(price) || isNaN(quantity) || quantity <= 0) {
-            alert("Please fill out all trade fields correctly.");
+    async submitCombatIntent(actionType) {
+        const targetId = parseInt(document.getElementById('combat-target-id')?.value);
+        if (isNaN(targetId)) {
+            alert("Enter a valid target Agent ID.");
             return;
         }
-
-        let actionType = this.game.tradeSide === 'SELL' ? 'LIST' : 'BUY';
-        let data = this.game.tradeSide === 'SELL'
-            ? { item_type: itemType, price: price, quantity: quantity }
-            : { item_type: itemType, max_price: price, quantity: quantity };
-
+        const data = { target_id: targetId };
         await this.submitIntent(actionType, data);
         alert(`${actionType} intent queued for The Crunch!`);
     }
