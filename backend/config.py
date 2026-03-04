@@ -63,7 +63,28 @@ CRAFTING_RECIPES = {
     "UPGRADE_MODULE": {"GOLD_INGOT": 5, "COBALT_INGOT": 2},
     "REPAIR_KIT": {"IRON_INGOT": 10, "COPPER_INGOT": 5},
     "FIELD_REPAIR_KIT": {"IRON_INGOT": 15, "COPPER_INGOT": 10},
-    "CORE_VOUCHER": {"GOLD_INGOT": 5, "COBALT_INGOT": 5}
+    "CORE_VOUCHER": {"GOLD_INGOT": 5, "COBALT_INGOT": 5},
+    
+    # New Weapons (Actuators)
+    "IRON_AUTO_RIFLE": {"IRON_INGOT": 15},
+    "COPPER_RAILGUN": {"IRON_INGOT": 10, "COPPER_INGOT": 10},
+    "GOLD_LASER_CANNON": {"COPPER_INGOT": 15, "GOLD_INGOT": 5},
+    
+    # New Armors (Frames)
+    "LIGHT_PLATING": {"IRON_INGOT": 15},
+    "COPPER_ALLOY_ARMOR": {"IRON_INGOT": 15, "COPPER_INGOT": 10},
+    
+    # New Sensors
+    "BASIC_SCANNER": {"IRON_INGOT": 10},
+    "COPPER_ARRAY": {"COPPER_INGOT": 15},
+    
+    # New Engines
+    "IRON_THRUSTER": {"IRON_INGOT": 20},
+    "COPPER_OVERDRIVE": {"IRON_INGOT": 10, "COPPER_INGOT": 15},
+    
+    # Utilities (Power / Capacity)
+    "BASIC_BATTERY": {"IRON_INGOT": 15},
+    "COPPER_CAPACITOR": {"COPPER_INGOT": 20}
 }
 
 CORE_RECIPES = ["BASIC_FRAME", "HEAVY_FRAME", "DRILL_UNIT", 
@@ -72,7 +93,10 @@ CORE_RECIPES = ["BASIC_FRAME", "HEAVY_FRAME", "DRILL_UNIT",
                 "DRILL_GOLD_BASIC", "DRILL_GOLD_ADVANCED",
                 "DRILL_COBALT_BASIC", "DRILL_COBALT_ADVANCED",
                 "EMPTY_CANISTER", "UPGRADE_MODULE", "ENGINE_UNIT", "SCRAP_SOLAR_PANEL", "REPAIR_KIT",
-                "FIELD_REPAIR_KIT", "CORE_VOUCHER"]
+                "FIELD_REPAIR_KIT", "CORE_VOUCHER",
+                "IRON_AUTO_RIFLE", "COPPER_RAILGUN", "GOLD_LASER_CANNON",
+                "LIGHT_PLATING", "COPPER_ALLOY_ARMOR", "BASIC_SCANNER", "COPPER_ARRAY",
+                "IRON_THRUSTER", "COPPER_OVERDRIVE", "BASIC_BATTERY", "COPPER_CAPACITOR"]
 UPGRADE_MAX_LEVEL = 10
 UPGRADE_BASE_INGOT_COST = 10
 
@@ -131,7 +155,18 @@ PART_DEFINITIONS = {
     "ENGINE_UNIT": {"type": "Engine", "stats": {"kinetic_force": 5, "capacity": 20}, "name": "Standard Fusion Engine"},
     "ENGINE_CARGO": {"type": "Engine", "stats": {"kinetic_force": 2, "capacity": 60}, "name": "Hauler-Class Cargo Engine"},
     "ENGINE_TURBO": {"type": "Engine", "stats": {"kinetic_force": 15, "capacity": 5}, "name": "Interceptor Turbo Engine"},
-    "SHIELD_GENERATOR": {"type": "Frame", "stats": {"integrity": 15, "max_structure": 50}, "name": "Aegis Shield Generator"}
+    "SHIELD_GENERATOR": {"type": "Frame", "stats": {"integrity": 15, "max_structure": 50}, "name": "Aegis Shield Generator"},
+    "IRON_AUTO_RIFLE": {"type": "Actuator", "stats": {"kinetic_force": 15}, "name": "Standard Iron Auto-Rifle"},
+    "COPPER_RAILGUN": {"type": "Actuator", "stats": {"kinetic_force": 25, "logic_precision": -2}, "name": "High-Impact Copper Railgun"},
+    "GOLD_LASER_CANNON": {"type": "Actuator", "stats": {"kinetic_force": 35, "logic_precision": 5}, "name": "Precision Gold Laser Cannon"},
+    "LIGHT_PLATING": {"type": "Frame", "stats": {"max_structure": 30, "integrity": 2}, "name": "Lightweight Iron Plating"},
+    "COPPER_ALLOY_ARMOR": {"type": "Frame", "stats": {"max_structure": 60, "integrity": 10}, "name": "Copper Alloy Armor"},
+    "BASIC_SCANNER": {"type": "Sensor", "stats": {"radius": 1}, "name": "Basic Proximity Scanner"},
+    "COPPER_ARRAY": {"type": "Sensor", "stats": {"radius": 2}, "name": "Copper Comm-Array"},
+    "IRON_THRUSTER": {"type": "Engine", "stats": {"kinetic_force": 3, "capacity": 5}, "name": "Iron Pursuit Thruster"},
+    "COPPER_OVERDRIVE": {"type": "Engine", "stats": {"kinetic_force": 8, "capacity": -10}, "name": "Copper Overdrive Manifold"},
+    "BASIC_BATTERY": {"type": "Power", "stats": {"capacitor": 25}, "name": "Basic Iron Battery"},
+    "COPPER_CAPACITOR": {"type": "Power", "stats": {"capacitor": 60}, "name": "Copper Flux Capacitor"}
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -172,6 +207,17 @@ ITEM_WEIGHTS = {
     "PART_ENGINE_CARGO": 60.0,
     "PART_ENGINE_TURBO": 30.0,
     "PART_SHIELD_GENERATOR": 50.0,
+    "PART_IRON_AUTO_RIFLE": 25.0,
+    "PART_COPPER_RAILGUN": 35.0,
+    "PART_GOLD_LASER_CANNON": 30.0,
+    "PART_LIGHT_PLATING": 20.0,
+    "PART_COPPER_ALLOY_ARMOR": 45.0,
+    "PART_BASIC_SCANNER": 10.0,
+    "PART_COPPER_ARRAY": 15.0,
+    "PART_IRON_THRUSTER": 25.0,
+    "PART_COPPER_OVERDRIVE": 35.0,
+    "PART_BASIC_BATTERY": 20.0,
+    "PART_COPPER_CAPACITOR": 30.0,
     "UPGRADE_MODULE": 2.0,
     "REPAIR_KIT": 5.0,
     "FIELD_REPAIR_KIT": 8.0,
