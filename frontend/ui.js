@@ -595,8 +595,26 @@ export class UIManager {
             return `
                 <div class="bg-sky-500/5 p-3 rounded-xl border ${borderColor}">
                     <div class="flex justify-between items-start mb-2">
-                        <div class="text-[10px] font-bold text-sky-300 uppercase">${r.name}</div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-col">
+                            <div class="text-[10px] font-bold text-sky-300 uppercase">${r.name}</div>
+                            ${(() => {
+                    if (!r.id.startsWith('DRILL_')) return '';
+                    const txtMap = {
+                        'DRILL_IRON_BASIC': 'Iron',
+                        'DRILL_IRON_ADVANCED': 'Iron, Copper',
+                        'DRILL_COPPER_BASIC': 'Iron, Copper',
+                        'DRILL_COPPER_ADVANCED': 'Iron, Copper, Gold',
+                        'DRILL_GOLD_BASIC': 'Iron, Copper, Gold',
+                        'DRILL_GOLD_ADVANCED': 'Iron, Copper, Gold, Cobalt',
+                        'DRILL_COBALT_BASIC': 'All Ores',
+                        'DRILL_COBALT_ADVANCED': 'All Ores',
+                        'DRILL_UNIT': 'Iron' // Titanium Mining Drill
+                    };
+                    const txt = txtMap[r.id] || '';
+                    return txt ? `<div class="text-[8px] text-amber-400 mt-0.5">Mines: ${txt}</div>` : '';
+                })()}
+                        </div>
+                        <div class="flex flex-col items-end gap-1">
                             ${craftable ? '<span class="text-[8px] text-emerald-400 font-bold">✓ READY</span>' : ''}
                             <span class="text-[8px] text-slate-500 font-mono">${r.type}</span>
                         </div>
