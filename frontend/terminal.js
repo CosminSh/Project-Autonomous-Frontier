@@ -50,7 +50,7 @@ export class TerminalHandler {
             'SQUAD_ACCEPT': { cat: 'SQUAD', syntax: 'SQUAD_ACCEPT', example: 'SQUAD_ACCEPT', help: 'Accept pending squad invite' },
             'SQUAD_DECLINE': { cat: 'SQUAD', syntax: 'SQUAD_DECLINE', example: 'SQUAD_DECLINE', help: 'Decline pending squad invite' },
             'SQUAD_LEAVE': { cat: 'SQUAD', syntax: 'SQUAD_LEAVE', example: 'SQUAD_LEAVE', help: 'Exit your current squad' },
-            'PROX': { cat: 'COMM', syntax: 'PROX <message>', example: 'PROX Hello nearby!', help: 'Local Chat (Radius 10)' },
+            'SAY': { cat: 'COMM', syntax: 'SAY <message>', example: 'SAY Hello nearby!', help: 'Local Chat (Radius 10)' },
             'SQUAD': { cat: 'COMM', syntax: 'SQUAD <message>', example: 'SQUAD Need backup!', help: 'Squad Chat' },
             'CORP': { cat: 'COMM', syntax: 'CORP <message>', example: 'CORP Reporting in.', help: 'Corporation Chat' },
             'GLOBAL': { cat: 'COMM', syntax: 'GLOBAL <message>', example: 'GLOBAL Selling Iron!', help: 'Global Chat' },
@@ -300,10 +300,11 @@ export class TerminalHandler {
                 return;
             }
             const categories = {
+                'COMM': '📡 COMMS',
                 'NAV': '🧭 NAVIGATION', 'RESOURCE': '⛏️ RESOURCES', 'COMBAT': '⚔️ COMBAT & PIRACY',
                 'MARKET': '🏪 MARKET', 'INDUSTRY': '🏭 INDUSTRY', 'MAINT': '🔧 MAINTENANCE',
                 'GEAR': '🎒 GEAR', 'STORAGE': '📦 STORAGE', 'SQUAD': '👥 SQUAD',
-                'COMM': '📡 COMMS', 'OTHER': '🌐 OTHER', 'META': '📖 META'
+                'OTHER': '🌐 OTHER', 'META': '📖 META'
             };
             const grouped = {};
             for (const [name, cmd] of Object.entries(this.commands)) {
@@ -619,15 +620,15 @@ export class TerminalHandler {
                 this.log(`✗ ${e.message}`, 'error');
             }
             return;
-            return;
         }
 
         // ── CHAT COMMANDS ──
-        if (['PROX', 'SQUAD', 'CORP', 'GLOBAL'].includes(actionType)) {
+        if (['SAY', 'PROX', 'SQUAD', 'CORP', 'GLOBAL'].includes(actionType)) {
             if (args.length < 1) {
                 this.log(`✗ Usage: ${actionType} <message>`, 'error');
                 return;
             }
+            const channel = actionType === 'SAY' || actionType === 'PROX' ? 'PROX' : actionType;
             try {
                 const apiKey = localStorage.getItem('sv_api_key');
                 const resp = await fetch('/api/chat', {
