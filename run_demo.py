@@ -12,32 +12,6 @@ import re
 sys.path.append(os.path.join(os.getcwd(), 'backend'))
 from models import Base, Agent, WorldHex, ChassisPart, InventoryItem, Sector
 
-# 1. Modify main.py to use SQLite temporarily
-print("\n--- INITIALIZING DEMO BACKEND ---")
-main_path = os.path.join(os.getcwd(), "backend", "main.py")
-# Use a new filename to avoid Windows file locking issues with main_demo.py
-demo_main_path = os.path.join(os.getcwd(), "backend", "demo_app.py")
-
-print(f"Reading source: {main_path}")
-with open(main_path, "r", encoding="utf-8") as f:
-    content = f.read()
-
-# Check for required endpoints in source
-if "/auth/login" not in content:
-    print("WARNING: /auth/login not found in main.py! Backend might be incomplete.")
-
-# Robust DB URL replacement
-print("Converting to SQLite...")
-lite_content = re.sub(r'DATABASE_URL = os\.getenv\("DATABASE_URL", ".*"\)', 'DATABASE_URL = "sqlite:///demo.db"', content)
-
-try:
-    with open(demo_main_path, "w", encoding="utf-8") as f:
-        f.write(lite_content)
-    print(f"Fresh demo backend created: {demo_main_path}")
-except Exception as e:
-    print(f"CRITICAL ERROR: Could not write {demo_main_path}. Is it locked? {e}")
-    sys.exit(1)
-
 # 2. Setup SQLite DB and Seed Data
 print("Seeding demo database...")
 db_path = os.path.join(os.getcwd(), "demo.db")
@@ -112,12 +86,15 @@ with SessionLocal() as db:
     db.commit()
 
 print("Starting uvicorn server...")
-# Run backend.demo_app from project root
-proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.demo_app:app", "--host", "127.0.0.1", "--port", "8001"])
+env = os.environ.copy()
+env["PYTHONPATH"] = os.path.join(os.getcwd(), "backend")
+env["DATABASE_URL"] = f"sqlite:///{os.path.join(os.getcwd(), 'demo.db')}"
+# Run backend.main from project root
+proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8001"], env=env)
 
 print("\n--- DEMO READY ---")
-print("1. IMPORTANT: Add http://localhost:8000 to your Google Cloud Console Origins!")
-print("2. Open: http://localhost:8000")
+print("1. IMPORTANT: Add http://localhost:8001 to your Google Cloud Console Origins (if using Google Auth)!")
+print("2. Open: http://localhost:8001")
 print("3. Press CTRL+C to stop.")
 
 try:

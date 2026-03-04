@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, Body
+from fastapi import APIRouter, Depends, Query, Body, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from database import get_db
@@ -24,7 +24,6 @@ async def get_my_orders(agent: Agent = Depends(verify_api_key), db: Session = De
 @router.get("/market/prices")
 async def get_market_prices(db: Session = Depends(get_db)):
     """Returns a summary of average prices for all traded items."""
-    # Simplified price summary
     orders = db.execute(select(AuctionOrder)).scalars().all()
     prices = {}
     for o in orders:
@@ -33,39 +32,126 @@ async def get_market_prices(db: Session = Depends(get_db)):
     
     return {k: sum(v)/len(v) for k, v in prices.items() if v}
 
+# ── VAULT / STORAGE ────────────────────────────────────────────────────────────
+
 @router.get("/storage")
 async def get_vault_contents(agent: Agent = Depends(verify_api_key)):
     """Returns the agent's Personal Storage (Vault) inventory."""
     return [{"type": v.item_type, "quantity": v.quantity, "data": v.data} for v in agent.storage]
 
+@router.get("/storage/info")
+async def get_vault_info(agent: Agent = Depends(verify_api_key)):
+    """Returns vault contents plus capacity stats."""
+    used = sum(v.quantity for v in agent.storage)
+    return {
+        "items": [{"type": v.item_type, "quantity": v.quantity} for v in agent.storage],
+        "capacity": agent.storage_capacity,
+        "used": used,
+    }
+
 @router.post("/storage/deposit")
-async def deposit_to_vault(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db), item_type: str = Body(...), quantity: int = Body(...)):
-    """Moves items from agent inventory to personal vault."""
+async def deposit_to_vault(
+    agent: Agent = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+    item_type: str = Body(...),
+    quantity: int = Body(...),
+):
+    """Moves items from agent inventory to personal vault. Requires MARKET station proximity."""
+    item_type = item_type.upper().replace("-", "_")
+
+    if quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be positive.")
+
     inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
-    if not inv_item or inv_item.quantity < quantity: return {"error": "Insufficient inventory"}
-    
+    if not inv_item or inv_item.quantity < quantity:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient inventory — you have {inv_item.quantity if inv_item else 0}x {item_type}."
+        )
+
+    # Capacity check (mass-based; each unit weighs 1kg for simplicity)
+    current_stored = sum(v.quantity for v in agent.storage)
+    if current_stored + quantity > agent.storage_capacity:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Vault capacity exceeded — {current_stored}/{agent.storage_capacity:.0f} kg used."
+        )
+
     inv_item.quantity -= quantity
-    if inv_item.quantity <= 0: db.delete(inv_item)
-    
+    if inv_item.quantity <= 0:
+        db.delete(inv_item)
+
     vault_item = next((v for v in agent.storage if v.item_type == item_type), None)
-    if vault_item: vault_item.quantity += quantity
-    else: db.add(StorageItem(agent_id=agent.id, item_type=item_type, quantity=quantity))
-    
+    if vault_item:
+        vault_item.quantity += quantity
+    else:
+        db.add(StorageItem(agent_id=agent.id, item_type=item_type, quantity=quantity))
+
     db.commit()
-    return {"status": "deposited", "item": item_type, "qty": quantity}
+    return {"message": f"Deposited {quantity}x {item_type} into vault."}
 
 @router.post("/storage/withdraw")
-async def withdraw_from_vault(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db), item_type: str = Body(...), quantity: int = Body(...)):
+async def withdraw_from_vault(
+    agent: Agent = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+    item_type: str = Body(...),
+    quantity: int = Body(...),
+):
     """Moves items from personal vault to agent inventory."""
+    item_type = item_type.upper().replace("-", "_")
+
+    if quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be positive.")
+
     vault_item = next((v for v in agent.storage if v.item_type == item_type), None)
-    if not vault_item or vault_item.quantity < quantity: return {"error": "Insufficient vault storage"}
-    
+    if not vault_item or vault_item.quantity < quantity:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient vault storage — you have {vault_item.quantity if vault_item else 0}x {item_type} stored."
+        )
+
+    # Mass check
+    current_mass = sum(i.quantity for i in agent.inventory)
+    if current_mass + quantity > agent.max_mass:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cargo hold full — {current_mass}/{agent.max_mass:.0f} kg used."
+        )
+
     vault_item.quantity -= quantity
-    if vault_item.quantity <= 0: db.delete(vault_item)
-    
+    if vault_item.quantity <= 0:
+        db.delete(vault_item)
+
     inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
-    if inv_item: inv_item.quantity += quantity
-    else: db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=quantity))
-    
+    if inv_item:
+        inv_item.quantity += quantity
+    else:
+        db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=quantity))
+
     db.commit()
-    return {"status": "withdrawn", "item": item_type, "qty": quantity}
+    return {"message": f"Withdrew {quantity}x {item_type} from vault."}
+
+@router.post("/storage/upgrade")
+async def upgrade_vault(
+    agent: Agent = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+):
+    """Increases vault capacity by 250 kg. Costs 500 credits."""
+    UPGRADE_COST = 500
+    UPGRADE_SIZE = 250.0
+
+    credits_item = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+    credits = credits_item.quantity if credits_item else 0
+    if credits < UPGRADE_COST:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient credits — need {UPGRADE_COST} CR, you have {credits} CR."
+        )
+
+    credits_item.quantity -= UPGRADE_COST
+    if credits_item.quantity <= 0:
+        db.delete(credits_item)
+
+    agent.storage_capacity += UPGRADE_SIZE
+    db.commit()
+    return {"message": f"Vault upgraded! New capacity: {agent.storage_capacity:.0f} kg."}

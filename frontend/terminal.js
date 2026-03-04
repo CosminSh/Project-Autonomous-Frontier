@@ -636,7 +636,7 @@ export class TerminalHandler {
                 const resp = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
-                    body: JSON.stringify({ item_type: args[0].toUpperCase(), quantity: parseInt(args[1]) })
+                    body: JSON.stringify({ item_type: args[0].toUpperCase().replace(/-/g, '_'), quantity: parseInt(args[1]) })
                 });
                 const result = await resp.json();
                 if (resp.ok) {

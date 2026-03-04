@@ -21,7 +21,7 @@ class StorageUI {
             });
             const data = await response.json();
 
-            if (data.items) {
+            if (data.items !== undefined) {
                 this.items = data.items;
                 this.capacity = data.capacity;
                 this.used = data.used;
@@ -36,8 +36,9 @@ class StorageUI {
 
     render() {
         const massText = document.getElementById('storage-mass-text');
-        if (massText) massText.innerText = `${this.used.toFixed(1)} / ${this.capacity} kg`;
+        if (massText) massText.innerText = `${this.used} / ${this.capacity} kg`;
 
+        // ── Vault contents ──
         const storageList = document.getElementById('storage-list');
         if (storageList) {
             if (this.items.length === 0) {
@@ -46,22 +47,27 @@ class StorageUI {
                 storageList.innerHTML = this.items.map(item => `
                     <div class="flex justify-between items-center p-2 bg-slate-900/40 border border-slate-800 rounded group hover:border-sky-500/30 transition-all">
                         <div>
-                            <span class="text-[10px] text-slate-300 font-bold uppercase">${item.item_type.replace(/_/g, ' ')}</span>
-                            <span class="text-[9px] text-slate-500 block">Qty: ${item.quantity}</span>
+                            <span class="text-[10px] text-slate-300 font-bold uppercase">${item.type.replace(/_/g, ' ')}</span>
+                            <span class="text-[9px] text-slate-500 block">Stored: ${item.quantity}</span>
                         </div>
-                        <button onclick="window.storageUI.withdraw('${item.item_type}', ${item.quantity})" 
-                                class="bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-slate-950 px-2 py-1 rounded text-[8px] orbitron font-bold border border-sky-500/20 transition-all">
-                            WITHDRAW
-                        </button>
+                        <div class="flex gap-1">
+                            <button onclick="window.storageUI.withdrawPartial('${item.type}', ${item.quantity})"
+                                    class="bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-slate-950 px-2 py-1 rounded text-[8px] orbitron font-bold border border-sky-500/20 transition-all">
+                                WITHDRAW
+                            </button>
+                        </div>
                     </div>
                 `).join('');
             }
         }
 
-        // Render Quick Deposit list from current agent inventory
+        // ── Quick Deposit from current agent inventory ──
         const depositList = document.getElementById('storage-inventory-list');
-        if (depositList && window.game && window.game.agentData && window.game.agentData.inventory) {
-            const inv = window.game.agentData.inventory.filter(i => i.item_type !== 'CREDITS');
+        if (depositList) {
+            const agentData = window.game && (window.game.agentData || window.game.lastAgentData);
+            const inv = agentData && agentData.inventory
+                ? agentData.inventory.filter(i => i.item_type !== 'CREDITS')
+                : [];
             if (inv.length === 0) {
                 depositList.innerHTML = `<div class="text-[10px] text-slate-600 italic">Inventory is empty.</div>`;
             } else {
@@ -69,9 +75,9 @@ class StorageUI {
                     <div class="flex justify-between items-center p-2 bg-slate-900/40 border border-slate-800 rounded group hover:border-emerald-500/30 transition-all">
                         <div>
                             <span class="text-[10px] text-slate-300 font-bold uppercase">${item.item_type.replace(/_/g, ' ')}</span>
-                            <span class="text-[9px] text-slate-500 block">Available: ${item.quantity}</span>
+                            <span class="text-[9px] text-slate-500 block">Cargo: ${item.quantity}</span>
                         </div>
-                        <button onclick="window.storageUI.deposit('${item.item_type}', ${item.quantity})" 
+                        <button onclick="window.storageUI.depositPartial('${item.item_type}', ${item.quantity})"
                                 class="bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 px-2 py-1 rounded text-[8px] orbitron font-bold border border-emerald-500/20 transition-all">
                             DEPOSIT
                         </button>
@@ -81,8 +87,31 @@ class StorageUI {
         }
     }
 
+    /** Prompt for a quantity then deposit. */
+    async depositPartial(itemType, maxQty) {
+        const qtyStr = prompt(`Deposit ${itemType.replace(/_/g, ' ')} — how many? (max ${maxQty})`, maxQty);
+        if (qtyStr === null) return;
+        const qty = parseInt(qtyStr);
+        if (isNaN(qty) || qty <= 0 || qty > maxQty) {
+            alert(`Invalid quantity.`);
+            return;
+        }
+        await this.deposit(itemType, qty);
+    }
+
+    /** Prompt for a quantity then withdraw. */
+    async withdrawPartial(itemType, maxQty) {
+        const qtyStr = prompt(`Withdraw ${itemType.replace(/_/g, ' ')} — how many? (max ${maxQty})`, maxQty);
+        if (qtyStr === null) return;
+        const qty = parseInt(qtyStr);
+        if (isNaN(qty) || qty <= 0 || qty > maxQty) {
+            alert(`Invalid quantity.`);
+            return;
+        }
+        await this.withdraw(itemType, qty);
+    }
+
     async deposit(itemType, qty) {
-        if (!confirm(`Deposit ${qty} ${itemType} into storage?`)) return;
         try {
             const response = await fetch('/api/storage/deposit', {
                 method: 'POST',
@@ -90,20 +119,20 @@ class StorageUI {
                 body: JSON.stringify({ item_type: itemType, quantity: qty })
             });
             const res = await response.json();
-            if (res.status === 'success') {
-                window.game.addLog(`VAULT: Deposited ${qty} ${itemType}.`, 'success');
+            if (response.ok) {
+                this._toast(res.message || `Deposited ${qty}x ${itemType}.`, 'success');
                 this.refreshStorage();
-                window.game.pollState(); // Refresh inventory
+                window.game.pollState();
             } else {
-                window.game.addLog(`VAULT ERROR: ${res.detail || res.message}`, 'error');
+                this._toast(res.detail || 'Deposit failed.', 'error');
             }
         } catch (err) {
             console.error(err);
+            this._toast('Network error during deposit.', 'error');
         }
     }
 
     async withdraw(itemType, qty) {
-        if (!confirm(`Withdraw ${qty} ${itemType} from storage?`)) return;
         try {
             const response = await fetch('/api/storage/withdraw', {
                 method: 'POST',
@@ -111,35 +140,46 @@ class StorageUI {
                 body: JSON.stringify({ item_type: itemType, quantity: qty })
             });
             const res = await response.json();
-            if (res.status === 'success') {
-                window.game.addLog(`VAULT: Withdrew ${qty} ${itemType}.`, 'success');
+            if (response.ok) {
+                this._toast(res.message || `Withdrew ${qty}x ${itemType}.`, 'success');
                 this.refreshStorage();
-                window.game.pollState(); // Refresh inventory
+                window.game.pollState();
             } else {
-                window.game.addLog(`VAULT ERROR: ${res.detail || res.message}`, 'error');
+                this._toast(res.detail || 'Withdrawal failed.', 'error');
             }
         } catch (err) {
             console.error(err);
+            this._toast('Network error during withdrawal.', 'error');
         }
     }
 
     async upgradeStorage() {
-        if (!confirm(`Upgrade storage capacity by 250kg? This will cost credits and ingots.`)) return;
+        if (!confirm(`Upgrade vault capacity by 250 kg for 500 credits?`)) return;
         try {
             const response = await fetch('/api/storage/upgrade', {
                 method: 'POST',
                 headers: { 'X-API-KEY': window.game.apiKey }
             });
             const res = await response.json();
-            if (res.status === 'success') {
-                window.game.addLog(`VAULT: ${res.message}`, 'success');
+            if (response.ok) {
+                this._toast(res.message || 'Vault upgraded!', 'success');
                 this.refreshStorage();
-                window.game.pollState(); // Refresh inventory for cost
+                window.game.pollState();
             } else {
-                window.game.addLog(`VAULT ERROR: ${res.detail || res.message}`, 'error');
+                this._toast(res.detail || 'Upgrade failed.', 'error');
             }
         } catch (err) {
             console.error(err);
+            this._toast('Network error during upgrade.', 'error');
+        }
+    }
+
+    /** Show a brief toast-style message in the terminal if available. */
+    _toast(msg, type) {
+        if (window.game && window.game.terminal) {
+            window.game.terminal.log(msg, type === 'error' ? 'error' : 'success');
+        } else {
+            console.log(`[StorageUI] ${msg}`);
         }
     }
 }
@@ -147,14 +187,15 @@ class StorageUI {
 // Initialize and bind to window
 window.storageUI = new StorageUI();
 
-// Hook into tab switching
+// Hook into Vault tab visibility to auto-refresh
 document.addEventListener('DOMContentLoaded', () => {
     const tabStorage = document.getElementById('tab-storage');
     if (tabStorage) {
-        tabStorage.addEventListener('click', () => {
-            // Re-use game's tab switching logic by firing a click if needed, 
-            // but we need to handle the content visibility ourselves if not integrated into app.js auto-mapper.
-            window.storageUI.refreshStorage();
-        });
+        tabStorage.addEventListener('click', () => window.storageUI.refreshStorage());
+    }
+    // Also refresh whenever the Vault sub-tab is selected inside Inventory
+    const vaultTabBtn = document.getElementById('inv-tab-vault') || document.querySelector('[onclick*="vault"]');
+    if (vaultTabBtn) {
+        vaultTabBtn.addEventListener('click', () => window.storageUI.refreshStorage());
     }
 });

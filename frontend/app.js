@@ -1,4 +1,4 @@
-﻿import { GameAPI } from './api.js?v=RATE_LIMIT_V1';
+﻿import { GameAPI } from './api.js?v=HUD_CACHE_V2';
 import { AuthManager } from './auth.js?v=RATE_LIMIT_V1';
 import { GameRenderer } from './renderer.js?v=RATE_LIMIT_V1';
 import { UIManager } from './ui.js?v=RATE_LIMIT_V1';

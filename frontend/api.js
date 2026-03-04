@@ -1,6 +1,27 @@
 /**
  * api.js — Network calls (HTTP and WebSocket)
  */
+
+// ── SessionStorage cache keys ──
+const CACHE_KEYS = {
+    agent: 'tf_agent',
+    perception: 'tf_perception',
+    stats: 'tf_stats',
+    logs: 'tf_logs',
+    missions: 'tf_missions',
+    orders: 'tf_orders',
+    bounties: 'tf_bounties',
+    chat: 'tf_chat',
+    world: 'tf_world',
+};
+
+function cacheSet(key, data) {
+    try { sessionStorage.setItem(key, JSON.stringify(data)); } catch { /* quota exceeded – ignore */ }
+}
+function cacheGet(key) {
+    try { const v = sessionStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; }
+}
+
 export class GameAPI {
     constructor(game) {
         this.game = game;
@@ -38,8 +59,9 @@ export class GameAPI {
         try {
             const apiKey = localStorage.getItem('sv_api_key');
             const headers = apiKey ? { 'X-API-KEY': apiKey } : {};
-            const isSecondary = (this._pollCycle % 3 === 0);  // every 30s
-            const isSlow = (this._pollCycle % 6 === 0);        // every 60s
+            const isFirstPoll = (this._pollCycle === 0);
+            const isSecondary = isFirstPoll || (this._pollCycle % 2 === 0);  // every 20s (was 30s)
+            const isSlow = isFirstPoll || (this._pollCycle % 4 === 0);       // every 40s (was 60s)
 
             // ── CRITICAL TIER (every 10s): state + agent ──
             const criticalResults = await Promise.allSettled([
@@ -101,6 +123,17 @@ export class GameAPI {
 
             const chatMessages = await safeJson(chatResult);
 
+            // ── Persist to sessionStorage cache ──
+            if (data) cacheSet(CACHE_KEYS.world, data);
+            if (agentData) cacheSet(CACHE_KEYS.agent, agentData);
+            if (perceptionData) cacheSet(CACHE_KEYS.perception, perceptionData);
+            if (stats) cacheSet(CACHE_KEYS.stats, stats);
+            if (privateLogs) cacheSet(CACHE_KEYS.logs, privateLogs);
+            if (missions) cacheSet(CACHE_KEYS.missions, missions);
+            if (myOrders) cacheSet(CACHE_KEYS.orders, myOrders);
+            if (bounties) cacheSet(CACHE_KEYS.bounties, bounties);
+            if (chatMessages) cacheSet(CACHE_KEYS.chat, chatMessages);
+
             // ── Update game state ──
             if (data) this.game.lastWorldData = data;
             if (perceptionData) this.game.lastPerception = perceptionData;
@@ -139,7 +172,7 @@ export class GameAPI {
 
             if (privateLogs || chatMessages) {
                 try {
-                    this.game.updatePrivateLogs(privateLogs, agentData ? agentData.pending_intent : null, chatMessages);
+                    this.game.updatePrivateLogs(privateLogs, agentData ? agentData.pending_intent : null, chatMessages || []);
                 } catch (e) {
                     console.error("Error updating RM Logs:", e);
                 }
@@ -259,7 +292,46 @@ export class GameAPI {
         }
     }
 
+    /**
+     * Restore last-known state from sessionStorage so HUD panels
+     * render immediately instead of showing empty placeholders.
+     */
+    restoreFromCache() {
+        const agent = cacheGet(CACHE_KEYS.agent);
+        const world = cacheGet(CACHE_KEYS.world);
+        const perception = cacheGet(CACHE_KEYS.perception);
+        const stats = cacheGet(CACHE_KEYS.stats);
+        const logs = cacheGet(CACHE_KEYS.logs);
+        const missions = cacheGet(CACHE_KEYS.missions);
+        const orders = cacheGet(CACHE_KEYS.orders);
+        const bounties = cacheGet(CACHE_KEYS.bounties);
+        const chat = cacheGet(CACHE_KEYS.chat);
+
+        if (world) {
+            this.game.lastWorldData = world;
+            try { this.game.updateTickUI(world.tick, world.phase); } catch { }
+            try { this.game.updateLiveFeed(world.logs); } catch { }
+            try { this.game.updateMarketUI(world.market); } catch { }
+        }
+        if (perception) this.game.lastPerception = perception;
+        if (stats) try { this.game.updateGlobalUI(stats); } catch { }
+        if (bounties) try { this.game.updateBountyBoard(bounties); } catch { }
+        if (Array.isArray(missions)) try { this.game.updateMissionsUI(missions); } catch { }
+        if (agent) {
+            this.game.lastAgentData = agent;
+            try { this.game.updatePrivateUI(agent); } catch { }
+            try { this.game.updateForgeUI(agent.discovery); } catch { }
+        }
+        if (logs || chat) {
+            try { this.game.updatePrivateLogs(logs, agent ? agent.pending_intent : null, chat || []); } catch { }
+        }
+        if (orders) try { this.game.updateMyOrdersUI(orders); } catch { }
+    }
+
     startPolling() {
+        // Immediately restore cached data so HUD isn't empty
+        this.restoreFromCache();
+
         setInterval(() => {
             this._pollCycle++;
             this.pollState();
