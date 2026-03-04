@@ -1,8 +1,8 @@
-﻿import { GameAPI } from './api.js?v=2.19';
-import { AuthManager } from './auth.js?v=2.19';
-import { GameRenderer } from './renderer.js?v=2.19';
-import { UIManager } from './ui.js?v=2.19';
-import { TerminalHandler } from './terminal.js?v=2.19';
+﻿import { GameAPI } from './api.js?v=2.20';
+import { AuthManager } from './auth.js?v=2.20';
+import { GameRenderer } from './renderer.js?v=2.20';
+import { UIManager } from './ui.js?v=2.20';
+import { TerminalHandler } from './terminal.js?v=2.20';
 
 /**
  * app.js — Main Bootstrapper
@@ -107,6 +107,8 @@ class GameClient {
     updateMyOrdersUI(orders) { return this.ui.updateMyOrdersUI(orders); }
     handleWorldEvent(data) { return this.renderer.handleWorldEvent(data); }
     updateAgentMesh(data) { return this.renderer.updateAgentMesh(data); }
+    updateResourceMesh(data) { return this.renderer.updateResourceMesh(data); }
+    updateLootMesh(data) { return this.renderer.updateLootMesh(data); }
     createHex(data) { return this.renderer.createHex(data); }
     centerOnAgent() { return this.renderer.centerOnAgent(); }
 

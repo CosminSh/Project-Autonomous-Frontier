@@ -56,7 +56,7 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
             "capacitor": agent.capacitor, "structure": agent.structure,
             "level": agent.level, "faction": agent.faction_id
         },
-        "nearby_agents": [{"id": a.id, "name": a.name, "q": a.q, "r": a.r, "faction": a.faction_id} for a in visible_agents if a.id != agent.id],
+        "nearby_agents": [{"id": a.id, "name": a.name, "q": a.q, "r": a.r, "faction": a.faction_id, "is_feral": a.is_feral, "visual_signature": a.visual_signature} for a in visible_agents if a.id != agent.id],
         "discovery": discovery,
         "loot": [{"item": l.item_type, "qty": l.quantity, "q": l.q, "r": l.r} for l in loot]
     }

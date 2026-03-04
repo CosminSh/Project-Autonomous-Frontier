@@ -19,10 +19,11 @@ export class GameRenderer {
         // World Objects
         this.planetMesh = null;
         this.faceCentroids = [];
-        this.starfield = null;
         this.debris = null;
         this.hexes = new Map();
         this.agents = new Map();
+        this.resources = new Map();
+        this.loots = new Map();
         this.poiLabels = new Map();
 
         // Selection
@@ -140,6 +141,19 @@ export class GameRenderer {
 
         if (this.scene.backgroundRotation) {
             this.scene.backgroundRotation.y += 0.0002;
+        }
+
+        // 4. Spin Resources & Loot
+        for (let mesh of this.resources.values()) {
+            if (mesh.visible) {
+                mesh.rotation.y += 0.02;
+            }
+        }
+        for (let mesh of this.loots.values()) {
+            if (mesh.visible) {
+                mesh.rotation.x += 0.01;
+                mesh.rotation.y += 0.02;
+            }
         }
 
         if (this.renderer && this.scene && this.camera) {
@@ -454,6 +468,79 @@ export class GameRenderer {
             }
         }
     }
+
+    updateResourceMesh(resData) {
+        const id = `${resData.q},${resData.r},${resData.type}`;
+        let mesh = this.resources.get(id);
+
+        if (!mesh) {
+            let resColor = 0xffffff;
+            let scale = 0.8;
+            let emissive = 0x000000;
+            let geom, mat;
+
+            if (resData.type === 'IRON_ORE' || resData.type === 'ORE') resColor = 0x94a3b8;
+            else if (resData.type === 'COBALT_ORE') resColor = 0x38bdf8;
+            else if (resData.type === 'GOLD_ORE') { resColor = 0xfbbf24; scale = 1.0; }
+            else if (resData.type === 'HE3_FUEL') {
+                resColor = 0xa855f7; // Purple/Pink
+                emissive = 0x9333ea;
+                scale = 1.2;
+            }
+
+            if (resData.type === 'HE3_FUEL') {
+                geom = new THREE.SphereGeometry(scale * 0.5, 8, 8);
+                mat = new THREE.MeshStandardMaterial({
+                    color: resColor,
+                    emissive: emissive,
+                    emissiveIntensity: 0.8,
+                    transparent: true,
+                    opacity: 0.7
+                });
+            } else {
+                geom = new THREE.TetrahedronGeometry(scale, 0);
+                mat = new THREE.MeshStandardMaterial({ color: resColor, roughness: 0.2, metalness: 0.8, flatShading: true });
+            }
+
+            mesh = new THREE.Mesh(geom, mat);
+            if (resData.type !== 'HE3_FUEL') {
+                mesh.scale.set(0.6, 1.2, 0.6);
+            }
+
+            const { x, y, z } = this.qToSphere(resData.q, resData.r, 0.5); // float slightly above ground
+            mesh.position.set(x, y, z);
+            mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), mesh.position.clone().normalize());
+
+            this.scene.add(mesh);
+            this.resources.set(id, mesh);
+        }
+    }
+
+    updateLootMesh(lootData) {
+        const id = `${lootData.q},${lootData.r},${lootData.item}`;
+        let mesh = this.loots.get(id);
+
+        if (!mesh) {
+            const geom = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0x10b981, // Emerald green
+                emissive: 0x059669,
+                emissiveIntensity: 0.6,
+                roughness: 0.3,
+                metalness: 0.5
+            });
+
+            mesh = new THREE.Mesh(geom, mat);
+
+            const { x, y, z } = this.qToSphere(lootData.q, lootData.r, 0.5);
+            mesh.position.set(x, y, z);
+            mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), mesh.position.clone().normalize());
+
+            this.scene.add(mesh);
+            this.loots.set(id, mesh);
+        }
+    }
+
 
     handleWorldEvent(data) {
         if (data.event === 'MINING') {

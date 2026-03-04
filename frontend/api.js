@@ -184,6 +184,36 @@ export class GameAPI {
                 visibleAgentIds.add(agent.id);
             });
 
+            // Render Dynamic Resources
+            if (this.game.lastPerception && this.game.lastPerception.discovery && this.game.lastPerception.discovery.resources) {
+                const visibleResIds = new Set();
+                this.game.lastPerception.discovery.resources.forEach(res => {
+                    const id = `${res.q},${res.r},${res.type}`;
+                    visibleResIds.add(id);
+                    this.game.updateResourceMesh(res);
+                });
+                for (let [id, mesh] of this.game.renderer.resources.entries()) {
+                    mesh.visible = visibleResIds.has(id);
+                }
+            } else {
+                for (let mesh of this.game.renderer.resources.values()) mesh.visible = false;
+            }
+
+            // Render Dynamic Loot
+            if (this.game.lastPerception && this.game.lastPerception.loot) {
+                const visibleLootIds = new Set();
+                this.game.lastPerception.loot.forEach(loot => {
+                    const id = `${loot.q},${loot.r},${loot.item}`;
+                    visibleLootIds.add(id);
+                    this.game.updateLootMesh(loot);
+                });
+                for (let [id, mesh] of this.game.renderer.loots.entries()) {
+                    mesh.visible = visibleLootIds.has(id);
+                }
+            } else {
+                for (let mesh of this.game.renderer.loots.values()) mesh.visible = false;
+            }
+
             for (let [id, mesh] of this.game.agents.entries()) {
                 mesh.visible = visibleAgentIds.has(id);
             }
