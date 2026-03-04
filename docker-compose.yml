@@ -7,6 +7,9 @@ services:
       - POSTGRES_DB=terminal_frontier
       - POSTGRES_USER=admin
       - POSTGRES_PASSWORD=password
+      - POSTGRES_SHARED_BUFFERS=64MB
+      - POSTGRES_WORK_MEM=2MB
+      - POSTGRES_MAX_CONNECTIONS=40
     ports:
       - "5432:5432"
     deploy:
