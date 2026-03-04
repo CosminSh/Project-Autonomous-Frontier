@@ -79,7 +79,7 @@ with SessionLocal() as db:
                     res_density = random.uniform(0.5, 2.0) * (1 + dist * 0.2)
                 elif roll < 0.15: terrain = "OBSTACLE"
                 
-                if gq == 0 and gr == 0: terrain, is_station, st_type = "STATION", True, "MARKET"
+                if gq == 0 and gr == 0: terrain, is_station, st_type = "STATION", True, "STATION_HUB"
                 if gq == 10 and gr == 0: terrain, is_station, st_type = "STATION", True, "SMELTER"
                 if gq == 0 and gr == 10: terrain, is_station, st_type = "STATION", True, "CRAFTER"
                 if gq == -10 and gr == 0: terrain, is_station, st_type = "STATION", True, "REPAIR"

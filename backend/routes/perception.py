@@ -22,8 +22,25 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
         Agent.r >= agent.r - sensor_range, Agent.r <= agent.r + sensor_range
     )).scalars().all()
     
-    # 2. Nearby Resources & Stations (Cached/Discovery)
+    # 2. Nearby Local Features (Scan WorldHex)
+    nearby_hexes = db.execute(select(WorldHex).where(
+        WorldHex.q >= agent.q - sensor_range, WorldHex.q <= agent.q + sensor_range,
+        WorldHex.r >= agent.r - sensor_range, WorldHex.r <= agent.r + sensor_range,
+        (WorldHex.resource_type != None) | (WorldHex.is_station == True)
+    )).scalars().all()
+    
+    local_stations = []
+    local_resources = []
+    for h in nearby_hexes:
+        if h.is_station:
+            local_stations.append({"id_type": h.station_type, "q": h.q, "r": h.r})
+        if h.resource_type:
+            local_resources.append({"type": h.resource_type, "q": h.q, "r": h.r})
+
+    # Get global nav discovery packet but augment with local scan
     discovery = get_discovery_packet(STATION_CACHE, agent)
+    discovery["stations"] = local_stations
+    discovery["resources"] = local_resources
     
     # 3. Local Loot
     loot = db.execute(select(LootDrop).where(
@@ -41,7 +58,7 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
         },
         "nearby_agents": [{"id": a.id, "name": a.name, "q": a.q, "r": a.r, "faction": a.faction_id} for a in visible_agents if a.id != agent.id],
         "discovery": discovery,
-        "loot": [{"item": l.item_type, "qty": l.quantity} for l in loot]
+        "loot": [{"item": l.item_type, "qty": l.quantity, "q": l.q, "r": l.r} for l in loot]
     }
 
 @router.get("/map")

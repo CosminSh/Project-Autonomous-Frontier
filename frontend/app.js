@@ -52,10 +52,12 @@ class GameClient {
         document.getElementById('btn-mode-agent')?.addEventListener('click', () => this.ui.setUIMode('management'));
 
         // Tabs
-        ['overview', 'garage', 'market', 'forge', 'terminal', 'storage'].forEach(tab => {
+        ['terminal', 'inventory', 'station', 'system'].forEach(tab => {
             const el = document.getElementById(`tab-${tab}`);
             if (el) el.addEventListener('click', () => this.ui.switchTab(tab));
         });
+        // Default to Command Center tab
+        this.ui.switchTab('terminal');
 
         // Industry Actions
         const actions = ['SMELT', 'CRAFT', 'REPAIR'];

@@ -55,6 +55,7 @@ class Agent(Base):
     intents = relationship("Intent", back_populates="agent")
     inventory = relationship("InventoryItem", back_populates="agent")
     storage = relationship("StorageItem", back_populates="agent")
+    missions = relationship("AgentMission", back_populates="agent")
 
 class ChassisPart(Base):
     __tablename__ = "chassis_parts"
@@ -195,7 +196,7 @@ class AgentMission(Base):
     progress = Column(Integer, default=0)
     is_completed = Column(Boolean, default=False)
     
-    agent = relationship("Agent")
+    agent = relationship("Agent", back_populates="missions")
     mission = relationship("DailyMission")
 
 class AgentMessage(Base):

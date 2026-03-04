@@ -38,22 +38,65 @@ export class UIManager {
     }
 
     switchTab(tabId) {
-        const tabs = ['overview', 'garage', 'market', 'forge', 'terminal', 'storage'];
+        const tabs = ['terminal', 'inventory', 'station', 'system'];
         tabs.forEach(t => {
             const btn = document.getElementById(`tab-${t}`);
             const content = document.getElementById(`content-${t}`);
             if (btn) {
+                btn.classList.toggle('border-b-2', t === tabId);
                 btn.classList.toggle('border-sky-500', t === tabId);
                 btn.classList.toggle('text-sky-400', t === tabId);
                 btn.classList.toggle('text-slate-500', t !== tabId);
+                btn.classList.toggle('border-b-0', t !== tabId);
             }
             if (content) content.classList.toggle('hidden', t !== tabId);
         });
 
-        if (tabId === 'storage' && window.storageUI) {
+        if (tabId === 'inventory' && window.storageUI) {
             window.storageUI.refreshStorage();
         }
     }
+
+    switchInventoryTab(subTab) {
+        const panels = ['cargo', 'gear', 'vault'];
+        const activeColors = { cargo: 'sky', gear: 'sky', vault: 'sky' };
+        panels.forEach(p => {
+            const btn = document.getElementById(`inv-tab-${p}`);
+            const panel = document.getElementById(`inv-panel-${p}`);
+            if (panel) panel.classList.toggle('hidden', p !== subTab);
+            if (btn) {
+                if (p === subTab) {
+                    btn.classList.add('border-sky-500/50', 'bg-sky-500/10', 'text-sky-400');
+                    btn.classList.remove('border-slate-700', 'text-slate-500');
+                } else {
+                    btn.classList.remove('border-sky-500/50', 'bg-sky-500/10', 'text-sky-400');
+                    btn.classList.add('border-slate-700', 'text-slate-500');
+                }
+            }
+        });
+        if (subTab === 'vault' && window.storageUI) {
+            window.storageUI.refreshStorage();
+        }
+    }
+
+    switchStationTab(subTab) {
+        const panels = ['forge', 'market', 'missions'];
+        panels.forEach(p => {
+            const btn = document.getElementById(`stn-tab-${p}`);
+            const panel = document.getElementById(`stn-panel-${p}`);
+            if (panel) panel.classList.toggle('hidden', p !== subTab);
+            if (btn) {
+                if (p === subTab) {
+                    btn.classList.add('border-emerald-500/50', 'bg-emerald-500/10', 'text-emerald-400');
+                    btn.classList.remove('border-slate-700', 'text-slate-500');
+                } else {
+                    btn.classList.remove('border-emerald-500/50', 'bg-emerald-500/10', 'text-emerald-400');
+                    btn.classList.add('border-slate-700', 'text-slate-500');
+                }
+            }
+        });
+    }
+
 
     updateGlobalUI(stats) {
         document.getElementById('stat-agents').innerText = stats.total_agents || 0;
@@ -295,6 +338,7 @@ export class UIManager {
         }
 
         this.updateSquadUI(agent);
+        this.drawMinimap();
 
         if (agent.solar_intensity !== undefined) {
             const solarBar = document.getElementById('solar-bar');
@@ -540,8 +584,9 @@ export class UIManager {
                             <div class="flex justify-between items-center mt-2">
                                 <span class="text-[8px] text-slate-400 uppercase">Target: ${target} ${m.item_type}</span>
                                 <button onclick="game.api.submitIntent('TURN_IN', {mission_id: ${m.id}})" 
-                                    class="${canTurnIn ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20' : 'bg-slate-800 text-slate-500 cursor-not-allowed'} px-3 py-1 rounded text-[8px] font-bold uppercase transition-all">
-                                    Turn In
+                                    ${!canTurnIn ? 'disabled' : ''}
+                                    class="${canTurnIn ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 active:scale-95' : 'bg-slate-800 text-slate-500 cursor-not-allowed'} px-3 py-1 rounded text-[8px] font-bold uppercase transition-all">
+                                    Turn In [#${m.id}]
                                 </button>
                             </div>
                         ` : `
@@ -657,6 +702,142 @@ Intent payload format:
 
 -----------------------------------------------------------------------------`.trim();
         }
+    }
+
+    drawMinimap() {
+        const canvas = document.getElementById('minimap-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = '#0f172a'; // slate-900
+        ctx.fillRect(0, 0, width, height);
+
+        const p = this.game.lastPerception;
+        const agent = this.game.lastAgentData;
+        if (!agent) {
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px font-mono';
+            ctx.textAlign = 'center';
+            ctx.fillText('NO SIGNAL', width / 2, height / 2);
+            return;
+        }
+
+        const coordsEl = document.getElementById('minimap-coords');
+        if (coordsEl) coordsEl.innerText = `Q:${agent.q} R:${agent.r}`;
+
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const scale = 20; // hex radius
+
+        // Helpers to convert axial to pixel
+        const getX = (q, r) => centerX + scale * Math.sqrt(3) * (q + r / 2);
+        const getY = (q, r) => centerY + scale * 3 / 2 * r;
+
+        // Draw grids or just items
+        const drawHex = (cx, cy, radius, color, isFill = false) => {
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = 2 * Math.PI / 6 * (i + 0.5);
+                const x_i = cx + radius * Math.cos(angle);
+                const y_i = cy + radius * Math.sin(angle);
+                if (i === 0) ctx.moveTo(x_i, y_i);
+                else ctx.lineTo(x_i, y_i);
+            }
+            ctx.closePath();
+            if (isFill) {
+                ctx.fillStyle = color;
+                ctx.fill();
+            } else {
+                ctx.strokeStyle = color;
+                ctx.stroke();
+            }
+        };
+
+        const drawLabel = (cx, cy, text, color) => {
+            ctx.fillStyle = color;
+            ctx.font = '8px Orbitron, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, cx, cy + 12);
+        };
+
+        ctx.lineWidth = 1;
+
+        if (p) {
+            // Draw Range Radius (approximate)
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, scale * 3, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.1)';
+            ctx.stroke();
+
+            // Resources
+            if (p.discovery && p.discovery.resources) {
+                p.discovery.resources.forEach(r => {
+                    const cx = getX(r.q - agent.q, r.r - agent.r);
+                    const cy = getY(r.q - agent.q, r.r - agent.r);
+                    drawHex(cx, cy, scale * 0.6, 'rgba(16, 185, 129, 0.5)', true); // emerald
+                    drawHex(cx, cy, scale * 0.6, '#10b981', false);
+                    drawLabel(cx, cy, r.type.split('_')[0], '#34d399');
+                });
+            }
+
+            // Stations
+            if (p.discovery && p.discovery.stations) {
+                p.discovery.stations.forEach(s => {
+                    const cx = getX(s.q - agent.q, s.r - agent.r);
+                    const cy = getY(s.q - agent.q, s.r - agent.r);
+                    drawHex(cx, cy, scale * 0.8, 'rgba(234, 179, 8, 0.5)', true); // yellow
+                    drawHex(cx, cy, scale * 0.8, '#eab308', false);
+                    drawLabel(cx, cy, s.id_type, '#facc15');
+                });
+            }
+
+            // Loot
+            if (p.loot) {
+                p.loot.forEach(l => {
+                    if (l.q !== undefined && l.r !== undefined) {
+                        const cx = getX(l.q - agent.q, l.r - agent.r);
+                        const cy = getY(l.q - agent.q, l.r - agent.r);
+
+                        // Draw triangle for loot
+                        ctx.beginPath();
+                        ctx.moveTo(cx, cy - 5);
+                        ctx.lineTo(cx + 5, cy + 4);
+                        ctx.lineTo(cx - 5, cy + 4);
+                        ctx.closePath();
+                        ctx.fillStyle = 'rgba(168, 85, 247, 0.8)'; // purple
+                        ctx.fill();
+
+                        drawLabel(cx, cy, l.item.split('_')[0], '#c084fc');
+                    }
+                });
+            }
+
+            // Other Agents
+            if (p.nearby_agents) {
+                p.nearby_agents.forEach(a => {
+                    const cx = getX(a.q - agent.q, a.r - agent.r);
+                    const cy = getY(a.q - agent.q, a.r - agent.r);
+
+                    // Draw red square for agents
+                    ctx.fillStyle = 'rgba(244, 63, 94, 0.8)'; // rose
+                    ctx.fillRect(cx - 4, cy - 4, 8, 8);
+
+                    drawLabel(cx, cy + 4, a.name.substring(0, 6), '#fb7185');
+                });
+            }
+        }
+
+        // Draw Self (Center)
+        drawHex(centerX, centerY, scale * 0.5, 'rgba(56, 189, 248, 0.8)', true); // sky
+        ctx.fillStyle = '#bae6fd';
+        ctx.font = 'bold 9px Base';
+        ctx.textAlign = 'center';
+        ctx.fillText('YOU', centerX, centerY - 8);
     }
 }
 

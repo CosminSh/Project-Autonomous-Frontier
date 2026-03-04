@@ -80,7 +80,7 @@ def seed_world():
                 # Hub at (0,0)
                 if gq == 0 and gr == 0:
                     is_station = True
-                    st_type = "MARKET"
+                    st_type = "STATION_HUB"
                     terrain = "STATION"
                 
                 # Smelter at (10, 0)

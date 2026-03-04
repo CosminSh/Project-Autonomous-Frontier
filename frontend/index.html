@@ -427,207 +427,168 @@
                             <!-- Populated via JS -->
                         </div>
                     </div>
+
+                    <div class="pt-4 border-t border-slate-800 mt-4">
+                        <h4
+                            class="text-[9px] md:text-[10px] text-slate-500 uppercase tracking-widest mb-3 font-bold flex justify-between">
+                            <span>Tactical Minimap</span>
+                            <span id="minimap-coords" class="text-[8px] font-mono text-sky-400">Q:0 R:0</span>
+                        </h4>
+                        <div
+                            class="relative w-full aspect-square bg-slate-950/80 rounded-xl border border-slate-800 overflow-hidden shadow-inner flex items-center justify-center">
+                            <canvas id="minimap-canvas" width="250" height="250"
+                                class="w-full h-full object-contain"></canvas>
+                        </div>
+                    </div>
                 </div>
             </aside>
 
             <!-- Main Control Tabs -->
             <main
                 class="flex-grow mx-0 lg:m-2 lg:rounded-2xl overflow-hidden glass interactive flex flex-col border border-slate-800 min-h-[400px]">
-                <nav class="flex border-b border-slate-800/80 overflow-x-auto custom-scrollbar no-scrollbar-mobile">
-                    <button id="tab-overview"
-                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold border-b-2 border-sky-500 text-sky-400 whitespace-nowrap transition-all">📊
-                        Overview</button>
-                    <button id="tab-garage"
-                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">🔧
-                        Garage</button>
-                    <button id="tab-market"
-                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">📈
-                        Market</button>
-                    <button id="tab-forge"
-                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">⚒️
-                        Forge</button>
+                <nav class="flex border-b border-slate-800/80 overflow-x-auto">
                     <button id="tab-terminal"
-                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">⌨️
-                        Terminal</button>
-                    <button id="tab-storage"
-                        class="flex-1 min-w-[100px] py-4 text-[10px] md:text-xs uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">📦
-                        Storage</button>
+                        class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold border-b-2 border-sky-500 text-sky-400 whitespace-nowrap transition-all">⌨️
+                        Command</button>
+                    <button id="tab-inventory"
+                        class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">🎒
+                        Inventory</button>
+                    <button id="tab-station"
+                        class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">🏭
+                        Station</button>
+                    <button id="tab-system"
+                        class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">⚙️
+                        System</button>
                 </nav>
                 <div class="p-3 md:p-4 flex-grow overflow-y-auto custom-scrollbar">
-                    <!-- Overview Tab -->
-                    <div id="content-overview">
-                        <div class="flex justify-between items-center mb-5">
-                            <h3 class="orbitron text-base md:text-lg text-sky-400">TELEMETRY UPLINK</h3>
-                            <div class="flex items-center space-x-2">
-                                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                                <span class="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Neural Link:
-                                    Active</span>
+
+                    <!-- ════════════════════════════════════════════════
+                         TAB 1: COMMAND CENTER
+                         Terminal + Action Telemetry + Nav Computer
+                    ════════════════════════════════════════════════ -->
+                    <div id="content-terminal" class="flex flex-col gap-4">
+                        <!-- Terminal -->
+                        <div
+                            class="glass rounded-xl border border-slate-800 border-l-4 border-l-sky-500 p-3 flex flex-col">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="orbitron text-sm text-sky-400">⌨️ MANUAL OVERRIDE</h3>
+                                <span class="text-[8px] uppercase tracking-widest font-black opacity-40">Neural
+                                    Directive Ready</span>
+                            </div>
+                            <div id="terminal-buffer"
+                                class="terminal-output flex-grow p-3 rounded-xl mb-3 overflow-y-auto min-h-[220px] max-h-[280px] text-[10px] space-y-1">
+                                <div class="text-slate-600 font-mono italic">Initializing command buffer...</div>
+                                <div class="text-sky-500/80 font-mono">UPLINK: Direct manual control enabled. Type
+                                    'HELP' for syntax.</div>
+                            </div>
+                            <div class="terminal-input-container">
+                                <div id="command-suggestions" class="suggestion-list hidden"></div>
+                                <div class="flex space-x-2">
+                                    <span class="text-sky-500 font-bold self-center ml-2 mr-1">&gt;</span>
+                                    <input type="text" id="terminal-input"
+                                        class="flex-grow bg-slate-950 border border-slate-800 p-3 rounded-xl text-sky-400 font-mono text-sm outline-none focus:border-sky-500 transition-all"
+                                        placeholder="TYPE 'HELP' FOR SYNTAX..." autocomplete="off">
+                                    <button id="terminal-submit"
+                                        class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-5 py-2 rounded-xl font-bold orbitron text-xs transition-all uppercase">Enter</button>
+                                </div>
+                                <div class="mt-2 flex flex-wrap gap-1.5 pb-1">
+                                    <button id="btn-quick-move"
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">MOVE</button>
+                                    <button id="btn-quick-scan"
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">SCAN</button>
+                                    <button id="btn-quick-status"
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">STATUS</button>
+                                    <button id="btn-quick-mine"
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">MINE</button>
+                                    <button id="btn-quick-salvage"
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">SALVAGE</button>
+                                    <button id="btn-quick-repair"
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">REPAIR</button>
+                                    <button id="btn-quick-help"
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-amber-400 hover:border-amber-500/30">HELP</button>
+                                    <button id="btn-quick-missions"
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-amber-400 hover:border-amber-500/30">MISSIONS</button>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="space-y-5">
-                            <!-- Action Telemetry -->
-                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
-                                <h4 class="text-[10px] text-emerald-500 uppercase mb-3 tracking-widest font-bold">Action
-                                    Telemetry</h4>
-                                <div id="private-logs"
-                                    class="space-y-2 h-48 overflow-y-auto custom-scrollbar font-mono text-[10px]">
-                                    <div class="text-slate-600 italic">Waiting for neural activity...</div>
-                                </div>
+                        <!-- Action Telemetry -->
+                        <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
+                            <h4 class="text-[10px] text-emerald-500 uppercase mb-2 tracking-widest font-bold">📡 Action
+                                Telemetry</h4>
+                            <div id="private-logs"
+                                class="space-y-1 h-40 overflow-y-auto custom-scrollbar font-mono text-[10px]">
+                                <div class="text-slate-600 italic">Waiting for neural activity...</div>
                             </div>
+                        </div>
 
-                            <!-- Navigation Computer -->
-                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
-                                <h4 class="text-[10px] text-sky-400 uppercase mb-3 tracking-widest font-bold">Navigation
-                                    Computer</h4>
-                                <div id="nav-computer-list" class="grid grid-cols-2 gap-3">
-                                    <div class="text-[10px] text-slate-600 italic col-span-2">Scanning for deep-space
-                                        signatures...</div>
-                                </div>
+                        <!-- Navigation Computer -->
+                        <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                            <h4 class="text-[10px] text-sky-400 uppercase mb-2 tracking-widest font-bold">🧭 Navigation
+                                Computer</h4>
+                            <div id="nav-computer-list" class="grid grid-cols-2 gap-3">
+                                <div class="text-[10px] text-slate-600 italic col-span-2">Scanning for deep-space
+                                    signatures...</div>
                             </div>
-
-                            <!-- Daily Missions -->
-                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
-                                <div class="flex justify-between items-center mb-3">
-                                    <h4 class="text-[10px] text-amber-500 uppercase tracking-widest font-bold">Daily
-                                        Missions</h4>
-                                    <span class="text-[8px] text-slate-600 uppercase tracking-wider">Refreshes every
-                                        8h</span>
-                                </div>
-                                <div id="missions-list" class="space-y-3">
-                                    <div class="text-[10px] text-slate-600 italic">Syncing mission data...</div>
-                                </div>
-                                <button id="btn-claim-daily" onclick="window.game.claimDaily()"
-                                    class="w-full mt-4 bg-sky-500/20 hover:bg-sky-500/40 text-sky-400 border border-sky-500/30 px-3 py-2 rounded text-[10px] orbitron font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                    CLAIM DAILY REWARD
-                                </button>
-                            </div>
-
-                            <!-- API Key -->
-                            <div class="glass p-5 rounded-xl border border-slate-800">
-                                <div class="flex justify-between items-center mb-2">
-                                    <label
-                                        class="text-[10px] text-slate-500 uppercase block tracking-widest font-bold">Neural
-                                        API Key</label>
-                                    <button id="logout-btn"
-                                        class="p-1 rounded hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all flex justify-center items-center space-x-1 interactive"
-                                        title="Disconnect Session">
-                                        <span class="text-[8px] uppercase tracking-widest font-bold">Logout</span>
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none"
-                                            viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                <div class="flex space-x-2">
-                                    <code id="api-key-display"
-                                        class="flex-grow bg-slate-950/60 p-3 rounded-lg text-emerald-400 font-mono text-sm border border-slate-800">********************************</code>
-                                    <button id="copy-api-btn"
-                                        class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-5 py-2.5 rounded-lg font-bold text-xs transition-all uppercase">Copy</button>
-                                </div>
-                            </div>
-
-                            <!-- Squad Telemetry -->
-                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-purple-500">
-                                <div class="flex justify-between items-center mb-3">
-                                    <h4 class="text-[10px] text-purple-400 uppercase tracking-widest font-bold">Squad
-                                        Telemetry</h4>
-                                    <span id="squad-id-display" class="text-[8px] text-slate-500 uppercase font-mono">No
-                                        Squad</span>
-                                </div>
-                                <div id="pending-invite-panel"
-                                    class="hidden mb-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
-                                    <p class="text-[10px] text-purple-300 mb-2">Pending Invite Received!</p>
-                                    <div class="flex space-x-2">
-                                        <button onclick="window.game.acceptSquad()"
-                                            class="flex-1 bg-purple-500 hover:bg-purple-400 text-slate-950 font-bold text-[9px] py-1.5 rounded uppercase transition-colors">Accept</button>
-                                        <button onclick="window.game.declineSquad()"
-                                            class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[9px] py-1.5 rounded uppercase transition-colors">Decline</button>
-                                    </div>
-                                </div>
-                                <div id="squad-members-list" class="space-y-2 mb-4">
-                                    <div class="text-[10px] text-slate-600 italic">Operating solo.</div>
-                                </div>
-                                <div class="flex space-x-2">
-                                    <input type="number" id="invite-target-id" placeholder="Agent ID"
-                                        class="w-20 bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded p-1 outline-none relative z-10 focus:border-purple-500 transition-colors pointer-events-auto">
-                                    <button onclick="window.game.inviteSquad()"
-                                        class="flex-grow bg-slate-800 hover:bg-slate-700 text-purple-400 border border-purple-500/30 px-2 py-1 rounded text-[10px] orbitron font-bold transition-all relative z-10 pointer-events-auto">INVITE</button>
-                                    <button onclick="window.game.leaveSquad()"
-                                        class="hidden bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 border border-rose-500/30 px-2 py-1 rounded text-[10px] orbitron font-bold transition-all relative z-10 pointer-events-auto"
-                                        id="btn-leave-squad">LEAVE</button>
-                                </div>
-                            </div>
-
-                            <!-- Agent Directive Card -->
-                            <button id="open-directive-btn"
-                                class="w-full glass p-5 rounded-xl border border-sky-500/20 hover:border-sky-500/40 hover:bg-sky-500/5 transition-all cursor-pointer text-left group">
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <h4
-                                            class="text-[10px] text-sky-400 uppercase tracking-widest font-bold group-hover:text-sky-300 transition-colors">
-                                            🤖 Agent Directive: Alpha-1</h4>
-                                        <p class="text-[9px] text-slate-500 mt-1">Bootstrap prompt, API endpoints, and
-                                            FSM architecture for autonomous agents.</p>
-                                    </div>
-                                    <svg xmlns="http://www.w3.org/2000/svg"
-                                        class="h-5 w-5 text-slate-600 group-hover:text-sky-400 transition-colors"
-                                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M9 5l7 7-7 7" />
-                                    </svg>
-                                </div>
-                            </button>
                         </div>
                     </div>
 
-                    <!-- Garage Tab -->
-                    <div id="content-garage" class="hidden">
-                        <h3 class="orbitron text-base md:text-lg text-sky-400 mb-5">THE GARAGE</h3>
-                        <div class="space-y-5">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
-                                    <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">
-                                        Equipped Modular Gear</h4>
-                                    <div id="equipped-list" class="space-y-3">
-                                        <div class="text-[10px] text-slate-600 italic">No specialized gear detected.
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
-                                    <h4 class="text-[10px] text-amber-500 uppercase mb-4 tracking-widest font-bold">
-                                        Resource Storage</h4>
-                                    <div id="detailed-inventory" class="grid grid-cols-1 gap-2">
-                                        <div class="text-[10px] text-slate-600 italic">Cargo bay scan in progress...
-                                        </div>
-                                    </div>
-                                </div>
-                                <div
-                                    class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-indigo-500 md:col-span-2">
-                                    <h4 class="text-[10px] text-indigo-400 uppercase mb-4 tracking-widest font-bold">
-                                        Usable Equipment</h4>
-                                    <div id="equipment-inventory" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div class="text-[10px] text-slate-600 italic">Cargo bay scan in progress...
-                                        </div>
-                                    </div>
-                                </div>
-                                <div
-                                    class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-rose-500 md:col-span-2">
-                                    <h4 class="text-[10px] text-rose-500 uppercase mb-4 tracking-widest font-bold">
-                                        Consumable Field Supplies</h4>
-                                    <div id="consumable-inventory" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div class="text-[10px] text-slate-600 italic">Cargo bay scan in progress...
-                                        </div>
-                                    </div>
+                    <!-- ════════════════════════════════════════════════
+                         TAB 2: INVENTORY
+                         Sub-tabs: Cargo | Gear | Vault
+                    ════════════════════════════════════════════════ -->
+                    <div id="content-inventory" class="hidden">
+                        <!-- Sub-tab pills -->
+                        <div class="flex gap-2 mb-4">
+                            <button onclick="game.ui.switchInventoryTab('cargo')" id="inv-tab-cargo"
+                                class="inv-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-sky-500/50 bg-sky-500/10 text-sky-400 transition-all">📦
+                                Cargo</button>
+                            <button onclick="game.ui.switchInventoryTab('gear')" id="inv-tab-gear"
+                                class="inv-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-slate-700 text-slate-500 hover:border-sky-500/30 hover:text-slate-300 transition-all">🔧
+                                Gear</button>
+                            <button onclick="game.ui.switchInventoryTab('vault')" id="inv-tab-vault"
+                                class="inv-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-slate-700 text-slate-500 hover:border-sky-500/30 hover:text-slate-300 transition-all">🏦
+                                Vault</button>
+                        </div>
+
+                        <!-- Cargo sub-panel -->
+                        <div id="inv-panel-cargo" class="space-y-4">
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
+                                <h4 class="text-[10px] text-amber-500 uppercase mb-3 tracking-widest font-bold">Raw
+                                    Resources</h4>
+                                <div id="detailed-inventory" class="grid grid-cols-1 gap-2">
+                                    <div class="text-[10px] text-slate-600 italic">Cargo bay scan in progress...</div>
                                 </div>
                             </div>
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-indigo-500">
+                                <h4 class="text-[10px] text-indigo-400 uppercase mb-3 tracking-widest font-bold">Usable
+                                    Equipment</h4>
+                                <div id="equipment-inventory" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div class="text-[10px] text-slate-600 italic">Scanning...</div>
+                                </div>
+                            </div>
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
+                                <h4 class="text-[10px] text-rose-500 uppercase mb-3 tracking-widest font-bold">
+                                    Consumable Field Supplies</h4>
+                                <div id="consumable-inventory" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div class="text-[10px] text-slate-600 italic">Scanning...</div>
+                                </div>
+                            </div>
+                        </div>
 
-                            <!-- Faction Realignment (moved from Overview) -->
-                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
+                        <!-- Gear sub-panel -->
+                        <div id="inv-panel-gear" class="hidden space-y-4">
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                                <h4 class="text-[10px] text-sky-400 uppercase mb-3 tracking-widest font-bold">Equipped
+                                    Modular Gear</h4>
+                                <div id="equipped-list" class="space-y-3">
+                                    <div class="text-[10px] text-slate-600 italic">No specialized gear detected.</div>
+                                </div>
+                            </div>
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
                                 <h4 class="text-[10px] text-rose-500 uppercase mb-3 tracking-widest font-bold">Faction
                                     Realignment</h4>
-                                <p class="text-[9px] text-slate-500 mb-4">Official allegiance change. Fee: 500 $CR.
+                                <p class="text-[9px] text-slate-500 mb-3">Official allegiance change. Fee: 500 $CR.
                                     Requires MARKET proximity.</p>
                                 <div
                                     class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
@@ -638,27 +599,139 @@
                                         <option value="3">Freelancer Core</option>
                                     </select>
                                     <button id="realign-faction-btn"
-                                        class="bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 rounded-lg font-bold text-[10px] orbitron transition-all uppercase whitespace-nowrap">Process
-                                        Realignment</button>
+                                        class="bg-rose-600 hover:bg-rose-500 text-white px-5 py-2.5 rounded-lg font-bold text-[10px] orbitron transition-all uppercase whitespace-nowrap">Realign</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Vault sub-panel -->
+                        <div id="inv-panel-vault" class="hidden">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="orbitron text-sm text-sky-400">🏦 PERSONAL VAULT</h3>
+                                <div class="flex items-center space-x-3">
+                                    <div class="text-right">
+                                        <p class="text-[8px] text-slate-500 uppercase font-bold">Capacity</p>
+                                        <p id="storage-mass-text" class="text-xs font-mono text-sky-400">0 / 500 kg</p>
+                                    </div>
+                                    <button onclick="window.storageUI.upgradeStorage()"
+                                        class="bg-amber-500/20 hover:bg-amber-500/40 text-amber-500 border border-amber-500/30 px-3 py-1.5 rounded text-[9px] orbitron font-bold transition-all interactive">UPGRADE</button>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                                <div class="glass p-4 rounded-xl border border-slate-800">
+                                    <h4 class="text-[10px] text-sky-400 uppercase mb-3 tracking-widest font-bold">Vault
+                                        Contents</h4>
+                                    <div id="storage-list"
+                                        class="space-y-2 h-[350px] overflow-y-auto custom-scrollbar pr-2">
+                                        <div class="text-[10px] text-slate-600 italic">No items in storage. Visit a
+                                            Market to deposit.</div>
+                                    </div>
+                                </div>
+                                <div
+                                    class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
+                                    <h4 class="text-[10px] text-emerald-500 uppercase mb-3 tracking-widest font-bold">
+                                        Quick Deposit</h4>
+                                    <div id="storage-inventory-list"
+                                        class="space-y-2 h-[350px] overflow-y-auto custom-scrollbar pr-2">
+                                        <!-- Inventory items with deposit button -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Market Tab -->
-                    <div id="content-market" class="hidden">
-                        <div class="flex justify-between items-center mb-5">
-                            <h3 class="orbitron text-base md:text-lg text-sky-400">AUCTION HOUSE</h3>
-                            <div class="flex items-center space-x-2">
-                                <span
-                                    class="text-[8px] bg-sky-500/10 text-sky-400 px-2 py-1 rounded animate-pulse">LIVE</span>
+                    <!-- ════════════════════════════════════════════════
+                         TAB 3: STATION SERVICES
+                         Sub-tabs: Forge | Market | Missions
+                    ════════════════════════════════════════════════ -->
+                    <div id="content-station" class="hidden">
+                        <!-- Sub-tab pills -->
+                        <div class="flex gap-2 mb-4">
+                            <button onclick="game.ui.switchStationTab('forge')" id="stn-tab-forge"
+                                class="stn-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 transition-all">⚒️
+                                Forge</button>
+                            <button onclick="game.ui.switchStationTab('market')" id="stn-tab-market"
+                                class="stn-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-slate-700 text-slate-500 hover:border-emerald-500/30 hover:text-slate-300 transition-all">📈
+                                Market</button>
+                            <button onclick="game.ui.switchStationTab('missions')" id="stn-tab-missions"
+                                class="stn-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-slate-700 text-slate-500 hover:border-emerald-500/30 hover:text-slate-300 transition-all">📋
+                                Missions</button>
+                        </div>
+
+                        <!-- Forge sub-panel -->
+                        <div id="stn-panel-forge" class="space-y-4">
+                            <p class="text-[9px] text-slate-500">Process raw materials at specialized stations. Each
+                                operation requires station proximity.</p>
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
+                                <h4 class="text-[10px] text-emerald-400 uppercase mb-3 tracking-widest font-bold">
+                                    Smelting Furnace</h4>
+                                <p class="text-[10px] text-slate-500 mb-3 font-mono">Process raw ores into
+                                    industrial-grade ingots (5:1 Ratio). Requires proximity to a SMELTER station.</p>
+                                <div class="flex items-center space-x-3">
+                                    <select id="smelt-ore-type"
+                                        class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-emerald-500 outline-none">
+                                        <option value="IRON_ORE">IRON ORE (5 Ore -> 1 Ingot)</option>
+                                        <option value="COPPER_ORE">COPPER ORE (5 Ore -> 1 Ingot)</option>
+                                        <option value="GOLD_ORE">GOLD ORE (5 Ore -> 1 Ingot)</option>
+                                        <option value="COBALT_ORE">COBALT_ORE (5 Ore -> 1 Ingot)</option>
+                                    </select>
+                                    <button id="btn-smelt"
+                                        class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-6 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">SMELT</button>
+                                </div>
+                            </div>
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                                <h4 class="text-[10px] text-sky-400 uppercase mb-3 tracking-widest font-bold">
+                                    Fabrication Unit</h4>
+                                <p class="text-[10px] text-slate-500 mb-3 font-mono">Convert ingots into advanced agent
+                                    components. Requires proximity to a CRAFTER station.</p>
+                                <div class="flex flex-wrap gap-2 mb-4" id="forge-filters">
+                                    <button onclick="game.ui.setForgeFilter('All')"
+                                        class="forge-filter-btn active px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-sky-500/30 text-sky-400 bg-sky-500/10 transition-all">All</button>
+                                    <button onclick="game.ui.setForgeFilter('Frame')"
+                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Frame</button>
+                                    <button onclick="game.ui.setForgeFilter('Actuator')"
+                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Actuator</button>
+                                    <button onclick="game.ui.setForgeFilter('Power')"
+                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Power</button>
+                                    <button onclick="game.ui.setForgeFilter('Sensor')"
+                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Sensor</button>
+                                    <button onclick="game.ui.setForgeFilter('Engine')"
+                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Engine</button>
+                                    <button onclick="game.ui.setForgeFilter('Material')"
+                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Material</button>
+                                </div>
+                                <div id="forge-recipe-grid" class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                    <div class="text-[10px] text-slate-600 italic">Syncing Forge Database...</div>
+                                </div>
+                            </div>
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
+                                <h4 class="text-[10px] text-rose-400 uppercase mb-3 tracking-widest font-bold">Repair
+                                    Bay</h4>
+                                <p class="text-[10px] text-slate-500 mb-3 font-mono">Restore agent structure using
+                                    colonial credits (5 Credits/1HP). Requires proximity to a REPAIR station.</p>
+                                <div class="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-3">
+                                    <div
+                                        class="w-full md:flex-grow flex items-center space-x-2 bg-slate-900 p-2 rounded border border-slate-800">
+                                        <span class="text-[9px] text-slate-500 uppercase px-2">Restore</span>
+                                        <input type="number" id="repair-amount" placeholder="MAX"
+                                            class="bg-transparent text-xs text-sky-400 outline-none w-full">
+                                        <span class="text-[9px] text-slate-500 uppercase px-2">HP</span>
+                                    </div>
+                                    <button id="btn-repair"
+                                        class="w-full md:w-auto bg-rose-500 hover:bg-rose-400 text-slate-950 px-6 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">REPAIR</button>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="space-y-5">
-                            <!-- Market Listings -->
-                            <div class="glass p-5 rounded-xl border border-slate-800">
-                                <div class="flex justify-between items-center mb-4">
+                        <!-- Market sub-panel -->
+                        <div id="stn-panel-market" class="hidden space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h3 class="orbitron text-sm text-sky-400">AUCTION HOUSE</h3>
+                                <span
+                                    class="text-[8px] bg-sky-500/10 text-sky-400 px-2 py-1 rounded animate-pulse">LIVE</span>
+                            </div>
+                            <div class="glass p-4 rounded-xl border border-slate-800">
+                                <div class="flex justify-between items-center mb-3">
                                     <h4 class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Market
                                         Manifest</h4>
                                     <div class="flex space-x-4 text-[9px] text-slate-500">
@@ -678,41 +751,28 @@
                                                 <th class="pb-3 font-normal text-right">Action</th>
                                             </tr>
                                         </thead>
-                                        <tbody id="market-listings-body">
-                                        </tbody>
+                                        <tbody id="market-listings-body"></tbody>
                                     </table>
                                 </div>
                             </div>
-
-                            <!-- Trade Interface -->
-                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
-                                <h4 class="text-[10px] text-amber-500 uppercase mb-4 tracking-widest font-bold">Trade
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
+                                <h4 class="text-[10px] text-amber-500 uppercase mb-3 tracking-widest font-bold">Trade
                                     Interface</h4>
-                                <div class="space-y-4">
-                                    <div>
-                                        <label
-                                            class="text-[9px] text-slate-500 uppercase mb-1.5 block tracking-wider">Trade
-                                            Vector</label>
-                                        <div class="flex space-x-2">
-                                            <button id="trade-side-sell"
-                                                class="flex-1 py-2.5 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-bold orbitron transition-all">SELL</button>
-                                            <button id="trade-side-buy"
-                                                class="flex-1 py-2.5 rounded-lg bg-slate-900 text-slate-500 border border-slate-800 text-[10px] font-bold orbitron transition-all">BUY</button>
-                                        </div>
+                                <div class="space-y-3">
+                                    <div class="flex space-x-2">
+                                        <button id="trade-side-sell"
+                                            class="flex-1 py-2 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-bold orbitron transition-all">SELL</button>
+                                        <button id="trade-side-buy"
+                                            class="flex-1 py-2 rounded-lg bg-slate-900 text-slate-500 border border-slate-800 text-[10px] font-bold orbitron transition-all">BUY</button>
                                     </div>
-                                    <div>
-                                        <label
-                                            class="text-[9px] text-slate-500 uppercase mb-1.5 block tracking-wider">Cargo
-                                            Type</label>
-                                        <select id="trade-item-type"
-                                            class="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-lg text-xs text-slate-300 outline-none focus:border-amber-500 transition-colors">
-                                            <option value="IRON_ORE">IRON ORE</option>
-                                            <option value="IRON_INGOT">IRON INGOT</option>
-                                            <option value="COPPER_ORE">COPPER ORE</option>
-                                            <option value="GOLD_ORE">GOLD ORE</option>
-                                            <option value="HE3_FUEL">HE3 FUEL</option>
-                                        </select>
-                                    </div>
+                                    <select id="trade-item-type"
+                                        class="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-lg text-xs text-slate-300 outline-none focus:border-amber-500 transition-colors">
+                                        <option value="IRON_ORE">IRON ORE</option>
+                                        <option value="IRON_INGOT">IRON INGOT</option>
+                                        <option value="COPPER_ORE">COPPER ORE</option>
+                                        <option value="GOLD_ORE">GOLD ORE</option>
+                                        <option value="HE3_FUEL">HE3 FUEL</option>
+                                    </select>
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
                                             <label
@@ -729,15 +789,13 @@
                                         </div>
                                     </div>
                                     <button id="btn-submit-order"
-                                        class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black orbitron text-xs transition-all shadow-lg shadow-amber-500/10">EXECUTE
+                                        class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black orbitron text-xs transition-all">EXECUTE
                                         CONTRACT</button>
                                     <p class="text-[8px] text-slate-600 text-center uppercase tracking-wider">Requires
                                         docking at Market Station</p>
                                 </div>
                             </div>
-
-                            <!-- My Orders -->
-                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
                                 <h4 class="text-[10px] text-sky-400 uppercase mb-3 tracking-widest font-bold">My Active
                                     Portfolio</h4>
                                 <div id="my-orders" class="space-y-2">
@@ -745,9 +803,7 @@
                                         found.</div>
                                 </div>
                             </div>
-
-                            <!-- Bounty Board -->
-                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
+                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
                                 <div class="flex justify-between items-center mb-3">
                                     <h4 class="text-[10px] text-rose-500 uppercase tracking-widest font-bold">Colonial
                                         Bounty Board</h4>
@@ -773,168 +829,115 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Forge Tab -->
-                    <div id="content-forge" class="hidden">
-                        <h3 class="orbitron text-base md:text-lg text-emerald-400 mb-2">THE FORGE</h3>
-                        <p class="text-[9px] text-slate-500 mb-3">Process raw materials at specialized stations. Each
-                            operation requires station proximity.</p>
-                        <div class="space-y-5">
-                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
-                                <h4 class="text-[10px] text-emerald-400 uppercase mb-4 tracking-widest font-bold">
-                                    Smelting Furnace</h4>
-                                <p class="text-[10px] text-slate-500 mb-4 font-mono">Process raw ores into
-                                    industrial-grade ingots (5:1 Ratio). Requires proximity to a SMELTER station.</p>
-                                <div class="flex items-center space-x-4">
-                                    <select id="smelt-ore-type"
-                                        class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-emerald-500 outline-none">
-                                        <option value="IRON_ORE">IRON ORE (5 Ore -> 1 Ingot)</option>
-                                        <option value="COPPER_ORE">COPPER ORE (5 Ore -> 1 Ingot)</option>
-                                        <option value="GOLD_ORE">GOLD ORE (5 Ore -> 1 Ingot)</option>
-                                        <option value="COBALT_ORE">COBALT_ORE (5 Ore -> 1 Ingot)</option>
-                                    </select>
-                                    <button id="btn-smelt"
-                                        class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">SMELT</button>
+                        <!-- Missions sub-panel -->
+                        <div id="stn-panel-missions" class="hidden space-y-4">
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="text-[10px] text-amber-500 uppercase tracking-widest font-bold">Daily
+                                        Missions</h4>
+                                    <span class="text-[8px] text-slate-600 uppercase tracking-wider">Refreshes every
+                                        8h</span>
                                 </div>
-                            </div>
-
-                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
-                                <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">
-                                    Fabrication Unit</h4>
-                                <p class="text-[10px] text-slate-500 mb-4 font-mono">Convert ingots into advanced agent
-                                    components. Requires proximity to a CRAFTER station.</p>
-
-                                <!-- Forge Filters -->
-                                <div class="flex flex-wrap gap-2 mb-6" id="forge-filters">
-                                    <button onclick="game.ui.setForgeFilter('All')"
-                                        class="forge-filter-btn active px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-sky-500/30 text-sky-400 bg-sky-500/10 transition-all">All</button>
-                                    <button onclick="game.ui.setForgeFilter('Frame')"
-                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Frame</button>
-                                    <button onclick="game.ui.setForgeFilter('Actuator')"
-                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Actuator</button>
-                                    <button onclick="game.ui.setForgeFilter('Power')"
-                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Power</button>
-                                    <button onclick="game.ui.setForgeFilter('Sensor')"
-                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Sensor</button>
-                                    <button onclick="game.ui.setForgeFilter('Engine')"
-                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Engine</button>
-                                    <button onclick="game.ui.setForgeFilter('Material')"
-                                        class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Material</button>
+                                <div id="missions-list" class="space-y-3">
+                                    <div class="text-[10px] text-slate-600 italic">Syncing mission data...</div>
                                 </div>
-
-                                <div id="forge-recipe-grid" class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                                    <div class="text-[10px] text-slate-600 italic">Syncing Forge Database...</div>
-                                </div>
-                            </div>
-
-                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
-                                <h4 class="text-[10px] text-rose-400 uppercase mb-4 tracking-widest font-bold">
-                                    Repair Bay</h4>
-                                <p class="text-[10px] text-slate-500 mb-4 font-mono">Restore agent structure using
-                                    colonial credits (5lblCredits/1HP). Requires proximity to a REPAIR station.</p>
-                                <div class="flex flex-col md:flex-row items-center space-y-3 md:space-y-0 md:space-x-4">
-                                    <div
-                                        class="w-full md:flex-grow flex items-center space-x-2 bg-slate-900 p-2 rounded border border-slate-800">
-                                        <span class="text-[9px] text-slate-500 uppercase px-2">Restore</span>
-                                        <input type="number" id="repair-amount" placeholder="MAX"
-                                            class="bg-transparent text-xs text-sky-400 outline-none w-full">
-                                        <span class="text-[9px] text-slate-500 uppercase px-2">HP</span>
-                                    </div>
-                                    <button id="btn-repair"
-                                        class="w-full md:w-auto bg-rose-500 hover:bg-rose-400 text-slate-950 px-8 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">REPAIR</button>
-                                </div>
+                                <button id="btn-claim-daily" onclick="window.game.claimDaily()"
+                                    class="w-full mt-4 bg-sky-500/20 hover:bg-sky-500/40 text-sky-400 border border-sky-500/30 px-3 py-2 rounded text-[10px] orbitron font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                    CLAIM DAILY REWARD
+                                </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Storage Tab -->
-                    <div id="content-storage" class="hidden">
-                        <div class="flex justify-between items-center mb-5">
-                            <h3 class="orbitron text-base md:text-lg text-sky-400">PERSONAL VAULT</h3>
-                            <div class="flex items-center space-x-4">
-                                <div class="text-right">
-                                    <p class="text-[8px] text-slate-500 uppercase font-bold">Capacity</p>
-                                    <p id="storage-mass-text" class="text-xs font-mono text-sky-400">0 / 500 kg</p>
-                                </div>
-                                <button onclick="window.storageUI.upgradeStorage()"
-                                    class="bg-amber-500/20 hover:bg-amber-500/40 text-amber-500 border border-amber-500/30 px-3 py-1.5 rounded text-[9px] orbitron font-bold transition-all interactive">UPGRADE</button>
+                    <!-- ════════════════════════════════════════════════
+                         TAB 4: SYSTEM & COMMS
+                         API Key | Squad | Directive
+                    ════════════════════════════════════════════════ -->
+                    <div id="content-system" class="hidden space-y-4">
+                        <!-- API Key -->
+                        <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="text-[10px] text-sky-400 uppercase block tracking-widest font-bold">🔑
+                                    Neural API Key</label>
+                                <button id="logout-btn"
+                                    class="p-1 rounded hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all flex items-center space-x-1 interactive"
+                                    title="Disconnect Session">
+                                    <span class="text-[8px] uppercase tracking-widest font-bold">Logout</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none"
+                                        viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                    </svg>
+                                </button>
                             </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <!-- Vault Items -->
-                            <div class="glass p-5 rounded-xl border border-slate-800">
-                                <h4 class="text-[10px] text-sky-400 uppercase mb-4 tracking-widest font-bold">Vault
-                                    Contents</h4>
-                                <div id="storage-list"
-                                    class="space-y-2 h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                                    <div class="text-[10px] text-slate-600 italic">No items in storage. Visit a Market
-                                        to deposit.</div>
-                                </div>
-                            </div>
-
-                            <!-- Quick Deposit (Current Inventory) -->
-                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
-                                <h4 class="text-[10px] text-emerald-500 uppercase mb-4 tracking-widest font-bold">Quick
-                                    Deposit</h4>
-                                <div id="storage-inventory-list"
-                                    class="space-y-2 h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                                    <!-- Inventory items with deposit button -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Terminal Tab -->
-                    <div id="content-terminal" class="hidden h-full flex flex-col">
-                        <div class="flex justify-between items-center mb-4 text-sky-400">
-                            <h3 class="orbitron text-base">MANUAL OVERRIDE</h3>
-                            <span class="text-[8px] uppercase tracking-widest font-black opacity-50">Neural Directive
-                                Ready</span>
-                        </div>
-                        <div id="terminal-buffer"
-                            class="terminal-output flex-grow p-4 rounded-xl mb-4 overflow-y-auto min-h-[300px] text-[10px] space-y-1">
-                            <div class="text-slate-600 font-mono italic">Initializing command buffer...</div>
-                            <div class="text-sky-500/80 font-mono">UPLINK: Direct manual control enabled. Type 'HELP'
-                                for
-                                syntax.</div>
-                        </div>
-                        <div class="terminal-input-container">
-                            <div id="command-suggestions" class="suggestion-list hidden"></div>
+                            <p class="text-[9px] text-slate-500 mb-3">Use this key to authenticate your agent bot with
+                                the <code class="text-slate-300">X-API-KEY</code> header.</p>
                             <div class="flex space-x-2">
-                                <span class="text-sky-500 font-bold self-center ml-2 mr-1">&gt;</span>
-                                <input type="text" id="terminal-input"
-                                    class="flex-grow bg-slate-950 border border-slate-800 p-4 rounded-xl text-sky-400 font-mono text-sm outline-none focus:border-sky-500 transition-all font-mono"
-                                    placeholder="TYPE 'HELP' FOR SYNTAX..." autocomplete="off">
-                                <button id="terminal-submit"
-                                    class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-6 py-2 rounded-xl font-bold orbitron text-xs transition-all uppercase">Enter</button>
+                                <code id="api-key-display"
+                                    class="flex-grow bg-slate-950/60 p-3 rounded-lg text-emerald-400 font-mono text-sm border border-slate-800">********************************</code>
+                                <button id="copy-api-btn"
+                                    class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-5 py-2.5 rounded-lg font-bold text-xs transition-all uppercase">Copy</button>
                             </div>
-                            <div class="mt-3 flex flex-wrap gap-2 pb-2">
-                                <button id="btn-quick-move"
-                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">MOVE</button>
-                                <button id="btn-quick-scan"
-                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">SCAN</button>
-                                <button id="btn-quick-status"
-                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">STATUS</button>
-                                <button id="btn-quick-mine"
-                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">MINE</button>
-                                <button id="btn-quick-salvage"
-                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">SALVAGE</button>
-                                <button id="btn-quick-repair"
-                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">REPAIR</button>
-                                <button id="btn-quick-help"
-                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-amber-400 hover:border-amber-500/30">HELP</button>
-                                <button id="btn-quick-missions"
-                                    class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-amber-400 hover:border-amber-500/30">MISSIONS</button>
+                        </div>
+
+                        <!-- Agent Directive Card -->
+                        <button id="open-directive-btn"
+                            class="w-full glass p-5 rounded-xl border border-sky-500/20 hover:border-sky-500/40 hover:bg-sky-500/5 transition-all cursor-pointer text-left group">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4
+                                        class="text-[10px] text-sky-400 uppercase tracking-widest font-bold group-hover:text-sky-300 transition-colors">
+                                        🤖 Agent Directive: Alpha-1</h4>
+                                    <p class="text-[9px] text-slate-500 mt-1">Bootstrap prompt, API endpoints, and FSM
+                                        architecture for autonomous agents.</p>
+                                </div>
+                                <svg xmlns="http://www.w3.org/2000/svg"
+                                    class="h-5 w-5 text-slate-600 group-hover:text-sky-400 transition-colors"
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 5l7 7-7 7" />
+                                </svg>
+                            </div>
+                        </button>
+
+                        <!-- Squad Telemetry -->
+                        <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-purple-500">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="text-[10px] text-purple-400 uppercase tracking-widest font-bold">👥 Squad
+                                    Telemetry</h4>
+                                <span id="squad-id-display" class="text-[8px] text-slate-500 uppercase font-mono">No
+                                    Squad</span>
+                            </div>
+                            <div id="pending-invite-panel"
+                                class="hidden mb-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                                <p class="text-[10px] text-purple-300 mb-2">Pending Invite Received!</p>
+                                <div class="flex space-x-2">
+                                    <button onclick="window.game.acceptSquad()"
+                                        class="flex-1 bg-purple-500 hover:bg-purple-400 text-slate-950 font-bold text-[9px] py-1.5 rounded uppercase transition-colors">Accept</button>
+                                    <button onclick="window.game.declineSquad()"
+                                        class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[9px] py-1.5 rounded uppercase transition-colors">Decline</button>
+                                </div>
+                            </div>
+                            <div id="squad-members-list" class="space-y-2 mb-4">
+                                <div class="text-[10px] text-slate-600 italic">Operating solo.</div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <input type="number" id="invite-target-id" placeholder="Agent ID"
+                                    class="w-20 bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded p-1 outline-none relative z-10 focus:border-purple-500 transition-colors pointer-events-auto">
+                                <button onclick="window.game.inviteSquad()"
+                                    class="flex-grow bg-slate-800 hover:bg-slate-700 text-purple-400 border border-purple-500/30 px-2 py-1 rounded text-[10px] orbitron font-bold transition-all relative z-10 pointer-events-auto">INVITE</button>
+                                <button onclick="window.game.leaveSquad()"
+                                    class="hidden bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 border border-rose-500/30 px-2 py-1 rounded text-[10px] orbitron font-bold transition-all relative z-10 pointer-events-auto"
+                                    id="btn-leave-squad">LEAVE</button>
                             </div>
                         </div>
                     </div>
+
                 </div>
             </main>
         </div>
     </main>
-
     <!-- Tooltip -->
     <div id="hex-tooltip" class="absolute hidden glass px-3 py-2 rounded-lg text-xs pointer-events-none transition-all">
         <div id="hex-coords" class="font-mono text-sky-400">Q:0, R:0</div>

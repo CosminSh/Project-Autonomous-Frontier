@@ -2,7 +2,9 @@ import logging
 import random
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import select, func
-from models import DailyMission
+from models import DailyMission, AgentMission, WorldHex, AuditLog
+from database import STATION_CACHE
+from game_helpers import get_hex_distance
 
 logger = logging.getLogger("heartbeat.mission_logic")
 
@@ -37,6 +39,15 @@ async def handle_turn_in(db, agent, intent, tick_count, manager):
 
     mission = db.get(DailyMission, mission_id)
     if not mission or mission.mission_type != "TURN_IN":
+        return
+
+    # Check proximity to a station (any station for now, or specific if required)
+    # Most TURN_IN missions require being at a station.
+    from database import STATION_CACHE
+    nearest_station_dist = min([get_hex_distance(agent.q, agent.r, s["q"], s["r"]) for s in STATION_CACHE]) if STATION_CACHE else 999
+    
+    if nearest_station_dist > 0:
+        db.add(AuditLog(agent_id=agent.id, event_type="MISSION_FAILED", details={"reason": "NOT_AT_STATION", "mission_id": mission_id}))
         return
 
     # Check if agent already completed it

@@ -216,6 +216,7 @@ export class GameAPI {
             const result = await resp.json();
             if (result.status === 'success') {
                 console.log(`${actionType} intent recorded.`);
+                alert(`${actionType} Recorded. Awaiting the next game tick for processing.`);
                 if (actionType === 'CANCEL') {
                     this.pollState();
                 }

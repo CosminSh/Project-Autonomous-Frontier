@@ -36,11 +36,12 @@ export class TerminalHandler {
             'CONSUME': { cat: 'GEAR', syntax: 'CONSUME <item_type>', example: 'CONSUME HE3_FUEL', help: 'Use consumable for buff' },
             'CHANGE_FACTION': { cat: 'OTHER', syntax: 'CHANGE_FACTION <faction_id>', example: 'CHANGE_FACTION 2', help: 'Realign to faction (1-3)' },
             'MISSIONS': { cat: 'OTHER', syntax: 'MISSIONS', example: 'MISSIONS', help: 'View active daily missions' },
-            'TURN_IN': { cat: 'OTHER', syntax: 'TURN_IN <mission_id> <qty>', example: 'TURN_IN 15 5', help: 'Complete daily mission objectives' },
+            'TURN_IN': { cat: 'OTHER', syntax: 'TURN_IN <mission_id>', example: 'TURN_IN 15', help: 'Complete local station delivery objectives' },
             'CLAIM_DAILY': { cat: 'OTHER', syntax: 'CLAIM_DAILY', example: 'CLAIM_DAILY', help: 'Claim daily login items' },
             'RECIPES': { cat: 'META', syntax: 'RECIPES [filter]', example: 'RECIPES drills', help: 'Query crafting database' },
             'HELP': { cat: 'META', syntax: 'HELP [command]', example: 'HELP SMELT', help: 'Show commands or details' },
             'STATUS': { cat: 'META', syntax: 'STATUS', example: 'STATUS', help: 'Show your agent status' },
+            'PERCEIVE': { cat: 'META', syntax: 'PERCEIVE', example: 'PERCEIVE', help: 'Display local tactical perception' },
             'GUIDE': { cat: 'META', syntax: 'GUIDE', example: 'GUIDE', help: 'Read the survival guide' },
             'STORAGE_DEPOSIT': { cat: 'STORAGE', syntax: 'STORAGE_DEPOSIT <item> <qty>', example: 'STORAGE_DEPOSIT IRON_ORE 10', help: 'Vault item at MARKET station' },
             'STORAGE_WITHDRAW': { cat: 'STORAGE', syntax: 'STORAGE_WITHDRAW <item> <qty>', example: 'STORAGE_WITHDRAW IRON_ORE 10', help: 'Retrieve item from vault at MARKET' },
@@ -213,6 +214,11 @@ export class TerminalHandler {
             case 'CONSUME':
                 if (args.length < 1) throw new Error('Usage: CONSUME <item_type>  — e.g. CONSUME HE3_FUEL');
                 data.item_type = args.join('_').toUpperCase();
+                break;
+            case 'TURN_IN':
+                if (args.length < 1) throw new Error('Usage: TURN_IN <mission_id>  — e.g. TURN_IN 12');
+                data.mission_id = parseInt(args[0]);
+                if (isNaN(data.mission_id)) throw new Error('Mission ID must be an integer.');
                 break;
             case 'CHANGE_FACTION':
                 if (args.length < 1) throw new Error('Usage: CHANGE_FACTION <faction_id>  — (1, 2, or 3)');
@@ -391,8 +397,8 @@ export class TerminalHandler {
                 }
 
                 missions.forEach(m => {
-                    const status = m.is_completed ? '<span style="color:#10b981">[COMPLETED]</span>' : `[${m.progress}/${m.target_amount}]`;
-                    this.log(`  <b>${m.type.replace(/_/g, ' ')}</b> — ${status}`, 'info');
+                    const status = m.is_completed ? '<span style="color:#10b981">[COMPLETED]</span>' : `[${m.progress}/${m.target}]`;
+                    this.log(`  <b>[${m.id}] ${m.type.replace(/_/g, ' ')}</b> — ${status}`, 'info');
                     if (m.item_type) this.log(`    Target: ${m.item_type.replace(/_/g, ' ')}`, 'info');
                     this.log(`    Reward: $${m.reward_credits}`, 'success');
                 });
@@ -437,6 +443,45 @@ export class TerminalHandler {
             return;
         }
 
+        // ── META: PERCEIVE ──
+        if (actionType === 'PERCEIVE') {
+            try {
+                const apiKey = localStorage.getItem('sv_api_key');
+                const resp = await fetch('/api/perception', { headers: { 'X-API-KEY': apiKey } });
+                if (!resp.ok) throw new Error('Not authenticated.');
+                const p = await resp.json();
+                this.log(`<b>═══ TACTICAL PERCEIVE ═══</b>`, 'system');
+                this.log(`  Agent:     <b>${p.self.name}</b> at (${p.self.q}, ${p.self.r})`, 'info');
+
+                // Agents
+                if (p.nearby_agents && p.nearby_agents.length > 0) {
+                    this.log(`  <span style="color:#f43f5e">Agents Detected:</span>`, 'info');
+                    p.nearby_agents.forEach(a => this.log(`    [${a.id}] ${a.name} @ (${a.q}, ${a.r})`, 'error'));
+                } else {
+                    this.log(`  <span style="color:#f43f5e">Agents:</style> None`, 'info');
+                }
+
+                // Stations
+                if (p.discovery && p.discovery.stations && p.discovery.stations.length > 0) {
+                    this.log(`  <span style="color:#eab308">Stations:</span>`, 'info');
+                    p.discovery.stations.forEach(s => this.log(`    ${s.id_type} @ (${s.q}, ${s.r})`, 'warning'));
+                }
+
+                // Resources
+                if (p.discovery && p.discovery.resources && p.discovery.resources.length > 0) {
+                    this.log(`  <span style="color:#10b981">Resources:</span>`, 'info');
+                    p.discovery.resources.forEach(r => this.log(`    ${r.type} @ (${r.q}, ${r.r})`, 'success'));
+                }
+
+                // Loot
+                if (p.loot && p.loot.length > 0) {
+                    this.log(`  <span style="color:#a855f7">Loot Drops:</span>`, 'info');
+                    p.loot.forEach(l => this.log(`    ${l.qty}x ${l.item} @ (${l.q}, ${l.r})`, 'info'));
+                }
+            } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
+            return;
+        }
+
         // ── META: SCAN ──
         if (actionType === 'SCAN') {
             this.log(`Re-synchronizing sensors...`, 'info');
@@ -446,30 +491,6 @@ export class TerminalHandler {
         }
 
         // ── DIRECT COMMANDS (NO INTENT) ──
-        if (actionType === 'TURN_IN') {
-            if (args.length < 2) {
-                this.log(`✗ Usage: TURN_IN <mission_id> <quantity> (e.g. TURN_IN 12 5)`, 'error');
-                return;
-            }
-            try {
-                const apiKey = localStorage.getItem('sv_api_key');
-                const resp = await fetch('/api/missions/turn_in', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
-                    body: JSON.stringify({ mission_id: parseInt(args[0]), quantity: parseInt(args[1]) })
-                });
-                if (resp.ok) {
-                    const result = await resp.json();
-                    this.log(`✓ ${result.message}`, 'success');
-                } else {
-                    const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
-                    this.log(`✗ ${err.detail || 'Server error'}`, 'error');
-                }
-            } catch (e) {
-                this.log(`✗ ${e.message}`, 'error');
-            }
-            return;
-        }
 
         // ── DIRECT COMMANDS: SQUAD ──
         if (['SQUAD_INVITE', 'SQUAD_ACCEPT', 'SQUAD_DECLINE', 'SQUAD_LEAVE'].includes(actionType)) {
