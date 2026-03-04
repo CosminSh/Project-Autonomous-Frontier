@@ -136,7 +136,7 @@ FACTION_REALIGNMENT_COOLDOWN = 100
 PART_DEFINITIONS = {
     "BASIC_FRAME": {"type": "Frame", "stats": {"max_structure": 50, "integrity": 5, "capacity": 50}, "name": "Reinforced Chassis"},
     "HEAVY_FRAME": {"type": "Frame", "stats": {"max_structure": 150, "integrity": 15, "capacity": 30, "kinetic_force": -5}, "name": "Heavy Assault Chassis"},
-    "DRILL_UNIT": {"type": "Actuator", "stats": {"kinetic_force": 8, "logic_precision": -2}, "name": "Titanium Mining Drill"},
+    "DRILL_UNIT": {"type": "Actuator", "stats": {"kinetic_force": 8, "logic_precision": -2}, "name": "Basic Iron Drill"},
     "DRILL_IRON_BASIC": {"type": "Actuator", "stats": {"kinetic_force": 5}, "name": "Iron Drill"},
     "DRILL_IRON_ADVANCED": {"type": "Actuator", "stats": {"kinetic_force": 10}, "name": "Advanced Iron Drill"},
     "DRILL_COPPER_BASIC": {"type": "Actuator", "stats": {"kinetic_force": 15}, "name": "Copper Drill"},

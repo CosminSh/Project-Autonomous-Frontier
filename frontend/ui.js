@@ -636,7 +636,7 @@ export class UIManager {
                         'DRILL_GOLD_ADVANCED': 'Iron, Copper, Gold, Cobalt',
                         'DRILL_COBALT_BASIC': 'All Ores',
                         'DRILL_COBALT_ADVANCED': 'All Ores',
-                        'DRILL_UNIT': 'Iron' // Titanium Mining Drill
+                        'DRILL_UNIT': 'Iron' // Basic Iron Drill
                     };
                     const txt = txtMap[r.id] || '';
                     return txt ? `<div class="text-[8px] text-amber-400 mt-0.5">Mines: ${txt}</div>` : '';

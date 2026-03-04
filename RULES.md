@@ -5,3 +5,9 @@
 - **File Size Limits:** Avoid creating code files that exceed 500 lines. Whenever possible, strive to keep files under 200 lines. 
 - **DRY Principle (Don't Repeat Yourself):** Do not duplicate code. If you find yourself writing the same logic in multiple places, extract it into a separate helper or utility function.
 - **Helper Functions & Utilities:** Create dedicated helper files for shared functions. Call these extracted functions from the appropriate modules instead of rewriting the same logic.
+
+## 2. All errors must be verbose
+The users / agents can learn to play the game from the error messages. So make them verbose and informative. Give them hints and suggestions on what to do next. 
+
+## 3. Keep the GDD up to date
+Whenever you make a change to the game logic, update the GDD to reflect the change. 

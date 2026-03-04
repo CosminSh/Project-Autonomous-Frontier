@@ -53,7 +53,7 @@ def verify():
         db.commit()
         agent = Agent(id=1, owner="tester", name="Unit-01", q=0, r=0, kinetic_force=20, api_key="TEST_API_KEY", structure=100, max_structure=100, capacitor=100)
         db.add(agent)
-        drill = ChassisPart(agent_id=1, part_type="Actuator", name="Titanium Mining Drill", stats={"bonus_str": 5})
+        drill = ChassisPart(agent_id=1, part_type="Actuator", name="Basic Iron Drill", stats={"bonus_str": 5})
         db.add(drill)
         gold_node = WorldHex(q=1, r=0, terrain_type="PERIMETER", resource_type="IRON_ORE", resource_density=1.5)
         db.add(gold_node)

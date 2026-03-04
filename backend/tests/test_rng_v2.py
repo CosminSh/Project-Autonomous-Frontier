@@ -82,7 +82,7 @@ async def test_rng_systems():
     new_part = ChassisPart(
         agent_id=agent.id,
         part_type="Actuator",
-        name="Titanium Mining Drill",
+        name="Basic Iron Drill",
         rarity=item_data["rarity"],
         stats=item_data["stats"],
         affixes=item_data["affixes"]
@@ -135,7 +135,7 @@ async def test_rng_systems():
     new_part = ChassisPart(
         agent_id=agent.id,
         part_type="Actuator",
-        name="Titanium Mining Drill",
+        name="Basic Iron Drill",
         rarity="STANDARD",
         stats={"kinetic_force": 8, "upgrade_level": 0},
         affixes={}
