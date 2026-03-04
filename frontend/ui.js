@@ -14,6 +14,9 @@ export class UIManager {
         this.canCraftOnly = false;
         this.cachedInventory = [];
         this.cachedStorage = [];
+        // Append-only tracking for Action Telemetry so entries persist between polls
+        this._seenLogKeys = new Set();
+        this._pendingIntentEl = null;
     }
 
     setUIMode(mode) {
@@ -145,27 +148,44 @@ export class UIManager {
     }
 
     updatePrivateLogs(logs, pendingIntent, chatMessages = []) {
-        if (!logs && chatMessages.length === 0) return;
         const logEl = document.getElementById('private-logs');
         if (!logEl) return;
-        logEl.innerHTML = '';
 
+        // ── Pending Intent card (pinned at top, updated every call) ──
+        if (!this._pendingIntentEl) {
+            this._pendingIntentEl = document.createElement('div');
+            this._pendingIntentEl.id = 'telemetry-pending-intent';
+            logEl.prepend(this._pendingIntentEl);
+        }
         if (pendingIntent) {
-            const pendingEntry = document.createElement('div');
-            pendingEntry.className = `border-b border-sky-500/30 pb-2 mb-2 flex flex-col bg-sky-500/5 p-2 rounded-lg border border-sky-500/10`;
-            pendingEntry.innerHTML = `<div class="flex justify-between items-center mb-1"><span class="text-sky-400 font-bold uppercase tracking-widest text-[8px]">Next Action</span></div><div class="flex space-x-2 text-sky-300"><span class="font-bold flex-shrink-0">${pendingIntent.action}</span><span class="truncate">${JSON.stringify(pendingIntent.data)}</span></div>`;
-            logEl.appendChild(pendingEntry);
+            this._pendingIntentEl.className = 'border-b border-sky-500/30 pb-2 mb-2 flex flex-col bg-sky-500/5 p-2 rounded-lg border border-sky-500/10';
+            this._pendingIntentEl.innerHTML = `<div class="flex justify-between items-center mb-1"><span class="text-sky-400 font-bold uppercase tracking-widest text-[8px]">Next Action</span></div><div class="flex space-x-2 text-sky-300"><span class="font-bold flex-shrink-0">${pendingIntent.action}</span><span class="truncate">${JSON.stringify(pendingIntent.data)}</span></div>`;
+            this._pendingIntentEl.classList.remove('hidden');
+        } else {
+            this._pendingIntentEl.className = 'hidden';
         }
 
-        const combined = [...(logs || []), ...chatMessages].sort((a, b) => new Date(b.time || b.timestamp) - new Date(a.time || a.timestamp));
+        // ── Append only NEW log/chat entries (never clear, like a terminal) ──
+        const combined = [...(logs || []), ...(chatMessages || [])].sort(
+            (a, b) => new Date(a.time || a.timestamp) - new Date(b.time || b.timestamp)
+        );
+
+        const fragment = document.createDocumentFragment();
+        let hasNew = false;
 
         combined.forEach(item => {
             const isChat = !!item.channel;
             const timeStr = item.time || item.timestamp;
-            const time = new Date(timeStr).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const key = isChat
+                ? `chat:${timeStr}:${item.sender}:${item.message}`
+                : `log:${timeStr}:${item.event}`;
 
+            if (this._seenLogKeys.has(key)) return;  // already rendered
+            this._seenLogKeys.add(key);
+
+            const time = new Date(timeStr).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const entry = document.createElement('div');
-            entry.className = `border-b border-slate-900/50 pb-1 flex space-x-2`;
+            entry.className = 'border-b border-slate-900/50 pb-1 flex space-x-2';
 
             if (isChat) {
                 let badgeColor = 'bg-slate-500 text-white';
@@ -173,19 +193,27 @@ export class UIManager {
                 if (item.channel === 'PROX' || item.channel === 'LOCAL') badgeColor = 'bg-emerald-600 text-emerald-100';
                 if (item.channel === 'SQUAD') badgeColor = 'bg-sky-600 text-sky-100';
                 if (item.channel === 'CORP') badgeColor = 'bg-amber-600 text-amber-100';
-
                 entry.innerHTML = `<span class="text-slate-700 font-mono flex-shrink-0">[${time}]</span><span class="${badgeColor} px-1 rounded text-[10px] font-bold tracking-widest leading-none flex items-center flex-shrink-0">${item.channel}</span><span class="text-slate-300 font-bold flex-shrink-0">${item.sender}:</span><span class="text-slate-100" style="word-break: break-all;">${item.message}</span>`;
             } else {
                 let color = 'text-slate-400';
                 if (item.event === 'COMBAT_HIT') color = 'text-rose-400';
                 if (item.event === 'MINING') color = 'text-emerald-400';
                 if (item.details?.status === 'success') color = 'text-sky-400';
-
                 entry.classList.add(color);
                 entry.innerHTML = `<span class="text-slate-700 font-mono flex-shrink-0">[${time}]</span><span class="font-bold flex-shrink-0">${item.event}</span><span class="truncate">${JSON.stringify(item.details)}</span>`;
             }
-            logEl.appendChild(entry);
+
+            fragment.appendChild(entry);
+            hasNew = true;
         });
+
+        if (hasNew) {
+            // Insert new entries after the pending-intent card (at top of log feed)
+            const afterPending = this._pendingIntentEl?.nextSibling || null;
+            logEl.insertBefore(fragment, afterPending);
+            // Auto-scroll to top to show newest entries
+            logEl.scrollTop = 0;
+        }
     }
 
     updateMarketUI(market) {
