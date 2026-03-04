@@ -9,27 +9,31 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 
 def migrate():
+    # Phase 1: Schema Update
     with engine.connect() as conn:
-        print("Checking if resource_quantity exists...")
+        trans = conn.begin()
         try:
-            # Check if column exists, if it fails, it means it doesn't exist
-            conn.execute(text("SELECT resource_quantity FROM world_hexes LIMIT 1"))
-            print("Column resource_quantity already exists.")
-        except Exception:
-            print("Adding resource_quantity column...")
-            # SQLite doesn't support ADD COLUMN with DEFAULT easily for some versions, but IF NOT EXISTS isn't supported for ADD COLUMN
-            # Postgres supports ADD COLUMN. Let's try to add it.
-            try:
-                # If SQLite
-                if "sqlite" in DATABASE_URL:
+            print("Updating schema...")
+            if "sqlite" in DATABASE_URL:
+                try:
                     conn.execute(text("ALTER TABLE world_hexes ADD COLUMN resource_quantity INTEGER DEFAULT 0"))
-                else: 
-                    # Postgres
-                    conn.execute(text("ALTER TABLE world_hexes ADD COLUMN IF NOT EXISTS resource_quantity INTEGER DEFAULT 0"))
-                conn.commit()
-                print("Added column!")
-            except Exception as e:
-                print(f"Error adding column (might already exist or syntax error): {e}")
+                    print("Added column resource_quantity (SQLite)")
+                except Exception as e:
+                    if "duplicate column name" in str(e).lower():
+                        print("Column resource_quantity already exists.")
+                    else:
+                        raise e
+            else:
+                # Postgres: IF NOT EXISTS is robust
+                conn.execute(text("ALTER TABLE world_hexes ADD COLUMN IF NOT EXISTS resource_quantity INTEGER DEFAULT 0"))
+                print("Handled resource_quantity column (Postgres)")
+            
+            trans.commit()
+        except Exception as e:
+            trans.rollback()
+            print(f"Schema update notification/error: {e}")
+            # Keep going, maybe the column is already there and we just couldn't verify it
+
 
     db = SessionLocal()
     # Populate existing resources with a random finite quantity
