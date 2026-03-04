@@ -11,6 +11,10 @@ export class TerminalHandler {
         this.buffer = document.getElementById('terminal-buffer');
         this.suggestionsEl = document.getElementById('command-suggestions');
 
+        // UX State
+        this.selectedIndex = -1;
+        this.currentMatches = [];
+
         // ═══════════════════════════════════════════════════════
         // FULL COMMAND REGISTRY
         // ═══════════════════════════════════════════════════════
@@ -69,8 +73,11 @@ export class TerminalHandler {
         if (!this.input) return;
 
         this.input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') this.submit();
-            else this.handleSuggestions(e);
+            if (e.key === 'Enter' && (this.suggestionsEl.classList.contains('hidden') || this.selectedIndex === -1)) {
+                this.submit();
+            } else {
+                this.handleSuggestions(e);
+            }
         });
 
         this.input.addEventListener('input', () => this.updateSuggestions());
@@ -89,9 +96,17 @@ export class TerminalHandler {
             this.input.value = 'SCAN';
             this.submit();
         });
+        document.getElementById('btn-quick-perceive')?.addEventListener('click', () => {
+            this.input.value = 'PERCEIVE';
+            this.submit();
+        });
         document.getElementById('btn-quick-status')?.addEventListener('click', () => {
             this.input.value = 'STATUS';
             this.submit();
+        });
+        document.getElementById('btn-quick-say')?.addEventListener('click', () => {
+            this.input.value = 'SAY ';
+            this.input.focus();
         });
         document.getElementById('btn-quick-salvage')?.addEventListener('click', () => {
             this.input.value = 'SALVAGE ';
@@ -130,18 +145,34 @@ export class TerminalHandler {
         const val = this.input.value.toUpperCase().trim();
         if (!val) {
             this.suggestionsEl.classList.add('hidden');
+            this.currentMatches = [];
+            this.selectedIndex = -1;
             return;
         }
 
-        const matches = Object.keys(this.commands).filter(c => c.startsWith(val));
-        if (matches.length > 0) {
-            this.suggestionsEl.innerHTML = matches.map(m => {
-                const cmd = this.commands[m];
-                return `<div class="suggestion-item" onclick="game.terminal.useSuggestion('${m}')">${cmd.syntax} — ${cmd.help}</div>`;
-            }).join('');
+        this.currentMatches = Object.keys(this.commands).filter(c => c.startsWith(val));
+
+        if (this.currentMatches.length > 0) {
+            this.selectedIndex = -1; // Reset selection on typing
+            this.renderSuggestions();
             this.suggestionsEl.classList.remove('hidden');
         } else {
             this.suggestionsEl.classList.add('hidden');
+            this.currentMatches = [];
+        }
+    }
+
+    renderSuggestions() {
+        this.suggestionsEl.innerHTML = this.currentMatches.map((m, idx) => {
+            const cmd = this.commands[m];
+            const activeClass = idx === this.selectedIndex ? 'active' : '';
+            return `<div class="suggestion-item ${activeClass}" onclick="game.terminal.useSuggestion('${m}')">${cmd.syntax} — ${cmd.help}</div>`;
+        }).join('');
+
+        // Scroll active item into view if needed
+        const activeItem = this.suggestionsEl.querySelector('.suggestion-item.active');
+        if (activeItem) {
+            activeItem.scrollIntoView({ block: 'nearest' });
         }
     }
 
@@ -151,7 +182,25 @@ export class TerminalHandler {
         this.input.focus();
     }
 
-    handleSuggestions(e) { }
+    handleSuggestions(e) {
+        if (this.suggestionsEl.classList.contains('hidden')) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            this.selectedIndex = (this.selectedIndex + 1) % this.currentMatches.length;
+            this.renderSuggestions();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            this.selectedIndex = (this.selectedIndex - 1 + this.currentMatches.length) % this.currentMatches.length;
+            this.renderSuggestions();
+        } else if (e.key === 'Tab' || (e.key === 'Enter' && this.selectedIndex !== -1)) {
+            e.preventDefault();
+            const pick = this.selectedIndex === -1 ? this.currentMatches[0] : this.currentMatches[this.selectedIndex];
+            if (pick) this.useSuggestion(pick);
+        } else if (e.key === 'Escape') {
+            this.suggestionsEl.classList.add('hidden');
+        }
+    }
 
     parseIntent(actionType, args) {
         const data = {};
