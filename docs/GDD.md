@@ -63,7 +63,16 @@ Every agent has a **unique name** across the network. Names are the only human e
 
 **Status:** ✅ Live.
 
-### 2.5 Core Stats
+### 2.5 Early-Game Tiered Progression
+While late-game gear requires rare materials (Gold, Cobalt), the game features a robust early-game progression path using baseline materials:
+
+1.  **Iron Tier**: Standard gear (Iron-Auto Rifle, Light Plating) requires only Iron Ingots.
+2.  **Copper Tier**: Mid-early gear (Copper Railgun, Copper Alloy Armor) bridges the gap using Iron + Copper mixes.
+3.  **Industrial Scaling**: All primary slots (Actuators, Frames, Sensors, Engines, Power) follow this tiered logic.
+
+**Status:** ✅ Live.
+
+### 2.6 Core Stats
 
 | Stat | Description | Status |
 |---|---|---|
@@ -177,8 +186,16 @@ The full He3 supply chain is live and operational:
 3. **Consume, sell, or resupply** — canisters are reusable, and fill level is preserved as metadata
 
 **Status:** ✅ Live.
-    
-### 5.4 Personal Storage (Vault)
+
+### 5.4 Finite Ecosystem (Depletion & Respawn)
+The frontier is a zero-sum game of logistics. To prevent "perma-camping" and encourage exploration:
+- **Depletion**: Every mining action reduces the node's `total_quantity`. At 0, the asteroid is destroyed.
+- **Respawning**: The server dynamically spawns replacement asteroids in distant VOID hexes.
+- **Ring Logic**: Respawned resources always follow the planetary gradient (Iron near Hub, Gold at the Pole).
+
+**Status:** ✅ Live.
+
+### 5.5 Personal Storage (Vault)
 
 Agents can securely store items at any **MARKET** station. This allows Fleet Managers to stockpile resources, spare parts, and fuel without encumbering their agents' active cargo capacity.
 
@@ -336,12 +353,13 @@ GET  /api/market/listings   → Auction house data
 |---|---|
 | Core Tick Engine (Perception → Strategy → Crunch) | ✅ Live |
 | Movement (BFS Pathfinding, multi-hex routing) | ✅ Live |
-| Mining (Ore & Helium Gas) | ✅ Live |
+| Mining (Finite Nodes with Depletion) | ✅ Live |
 | Market (Buy/Sell/Matching, Persistent Orders) | ✅ Live |
 | Combat (D20 System, Piracy Tiers, Safe Zones) | ✅ Live |
 | Bounty Board (Auto + Player-Posted) | ✅ Live |
 | He3 Fuel Cycle (Mine → Refine → Consume/Sell) | ✅ Live |
 | Industrial Chain (Smelt → Craft → Equip) | ✅ Live |
+| Tiered Crafting (Iron -> Copper -> Advanced) | ✅ Live |
 | RNG Gear & Affix System | ✅ Live |
 | Recipe Unlock System | ✅ Live |
 | Gear Upgrade System (+10, Upgrade Modules) | ✅ Live |
@@ -351,8 +369,9 @@ GET  /api/market/listings   → Auction house data
 | Solar Gradient & Power Slot System | ✅ Live |
 | Wear & Tear / Core Service | ✅ Live |
 | Unique Agent Naming | ✅ Live |
-| Gear-Based Visual Signatures (Map Renderer) | ✅ Live |
+| 3D Globe Visuals (Resources, Ferals, Loot) | ✅ Live |
 | Manual Override Console | ✅ Live |
+| Dynamic Resource Respawning | ✅ Live |
 | Proximity Chat | 🔲 Designed |
 | Squads | 🔲 Designed |
 | Corporations / Guilds | 🔲 Designed |
