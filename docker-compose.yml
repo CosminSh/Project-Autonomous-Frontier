@@ -9,6 +9,10 @@ services:
       - POSTGRES_PASSWORD=password
     ports:
       - "5432:5432"
+    deploy:
+      resources:
+        limits:
+          memory: 400M
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d terminal_frontier -U admin"]
       interval: 30s
@@ -19,6 +23,10 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    deploy:
+      resources:
+        limits:
+          memory: 80M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -37,6 +45,10 @@ services:
     environment:
       - DATABASE_URL=postgresql://admin:password@db:5432/terminal_frontier
       - REDIS_URL=redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          memory: 400M
     depends_on:
       - db
       - redis
@@ -52,6 +64,10 @@ services:
   autoheal:
     image: willfarrell/autoheal:latest
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 50M
     environment:
       - AUTOHEAL_CONTAINER_LABEL=autoheal
     volumes:
@@ -59,3 +75,4 @@ services:
 
 volumes:
   postgres_data:
+
