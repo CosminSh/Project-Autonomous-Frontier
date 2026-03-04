@@ -683,7 +683,7 @@ export class TerminalHandler {
                 const resp = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
-                    body: JSON.stringify({ channel: actionType, message: args.join(' ') })
+                    body: JSON.stringify({ channel: channel, message: args.join(' ') })
                 });
                 const result = await resp.json();
                 if (resp.ok) {
