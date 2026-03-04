@@ -11,6 +11,9 @@ export class UIManager {
     constructor(game) {
         this.game = game;
         this.activeForgeFilter = 'All';
+        this.canCraftOnly = false;
+        this.cachedInventory = [];
+        this.cachedStorage = [];
     }
 
     setUIMode(mode) {
@@ -348,6 +351,8 @@ export class UIManager {
         }
 
         const invList = document.getElementById('inventory-list');
+        if (agent.inventory) this.cachedInventory = agent.inventory;
+        if (agent.storage) this.cachedStorage = agent.storage;
         if (invList && agent.inventory) {
             invList.innerHTML = agent.inventory.map(i => `
                 <div class="flex justify-between items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800">
@@ -509,44 +514,88 @@ export class UIManager {
         }
     }
 
+    setForgeCanCraftFilter(enabled) {
+        this.canCraftOnly = enabled;
+        const label = document.getElementById('forge-can-craft-label');
+        if (label) {
+            if (enabled) {
+                label.classList.add('border-emerald-500/50', 'bg-emerald-500/10', 'text-emerald-400');
+                label.classList.remove('border-slate-700', 'text-slate-500');
+            } else {
+                label.classList.remove('border-emerald-500/50', 'bg-emerald-500/10', 'text-emerald-400');
+                label.classList.add('border-slate-700', 'text-slate-500');
+            }
+        }
+        if (this.game.lastAgentData) this.updateForgeUI(this.game.lastAgentData.discovery);
+    }
+
     updateForgeUI(discovery) {
         if (!discovery || !discovery.crafting_recipes) return;
         const grid = document.getElementById('forge-recipe-grid');
         if (!grid) return;
 
+        // Build combined material map from cargo inventory + vault storage
+        const available = {};
+        [...(this.cachedInventory || []), ...(this.cachedStorage || [])].forEach(item => {
+            available[item.type] = (available[item.type] || 0) + (item.quantity || 0);
+        });
+
+        const canCraft = (recipe) =>
+            Object.entries(recipe.materials || {}).every(([mat, qty]) => (available[mat] || 0) >= qty);
+
         let recipes = discovery.crafting_recipes;
         if (this.activeForgeFilter !== 'All') {
             recipes = recipes.filter(r => r.type === this.activeForgeFilter);
         }
+        if (this.canCraftOnly) {
+            recipes = recipes.filter(canCraft);
+        }
 
         if (recipes.length === 0) {
-            grid.innerHTML = `<div class="col-span-full text-center py-8 text-slate-700 italic border border-dashed border-slate-800 rounded-2xl">No recipes found in this category.</div>`;
+            grid.innerHTML = `<div class="col-span-full text-center py-8 text-slate-700 italic border border-dashed border-slate-800 rounded-2xl">${this.canCraftOnly ? 'No craftable recipes with current materials.' : 'No recipes found in this category.'}</div>`;
             return;
         }
 
-        grid.innerHTML = recipes.map(r => `
-            <div class="bg-sky-500/5 p-3 rounded-xl border border-sky-500/20">
-                <div class="flex justify-between items-start mb-2">
-                    <div class="text-[10px] font-bold text-sky-300 uppercase">${r.name}</div>
-                    <span class="text-[8px] text-slate-500 font-mono">${r.type}</span>
-                </div>
-                <div class="text-[8px] text-slate-400 mb-3 uppercase tracking-widest font-bold">Materials Needed:</div>
-                <div class="space-y-1 mb-3">
-                    ${Object.entries(r.materials || {}).map(([m, q]) => `
-                        <div class="flex justify-between text-[8px] font-mono">
-                            <span class="text-slate-500">${m.replace('_', ' ')}</span>
+        grid.innerHTML = recipes.map(r => {
+            const craftable = canCraft(r);
+            const borderColor = craftable ? 'border-emerald-500/30' : 'border-sky-500/20';
+            const materials = Object.entries(r.materials || {}).map(([m, q]) => {
+                const have = available[m] || 0;
+                const met = have >= q;
+                const haveColor = met ? 'text-emerald-400' : 'text-rose-400';
+                const icon = met ? '✓' : '✗';
+                return `
+                    <div class="flex justify-between text-[8px] font-mono">
+                        <span class="text-slate-500">${m.replace(/_/g, ' ')}</span>
+                        <span class="flex gap-2">
                             <span class="text-sky-400">x${q}</span>
+                            <span class="${haveColor}">[${have} ${icon}]</span>
+                        </span>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="bg-sky-500/5 p-3 rounded-xl border ${borderColor}">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="text-[10px] font-bold text-sky-300 uppercase">${r.name}</div>
+                        <div class="flex items-center gap-2">
+                            ${craftable ? '<span class="text-[8px] text-emerald-400 font-bold">✓ READY</span>' : ''}
+                            <span class="text-[8px] text-slate-500 font-mono">${r.type}</span>
                         </div>
-                    `).join('')}
+                    </div>
+                    <div class="text-[8px] text-slate-400 mb-2 uppercase tracking-widest font-bold">Materials:</div>
+                    <div class="space-y-1 mb-3">${materials}</div>
+                    <div class="text-[8px] text-slate-400 mb-1 uppercase tracking-widest font-bold">Projected Stats:</div>
+                    <div class="grid grid-cols-2 gap-1 mb-4">
+                        ${Object.entries(r.stats || {}).map(([s, v]) => `<div class="text-[8px] text-slate-300">${s}: <span class="text-emerald-400">${v}</span></div>`).join('')}
+                    </div>
+                    <button onclick="game.api.submitIndustryIntent('CRAFT', {item_type: '${r.id}'})" class="w-full ${craftable ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-sky-600 hover:bg-sky-500'} text-white px-3 py-1.5 rounded text-[9px] font-bold orbitron transition-all">INITIATE ASSEMBLY</button>
                 </div>
-                <div class="text-[8px] text-slate-400 mb-1 uppercase tracking-widest font-bold">Projected Stats:</div>
-                <div class="grid grid-cols-2 gap-1 mb-4">
-                    ${Object.entries(r.stats || {}).map(([s, v]) => `<div class="text-[8px] text-slate-300">${s}: <span class="text-emerald-400">${v}</span></div>`).join('')}
-                </div>
-                <button onclick="game.api.submitIndustryIntent('CRAFT', {item_type: '${r.id}'})" class="w-full bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded text-[9px] font-bold orbitron transition-all">INITIATE ASSEMBLY</button>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
+
 
     updateMissionsUI(missions) {
         const container = document.getElementById('missions-list');

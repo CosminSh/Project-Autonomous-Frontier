@@ -667,7 +667,7 @@
                                     Fabrication Unit</h4>
                                 <p class="text-[10px] text-slate-500 mb-3 font-mono">Convert ingots into advanced agent
                                     components. Requires proximity to a CRAFTER station.</p>
-                                <div class="flex flex-wrap gap-2 mb-4" id="forge-filters">
+                                <div class="flex flex-wrap gap-2 mb-4 items-center" id="forge-filters">
                                     <button onclick="game.ui.setForgeFilter('All')"
                                         class="forge-filter-btn active px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-sky-500/30 text-sky-400 bg-sky-500/10 transition-all">All</button>
                                     <button onclick="game.ui.setForgeFilter('Frame')"
@@ -682,6 +682,14 @@
                                         class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Engine</button>
                                     <button onclick="game.ui.setForgeFilter('Material')"
                                         class="forge-filter-btn px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-slate-800 text-slate-500 hover:border-sky-500/30 hover:text-sky-400 transition-all">Material</button>
+                                    <div class="w-px h-5 bg-slate-700 self-center mx-1"></div>
+                                    <label id="forge-can-craft-label"
+                                        class="flex items-center gap-1.5 cursor-pointer px-3 py-1 rounded-full border border-slate-700 text-slate-500 text-[9px] font-bold orbitron uppercase transition-all hover:border-emerald-500/40 hover:text-emerald-400">
+                                        <input type="checkbox" id="forge-can-craft-toggle"
+                                            onchange="game.ui.setForgeCanCraftFilter(this.checked)"
+                                            class="accent-emerald-500 w-3 h-3">
+                                        Can Craft
+                                    </label>
                                 </div>
                                 <div id="forge-recipe-grid" class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                                     <div class="text-[10px] text-slate-600 italic">Syncing Forge Database...</div>
