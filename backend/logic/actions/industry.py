@@ -5,9 +5,10 @@ from models import AuditLog, WorldHex, InventoryItem
 from config import (
     SMELTING_RECIPES, SMELTING_RATIO, CRAFTING_RECIPES, CORE_RECIPES, 
     PART_DEFINITIONS, REPAIR_COST_PER_HP, REPAIR_COST_IRON_INGOT_PER_HP,
-    CORE_SERVICE_COST_CREDITS, CORE_SERVICE_COST_IRON_INGOT,
+    MAINTENANCE_BASE_COST, MAINTENANCE_COEFFICIENT,
     UPGRADE_MAX_LEVEL, UPGRADE_BASE_INGOT_COST
 )
+import math
 from game_helpers import add_experience, recalculate_agent_stats
 
 logger = logging.getLogger("heartbeat.actions.industry")
@@ -149,21 +150,46 @@ async def handle_salvage(db, agent, intent, tick_count, manager):
     if manager:
         await manager.broadcast({"type": "EVENT", "event": "SALVAGE", "agent_id": agent.id})
 
-async def handle_core_service(db, agent, intent, tick_count, manager):
-    """Resets Wear & Tear for a credit and ingot fee at qualified stations."""
-    credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
-    ingots = next((i for i in agent.inventory if i.item_type == "IRON_INGOT"), None)
+def calculate_maintenance_cost(agent):
+    """Calculates dynamic Wear & Tear cost based on chassis base + 20% of equipped gear cost."""
+    costs = MAINTENANCE_BASE_COST.copy()
     
-    if credits and credits.quantity >= CORE_SERVICE_COST_CREDITS and ingots and ingots.quantity >= CORE_SERVICE_COST_IRON_INGOT:
-        credits.quantity -= CORE_SERVICE_COST_CREDITS
-        ingots.quantity -= CORE_SERVICE_COST_IRON_INGOT
+    # Add fractional costs for each equipped part
+    for part in getattr(agent, "parts", []):
+        config_key = next((k for k, v in PART_DEFINITIONS.items() if v["name"] == part.name), None)
+        if config_key and config_key in CRAFTING_RECIPES:
+            recipe = CRAFTING_RECIPES[config_key]
+            for resource, amount in recipe.items():
+                fractional_cost = math.ceil(amount * MAINTENANCE_COEFFICIENT)
+                if fractional_cost > 0:
+                    costs[resource] = costs.get(resource, 0) + fractional_cost
+                    
+    return costs
+
+async def handle_core_service(db, agent, intent, tick_count, manager):
+    """Resets Wear & Tear dynamically scaling costs based on equipped loadout at qualified stations."""
+    required_costs = calculate_maintenance_cost(agent)
+    
+    # Check if agent has all required resources
+    has_all_resources = True
+    for resource, required_qty in required_costs.items():
+        inv_item = next((i for i in getattr(agent, "inventory", []) if i.item_type == resource), None)
+        if not inv_item or inv_item.quantity < required_qty:
+            has_all_resources = False
+            break
+            
+    if has_all_resources:
+        # Consume the resources
+        for resource, required_qty in required_costs.items():
+            inv_item = next((i for i in agent.inventory if i.item_type == resource), None)
+            inv_item.quantity -= required_qty
+            if inv_item.quantity <= 0:
+                db.delete(inv_item)
+                
         agent.wear_and_tear = 0.0
         db.add(AuditLog(agent_id=agent.id, event_type="CORE_SERVICE", details={"success": True}))
     else:
         db.add(AuditLog(agent_id=agent.id, event_type="CORE_SERVICE_FAILED", details={
             "reason": "INSUFFICIENT_RESOURCES",
-            "required": {
-                "CREDITS": CORE_SERVICE_COST_CREDITS,
-                "IRON_INGOT": CORE_SERVICE_COST_IRON_INGOT
-            }
+            "required": required_costs
         }))

@@ -97,7 +97,7 @@ async def get_commands():
             {"type": "CRAFT", "description": "Assemble components into parts.", "payload": {"item_type": "str"}, "range": 0, "station_required": "CRAFTER"},
             {"type": "RESTORE_HP", "description": "Restore agent structure. Costs 1 Credit and 0.02 Iron Ingots per HP.", "payload": {"amount": "int"}, "range": 0, "station_required": "ANY"},
             {"type": "REFINE_GAS", "description": "Convert raw Helium Gas into He3 fill for canisters.", "payload": {"quantity": "int"}, "range": 0, "station_required": "REFINERY"},
-            {"type": "RESET_WEAR", "description": "Reset Wear & Tear to 0%. Costs 100 Credits and 5 Iron Ingots.", "payload": {}, "range": 0, "station_required": "REPAIR or MARKET"},
+            {"type": "RESET_WEAR", "description": "Reset Wear & Tear to 0%. Costs scale dynamically based on the quality of your equipped gear.", "payload": {}, "range": 0, "station_required": "REPAIR or MARKET"},
             {"type": "SALVAGE", "description": "Collect items from a world loot drop.", "payload": {"drop_id": "int"}, "range": 0},
             {"type": "EQUIP", "description": "Attach a part from your inventory to your chassis.", "payload": {"item_type": "str"}, "range": "N/A"},
             {"type": "UNEQUIP", "description": "Remove an equipped part and return it to inventory.", "payload": {"part_id": "int"}, "range": "N/A"},

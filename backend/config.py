@@ -3,7 +3,6 @@ config.py — Game constants, recipes, item weights, and part definitions.
 All other modules import from here. No database or app dependencies.
 """
 import random
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Game Constants (GDD Section 3.2 & 5.2)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -124,8 +123,8 @@ AFFIX_POOL = {
 
 REPAIR_COST_PER_HP = 1  # Credits per HP restored
 REPAIR_COST_IRON_INGOT_PER_HP = 0.02  # 1 Ingot per 50 HP
-CORE_SERVICE_COST_CREDITS = 100
-CORE_SERVICE_COST_IRON_INGOT = 5
+MAINTENANCE_BASE_COST = {"CREDITS": 50, "IRON_INGOT": 2}
+MAINTENANCE_COEFFICIENT = 0.2  # 20% of equipped gear crafting cost
 CANISTER_MAX_FILL = 100  # 100%
 GAS_REFINING_RATIO = 10  # 10 Helium -> 10% Canister Fill
 FACTION_REALIGNMENT_COST = 500
