@@ -5,6 +5,7 @@ export class GameAPI {
     constructor(game) {
         this.game = game;
         this.socket = null;
+        this._pollCycle = 0; // Track poll cycles for throttled sub-requests
     }
 
     setupWebSocket() {
@@ -43,7 +44,7 @@ export class GameAPI {
                 fetch('/api/bounties'),                                                                                   // 5
                 apiKey ? fetch(`${window.location.origin}/api/perception`, { headers }) : Promise.resolve(null),         // 6
                 apiKey ? fetch(`${window.location.origin}/api/missions`, { headers }) : Promise.resolve(null),           // 7
-                apiKey ? fetch(`${window.location.origin}/api/chat`, { headers }) : Promise.resolve(null)                // 8
+                (apiKey && this._pollCycle % 3 === 0) ? fetch(`${window.location.origin}/api/chat`, { headers }) : Promise.resolve(null) // 8 (every 3rd cycle ~15s)
             ]);
 
             // Helper: safely get JSON from a settled result (returns null on failure)
@@ -229,7 +230,10 @@ export class GameAPI {
     }
 
     startPolling() {
-        setInterval(() => this.pollState(), 1000);
+        setInterval(() => {
+            this._pollCycle++;
+            this.pollState();
+        }, 5000);
     }
 
     async submitIntent(actionType, data) {

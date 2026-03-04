@@ -231,18 +231,18 @@ if os.path.exists(frontend_path):
         resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         return resp
 
-    @app.get("/{filename:path}.js")
-    async def serve_js(filename: str):
-        """Serve JS files with no-cache headers to prevent stale module caching."""
-        filepath = os.path.join(frontend_path, f"{filename}.js")
-        if not os.path.exists(filepath):
-            from fastapi import HTTPException
-            raise HTTPException(status_code=404)
-        resp = FileResponse(filepath, media_type="application/javascript")
-        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        return resp
-
     app.mount("/", StaticFiles(directory=frontend_path), name="frontend")
+
+    # Middleware: add no-cache headers to JS/HTML responses from static files
+    from starlette.middleware.base import BaseHTTPMiddleware
+    class NoCacheStaticMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            response = await call_next(request)
+            ct = response.headers.get("content-type", "")
+            if "javascript" in ct or "text/html" in ct:
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            return response
+    app.add_middleware(NoCacheStaticMiddleware)
 else:
     @app.get("/")
     async def root():
