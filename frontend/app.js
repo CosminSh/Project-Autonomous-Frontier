@@ -1,8 +1,8 @@
-﻿import { GameAPI } from './api.js?v=HUD_CACHE_V2';
+﻿import { GameAPI } from './api.js?v=DESCRIPTIVE_CMDS_V1';
 import { AuthManager } from './auth.js?v=RATE_LIMIT_V1';
 import { GameRenderer } from './renderer.js?v=RATE_LIMIT_V1';
 import { UIManager } from './ui.js?v=TELEMETRY_APPEND_V1';
-import { TerminalHandler } from './terminal.js?v=RATE_LIMIT_V1';
+import { TerminalHandler } from './terminal.js?v=DESCRIPTIVE_CMDS_V1';
 
 /**
  * app.js — Main Bootstrapper
@@ -60,7 +60,7 @@ class GameClient {
         this.ui.switchTab('terminal');
 
         // Industry Actions
-        const actions = ['SMELT', 'CRAFT', 'REPAIR'];
+        const actions = ['SMELT', 'CRAFT', 'RESTORE_HP', 'RESET_WEAR'];
         actions.forEach(action => {
             document.getElementById(`btn-${action.toLowerCase()}`)?.addEventListener('click', () => this.api.submitIndustryIntent(action));
         });

@@ -33,8 +33,8 @@ export class TerminalHandler {
             'SMELT': { cat: 'INDUSTRY', syntax: 'SMELT <ore_type> <quantity>', example: 'SMELT IRON_ORE 5', help: 'Refine ore into ingots (SMELTER)' },
             'CRAFT': { cat: 'INDUSTRY', syntax: 'CRAFT <item_type>', example: 'CRAFT DRILL_MK1', help: 'Assemble parts (CRAFTER)' },
             'REFINE_GAS': { cat: 'INDUSTRY', syntax: 'REFINE_GAS <quantity>', example: 'REFINE_GAS 3', help: 'Helium Gas to He3 (REFINERY)' },
-            'REPAIR': { cat: 'MAINT', syntax: 'REPAIR <amount>', example: 'REPAIR 20', help: 'Restore structure (REPAIR stn)' },
-            'CORE_SERVICE': { cat: 'MAINT', syntax: 'CORE_SERVICE', example: 'CORE_SERVICE', help: 'Reset Wear and Tear' },
+            'RESTORE_HP': { cat: 'MAINT', syntax: 'RESTORE_HP <amount>', example: 'RESTORE_HP 20', help: 'Restore agent HP [Costs 1 CR + 0.02 Iron Ingot/HP]' },
+            'RESET_WEAR': { cat: 'MAINT', syntax: 'RESET_WEAR', example: 'RESET_WEAR', help: 'Clear Wear & Tear penalty [Costs 100 CR + 5 Iron Ingots]' },
             'EQUIP': { cat: 'GEAR', syntax: 'EQUIP <item_type>', example: 'EQUIP DRILL_MK1', help: 'Attach part to chassis' },
             'UNEQUIP': { cat: 'GEAR', syntax: 'UNEQUIP <part_id>', example: 'UNEQUIP 3', help: 'Remove equipped part' },
             'CONSUME': { cat: 'GEAR', syntax: 'CONSUME <item_type>', example: 'CONSUME HE3_FUEL', help: 'Use consumable for buff' },
@@ -113,7 +113,7 @@ export class TerminalHandler {
             this.input.focus();
         });
         document.getElementById('btn-quick-repair')?.addEventListener('click', () => {
-            this.input.value = 'REPAIR ';
+            this.input.value = 'RESTORE_HP ';
             this.input.focus();
         });
         document.getElementById('btn-quick-help')?.addEventListener('click', () => {
@@ -239,8 +239,8 @@ export class TerminalHandler {
                 if (args.length < 1) throw new Error('Usage: CRAFT <item_type>  — e.g. CRAFT DRILL_MK1');
                 data.item_type = args.join('_').toUpperCase();
                 break;
-            case 'REPAIR':
-                if (args.length < 1) throw new Error('Usage: REPAIR <amount>  — e.g. REPAIR 20');
+            case 'RESTORE_HP':
+                if (args.length < 1) throw new Error('Usage: RESTORE_HP <amount>  — e.g. RESTORE_HP 20');
                 data.amount = parseInt(args[0]);
                 if (isNaN(data.amount)) throw new Error('Amount must be an integer.');
                 break;
@@ -277,7 +277,7 @@ export class TerminalHandler {
                 data.faction_id = parseInt(args[0]);
                 if (isNaN(data.faction_id)) throw new Error('Faction ID must be 1, 2, or 3.');
                 break;
-            case 'MINE': case 'CORE_SERVICE': case 'STOP': case 'DROP_LOAD':
+            case 'MINE': case 'RESET_WEAR': case 'STOP': case 'DROP_LOAD':
                 break;
             case 'FIELD_TRADE':
                 if (args.length < 3) throw new Error('Usage: FIELD_TRADE <target_id> <price> <items...>');

@@ -524,7 +524,7 @@
                                     <button id="btn-quick-salvage"
                                         class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">SALVAGE</button>
                                     <button id="btn-quick-repair"
-                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">REPAIR</button>
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">RESTORE_HP</button>
                                 </div>
                             </div>
                         </div>
@@ -715,9 +715,10 @@
                             <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
                                 <h4 class="text-[10px] text-rose-400 uppercase mb-3 tracking-widest font-bold">Repair
                                     Bay</h4>
-                                <p class="text-[10px] text-slate-500 mb-3 font-mono">Restore agent structure using
-                                    colonial credits (5 Credits/1HP). Requires proximity to a REPAIR station.</p>
-                                <div class="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-3">
+                                <p class="text-[10px] text-slate-500 mb-2 font-mono">Restore agent structure. Costs 1
+                                    Credit and 0.02 Iron Ingots per HP.</p>
+                                <div
+                                    class="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-3 mb-4">
                                     <div
                                         class="w-full md:flex-grow flex items-center space-x-2 bg-slate-900 p-2 rounded border border-slate-800">
                                         <span class="text-[9px] text-slate-500 uppercase px-2">Restore</span>
@@ -725,8 +726,16 @@
                                             class="bg-transparent text-xs text-sky-400 outline-none w-full">
                                         <span class="text-[9px] text-slate-500 uppercase px-2">HP</span>
                                     </div>
-                                    <button id="btn-repair"
-                                        class="w-full md:w-auto bg-rose-500 hover:bg-rose-400 text-slate-950 px-6 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">REPAIR</button>
+                                    <button id="btn-restore_hp"
+                                        class="w-full md:w-auto bg-rose-500 hover:bg-rose-400 text-slate-950 px-6 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">RESTORE_HP</button>
+                                </div>
+
+                                <div class="border-t border-slate-800/50 pt-3">
+                                    <p class="text-[10px] text-slate-500 mb-2 font-mono">Reset your Wear & Tear penalty
+                                        to 0%. Costs 100 Credits and 5 Iron Ingots. Requires REPAIR or MARKET station
+                                        proximity.</p>
+                                    <button id="btn-reset_wear"
+                                        class="w-full md:w-auto border border-rose-500/50 hover:bg-rose-500/20 text-rose-400 px-6 py-2 rounded-lg font-bold text-[10px] orbitron transition-all">RESET_WEAR</button>
                                 </div>
                             </div>
                         </div>

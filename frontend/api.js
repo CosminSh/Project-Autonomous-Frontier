@@ -392,9 +392,11 @@ export class GameAPI {
                 data = {
                     item_type: document.getElementById('craft-item-type').value
                 };
-            } else if (type === 'REPAIR') {
+            } else if (type === 'RESTORE_HP') {
                 const amount = parseInt(document.getElementById('repair-amount').value) || 0;
                 data = { amount: amount };
+            } else if (type === 'RESET_WEAR') {
+                data = {}; // No payload required
             }
         }
 
