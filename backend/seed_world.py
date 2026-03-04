@@ -67,6 +67,9 @@ def seed_world():
                     if dist <= 1:
                         res_type = "IRON_ORE"
                     elif dist == 2:
+                        res_type = "COPPER_ORE"
+                        if random.random() < 0.2: res_type = "HELIUM_GAS"
+                    elif dist == 3:
                         res_type = "COBALT_ORE"
                         if random.random() < 0.3: res_type = "HELIUM_GAS"
                     else:
