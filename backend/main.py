@@ -227,7 +227,20 @@ if os.path.exists(frontend_path):
 
     @app.get("/")
     async def read_index():
-        return FileResponse(os.path.join(frontend_path, "index.html"))
+        resp = FileResponse(os.path.join(frontend_path, "index.html"))
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return resp
+
+    @app.get("/{filename:path}.js")
+    async def serve_js(filename: str):
+        """Serve JS files with no-cache headers to prevent stale module caching."""
+        filepath = os.path.join(frontend_path, f"{filename}.js")
+        if not os.path.exists(filepath):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404)
+        resp = FileResponse(filepath, media_type="application/javascript")
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return resp
 
     app.mount("/", StaticFiles(directory=frontend_path), name="frontend")
 else:
