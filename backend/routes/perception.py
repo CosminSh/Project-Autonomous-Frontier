@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from models import WorldHex, Agent, GlobalState, LootDrop
 from database import get_db, STATION_CACHE
-from game_helpers import get_hex_distance, get_discovery_packet
+from game_helpers import get_hex_distance, get_discovery_packet, get_agent_visual_signature
 from routes.common import verify_api_key
 
 router = APIRouter(prefix="/api", tags=["Perception"])
@@ -56,7 +56,7 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
             "capacitor": agent.capacitor, "structure": agent.structure,
             "level": agent.level, "faction": agent.faction_id
         },
-        "nearby_agents": [{"id": a.id, "name": a.name, "q": a.q, "r": a.r, "faction": a.faction_id, "is_feral": a.is_feral, "visual_signature": a.visual_signature} for a in visible_agents if a.id != agent.id],
+        "nearby_agents": [{"id": a.id, "name": a.name, "q": a.q, "r": a.r, "faction": a.faction_id, "is_feral": a.is_feral, "visual_signature": get_agent_visual_signature(a)} for a in visible_agents if a.id != agent.id],
         "discovery": discovery,
         "loot": [{"item": l.item_type, "qty": l.quantity, "q": l.q, "r": l.r} for l in loot]
     }

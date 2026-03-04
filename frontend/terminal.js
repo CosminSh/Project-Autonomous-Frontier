@@ -641,7 +641,7 @@ export class TerminalHandler {
 
             if (resp.ok) {
                 const result = await resp.json();
-                this.log(`✓ ACCEPTED — Tick #${result.scheduled_tick}`, 'success');
+                this.log(`✓ ACCEPTED — Tick #${result.tick}`, 'success');
             } else {
                 const err = await resp.json().catch(() => ({ detail: 'Unknown server error' }));
                 const errorDetail = typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail;
