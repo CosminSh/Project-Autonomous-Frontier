@@ -48,6 +48,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://admin:password@db:5432/terminal_frontier
       - REDIS_URL=redis://redis:6379/0
+      - ADMIN_KEY=change-me-before-deploy
     deploy:
       resources:
         limits:

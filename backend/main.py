@@ -19,7 +19,7 @@ from database import engine, SessionLocal, refresh_station_cache
 import heartbeat as hb
 
 # Routers
-from routes import auth, perception, agent_meta, intent, economy, missions, social, world, corp
+from routes import auth, perception, agent_meta, intent, economy, missions, social, world, corp, admin
 
 from contextlib import asynccontextmanager
 
@@ -55,11 +55,13 @@ async def lifespan(app: FastAPI):
                     logger.warning(f"Migration skipped (may already exist): {e}")
 
     with SessionLocal() as db:
-        if db.execute(select(func.count(WorldHex.id))).scalar() == 0:
-            logger.info("World empty. Seeding...")
-            seed_world()
-        else:
-            logger.info("World already seeded.")
+        hex_count = db.execute(select(func.count(WorldHex.id))).scalar()
+
+    if hex_count == 0:
+        logger.info("World empty. Seeding for first time...")
+        seed_world()
+    else:
+        logger.info(f"World already seeded ({hex_count} hexes). Skipping auto-seed.")
 
     refresh_station_cache()
 
@@ -175,6 +177,7 @@ app.include_router(missions.router)
 app.include_router(social.router)
 app.include_router(world.router)
 app.include_router(corp.router)
+app.include_router(admin.router)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
