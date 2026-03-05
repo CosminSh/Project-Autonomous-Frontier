@@ -65,6 +65,10 @@ export class TerminalHandler {
             'FIELD_TRADE': { cat: 'MARKET', syntax: 'FIELD_TRADE <id> <price> <items...>', example: 'FIELD_TRADE 5 100 IRON_ORE', help: 'Direct trade with nearby agent' },
             'REQUEST_RESCUE': { cat: 'NAV', syntax: 'REQUEST_RESCUE', example: 'REQUEST_RESCUE', help: 'Get a quote for emergency towing to the Hub' },
             'CONFIRM_RESCUE': { cat: 'NAV', syntax: 'CONFIRM_RESCUE', example: 'CONFIRM_RESCUE', help: 'Confirm emergency tow at quoted price' },
+            'ARENA_STATUS': { cat: 'ARENA', syntax: 'ARENA_STATUS', example: 'ARENA_STATUS', help: 'Shows your Pit Fighter\'s stats, Elo, and equipped gear.' },
+            'ARENA_EQUIP': { cat: 'ARENA', syntax: 'ARENA_EQUIP <part_id>', example: 'ARENA_EQUIP 123', help: 'Permanently donates an unequipped part from your main inventory to your Pit Fighter.' },
+            'ARENA_LOGS': { cat: 'ARENA', syntax: 'ARENA_LOGS', example: 'ARENA_LOGS', help: 'Shows the combat results of your Pit Fighter\'s recent Scrap Pit arena battles.' },
+            'LEADERBOARD': { cat: 'META', syntax: 'LEADERBOARD', example: 'LEADERBOARD', help: 'Shows the top 10 players by XP, Credits, and Arena Elo.' },
         };
 
         this.setupListeners();
@@ -292,6 +296,15 @@ export class TerminalHandler {
                 data.target_id = parseInt(args[0]); data.price = parseInt(args[1]);
                 data.items = args.slice(2);
                 break;
+            case 'ARENA_STATUS':
+            case 'ARENA_LOGS':
+            case 'LEADERBOARD':
+                return { action: actionType, timestamp: Date.now() };
+            case 'ARENA_EQUIP':
+                if (args.length < 1) throw new Error('Usage: ARENA_EQUIP <part_id>  — e.g. ARENA_EQUIP 123');
+                data.part_id = parseInt(args[0]);
+                if (isNaN(data.part_id)) throw new Error('Part ID must be an integer.');
+                break;
             default:
                 throw new Error(`Unknown command: ${actionType}`);
         }
@@ -361,6 +374,7 @@ export class TerminalHandler {
                 'NAV': '🧭 NAVIGATION', 'RESOURCE': '⛏️ RESOURCES', 'COMBAT': '⚔️ COMBAT & PIRACY',
                 'MARKET': '🏪 MARKET', 'INDUSTRY': '🏭 INDUSTRY', 'MAINT': '🔧 MAINTENANCE',
                 'GEAR': '🎒 GEAR', 'STORAGE': '📦 STORAGE', 'SQUAD': '👥 SQUAD',
+                'ARENA': '🥊 ARENA',
                 'OTHER': '🌐 OTHER', 'META': '📖 META'
             };
             const grouped = {};
@@ -610,7 +624,95 @@ export class TerminalHandler {
                 this.log(`  Tow Speed: 10 hexes / tick`, 'info');
                 this.log(`  Estimated Time: ${q.eta_ticks} ticks`, 'info');
                 this.log(`  Total Cost: <span style="color:#fbbf24">${q.cost} CREDITS</span>`, 'warning');
-                this.log(`  To accept, type: <span style="color:#38bdf8">CONFIRM_RESCUE</span>`, 'system');
+                this.log(`  Type CONFIRM_RESCUE to accept.`, 'system');
+            } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
+            return;
+        }
+
+        // ── META: LEADERBOARD ──
+        if (actionType === 'LEADERBOARD') {
+            try {
+                const resp = await fetch('/api/leaderboards');
+                const stats = await resp.json();
+                this.log(`<b>═══ GLOBAL RANKINGS ═══</b>`, 'system');
+
+                this.log(`  <span style="color:#eab308">Top Experience</span>`, 'info');
+                stats.categories.experience.slice(0, 5).forEach(p => {
+                    this.log(`    #${p.rank} - ${p.name} [${p.value} XP]`, 'warning');
+                });
+
+                this.log(`  <span style="color:#10b981">Top Credits</span>`, 'info');
+                stats.categories.credits.slice(0, 5).forEach(p => {
+                    this.log(`    #${p.rank} - ${p.name} [${p.value} CR]`, 'success');
+                });
+
+                if (stats.categories.arena && stats.categories.arena.length > 0) {
+                    this.log(`  <span style="color:#ef4444">Scrap Pit Arena (Elo)</span>`, 'info');
+                    stats.categories.arena.slice(0, 5).forEach(p => {
+                        this.log(`    #${p.rank} - ${p.name} [${p.value} Elo] (${p.wins}W - ${p.losses}L)`, 'error');
+                    });
+                }
+            } catch (e) { this.log(`ERROR: Could not fetch leaderboards. ${e.message}`, 'error'); }
+            return;
+        }
+
+        // ── ARENA ──
+        if (actionType === 'ARENA_STATUS') {
+            try {
+                const apiKey = localStorage.getItem('sv_api_key');
+                const resp = await fetch('/api/arena/status', { headers: { 'X-API-KEY': apiKey } });
+                if (!resp.ok) throw new Error('Failed to fetch arena status.');
+                const status = await resp.json();
+
+                this.log(`<b>═══ SCRAP PIT: ${status.fighter_name} ═══</b>`, 'system');
+                this.log(`  <span style="color:#3b82f6">Rating:</span> ${status.elo} Elo  |  <span style="color:#10b981">${status.wins} W</span> - <span style="color:#ef4444">${status.losses} L</span>`, 'info');
+                this.log(`  <span style="color:#a855f7">Combat Stats:</span> ${status.stats.kinetic_force} KF / ${status.stats.logic_precision} LP / ${status.stats.structure} STR`, 'info');
+
+                this.log(`  <span style="color:#f59e0b">Equipped Gear:</span>`, 'warning');
+                if (status.gear.length === 0) {
+                    this.log(`    No gear equipped. (Use ARENA_EQUIP to donate gear)`, 'error');
+                } else {
+                    status.gear.forEach(g => {
+                        this.log(`    [ID: ${g.id}] ${g.name} (${g.rarity}) - Durability: ${g.durability}%`, 'info');
+                    });
+                }
+            } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
+            return;
+        }
+
+        if (actionType === 'ARENA_EQUIP') {
+            try {
+                const apiKey = localStorage.getItem('sv_api_key');
+                const resp = await fetch('/api/arena/equip', {
+                    method: 'POST',
+                    headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ part_id: parsedCmd.part_id })
+                });
+                const res = await resp.json();
+                if (!resp.ok) throw new Error(res.detail || 'Failed to equip part.');
+                this.log(res.message, 'success');
+                this.log(`NOTE: This gear is permanently bound to the Pit Fighter and will be destroyed at season end.`, 'warning');
+            } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
+            return;
+        }
+
+        if (actionType === 'ARENA_LOGS') {
+            try {
+                const apiKey = localStorage.getItem('sv_api_key');
+                const resp = await fetch('/api/arena/logs', { headers: { 'X-API-KEY': apiKey } });
+                if (!resp.ok) throw new Error('Failed to fetch arena logs.');
+                const logs = await resp.json();
+
+                this.log(`<b>═══ ARENA COMBAT LOGS ═══</b>`, 'system');
+                if (logs.length === 0) {
+                    this.log(`  No battles fought yet. Battles automatically occur every 8 hours.`, 'info');
+                } else {
+                    logs.forEach(l => {
+                        const color = l.event === 'ARENA_VICTORY' ? 'success' : 'error';
+                        const timeStr = new Date(l.time).toLocaleString();
+                        this.log(`  [${timeStr}] ${l.details.message}`, color);
+                    });
+                }
             } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
             return;
         }

@@ -14,7 +14,8 @@ LEADERBOARD_CACHE = {
     "last_updated": None,
     "categories": {
         "experience": [],
-        "credits": []
+        "credits": [],
+        "arena": []
     }
 }
 
@@ -67,12 +68,36 @@ def generate_leaderboards(db: Session):
         logger.error(f"Error calculating Credits leaderboard: {e}")
         credit_list = []
 
+    # 3. Top Arena Elo
+    try:
+        elo_agents = db.execute(
+            select(Agent.id, Agent.name, Agent.elo, Agent.arena_wins, Agent.arena_losses)
+            .where(Agent.is_pit_fighter == True, Agent.elo > 1200)
+            .order_by(Agent.elo.desc())
+            .limit(100)
+        ).all()
+        
+        elo_list = []
+        for i, (aid, name, elo, wins, losses) in enumerate(elo_agents):
+            elo_list.append({
+                "rank": i + 1,
+                "agent_id": aid,
+                "name": name,
+                "value": elo or 1200,
+                "wins": wins or 0,
+                "losses": losses or 0
+            })
+    except Exception as e:
+        logger.error(f"Error calculating Arena leaderboard: {e}")
+        elo_list = []
+
     # Update Global Cache
     LEADERBOARD_CACHE["categories"]["experience"] = xp_list
     LEADERBOARD_CACHE["categories"]["credits"] = credit_list
+    LEADERBOARD_CACHE["categories"]["arena"] = elo_list
     LEADERBOARD_CACHE["last_updated"] = datetime.now(timezone.utc).isoformat()
     
-    logger.info(f"Leaderboards updated. XP Leaders: {len(xp_list)}, Credit Leaders: {len(credit_list)}")
+    logger.info(f"Leaderboards updated. XP Leaders: {len(xp_list)}, Credit Leaders: {len(credit_list)}, Arena Leaders: {len(elo_list)}")
 
 async def start_leaderboard_loop():
     """Background task to refresh leaderboards every hour."""

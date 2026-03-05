@@ -50,8 +50,14 @@ class Agent(Base):
     level = Column(Integer, server_default="1")
     experience = Column(Integer, server_default="0")
     
+    # Arena/PvP Attributes
+    is_pit_fighter = Column(Boolean, server_default="false")
+    elo = Column(Integer, server_default="1200")
+    arena_wins = Column(Integer, server_default="0")
+    arena_losses = Column(Integer, server_default="0")
+
     # Relationships
-    parts = relationship("ChassisPart", back_populates="agent")
+    parts = relationship("ChassisPart", back_populates="agent", cascade="all, delete-orphan")
     intents = relationship("Intent", back_populates="agent")
     inventory = relationship("InventoryItem", back_populates="agent")
     storage = relationship("StorageItem", back_populates="agent")
