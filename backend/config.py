@@ -18,10 +18,10 @@ PHASE_STRATEGY_DURATION = 10
 PHASE_CRUNCH_DURATION = 5
 
 RESPAWN_HP_PERCENT = 0.5
-TOWN_COORDINATES = (0, 50)
-ANARCHY_THRESHOLD = 5
-SOLAR_RADIUS_SAFE = 10
-SOLAR_RADIUS_TWILIGHT = 20
+TOWN_COORDINATES = (0, 0)   # North Pole — the hub
+ANARCHY_THRESHOLD = 6      # City is dist 0-5; anarchy starts at 6
+SOLAR_RADIUS_SAFE = 5      # Always sunny within 5 steps (City)
+SOLAR_RADIUS_TWILIGHT = 30 # Day/night zone: dist 6-30; pure dark beyond
 CLUTTER_THRESHOLD = 3
 CLUTTER_PENALTY = 0.2  # 20% reduction
 

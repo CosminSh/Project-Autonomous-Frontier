@@ -97,8 +97,8 @@ def get_hex_distance(q1, r1, q2, r2) -> int:
 
 
 def is_in_anarchy_zone(q, r) -> bool:
-    """Checks if coordinates are outside the colonial safe zone."""
-    return get_hex_distance(q, r, 0, 50) >= ANARCHY_THRESHOLD
+    """Checks if coordinates are outside the colonial safe zone (city radius 5)."""
+    return get_hex_distance(q, r, 0, 0) >= ANARCHY_THRESHOLD
 
 
 def wrap_coords(q, r) -> tuple:
@@ -122,77 +122,116 @@ def wrap_coords(q, r) -> tuple:
 def get_hex_terrain_data(q, r) -> dict:
     """
     Calculates the 'theoretical' terrain and resources for any coordinate.
-    Does NOT check the database. Used for seeding missing hexes.
+    Hub is at (0,0) = North Pole. Distance from hub drives zone tier.
+    Does NOT check the database. Used for seeding and dynamic hex generation.
     """
     q, r = wrap_coords(q, r)
-    dist = get_hex_distance(q, r, 0, 50)
-    
-    # 1. Check for Static Stations
-    stations = {
-        (0, 50): "STATION_HUB",
-        (10, 50): "SMELTER",
-        (0, 60): "CRAFTER",
-        (90, 50): "REPAIR",
-        (0, 40): "REFINERY"
+    dist = get_hex_distance(q, r, 0, 0)
+
+    # ── Static Stations (clustered at North Pole, within 3 steps) ──────────────
+    STATIONS = {
+        (0, 0): "STATION_HUB",   # Hub / Market
+        (2, 0): "SMELTER",
+        (0, 2): "CRAFTER",
+        (1, 2): "REPAIR",
+        (2, 1): "REFINERY",
     }
-    
-    if (q, r) in stations:
+    if (q, r) in STATIONS:
         return {
             "terrain_type": "STATION",
             "is_station": True,
-            "station_type": stations[(q, r)],
+            "station_type": STATIONS[(q, r)],
             "resource_type": None,
             "resource_density": 0.0,
             "resource_quantity": 0
         }
-    
-    # 2. Procedural Generation
+
+    # ── City Inner Ring (dist 0-5): safe void, no resources ───────────────────
+    if dist <= 5:
+        return {
+            "terrain_type": "VOID",
+            "is_station": False,
+            "station_type": None,
+            "resource_type": None,
+            "resource_density": 0.0,
+            "resource_quantity": 0
+        }
+
+    # ── Procedural Generation ──────────────────────────────────────────────────
+    # Base terrain roll: 12% asteroid, 5% obstacle, rest void
     roll = random.random()
     terrain = "VOID"
     res_type = None
     res_density = 0.0
     res_qty = 0
-    
-    if roll < 0.1:
+
+    if roll < 0.12:
         terrain = "ASTEROID"
-        # Tiered resources based on distance from North Pole (dist)
-        # dist < 10: Iron (Starting zone)
-        # 10 <= dist < 25: Iron + Copper
-        # 25 <= dist < 50: Intro Gold
-        # dist >= 50: Intro Cobalt, dominant near South Pole (dist=100)
-        
         tier_roll = random.random()
-        
-        if dist < 10:
-            res_type = "IRON_ORE"
-            if tier_roll < 0.05: res_type = "COPPER_ORE" # "Superior" roll
-        elif 10 <= dist < 25:
-            res_type = "COPPER_ORE" if tier_roll < 0.7 else "IRON_ORE"
-            if tier_roll < 0.05: res_type = "GOLD_ORE"
-        elif 25 <= dist < 50:
-            if tier_roll < 0.4: res_type = "GOLD_ORE"
-            elif tier_roll < 0.8: res_type = "COPPER_ORE"
-            else: res_type = "IRON_ORE"
-            if tier_roll < 0.05: res_type = "COBALT_ORE"
-        else: # dist >= 50
-            # Cobalt becomes dominant near the South Pole (dist=100)
-            cobalt_chance = (dist - 50) / 50.0 # 0.0 at equator, 1.0 at south pole
-            if tier_roll < cobalt_chance:
-                res_type = "COBALT_ORE"
-            elif tier_roll < 0.7:
+        elite_roll = random.random()  # 2% chance of +1 tier upgrade anywhere
+
+        # ── Zone 1: Inner Ring / Iron Belt (dist 6–15) ─────────────────────────
+        if dist <= 15:
+            if tier_roll < 0.80:
+                res_type = "IRON_ORE"
+            elif tier_roll < 0.95:
+                res_type = "COPPER_ORE"
+            else:
+                res_type = "GOLD_ORE"  # ultra-rare elite
+            # Elite upgrade
+            if elite_roll < 0.02 and res_type == "IRON_ORE":
+                res_type = "COPPER_ORE"
+
+        # ── Zone 2: Copper Belt (dist 16–30) ──────────────────────────────────
+        elif dist <= 30:
+            if tier_roll < 0.18:
+                res_type = "IRON_ORE"
+            elif tier_roll < 0.78:
+                res_type = "COPPER_ORE"
+            elif tier_roll < 0.96:
                 res_type = "GOLD_ORE"
             else:
+                res_type = "COBALT_ORE"  # ultra-rare elite
+            if elite_roll < 0.02 and res_type in ("IRON_ORE", "COPPER_ORE"):
+                # Bump up one tier
+                res_type = "COPPER_ORE" if res_type == "IRON_ORE" else "GOLD_ORE"
+
+        # ── Zone 3: Gold Fields (dist 31–50) ──────────────────────────────────
+        elif dist <= 50:
+            if tier_roll < 0.10:
+                res_type = "IRON_ORE"
+            elif tier_roll < 0.25:
                 res_type = "COPPER_ORE"
-        
-        # Helium Gas chance
-        if r > 15 and random.random() < 0.2:
+            elif tier_roll < 0.70:
+                res_type = "GOLD_ORE"
+            else:
+                res_type = "COBALT_ORE"
+            if elite_roll < 0.02 and res_type == "COPPER_ORE":
+                res_type = "GOLD_ORE"
+
+        # ── Zone 4: Deep Dark / South Pole (dist > 50) ────────────────────────
+        else:
+            # Cobalt increasingly dominant as we approach south pole
+            cobalt_chance = min(0.70, (dist - 50) / 70.0)
+            if tier_roll < 0.05:
+                res_type = "IRON_ORE"
+            elif tier_roll < 0.12:
+                res_type = "COPPER_ORE"
+            elif tier_roll < (0.12 + (1.0 - cobalt_chance) * 0.58):
+                res_type = "GOLD_ORE"
+            else:
+                res_type = "COBALT_ORE"
+
+        # ── Helium Gas: 5% chance anywhere outside city, overrides ore ─────────
+        if random.random() < 0.05:
             res_type = "HELIUM_GAS"
-        
-        res_density = random.uniform(0.5, 2.0) * (1 + (r / 100))
-        res_qty = random.randint(100, 1000)
-    elif roll < 0.15:
+
+        res_density = random.uniform(0.8, 2.5)
+        res_qty = random.randint(200, 1500)
+
+    elif roll < 0.17:
         terrain = "OBSTACLE"
-        
+
     return {
         "terrain_type": terrain,
         "is_station": False,
@@ -239,11 +278,16 @@ def seed_hex_if_missing(db: Session, q, r) -> WorldHex:
 
 
 def get_solar_intensity(q, r, tick_count=0) -> float:
-    """Calculates solar power intensity (0.0 to 1.0) based on radial distance from North Pole."""
-    dist = get_hex_distance(q, r, 0, 50)
+    """Solar intensity based on distance from the North Pole hub (0,0).
+    City (dist 0-5): always 1.0
+    Twilight zone (dist 6-30): day/night cycle
+    Deep dark (dist > 30): always 0.0
+    """
+    dist = get_hex_distance(q, r, 0, 0)
     if dist <= SOLAR_RADIUS_SAFE:
         return 1.0
     if dist <= SOLAR_RADIUS_TWILIGHT:
+        # Each day/night cycle = 60 ticks (30 day, 30 night)
         day_night_cycle = (tick_count // 30) % 2 == 0
         return 1.0 if day_night_cycle else 0.0
     return 0.0

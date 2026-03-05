@@ -47,7 +47,7 @@ async def login(request: Request):
                 api_key = str(uuid.uuid4())
                 agent = Agent(
                     user_email=email, name=name, api_key=api_key, owner="player",
-                    q=0, r=50, faction_id=1,
+                    q=0, r=0, faction_id=1,
                     structure=100, max_structure=100, capacitor=100,
                     storage_capacity=500.0,
                     level=1, experience=0
@@ -94,7 +94,7 @@ async def guest_login(request: Request, db: Session = Depends(get_db)):
     if not agent:
         agent = Agent(
             user_email=email, name=name, api_key=str(uuid.uuid4()), owner="player",
-            q=0, r=50, faction_id=1,
+            q=0, r=0, faction_id=1,
             structure=100, max_structure=100, capacitor=100,
             storage_capacity=500.0,
             level=1, experience=0

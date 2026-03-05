@@ -49,7 +49,7 @@ async def update_global_agent_stats(db, tick_count, manager):
                     canister.data = {}
 
         regen = int(BASE_REGEN * efficiency * (1.0 if fuel_bypass else intensity))
-        if agent.q == 0 and agent.r == 50: regen *= 2 # Town bonus
+        if agent.q == 0 and agent.r == 0: regen *= 2 # Town bonus
         
         agent.capacitor = min(100, agent.capacitor + regen)
         if intensity == 0 and not fuel_bypass and regen == 0:
