@@ -97,15 +97,17 @@ def seed_world():
     existing_hex_count = db.query(WorldHex).count()
 
     # ── Full re-seed: wipe old world, keep players ────────────────────────────
-    logger.info("Wiping old world hexes, sectors, and bots for fresh re-seed...")
+    logger.info("Wiping world map (Truncating hexes/sectors)...")
+    db.execute(text("TRUNCATE TABLE world_hexes, sectors CASCADE"))
+    db.commit()
+
+    logger.info("Wiping bots and resetting players...")
     # Delete all bots and ferals
     bots = db.execute(select(Agent).where(Agent.is_bot == True)).scalars().all()
     for bot in bots:
         db.execute(text(f"DELETE FROM chassis_parts WHERE agent_id = {bot.id}"))
         db.execute(text(f"DELETE FROM inventory_items WHERE agent_id = {bot.id}"))
         db.delete(bot)
-    # Wipe hexes and related data using fast truncate
-    db.execute(text("TRUNCATE TABLE world_hexes, sectors CASCADE"))
     db.commit()
 
     # Teleport all real players back to Hub (0, 0)
