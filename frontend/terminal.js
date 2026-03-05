@@ -30,6 +30,7 @@ export class TerminalHandler {
             'LIST': { cat: 'MARKET', syntax: 'LIST <item> <price> <qty>', example: 'LIST IRON_INGOT 50 10', help: 'List item on Auction House' },
             'BUY': { cat: 'MARKET', syntax: 'BUY <item> <max_price>', example: 'BUY IRON_INGOT 60', help: 'Purchase from Auction House' },
             'CANCEL': { cat: 'MARKET', syntax: 'CANCEL <order_id>', example: 'CANCEL 15', help: 'Withdraw an active order' },
+            'MARKET': { cat: 'META', syntax: 'MARKET [item_type]', example: 'MARKET IRON_ORE', help: 'View active market listings' },
             'SMELT': { cat: 'INDUSTRY', syntax: 'SMELT <ore_type> <quantity>', example: 'SMELT IRON_ORE 5', help: 'Refine ore into ingots (SMELTER)' },
             'CRAFT': { cat: 'INDUSTRY', syntax: 'CRAFT <item_type>', example: 'CRAFT DRILL_MK1', help: 'Assemble parts (CRAFTER)' },
             'REFINE_GAS': { cat: 'INDUSTRY', syntax: 'REFINE_GAS <quantity>', example: 'REFINE_GAS 3', help: 'Helium Gas to He3 (REFINERY)' },
@@ -466,6 +467,33 @@ export class TerminalHandler {
                 this.log(`<b>Intel:</b>`, 'success');
                 guide.intel.forEach(t => this.log(`  - ${t}`, 'info'));
             } catch (e) { this.log(`ERROR: Could not load guide.`, 'error'); }
+            return;
+        }
+
+        // ── META: MARKET ──
+        if (actionType === 'MARKET') {
+            try {
+                let url = '/api/market';
+                const filter = args.length > 0 ? args[0].toUpperCase().replace(/-/g, '_') : null;
+                if (filter) url += `?item_type=${encodeURIComponent(filter)}`;
+
+                const resp = await fetch(url);
+                const market = await resp.json();
+
+                this.log(`<b>═══ GALACTIC MARKET ═══</b>`, 'system');
+                if (!market || market.length === 0) {
+                    this.log(`  No active orders${filter ? ' for ' + filter : ''}.`, 'info');
+                    return;
+                }
+
+                let sells = 0, buys = 0;
+                market.forEach(o => {
+                    const typeColor = o.type === 'SELL' ? 'color:#38bdf8' : 'color:#fbbf24';
+                    this.log(`  [#${o.id}] <span style="${typeColor}">${o.type}</span> <b>${o.item.replace('_', ' ')}</b> x${o.quantity} for <span style="color:#10b981">$${o.price}</span> ea`, 'info');
+                    if (o.type === 'SELL') sells++; else buys++;
+                });
+                this.log(`  <i>${sells} SELL / ${buys} BUY orders total.</i>`, 'system');
+            } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
             return;
         }
 

@@ -216,11 +216,24 @@ export class UIManager {
         }
     }
 
-    updateMarketUI(market) {
+    async updateMarketUI(market) {
         const body = document.getElementById('market-listings-body');
         const countSell = document.getElementById('count-sell');
         const countBuy = document.getElementById('count-buy');
         if (!body || !market) return;
+
+        let myOrderIds = new Set();
+        try {
+            if (this.game.apiKey) {
+                const resp = await fetch(`${window.location.origin}/api/market/my_orders`, {
+                    headers: { 'X-API-KEY': this.game.apiKey }
+                });
+                if (resp.ok) {
+                    const myOrders = await resp.json();
+                    myOrderIds = new Set(myOrders.map(o => o.id));
+                }
+            }
+        } catch (e) { console.error("Failed to fetch my orders for market UI:", e); }
 
         body.innerHTML = '';
         let sells = 0, buys = 0;
@@ -230,15 +243,25 @@ export class UIManager {
             const row = document.createElement('tr');
             row.className = "border-b border-slate-800/50 hover:bg-slate-800/20 transition-all group";
             const color = order.type === 'SELL' ? 'text-sky-400' : 'text-amber-400';
+            const isMine = myOrderIds.has(order.id);
+
             row.innerHTML = `
-                <td class="py-4 font-bold text-slate-300">${order.item.replace('_', ' ')}</td>
+                <td class="py-4 font-bold text-slate-300">
+                    ${order.item.replace('_', ' ')}
+                    ${isMine ? '<span class="ml-2 px-1.5 py-0.5 rounded text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 tracking-widest hidden lg:inline-block">YOURS</span>' : ''}
+                </td>
                 <td class="py-4"><span class="px-2 py-0.5 rounded-full text-[7px] font-black border ${order.type === 'SELL' ? 'bg-sky-500/10 border-sky-500/30 text-sky-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-400'}">${order.type}</span></td>
                 <td class="py-4 font-mono text-slate-400">${order.quantity}</td>
                 <td class="py-4 font-bold ${color}">$${order.price.toFixed(2)}</td>
                 <td class="py-4 text-right">
-                    <button class="opacity-0 group-hover:opacity-100 bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded text-[9px] font-bold" onclick="game.ui.quickTrade('${order.item}', ${order.price}, '${order.type}')">
-                        ${order.type === 'SELL' ? 'BUY' : 'SELL'}
-                    </button>
+                    ${isMine ? `
+                        <button class="opacity-0 group-hover:opacity-100 bg-rose-800/50 hover:bg-rose-700 text-rose-300 px-3 py-1 rounded text-[9px] font-bold mr-1 border border-rose-500/30 transition-all" onclick="window.game.api.cancelMarketOrder(${order.id})">CANCEL</button>
+                        <button class="opacity-0 group-hover:opacity-100 bg-sky-800/50 hover:bg-sky-700 text-sky-300 px-3 py-1 rounded text-[9px] font-bold border border-sky-500/30 transition-all" onclick="window.game.api.adjustMarketOrder(${order.id}, ${order.price})">ADJUST</button>
+                    ` : `
+                        <button class="opacity-0 group-hover:opacity-100 bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded text-[9px] font-bold transition-all" onclick="game.ui.quickTrade('${order.item}', ${order.price}, '${order.type}')">
+                            ${order.type === 'SELL' ? 'BUY' : 'SELL'}
+                        </button>
+                    `}
                 </td>
             `;
             body.appendChild(row);

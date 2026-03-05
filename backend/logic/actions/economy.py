@@ -100,6 +100,36 @@ async def handle_buy(db, agent, intent, tick_count, manager):
             db.add(AuditLog(agent_id=agent.id, event_type="MARKET_BUY_ORDER", details={"item": item_type, "price": max_price}))
             if manager: await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
 
+async def handle_cancel(db, agent, intent, tick_count, manager):
+    """Cancels an active market order (via logic tick)."""
+    order_id = intent.data.get("order_id")
+    if not order_id:
+        db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "MISSING_ORDER_ID"}))
+        return
+
+    order = db.get(AuctionOrder, order_id)
+    if not order or (order.owner != agent.name and order.owner != f"agent:{agent.id}"):
+        db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "ORDER_NOT_FOUND_OR_UNAUTHORIZED"}))
+        return
+
+    if order.order_type == "SELL":
+        inv_item = next((i for i in agent.inventory if i.item_type == order.item_type), None)
+        if inv_item:
+            inv_item.quantity += order.quantity
+        else:
+            db.add(InventoryItem(agent_id=agent.id, item_type=order.item_type, quantity=order.quantity))
+    elif order.order_type == "BUY":
+        credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+        refund_amount = order.price * order.quantity
+        if credits:
+            credits.quantity += int(refund_amount)
+        else:
+            db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=int(refund_amount)))
+
+    db.delete(order)
+    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_CANCEL", details={"order_id": order_id, "item": order.item_type}))
+    if manager: await manager.broadcast({"type": "MARKET_UPDATE", "item": order.item_type})
+
 async def _update_buy_mission(db, agent_id):
     """Helper to update Mission Progress for BUY_MARKET types."""
     active = db.execute(select(DailyMission).where(DailyMission.mission_type == "BUY_MARKET", DailyMission.expires_at > func.now())).scalars().all()

@@ -32,6 +32,72 @@ async def get_market_prices(db: Session = Depends(get_db)):
     
     return {k: sum(v)/len(v) for k, v in prices.items() if v}
 
+@router.delete("/market/orders/{order_id}")
+async def cancel_market_order(order_id: int, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    """Cancels an active market order and refunds the items/credits."""
+    order = db.get(AuctionOrder, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+    
+    if order.owner != agent.name and order.owner != f"agent:{agent.id}":
+        raise HTTPException(status_code=403, detail="Not authorized to cancel this order.")
+    
+    # Refund logic
+    if order.order_type == "SELL":
+        # Refund items
+        inv_item = next((i for i in agent.inventory if i.item_type == order.item_type), None)
+        if inv_item:
+            inv_item.quantity += order.quantity
+        else:
+            db.add(InventoryItem(agent_id=agent.id, item_type=order.item_type, quantity=order.quantity))
+    elif order.order_type == "BUY":
+        # Refund credits
+        credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+        refund_amount = order.price * order.quantity
+        if credits:
+            credits.quantity += int(refund_amount)
+        else:
+            db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=int(refund_amount)))
+            
+    db.delete(order)
+    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_CANCEL", details={"order_id": order_id, "item": order.item_type}))
+    db.commit()
+    
+    return {"message": "Order cancelled and resources refunded."}
+
+@router.patch("/market/orders/{order_id}")
+async def adjust_market_order(order_id: int, price: float = Body(..., embed=True), agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    """Adjusts the price of an active market order."""
+    if price <= 0:
+        raise HTTPException(status_code=400, detail="Price must be positive.")
+        
+    order = db.get(AuctionOrder, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+        
+    if order.owner != agent.name and order.owner != f"agent:{agent.id}":
+        raise HTTPException(status_code=403, detail="Not authorized to modify this order.")
+        
+    if order.order_type == "BUY":
+        # Handle credit difference for BUY orders
+        cost_diff = (price - order.price) * order.quantity
+        credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+        if cost_diff > 0:
+            if not credits or credits.quantity < cost_diff:
+                raise HTTPException(status_code=400, detail="Insufficient credits to increase BUY order price.")
+            credits.quantity -= int(cost_diff)
+        elif cost_diff < 0:
+            if credits:
+                credits.quantity += int(-cost_diff)
+            else:
+                db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=int(-cost_diff)))
+                
+    order.price = price
+    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_ADJUST", details={"order_id": order_id, "new_price": price}))
+    db.commit()
+    
+    return {"message": "Order price adjusted."}
+
 # ── VAULT / STORAGE ────────────────────────────────────────────────────────────
 
 @router.get("/storage")

@@ -18,6 +18,7 @@ class IntentProcessor:
             "DESTROY": combat.handle_destroy,
             "LIST": economy.handle_list,
             "BUY": economy.handle_buy,
+            "CANCEL_ORDER": economy.handle_cancel,
             "SMELT": industry.handle_smelt,
             "REFINE_GAS": industry.handle_refine_gas,
             "CRAFT": industry.handle_craft,

@@ -380,6 +380,46 @@ export class GameAPI {
         alert(`${actionType} intent queued for The Crunch!`);
     }
 
+    async cancelMarketOrder(orderId) {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return;
+        try {
+            const resp = await fetch(`${window.location.origin}/api/market/orders/${orderId}`, {
+                method: 'DELETE',
+                headers: { 'X-API-KEY': apiKey }
+            });
+            if (resp.ok) {
+                if (this.game.terminal) this.game.terminal.log(`✓ Market order #${orderId} cancelled. Refunds issued.`, 'success');
+                this.pollState();
+            } else {
+                const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
+                alert(`Cancel Failed: ${err.detail}`);
+            }
+        } catch (e) { console.error("Cancel order error:", e); }
+    }
+
+    async adjustMarketOrder(orderId, currentPrice) {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return;
+        const newPrice = prompt("Enter new price:", currentPrice);
+        if (!newPrice || isNaN(newPrice) || Number(newPrice) <= 0) return;
+
+        try {
+            const resp = await fetch(`${window.location.origin}/api/market/orders/${orderId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
+                body: JSON.stringify({ price: Number(newPrice) })
+            });
+            if (resp.ok) {
+                if (this.game.terminal) this.game.terminal.log(`✓ Market order #${orderId} price adjusted to $${newPrice}.`, 'success');
+                this.pollState();
+            } else {
+                const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
+                alert(`Adjust Failed: ${err.detail}`);
+            }
+        } catch (e) { console.error("Adjust order error:", e); }
+    }
+
     async submitIndustryIntent(type, dataOverride = null) {
         let data = dataOverride || {};
         if (!dataOverride) {
