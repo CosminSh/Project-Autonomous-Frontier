@@ -1,8 +1,8 @@
-﻿import { GameAPI } from './api.js?v=MAP_FIX_V1';
-import { AuthManager } from './auth.js?v=MAP_FIX_V1';
-import { GameRenderer } from './renderer.js?v=MAP_FIX_V1';
-import { UIManager } from './ui.js?v=MAP_FIX_V1';
-import { TerminalHandler } from './terminal.js?v=MAP_FIX_V1';
+﻿import { GameAPI } from './api.js?v=ZOOM_FIX_V1';
+import { AuthManager } from './auth.js?v=ZOOM_FIX_V1';
+import { GameRenderer } from './renderer.js?v=ZOOM_FIX_V1';
+import { UIManager } from './ui.js?v=ZOOM_FIX_V1';
+import { TerminalHandler } from './terminal.js?v=ZOOM_FIX_V1';
 
 /**
  * app.js — Main Bootstrapper
@@ -61,6 +61,7 @@ class GameClient {
         this.ui.switchTab('terminal');
 
         // Industry Actions
+        const camDistance = 15; // Closer default view
         const actions = ['SMELT', 'CRAFT', 'RESTORE_HP', 'RESET_WEAR'];
         actions.forEach(action => {
             document.getElementById(`btn-${action.toLowerCase()}`)?.addEventListener('click', () => this.api.submitIndustryIntent(action));

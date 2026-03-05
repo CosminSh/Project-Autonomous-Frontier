@@ -61,7 +61,7 @@ export class GameRenderer {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        this.controls.minDistance = 51.5;
+        this.controls.minDistance = 50.5;
         this.controls.maxDistance = 500;
 
         // Lighting
@@ -301,7 +301,8 @@ export class GameRenderer {
         const texture = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
         const sprite = new THREE.Sprite(spriteMat);
-        sprite.scale.set(4, 1, 1);
+        sprite.scale.set(3, 0.75, 1);
+        sprite.userData.isLabel = true;
         return sprite;
     }
 
@@ -588,7 +589,7 @@ export class GameRenderer {
 
         const agentPos = mesh.position.clone();
         const normal = agentPos.clone().normalize();
-        const camDistance = 80;
+        const camDistance = 15;
         const targetCamPos = agentPos.clone().add(normal.multiplyScalar(camDistance));
 
         const startTarget = this.controls.target.clone();
