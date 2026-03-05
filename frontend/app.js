@@ -1,8 +1,8 @@
-﻿import { GameAPI } from './api.js?v=LEADERBOARD_V1';
-import { AuthManager } from './auth.js?v=LEADERBOARD_V1';
-import { GameRenderer } from './renderer.js?v=LEADERBOARD_V1';
-import { UIManager } from './ui.js?v=LEADERBOARD_V1';
-import { TerminalHandler } from './terminal.js?v=LEADERBOARD_V1';
+﻿import { GameAPI } from './api.js?v=MAP_FIX_V1';
+import { AuthManager } from './auth.js?v=MAP_FIX_V1';
+import { GameRenderer } from './renderer.js?v=MAP_FIX_V1';
+import { UIManager } from './ui.js?v=MAP_FIX_V1';
+import { TerminalHandler } from './terminal.js?v=MAP_FIX_V1';
 
 /**
  * app.js — Main Bootstrapper

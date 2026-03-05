@@ -260,20 +260,19 @@ export class GameRenderer {
 
     qToSphere(q, r, altitude = 0) {
         const radius = 50 + altitude;
-        const scale = 40;
 
-        const xFlat = 1.5 * q;
-        const zFlat = Math.sqrt(3) * (r + q / 2);
+        // Map longitude: q (0-99) to 0-360 degrees
+        // WORLD_WIDTH is 100
+        const lon = (q / 100) * 2 * Math.PI;
 
-        const lon = (xFlat / scale) * Math.PI;
-        const lat = Math.PI / 2 - (zFlat / scale) * Math.PI;
-
-        const clampedLat = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, lat));
+        // Map latitude: r (0-100) to 0-180 degrees
+        // WORLD_HEIGHT is 101, but r goes 0-100
+        const lat = (r / 100) * Math.PI;
 
         return {
-            x: radius * Math.cos(clampedLat) * Math.cos(lon),
-            y: radius * Math.sin(clampedLat),
-            z: radius * Math.cos(clampedLat) * Math.sin(lon)
+            x: radius * Math.sin(lat) * Math.cos(lon),
+            y: radius * Math.cos(lat),
+            z: radius * Math.sin(lat) * Math.sin(lon)
         };
     }
 
