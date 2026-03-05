@@ -104,9 +104,8 @@ def seed_world():
         db.execute(text(f"DELETE FROM chassis_parts WHERE agent_id = {bot.id}"))
         db.execute(text(f"DELETE FROM inventory_items WHERE agent_id = {bot.id}"))
         db.delete(bot)
-    # Wipe hexes
-    db.query(WorldHex).delete()
-    db.query(Sector).delete()
+    # Wipe hexes and related data using fast truncate
+    db.execute(text("TRUNCATE TABLE world_hexes, sectors CASCADE"))
     db.commit()
 
     # Teleport all real players back to Hub (0, 0)
@@ -131,6 +130,12 @@ def seed_world():
             data = get_hex_terrain_data(q, r)
             sq, sr = q // 10, r // 10
             sector = db.query(Sector).filter_by(q=sq, r=sr).first()
+            if not sector:
+                # Fallback if sector missing for some reason
+                sector = Sector(q=sq, r=sr, name=f"Sector {sq}:{sr}")
+                db.add(sector)
+                db.flush()
+
             db.add(WorldHex(
                 sector_id=sector.id,
                 q=q, r=r,
@@ -141,10 +146,10 @@ def seed_world():
                 is_station=data["is_station"],
                 station_type=data["station_type"]
             ))
-        if q % 10 == 0:
-            db.flush()
-            logger.info(f"  Generated slice q={q}...")
-    db.commit()
+        
+        # Memory Optimization: Commit and clear session every slice
+        db.commit() 
+        logger.info(f"  Generated slice q={q}...")
 
     # ── Spawn Worker Bots (near Hub) ─────────────────────────────────────────
     logger.info("Spawning industrial bots near hub...")
