@@ -62,42 +62,43 @@ def seed_world():
             logger.info(f"Generated Longitude slice {q}...")
     
     # Add a demo agent if none exist
-    agent = Agent(name="Striker-01", q=0, r=0, structure=100, max_structure=100, capacitor=100)
-    db.add(agent)
-    db.flush()
-    db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=1000))
-    db.add(InventoryItem(agent_id=agent.id, item_type="IRON_ORE", quantity=50))
-    db.add(ChassisPart(agent_id=agent.id, name="Basic Iron Drill", part_type="Actuator", stats={"kinetic_force": 10}))
-    
-    # Add Industrial Bots near Hub
-    for i in range(5):
-        bot = Agent(name=f"Worker-Bot-{i}", q=random.randint(0, 5), r=random.randint(0, 5), is_bot=True)
-        db.add(bot)
+    if not db.query(Agent).first():
+        agent = Agent(name="Striker-01", q=0, r=0, structure=100, max_structure=100, capacitor=100)
+        db.add(agent)
         db.flush()
-        db.add(InventoryItem(agent_id=bot.id, item_type="CREDITS", quantity=500))
-        db.add(ChassisPart(agent_id=bot.id, name="Industrial Drill", part_type="Actuator", stats={"kinetic_force": 10}))
+        db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=1000))
+        db.add(InventoryItem(agent_id=agent.id, item_type="IRON_ORE", quantity=50))
+        db.add(ChassisPart(agent_id=agent.id, name="Basic Iron Drill", part_type="Actuator", stats={"kinetic_force": 10}))
         
-    # Add Feral Scrappers in the Dark South (r > 60)
-    for i in range(8):
-        fq = random.randint(0, 99)
-        fr = random.randint(60, 100)
-        
-        feral = Agent(
-            name=f"Feral-Scrapper-{i}", 
-            q=fq, r=fr, 
-            is_bot=True, 
-            is_feral=True,
-            kinetic_force=15,
-            logic_precision=8,
-            structure=120,
-            max_structure=120
-        )
-        db.add(feral)
-        db.flush()
-        db.add(InventoryItem(agent_id=feral.id, item_type="SCRAP_METAL", quantity=random.randint(5, 10)))
-        if random.random() < 0.4:
-            db.add(InventoryItem(agent_id=feral.id, item_type="ELECTRONICS", quantity=random.randint(1, 3)))
-        db.add(ChassisPart(agent_id=feral.id, name="Rusty Blaster", part_type="Actuator", stats={"kinetic_force": 12, "logic_precision": -2}))
+        # Add Industrial Bots near Hub
+        for i in range(5):
+            bot = Agent(name=f"Worker-Bot-{i}", q=random.randint(0, 5), r=random.randint(0, 5), is_bot=True)
+            db.add(bot)
+            db.flush()
+            db.add(InventoryItem(agent_id=bot.id, item_type="CREDITS", quantity=500))
+            db.add(ChassisPart(agent_id=bot.id, name="Industrial Drill", part_type="Actuator", stats={"kinetic_force": 10}))
+            
+        # Add Feral Scrappers in the Dark South (r > 60)
+        for i in range(8):
+            fq = random.randint(0, 99)
+            fr = random.randint(60, 100)
+            
+            feral = Agent(
+                name=f"Feral-Scrapper-{i}", 
+                q=fq, r=fr, 
+                is_bot=True, 
+                is_feral=True,
+                kinetic_force=15,
+                logic_precision=8,
+                structure=120,
+                max_structure=120
+            )
+            db.add(feral)
+            db.flush()
+            db.add(InventoryItem(agent_id=feral.id, item_type="SCRAP_METAL", quantity=random.randint(5, 10)))
+            if random.random() < 0.4:
+                db.add(InventoryItem(agent_id=feral.id, item_type="ELECTRONICS", quantity=random.randint(1, 3)))
+            db.add(ChassisPart(agent_id=feral.id, name="Rusty Blaster", part_type="Actuator", stats={"kinetic_force": 12, "logic_precision": -2}))
             
     db.commit()
     db.close()
