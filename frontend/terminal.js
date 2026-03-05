@@ -557,10 +557,22 @@ export class TerminalHandler {
                 this.log(`<b>═══ TACTICAL PERCEIVE ═══</b>`, 'system');
                 this.log(`  Agent:     <b>${p.self.name}</b> at (${p.self.q}, ${p.self.r})`, 'info');
 
-                // Agents
+                // Agents & Ferals
                 if (p.nearby_agents && p.nearby_agents.length > 0) {
-                    this.log(`  <span style="color:#f43f5e">Agents Detected:</span>`, 'info');
-                    p.nearby_agents.forEach(a => this.log(`    [${a.id}] ${a.name} @ (${a.q}, ${a.r})`, 'error'));
+                    const players = p.nearby_agents.filter(a => !a.is_feral);
+                    const ferals = p.nearby_agents.filter(a => a.is_feral);
+
+                    if (players.length > 0) {
+                        this.log(`  <span style="color:#f43f5e">Agents Detected:</span>`, 'info');
+                        players.forEach(a => this.log(`    [${a.id}] ${a.name} @ (${a.q}, ${a.r})`, 'error'));
+                    } else {
+                        this.log(`  <span style="color:#f43f5e">Agents:</style> None`, 'info');
+                    }
+
+                    if (ferals.length > 0) {
+                        this.log(`  <span style="color:#ef4444">Feral AI Detected:</span>`, 'info');
+                        ferals.forEach(a => this.log(`    [FERAL] ${a.name} @ (${a.q}, ${a.r})`, 'error'));
+                    }
                 } else {
                     this.log(`  <span style="color:#f43f5e">Agents:</style> None`, 'info');
                 }

@@ -1,8 +1,8 @@
-﻿import { GameAPI } from './api.js?v=WORLD_V2';
-import { AuthManager } from './auth.js?v=WORLD_V2';
-import { GameRenderer } from './renderer.js?v=WORLD_V2';
-import { UIManager } from './ui.js?v=WORLD_V2';
-import { TerminalHandler } from './terminal.js?v=WORLD_V2';
+﻿import { GameAPI } from './api.js?v=PERCEPTION_V1';
+import { AuthManager } from './auth.js?v=PERCEPTION_V1';
+import { GameRenderer } from './renderer.js?v=PERCEPTION_V1';
+import { UIManager } from './ui.js?v=PERCEPTION_V1';
+import { TerminalHandler } from './terminal.js?v=PERCEPTION_V1';
 
 /**
  * app.js — Main Bootstrapper
