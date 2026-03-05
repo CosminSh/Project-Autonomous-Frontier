@@ -1,8 +1,8 @@
 import logging
 from sqlalchemy import select
-from models import AuditLog, InventoryItem, WorldHex, ChassisPart
+from models import AuditLog, InventoryItem, WorldHex, ChassisPart, Intent
 from config import FACTION_REALIGNMENT_COST, FACTION_REALIGNMENT_COOLDOWN, CRAFTING_RECIPES, UPGRADE_MAX_LEVEL, UPGRADE_BASE_INGOT_COST
-from game_helpers import recalculate_agent_stats
+from game_helpers import recalculate_agent_stats, get_hex_distance, find_hex_path
 
 logger = logging.getLogger("heartbeat.actions.utility")
 
@@ -110,3 +110,60 @@ async def handle_upgrade_gear(db, agent, intent, tick_count, manager):
         recalculate_agent_stats(db, agent)
         db.add(AuditLog(agent_id=agent.id, event_type="GARAGE_UPGRADE", details={"part": part.name, "level": current_lvl + 1}))
         if manager: await manager.broadcast({"type": "EVENT", "event": "UPGRADE", "agent_id": agent.id, "part": part.name, "level": current_lvl + 1})
+
+async def handle_rescue(db, agent, intent, tick_count, manager):
+    """Initiates an emergency tow back to the Hub (0,0)."""
+    dist = get_hex_distance(agent.q, agent.r, 0, 0)
+    if dist == 0:
+        db.add(AuditLog(agent_id=agent.id, event_type="RESCUE_FAILED", details={"reason": "ALREADY_AT_HUB"}))
+        return
+
+    cost = dist * 5
+    credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
+    
+    if not credits or credits.quantity < cost:
+        db.add(AuditLog(agent_id=agent.id, event_type="RESCUE_FAILED", details={"reason": "INSUFFICIENT_FUNDS", "cost": cost}))
+        return
+
+    # Deduct cost
+    credits.quantity -= cost
+    if credits.quantity <= 0: db.delete(credits)
+
+    path = find_hex_path(db, agent.q, agent.r, 0, 0, max_steps=200)
+    if not path:
+        # Fallback approximation: teleport
+        path = [(0, 0)]
+    
+    # Overwrite pending navigation moves or stops
+    old_nav = db.execute(select(Intent).where(
+        Intent.agent_id == agent.id,
+        Intent.tick_index > tick_count,
+        Intent.action_type.in_(["MOVE", "STOP", "RESCUE_STEP"])
+    )).scalars().all()
+    for old in old_nav:
+        db.delete(old)
+
+    # Queue RESCUE_STEP intents taking 10 steps per tick
+    step_chunks = [path[i:i + 10] for i in range(0, len(path), 10)]
+    for i, chunk in enumerate(step_chunks):
+        target_q, target_r = chunk[-1]
+        db.add(Intent(
+            agent_id=agent.id,
+            action_type="RESCUE_STEP",
+            data={"target_q": target_q, "target_r": target_r},
+            tick_index=tick_count + i + 1
+        ))
+
+    db.add(AuditLog(agent_id=agent.id, event_type="RESCUE_INITIATED", details={"cost": cost, "eta_ticks": len(step_chunks)}))
+    if manager: await manager.broadcast({"type": "EVENT", "event": "RESCUE_INITIATED", "agent_id": agent.id})
+
+async def handle_rescue_step(db, agent, intent, tick_count, manager):
+    """Executes one highly accelerated step of a rescue tow."""
+    target_q = intent.data.get("target_q", 0)
+    target_r = intent.data.get("target_r", 0)
+    
+    agent.q = target_q
+    agent.r = target_r
+    
+    db.add(AuditLog(agent_id=agent.id, event_type="RESCUE_TOW", details={"q": target_q, "r": target_r}))
+    if manager: await manager.broadcast({"type": "EVENT", "event": "MOVE", "agent_id": agent.id, "q": target_q, "r": target_r})

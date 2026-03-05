@@ -34,7 +34,9 @@ class IntentProcessor:
             "UPGRADE_GEAR": utility.handle_upgrade_gear,
             "EQUIP": garage.handle_equip,
             "UNEQUIP": garage.handle_unequip,
-            "TURN_IN": handle_turn_in
+            "TURN_IN": handle_turn_in,
+            "RESCUE": utility.handle_rescue,
+            "RESCUE_STEP": utility.handle_rescue_step
         }
 
     async def process_intent(self, db, agent, intent, tick_count):

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from database import get_db
 from models import Agent, InventoryItem, ChassisPart, AuditLog, GlobalState
-from game_helpers import get_agent_mass, get_agent_visual_signature, get_discovery_packet, get_solar_intensity
+from game_helpers import get_agent_mass, get_agent_visual_signature, get_discovery_packet, get_solar_intensity, get_hex_distance
 from database import STATION_CACHE
 from routes.common import verify_api_key
 from datetime import datetime
@@ -128,3 +128,11 @@ async def get_agent_inventory(agent: Agent = Depends(verify_api_key)):
 async def get_agent_gear(agent: Agent = Depends(verify_api_key)):
     """Returns the agent's equipped chassis parts."""
     return [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity} for p in agent.parts]
+
+@router.get("/api/rescue_quote")
+async def get_rescue_quote(agent: Agent = Depends(verify_api_key)):
+    """Calculates the cost and ETA for a rescue to the Hub."""
+    dist = get_hex_distance(agent.q, agent.r, 0, 0)
+    cost = dist * 5
+    eta_ticks = (dist // 10) + (1 if dist % 10 > 0 else 0)
+    return {"distance": dist, "cost": cost, "eta_ticks": eta_ticks}

@@ -62,6 +62,8 @@ export class TerminalHandler {
             'DROP_LOAD': { cat: 'OTHER', syntax: 'DROP_LOAD', example: 'DROP_LOAD', help: 'Jettison all cargo' },
             'STOP': { cat: 'NAV', syntax: 'STOP', example: 'STOP', help: 'Cancel all queued intents' },
             'FIELD_TRADE': { cat: 'MARKET', syntax: 'FIELD_TRADE <id> <price> <items...>', example: 'FIELD_TRADE 5 100 IRON_ORE', help: 'Direct trade with nearby agent' },
+            'REQUEST_RESCUE': { cat: 'NAV', syntax: 'REQUEST_RESCUE', example: 'REQUEST_RESCUE', help: 'Get a quote for emergency towing to the Hub' },
+            'CONFIRM_RESCUE': { cat: 'NAV', syntax: 'CONFIRM_RESCUE', example: 'CONFIRM_RESCUE', help: 'Confirm emergency tow at quoted price' },
         };
 
         this.setupListeners();
@@ -278,6 +280,8 @@ export class TerminalHandler {
                 data.faction_id = parseInt(args[0]);
                 if (isNaN(data.faction_id)) throw new Error('Faction ID must be 1, 2, or 3.');
                 break;
+            case 'CONFIRM_RESCUE':
+                return { action: 'RESCUE', ...data };
             case 'MINE': case 'RESET_WEAR': case 'STOP': case 'DROP_LOAD':
                 break;
             case 'FIELD_TRADE':
@@ -575,6 +579,23 @@ export class TerminalHandler {
                     this.log(`  <span style="color:#a855f7">Loot Drops:</span>`, 'info');
                     p.loot.forEach(l => this.log(`    ${l.qty}x ${l.item} @ (${l.q}, ${l.r})`, 'info'));
                 }
+            } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
+            return;
+        }
+
+        // ── META: REQUEST_RESCUE ──
+        if (actionType === 'REQUEST_RESCUE') {
+            try {
+                const apiKey = localStorage.getItem('sv_api_key');
+                const resp = await fetch('/api/rescue_quote', { headers: { 'X-API-KEY': apiKey } });
+                if (!resp.ok) throw new Error('Not authenticated.');
+                const q = await resp.json();
+                this.log(`<b>═══ RESCUE TOW QUOTE ═══</b>`, 'system');
+                this.log(`  Distance to Hub (0,0): ${q.distance} hexes`, 'info');
+                this.log(`  Tow Speed: 10 hexes / tick`, 'info');
+                this.log(`  Estimated Time: ${q.eta_ticks} ticks`, 'info');
+                this.log(`  Total Cost: <span style="color:#fbbf24">${q.cost} CREDITS</span>`, 'warning');
+                this.log(`  To accept, type: <span style="color:#38bdf8">CONFIRM_RESCUE</span>`, 'system');
             } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
             return;
         }
