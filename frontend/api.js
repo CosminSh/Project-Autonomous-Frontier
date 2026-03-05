@@ -601,6 +601,18 @@ export class GameAPI {
             console.error("Error fetching full world:", e);
         }
     }
+
+    async fetchLeaderboards() {
+        try {
+            const resp = await fetch('/api/leaderboards');
+            if (resp.ok) {
+                const data = await resp.json();
+                this.game.ui.updateLeaderboardsUI(data);
+            }
+        } catch (e) {
+            console.error("Error fetching leaderboards:", e);
+        }
+    }
 }
 
 /**

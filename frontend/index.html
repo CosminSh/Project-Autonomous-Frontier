@@ -173,6 +173,10 @@
                         class="flex-1 md:flex-none px-4 py-2 rounded-lg text-[9px] orbitron font-bold transition-all bg-sky-500 text-slate-950 flex items-center justify-center space-x-1.5">
                         <span>⚙️</span><span>MANAGEMENT</span>
                     </button>
+                    <button id="btn-mode-leaderboard"
+                        class="flex-1 md:flex-none px-4 py-2 rounded-lg text-[9px] orbitron font-bold transition-all text-slate-400 hover:text-sky-400 flex items-center justify-center space-x-1.5">
+                        <span>🏆</span><span>LEADERBOARD</span>
+                    </button>
                 </div>
 
                 <div class="hidden md:block w-px h-8 bg-slate-800"></div>
@@ -973,6 +977,68 @@
 
                 </div>
             </main>
+        </div>
+
+        <!-- LEADERBOARD LAYER -->
+        <div id="leaderboard-layer"
+            class="hidden flex-grow flex flex-col p-4 space-y-6 overflow-y-auto interactive min-h-[500px]">
+            <div class="flex flex-col xl:flex-row gap-6">
+                <!-- XP Leaderboard -->
+                <div class="glass flex-1 rounded-2xl p-6 border-l-4 border-l-sky-500 interactive">
+                    <h3
+                        class="orbitron text-lg text-sky-400 font-bold mb-4 tracking-widest uppercase flex items-center">
+                        <span class="mr-2 text-xl">🎖️</span> TOP EXPERIENCE
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead
+                                class="text-[10px] text-slate-500 uppercase tracking-widest border-b border-slate-800">
+                                <tr>
+                                    <th class="pb-3 font-normal">Rank</th>
+                                    <th class="pb-3 font-normal">Agent</th>
+                                    <th class="pb-3 font-normal text-right">XP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="xp-leaderboard-body" class="text-sm">
+                                <tr>
+                                    <td colspan="3" class="py-8 text-center text-slate-600 italic">Accessing planetary
+                                        records...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Credits Leaderboard -->
+                <div class="glass flex-1 rounded-2xl p-6 border-l-4 border-l-emerald-500 interactive">
+                    <h3
+                        class="orbitron text-lg text-emerald-500 font-bold mb-4 tracking-widest uppercase flex items-center">
+                        <span class="mr-2 text-xl">💰</span> TOP CREDITS
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead
+                                class="text-[10px] text-slate-500 uppercase tracking-widest border-b border-slate-800">
+                                <tr>
+                                    <th class="pb-3 font-normal">Rank</th>
+                                    <th class="pb-3 font-normal">Agent</th>
+                                    <th class="pb-3 font-normal text-right">Credits</th>
+                                </tr>
+                            </thead>
+                            <tbody id="credits-leaderboard-body" class="text-sm">
+                                <tr>
+                                    <td colspan="3" class="py-8 text-center text-slate-600 italic">Calculating wealth
+                                        distribution...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <p class="text-[10px] text-slate-600 text-center uppercase tracking-widest font-mono p-4">
+                System records synchronized hourly. Last update: <span id="leaderboard-last-update"
+                    class="text-slate-400">--</span>
+            </p>
         </div>
     </main>
     <!-- Tooltip -->

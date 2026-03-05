@@ -67,6 +67,12 @@ async def lifespan(app: FastAPI):
     hb.manager = manager
     asyncio.create_task(hb.heartbeat_loop())
     
+    # Start Leaderboard Generation loop
+    from logic.leaderboard_manager import start_leaderboard_loop, generate_leaderboards
+    with SessionLocal() as db:
+        generate_leaderboards(db) # Initial generation
+    asyncio.create_task(start_leaderboard_loop())
+    
     yield
     # Shutdown logic (if any) could go here
 

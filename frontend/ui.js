@@ -21,25 +21,41 @@ export class UIManager {
 
     setUIMode(mode) {
         const privateLayer = document.getElementById('private-dashboard');
+        const leaderboardLayer = document.getElementById('leaderboard-layer');
         const btnWorld = document.getElementById('btn-mode-world');
         const btnAgent = document.getElementById('btn-mode-agent');
+        const btnLeaderboard = document.getElementById('btn-mode-leaderboard');
         const mapCanvas = document.getElementById('canvas-container');
         const dashboardLayer = document.getElementById('dashboard-layer');
 
-        if (mode === 'world') {
+        // Hide all layers first
+        if (privateLayer) {
             privateLayer.classList.add('hidden');
             privateLayer.classList.remove('lg:flex');
+        }
+        if (dashboardLayer) dashboardLayer.classList.add('hidden');
+        if (leaderboardLayer) leaderboardLayer.classList.add('hidden');
+        if (mapCanvas) mapCanvas.classList.add('hidden');
+
+        // Reset buttons
+        [btnWorld, btnAgent, btnLeaderboard].forEach(btn => {
+            if (btn) btn.classList.remove('bg-sky-500', 'text-slate-950');
+        });
+
+        if (mode === 'world') {
             if (mapCanvas) mapCanvas.classList.remove('hidden', 'invisible');
             if (dashboardLayer) dashboardLayer.classList.remove('hidden');
-            btnWorld.classList.add('bg-sky-500', 'text-slate-950');
-            btnAgent.classList.remove('bg-sky-500', 'text-slate-950');
-        } else {
-            privateLayer.classList.remove('hidden');
-            privateLayer.classList.add('lg:flex');
-            if (mapCanvas) mapCanvas.classList.add('hidden');
-            if (dashboardLayer) dashboardLayer.classList.add('hidden');
-            btnAgent.classList.add('bg-sky-500', 'text-slate-950');
-            btnWorld.classList.remove('bg-sky-500', 'text-slate-950');
+            if (btnWorld) btnWorld.classList.add('bg-sky-500', 'text-slate-950');
+        } else if (mode === 'management') {
+            if (privateLayer) {
+                privateLayer.classList.remove('hidden');
+                privateLayer.classList.add('lg:flex');
+            }
+            if (btnAgent) btnAgent.classList.add('bg-sky-500', 'text-slate-950');
+        } else if (mode === 'leaderboard') {
+            if (leaderboardLayer) leaderboardLayer.classList.remove('hidden');
+            if (btnLeaderboard) btnLeaderboard.classList.add('bg-sky-500', 'text-slate-950');
+            this.game.api.fetchLeaderboards();
         }
     }
 
@@ -304,6 +320,61 @@ export class UIManager {
                 <td class="py-3 font-mono text-slate-300 text-right font-bold text-amber-400">$${b.reward}</td>
             </tr>
         `).join('');
+    }
+
+    updateMissionsUI(missions) {
+        const list = document.getElementById('missions-list');
+        if (!list) return;
+
+        if (!missions || missions.length === 0) {
+            list.innerHTML = `<div class="text-[10px] text-slate-500 italic">No daily missions available. Return later.</div>`;
+            return;
+        }
+
+        list.innerHTML = missions.map(m => `
+            <div class="p-3 bg-slate-900/50 rounded-lg border border-slate-800 ${m.is_completed ? 'border-emerald-500/30' : ''}">
+                <div class="flex justify-between items-start mb-2">
+                    <h5 class="text-[10px] orbitron font-bold ${m.is_completed ? 'text-emerald-400' : 'text-slate-300'}">${m.title}</h5>
+                    <span class="text-[9px] text-sky-400 font-bold">$${m.reward_credits}</span>
+                </div>
+                <p class="text-[9px] text-slate-500 mb-2">${m.description}</p>
+                <div class="flex justify-between items-center">
+                    <div class="text-[8px] text-slate-500 uppercase tracking-tighter">
+                        Progress: <span class="${m.is_completed ? 'text-emerald-400' : 'text-slate-300'}">${m.current_quantity} / ${m.required_quantity}</span>
+                    </div>
+                    ${m.is_completed && !m.is_turned_in ? `
+                        <button onclick="game.api.turnInMission(${m.id})" class="px-2 py-1 bg-emerald-500 text-slate-950 text-[8px] orbitron font-bold rounded hover:bg-emerald-400 transition-colors">TURN IN</button>
+                    ` : m.is_turned_in ? `
+                        <span class="text-[8px] text-emerald-500 font-bold italic">COMPLETED</span>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    updateLeaderboardsUI(data) {
+        const xpBody = document.getElementById('xp-leaderboard-body');
+        const creditsBody = document.getElementById('credits-leaderboard-body');
+        const updateText = document.getElementById('leaderboard-last-update');
+        const myAgentId = parseInt(localStorage.getItem('sv_agent_id'));
+
+        if (updateText && data.last_updated) {
+            updateText.innerText = new Date(data.last_updated).toLocaleString();
+        }
+
+        const renderRows = (list, isCredits = false) => {
+            if (!list || list.length === 0) return '<tr><td colspan="3" class="py-4 text-center text-slate-500 italic">No entries found.</td></tr>';
+            return list.map(entry => `
+                <tr class="border-b border-slate-800/50 ${entry.agent_id === myAgentId ? 'bg-sky-500/10 text-sky-400 font-bold' : 'text-slate-400'}">
+                    <td class="py-3 pl-2">${entry.rank}</td>
+                    <td class="py-3">${entry.name} ${entry.agent_id === myAgentId ? '<span class="text-[8px] bg-sky-500 text-slate-950 px-1 rounded ml-1">YOU</span>' : ''}</td>
+                    <td class="py-3 text-right pr-4 font-mono">${isCredits ? '$' : ''}${entry.value.toLocaleString()}</td>
+                </tr>
+            `).join('');
+        };
+
+        if (xpBody) xpBody.innerHTML = renderRows(data.categories.experience);
+        if (creditsBody) creditsBody.innerHTML = renderRows(data.categories.credits, true);
     }
 
     updateMyOrdersUI(orders) {
@@ -737,6 +808,31 @@ export class UIManager {
                 </div>
             `;
         }).join('');
+    }
+
+    updateLeaderboardsUI(data) {
+        const xpBody = document.getElementById('xp-leaderboard-body');
+        const creditsBody = document.getElementById('credits-leaderboard-body');
+        const updateText = document.getElementById('leaderboard-last-update');
+        const myAgentId = parseInt(localStorage.getItem('sv_agent_id'));
+
+        if (updateText && data.last_updated) {
+            updateText.innerText = new Date(data.last_updated).toLocaleString();
+        }
+
+        const renderRows = (list, isCredits = false) => {
+            if (!list || list.length === 0) return '<tr><td colspan="3" class="py-4 text-center text-slate-500 italic">No entries found.</td></tr>';
+            return list.map(entry => `
+                <tr class="border-b border-slate-800/50 ${entry.agent_id === myAgentId ? 'bg-sky-500/10 text-sky-400 font-bold' : 'text-slate-400'}">
+                    <td class="py-3 pl-2">${entry.rank}</td>
+                    <td class="py-3">${entry.name} ${entry.agent_id === myAgentId ? '<span class="text-[8px] bg-sky-500 text-slate-950 px-1 rounded ml-1">YOU</span>' : ''}</td>
+                    <td class="py-3 text-right pr-4 font-mono">${isCredits ? '$' : ''}${entry.value.toLocaleString()}</td>
+                </tr>
+            `).join('');
+        };
+
+        if (xpBody) xpBody.innerHTML = renderRows(data.categories.experience);
+        if (creditsBody) creditsBody.innerHTML = renderRows(data.categories.credits, true);
     }
 
     toggleDirectiveModal(show) {

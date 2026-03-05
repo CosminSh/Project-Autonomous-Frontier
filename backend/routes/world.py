@@ -15,6 +15,7 @@ from config import (
     MOVE_ENERGY_COST, MINE_ENERGY_COST, ATTACK_ENERGY_COST,
     PART_DEFINITIONS, CRAFTING_RECIPES, SMELTING_RECIPES, SMELTING_RATIO, ITEM_WEIGHTS
 )
+from logic.leaderboard_manager import LEADERBOARD_CACHE
 
 router = APIRouter(tags=["World"])
 
@@ -29,6 +30,12 @@ async def get_global_stats(db: Session = Depends(get_db)):
         "total_agents": db.query(Agent).count(),
         "market_orders": db.query(AuctionOrder).count()
     }
+
+
+@router.get("/api/leaderboards")
+async def get_leaderboards():
+    """Returns the cached leaderboard data (updated hourly)."""
+    return LEADERBOARD_CACHE
 
 
 @router.get("/api/guide")

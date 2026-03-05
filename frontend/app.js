@@ -50,6 +50,7 @@ class GameClient {
         // Mode Switcher
         document.getElementById('btn-mode-world')?.addEventListener('click', () => this.ui.setUIMode('world'));
         document.getElementById('btn-mode-agent')?.addEventListener('click', () => this.ui.setUIMode('management'));
+        document.getElementById('btn-mode-leaderboard')?.addEventListener('click', () => this.ui.setUIMode('leaderboard'));
 
         // Tabs
         ['terminal', 'inventory', 'station', 'system'].forEach(tab => {
