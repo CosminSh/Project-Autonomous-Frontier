@@ -98,7 +98,7 @@ def get_hex_distance(q1, r1, q2, r2) -> int:
 
 def is_in_anarchy_zone(q, r) -> bool:
     """Checks if coordinates are outside the colonial safe zone."""
-    return get_hex_distance(q, r, 0, 0) >= ANARCHY_THRESHOLD
+    return get_hex_distance(q, r, 0, 50) >= ANARCHY_THRESHOLD
 
 
 def wrap_coords(q, r) -> tuple:
@@ -125,15 +125,15 @@ def get_hex_terrain_data(q, r) -> dict:
     Does NOT check the database. Used for seeding missing hexes.
     """
     q, r = wrap_coords(q, r)
-    dist = get_hex_distance(q, r, 0, 0)
+    dist = get_hex_distance(q, r, 0, 50)
     
     # 1. Check for Static Stations
     stations = {
-        (0, 0): "STATION_HUB",
-        (10, 0): "SMELTER",
-        (0, 10): "CRAFTER",
-        (-10, 0): "REPAIR",
-        (0, -10): "REFINERY"
+        (0, 50): "STATION_HUB",
+        (10, 50): "SMELTER",
+        (0, 60): "CRAFTER",
+        (90, 50): "REPAIR",
+        (0, 40): "REFINERY"
     }
     
     if (q, r) in stations:
@@ -240,7 +240,7 @@ def seed_hex_if_missing(db: Session, q, r) -> WorldHex:
 
 def get_solar_intensity(q, r, tick_count=0) -> float:
     """Calculates solar power intensity (0.0 to 1.0) based on radial distance from North Pole."""
-    dist = get_hex_distance(q, r, 0, 0)
+    dist = get_hex_distance(q, r, 0, 50)
     if dist <= SOLAR_RADIUS_SAFE:
         return 1.0
     if dist <= SOLAR_RADIUS_TWILIGHT:

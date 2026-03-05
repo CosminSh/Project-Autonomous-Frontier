@@ -63,7 +63,7 @@ def seed_world():
     
     # Add a demo agent if none exist
     if not db.query(Agent).first():
-        agent = Agent(name="Striker-01", q=0, r=0, structure=100, max_structure=100, capacitor=100)
+        agent = Agent(name="Striker-01", q=0, r=50, structure=100, max_structure=100, capacitor=100)
         db.add(agent)
         db.flush()
         db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=1000))
@@ -72,7 +72,7 @@ def seed_world():
         
         # Add Industrial Bots near Hub
         for i in range(5):
-            bot = Agent(name=f"Worker-Bot-{i}", q=random.randint(0, 5), r=random.randint(0, 5), is_bot=True)
+            bot = Agent(name=f"Worker-Bot-{i}", q=random.randint(0, 5), r=random.randint(48, 52), is_bot=True)
             db.add(bot)
             db.flush()
             db.add(InventoryItem(agent_id=bot.id, item_type="CREDITS", quantity=500))
@@ -81,7 +81,7 @@ def seed_world():
         # Add Feral Scrappers in the Dark South (r > 60)
         for i in range(8):
             fq = random.randint(0, 99)
-            fr = random.randint(60, 100)
+            fr = random.randint(70, 100)
             
             feral = Agent(
                 name=f"Feral-Scrapper-{i}", 

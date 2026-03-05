@@ -112,8 +112,8 @@ async def handle_upgrade_gear(db, agent, intent, tick_count, manager):
         if manager: await manager.broadcast({"type": "EVENT", "event": "UPGRADE", "agent_id": agent.id, "part": part.name, "level": current_lvl + 1})
 
 async def handle_rescue(db, agent, intent, tick_count, manager):
-    """Initiates an emergency tow back to the Hub (0,0)."""
-    dist = get_hex_distance(agent.q, agent.r, 0, 0)
+    """Initiates an emergency tow back to the Hub (0,50)."""
+    dist = get_hex_distance(agent.q, agent.r, 0, 50)
     if dist == 0:
         db.add(AuditLog(agent_id=agent.id, event_type="RESCUE_FAILED", details={"reason": "ALREADY_AT_HUB"}))
         return
@@ -129,10 +129,10 @@ async def handle_rescue(db, agent, intent, tick_count, manager):
     credits.quantity -= cost
     if credits.quantity <= 0: db.delete(credits)
 
-    path = find_hex_path(db, agent.q, agent.r, 0, 0, max_steps=200)
+    path = find_hex_path(db, agent.q, agent.r, 0, 50, max_steps=200)
     if not path:
         # Fallback approximation: teleport
-        path = [(0, 0)]
+        path = [(0, 50)]
     
     # Overwrite pending navigation moves or stops
     old_nav = db.execute(select(Intent).where(
@@ -160,7 +160,7 @@ async def handle_rescue(db, agent, intent, tick_count, manager):
 async def handle_rescue_step(db, agent, intent, tick_count, manager):
     """Executes one highly accelerated step of a rescue tow."""
     target_q = intent.data.get("target_q", 0)
-    target_r = intent.data.get("target_r", 0)
+    target_r = intent.data.get("target_r", 50)
     
     agent.q = target_q
     agent.r = target_r

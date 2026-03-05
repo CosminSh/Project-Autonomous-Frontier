@@ -261,20 +261,21 @@ export class GameRenderer {
     qToSphere(q, r, altitude = 0) {
         const radius = 50 + altitude;
 
-        // Map longitude: q (0-99) to 0-360 degrees
-        // WORLD_WIDTH is 100
+        // Lambert Equal-Area Cylindrical Projection
+        // Hub is at (0, 50) = equator — no polar crowding.
+        // q: 0-99 → longitude 0-2π (full wrap)
+        // r: 0-100 → latitude via arcsin so areas are equal (not bunched at poles)
         const lon = (q / 100) * 2 * Math.PI;
-
-        // Map latitude: r (0-100) to 0-180 degrees
-        // WORLD_HEIGHT is 101, but r goes 0-100
-        const lat = (r / 100) * Math.PI;
+        const t = ((r / 100) * 2) - 1; // maps 0..100 → -1..+1
+        const lat = -Math.asin(Math.max(-0.9999, Math.min(0.9999, t)));
 
         return {
-            x: radius * Math.sin(lat) * Math.cos(lon),
-            y: radius * Math.cos(lat),
-            z: radius * Math.sin(lat) * Math.sin(lon)
+            x: radius * Math.cos(lat) * Math.cos(lon),
+            y: radius * Math.sin(lat),
+            z: radius * Math.cos(lat) * Math.sin(lon)
         };
     }
+
 
     createStationLabel(text) {
         return this.createLabel(text, '#facc15');

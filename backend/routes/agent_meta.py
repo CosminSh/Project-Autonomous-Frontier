@@ -132,7 +132,7 @@ async def get_agent_gear(agent: Agent = Depends(verify_api_key)):
 @router.get("/api/rescue_quote")
 async def get_rescue_quote(agent: Agent = Depends(verify_api_key)):
     """Calculates the cost and ETA for a rescue to the Hub."""
-    dist = get_hex_distance(agent.q, agent.r, 0, 0)
+    dist = get_hex_distance(agent.q, agent.r, 0, 50)
     cost = dist * 5
     eta_ticks = (dist // 10) + (1 if dist % 10 > 0 else 0)
     return {"distance": dist, "cost": cost, "eta_ticks": eta_ticks}
