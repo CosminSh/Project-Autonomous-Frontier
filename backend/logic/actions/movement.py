@@ -2,7 +2,7 @@ import logging
 from sqlalchemy import select
 from models import Intent, AuditLog, WorldHex
 from config import MOVE_ENERGY_COST, BASE_CAPACITY
-from game_helpers import get_hex_distance, find_hex_path, get_agent_mass
+from game_helpers import get_hex_distance, find_hex_path, get_agent_mass, wrap_coords
 
 logger = logging.getLogger("heartbeat.actions.movement")
 
@@ -25,11 +25,18 @@ def handle_stop(db, agent, intent, tick_count):
 
 async def handle_move(db, agent, intent, tick_count, manager):
     """Handles agent movement, including long-distance pathfinding."""
-    target_q = intent.data.get("target_q")
-    target_r = intent.data.get("target_r")
+    target_q, target_r = wrap_coords(intent.data.get("target_q"), intent.data.get("target_r"))
 
     # Already at destination — no-op
     if target_q == agent.q and target_r == agent.r:
+        return
+
+    # Map bound check - ensure the hex is seeded
+    target_hex = db.execute(select(WorldHex).where(WorldHex.q == target_q, WorldHex.r == target_r)).scalar_one_or_none()
+    if not target_hex:
+        # In a finite wrap world, missing hexes should not happen if pre-seeded.
+        # However, we allow "ghost" targets if we want, but better to check obstacle.
+        db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={"reason": "OUT_OF_BOUNDS", "help": "Target coordinates are not initialized."}))
         return
 
     dist = get_hex_distance(agent.q, agent.r, target_q, target_r)
@@ -85,12 +92,12 @@ async def handle_move(db, agent, intent, tick_count, manager):
         }))
         return
 
-    obstacle = db.execute(select(WorldHex).where(WorldHex.q == target_q, WorldHex.r == target_r, WorldHex.terrain_type == "OBSTACLE")).scalar_one_or_none()
-    if not obstacle:
-        agent.q, agent.r = target_q, target_r
-        agent.capacitor -= energy_cost
-        db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT", details={"q": target_q, "r": target_r}))
-        if manager:
-            await manager.broadcast({"type": "EVENT", "event": "MOVE", "agent_id": agent.id, "q": target_q, "r": target_r})
-    else:
-        db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={"reason": "OBSTACLE"}))
+    if not target_hex or target_hex.terrain_type == "OBSTACLE":
+        db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={"reason": "OBSTACLE" if target_hex else "OUT_OF_BOUNDS"}))
+        return
+
+    agent.q, agent.r = target_q, target_r
+    agent.capacitor -= energy_cost
+    db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT", details={"q": target_q, "r": target_r}))
+    if manager:
+        await manager.broadcast({"type": "EVENT", "event": "MOVE", "agent_id": agent.id, "q": target_q, "r": target_r})

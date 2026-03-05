@@ -497,6 +497,26 @@ export class TerminalHandler {
             return;
         }
 
+        if (actionType === 'MARKET_PICKUPS') {
+            try {
+                const apiKey = localStorage.getItem('sv_api_key');
+                const resp = await fetch('/api/market/pickups', { headers: { 'X-API-KEY': apiKey } });
+                const pickups = await resp.json();
+
+                this.log(`<b>═══ MARKET PICKUPS ═══</b>`, 'system');
+                if (!pickups || pickups.length === 0) {
+                    this.log(`  No items waiting for pickup.`, 'info');
+                    return;
+                }
+
+                pickups.forEach(p => {
+                    this.log(`  [#${p.id}] <b>${p.item.replace('_', ' ')}</b> x${p.qty}`, 'info');
+                });
+                this.log(`  <i>Use MARKET_CLAIM at a Market station to retrieve them.</i>`, 'system');
+            } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
+            return;
+        }
+
         // ── META: STATUS ──
         if (actionType === 'STATUS') {
             try {
@@ -671,6 +691,27 @@ export class TerminalHandler {
                     this.log(`✓ ${result.message}`, 'success');
                     this.game.pollState();
                     if (window.storageUI) window.storageUI.refreshStorage();
+                } else {
+                    this.log(`✗ ${result.detail || 'Server error'}`, 'error');
+                }
+            } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
+            return;
+        }
+
+        if (actionType === 'MARKET_CLAIM') {
+            const apiKey = localStorage.getItem('sv_api_key');
+            try {
+                const resp = await fetch('/api/market/pickup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey }
+                });
+                const result = await resp.json();
+                if (resp.ok) {
+                    this.log(`✓ ${result.message}`, 'success');
+                    for (const [item, qty] of Object.entries(result.claimed)) {
+                        this.log(`  Retrieved: ${item.replace(/_/g, ' ')} x${qty}`, 'info');
+                    }
+                    this.game.pollState();
                 } else {
                     this.log(`✗ ${result.detail || 'Server error'}`, 'error');
                 }

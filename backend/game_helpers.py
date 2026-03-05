@@ -9,21 +9,36 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 import json
-from models import Agent, WorldHex, ChassisPart, InventoryItem, AuditLog
+import random
+from models import Agent, WorldHex, ChassisPart, InventoryItem, AuditLog, Sector
 from config import (
     ITEM_WEIGHTS, BASE_CAPACITY, RARITY_LEVELS, PART_DEFINITIONS,
     SOLAR_RADIUS_SAFE, SOLAR_RADIUS_TWILIGHT, ANARCHY_THRESHOLD,
     BASE_REGEN, CLUTTER_PENALTY,
-    CRAFTING_RECIPES, SMELTING_RECIPES, CORE_RECIPES
+    CRAFTING_RECIPES, SMELTING_RECIPES, CORE_RECIPES,
+    WORLD_WIDTH, WORLD_HEIGHT, MAP_MIN_Q, MAP_MAX_Q, MAP_MIN_R, MAP_MAX_R
 )
 
 logger = logging.getLogger("heartbeat")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Module-level Recipe Cache
+# Module-level Recipe & Bounds Cache
 # Built once at startup; reused on every /api/my_agent poll to avoid
 # creating hundreds of temporary dicts/lists per request.
 # ─────────────────────────────────────────────────────────────────────────────
+_WORLD_BOUNDS = None
+
+def get_world_bounds(db: Session):
+    global _WORLD_BOUNDS
+    if _WORLD_BOUNDS is None:
+        from sqlalchemy import func
+        res = db.execute(select(func.min(WorldHex.q), func.max(WorldHex.q), func.min(WorldHex.r), func.max(WorldHex.r))).first()
+        if res and res[0] is not None:
+            _WORLD_BOUNDS = {"min_q": res[0], "max_q": res[1], "min_r": res[2], "max_r": res[3]}
+        else:
+            _WORLD_BOUNDS = {"min_q": -40, "max_q": 59, "min_r": -40, "max_r": 59}
+    return _WORLD_BOUNDS
+
 def _build_recipe_cache() -> list:
     result = []
     for item_key, materials in CRAFTING_RECIPES.items():
@@ -49,14 +64,178 @@ _CACHED_CRAFTING_RECIPES: list = _build_recipe_cache()
 # Geometry
 # ─────────────────────────────────────────────────────────────────────────────
 
-def get_hex_distance(q1, r1, q2, r2) -> int:
-    """Calculates distance on a cube/axial hex grid."""
+def _axial_dist(q1, r1, q2, r2) -> int:
+    """Core axial distance math."""
     return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
+
+def get_hex_distance(q1, r1, q2, r2) -> int:
+    """Calculates shortest distance on a spherical/wrapped hex grid."""
+    # To find shortest distance on a sphere/torus, we check the target and its "images"
+    # across the seams and poles.
+    
+    # Image 1: Direct
+    dists = [_axial_dist(q1, r1, q2, r2)]
+    
+    # Image 2 & 3: Longitude wrap
+    dists.append(_axial_dist(q1, r1, q2 + WORLD_WIDTH, r2))
+    dists.append(_axial_dist(q1, r1, q2 - WORLD_WIDTH, r2))
+    
+    # Image 4: North Pole Reflection (q+50, -r)
+    pq_n = (q2 + (WORLD_WIDTH // 2))
+    dists.append(_axial_dist(q1, r1, pq_n, -r2))
+    dists.append(_axial_dist(q1, r1, pq_n - WORLD_WIDTH, -r2))
+    dists.append(_axial_dist(q1, r1, pq_n + WORLD_WIDTH, -r2))
+    
+    # Image 5: South Pole Reflection (q+50, 200 - r)
+    # Pole is at 100. Reflection of r2 over 100 is 100 + (100 - r2) = 200 - r2
+    pq_s = (q2 + (WORLD_WIDTH // 2))
+    dists.append(_axial_dist(q1, r1, pq_s, 200 - r2))
+    dists.append(_axial_dist(q1, r1, pq_s - WORLD_WIDTH, 200 - r2))
+    dists.append(_axial_dist(q1, r1, pq_s + WORLD_WIDTH, 200 - r2))
+    
+    return min(dists)
 
 
 def is_in_anarchy_zone(q, r) -> bool:
     """Checks if coordinates are outside the colonial safe zone."""
     return get_hex_distance(q, r, 0, 0) >= ANARCHY_THRESHOLD
+
+
+def wrap_coords(q, r) -> tuple:
+    """Wraps coordinates for a finite spherical world."""
+    # Longitude (q) wrapping
+    q = q % WORLD_WIDTH
+    
+    # Latitude (r) wrapping (over-the-pole reflection)
+    if r < MAP_MIN_R:
+        # Crossed North Pole
+        r = abs(r)
+        q = (q + (WORLD_WIDTH // 2)) % WORLD_WIDTH
+    elif r > MAP_MAX_R:
+        # Crossed South Pole
+        r = MAP_MAX_R - (r - MAP_MAX_R)
+        q = (q + (WORLD_WIDTH // 2)) % WORLD_WIDTH
+        
+    return q, r
+
+
+def get_hex_terrain_data(q, r) -> dict:
+    """
+    Calculates the 'theoretical' terrain and resources for any coordinate.
+    Does NOT check the database. Used for seeding missing hexes.
+    """
+    q, r = wrap_coords(q, r)
+    dist = get_hex_distance(q, r, 0, 0)
+    
+    # 1. Check for Static Stations
+    stations = {
+        (0, 0): "STATION_HUB",
+        (10, 0): "SMELTER",
+        (0, 10): "CRAFTER",
+        (-10, 0): "REPAIR",
+        (0, -10): "REFINERY"
+    }
+    
+    if (q, r) in stations:
+        return {
+            "terrain_type": "STATION",
+            "is_station": True,
+            "station_type": stations[(q, r)],
+            "resource_type": None,
+            "resource_density": 0.0,
+            "resource_quantity": 0
+        }
+    
+    # 2. Procedural Generation
+    roll = random.random()
+    terrain = "VOID"
+    res_type = None
+    res_density = 0.0
+    res_qty = 0
+    
+    if roll < 0.1:
+        terrain = "ASTEROID"
+        # Tiered resources based on latitude (r)
+        # r < 10: Iron
+        # 10 <= r < 25: Iron + Copper
+        # 25 <= r < 50: Intro Gold
+        # r >= 50: Intro Cobalt, dominant near r=100
+        
+        tier_roll = random.random()
+        
+        if r < 10:
+            res_type = "IRON_ORE"
+            if tier_roll < 0.05: res_type = "COPPER_ORE" # "Superior" roll
+        elif 10 <= r < 25:
+            res_type = "COPPER_ORE" if tier_roll < 0.7 else "IRON_ORE"
+            if tier_roll < 0.05: res_type = "GOLD_ORE"
+        elif 25 <= r < 50:
+            if tier_roll < 0.4: res_type = "GOLD_ORE"
+            elif tier_roll < 0.8: res_type = "COPPER_ORE"
+            else: res_type = "IRON_ORE"
+            if tier_roll < 0.05: res_type = "COBALT_ORE"
+        else: # r >= 50
+            # Cobalt becomes dominant near r=100
+            cobalt_chance = (r - 50) / 50.0 # 0.0 at equator, 1.0 at south pole
+            if tier_roll < cobalt_chance:
+                res_type = "COBALT_ORE"
+            elif tier_roll < 0.7:
+                res_type = "GOLD_ORE"
+            else:
+                res_type = "COPPER_ORE"
+        
+        # Helium Gas chance
+        if r > 15 and random.random() < 0.2:
+            res_type = "HELIUM_GAS"
+        
+        res_density = random.uniform(0.5, 2.0) * (1 + (r / 100))
+        res_qty = random.randint(100, 1000)
+    elif roll < 0.15:
+        terrain = "OBSTACLE"
+        
+    return {
+        "terrain_type": terrain,
+        "is_station": False,
+        "station_type": None,
+        "resource_type": res_type,
+        "resource_density": res_density,
+        "resource_quantity": res_qty
+    }
+
+
+def seed_hex_if_missing(db: Session, q, r) -> WorldHex:
+    """Checks DB for a hex; if missing, generates and saves it."""
+    # We use a simple select to check existence. 
+    # Performance tip: querying single hexes is fast with the index on (q,r).
+    existing = db.execute(select(WorldHex).where(WorldHex.q == q, WorldHex.r == r)).scalar_one_or_none()
+    if existing:
+        return existing
+        
+    data = get_hex_terrain_data(q, r)
+    
+    # We need a sector_id. In a dynamic world, we might just use a 'Dynamic' sector
+    # or calculate sector coordinates. SECTOR_SIZE is 20 in seed_world.py.
+    sq, sr = q // 20, r // 20
+    sector = db.execute(select(Sector).where(Sector.q == sq, Sector.r == sr)).scalar_one_or_none()
+    if not sector:
+        sector = Sector(q=sq, r=sr, name=f"Sector {sq}:{sr}")
+        db.add(sector)
+        db.flush() # Get ID
+        
+    new_hex = WorldHex(
+        sector_id=sector.id,
+        q=q,
+        r=r,
+        terrain_type=data["terrain_type"],
+        is_station=data["is_station"],
+        station_type=data["station_type"],
+        resource_type=data["resource_type"],
+        resource_density=data["resource_density"],
+        resource_quantity=data["resource_quantity"]
+    )
+    db.add(new_hex)
+    db.flush()
+    return new_hex
 
 
 def get_solar_intensity(q, r, tick_count=0) -> float:
@@ -82,6 +261,8 @@ def find_hex_path(db: Session, sq: int, sr: int, gq: int, gr: int, max_steps: in
     )
     queue = deque([(sq, sr, [])])
     visited = {(sq, sr)}
+    bounds = get_world_bounds(db)
+    
     while queue:
         q, r, path = queue.popleft()
         if q == gq and r == gr:
@@ -89,7 +270,7 @@ def find_hex_path(db: Session, sq: int, sr: int, gq: int, gr: int, max_steps: in
         if len(path) >= max_steps:
             continue
         for dq, dr in NEIGHBORS:
-            nq, nr = q + dq, r + dr
+            nq, nr = wrap_coords(q + dq, r + dr)
             if (nq, nr) not in visited and (nq, nr) not in obstacles:
                 visited.add((nq, nr))
                 queue.append((nq, nr, path + [(nq, nr)]))

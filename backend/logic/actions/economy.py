@@ -1,6 +1,6 @@
 import logging
 from sqlalchemy import select
-from models import AuctionOrder, InventoryItem, AuditLog, Agent, DailyMission, AgentMission
+from models import AuctionOrder, InventoryItem, AuditLog, Agent, DailyMission, AgentMission, MarketPickup
 from sqlalchemy.sql import func
 from datetime import datetime, timezone
 
@@ -38,9 +38,9 @@ async def handle_list(db, agent, intent, tick_count, manager):
             buyer_id = int(matching_buy.owner.split(":")[1])
             buyer = db.get(Agent, buyer_id)
             if buyer:
-                b_inv = next((i for i in buyer.inventory if i.item_type == item_type), None)
-                if b_inv: b_inv.quantity += trade_qty
-                else: db.add(InventoryItem(agent_id=buyer_id, item_type=item_type, quantity=trade_qty))
+                pickup = next((p for p in buyer.market_pickups if p.item_type == item_type), None)
+                if pickup: pickup.quantity += trade_qty
+                else: db.add(MarketPickup(agent_id=buyer_id, item_type=item_type, quantity=trade_qty))
                 await _update_buy_mission(db, buyer_id)
         
         if matching_buy.quantity > trade_qty: matching_buy.quantity -= trade_qty
@@ -72,9 +72,9 @@ async def handle_buy(db, agent, intent, tick_count, manager):
     if order:
         if credits and credits.quantity >= order.price:
             credits.quantity -= int(order.price)
-            target = next((i for i in agent.inventory if i.item_type == item_type), None)
+            target = next((p for p in agent.market_pickups if p.item_type == item_type), None)
             if target: target.quantity += 1
-            else: db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=1))
+            else: db.add(MarketPickup(agent_id=agent.id, item_type=item_type, quantity=1))
             
             if order.owner.startswith("agent:"):
                 seller = db.get(Agent, int(order.owner.split(":")[1]))

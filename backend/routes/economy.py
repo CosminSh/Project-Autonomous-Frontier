@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, Body, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from database import get_db
-from models import Agent, AuctionOrder, InventoryItem, AuditLog, StorageItem
+from models import Agent, AuctionOrder, InventoryItem, AuditLog, StorageItem, MarketPickup, WorldHex
 from routes.common import verify_api_key
 
 router = APIRouter(prefix="/api", tags=["Economy"])
@@ -97,6 +97,40 @@ async def adjust_market_order(order_id: int, price: float = Body(..., embed=True
     db.commit()
     
     return {"message": "Order price adjusted."}
+
+@router.get("/market/pickups")
+async def get_market_pickups(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    """Returns all items waiting for the agent to pick up from the market."""
+    pickups = db.execute(select(MarketPickup).where(MarketPickup.agent_id == agent.id)).scalars().all()
+    return [{"id": p.id, "item": p.item_type, "qty": p.quantity} for p in pickups]
+
+@router.post("/market/pickup")
+async def claim_market_pickups(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    """Claims all pending market pickups. Must be at a MARKET station."""
+    hex_loc = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalars().first()
+    if not (hex_loc and hex_loc.is_station and hex_loc.station_type == "MARKET"):
+        raise HTTPException(status_code=400, detail="Must be at a MARKET station to claim pickups.")
+
+    pickups = db.execute(select(MarketPickup).where(MarketPickup.agent_id == agent.id)).scalars().all()
+    if not pickups:
+        raise HTTPException(status_code=400, detail="No pending pickups.")
+
+    # Tally up what is being claimed
+    claimed = {}
+    for p in pickups:
+        inv_item = next((i for i in agent.inventory if i.item_type == p.item_type), None)
+        if inv_item:
+            inv_item.quantity += p.quantity
+        else:
+            db.add(InventoryItem(agent_id=agent.id, item_type=p.item_type, quantity=p.quantity))
+            
+        claimed[p.item_type] = claimed.get(p.item_type, 0) + p.quantity
+        db.delete(p)
+
+    db.add(AuditLog(agent_id=agent.id, event_type="MARKET_CLAIM", details={"claimed": claimed}))
+    db.commit()
+
+    return {"message": "Pickups claimed successfully.", "claimed": claimed}
 
 # ── VAULT / STORAGE ────────────────────────────────────────────────────────────
 

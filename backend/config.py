@@ -25,6 +25,14 @@ SOLAR_RADIUS_TWILIGHT = 20
 CLUTTER_THRESHOLD = 3
 CLUTTER_PENALTY = 0.2  # 20% reduction
 
+# World Dimensions (Wrapping)
+WORLD_WIDTH = 100
+WORLD_HEIGHT = 101  # r from 0 to 100
+MAP_MIN_Q = 0
+MAP_MAX_Q = 99
+MAP_MIN_R = 0
+MAP_MAX_R = 100
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Industrial Recipes & Costs
 # ─────────────────────────────────────────────────────────────────────────────

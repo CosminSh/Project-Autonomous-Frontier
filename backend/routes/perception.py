@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from models import WorldHex, Agent, GlobalState, LootDrop
 from database import get_db, STATION_CACHE
-from game_helpers import get_hex_distance, get_discovery_packet, get_agent_visual_signature
+from game_helpers import get_hex_distance, get_discovery_packet, get_agent_visual_signature, wrap_coords
 from routes.common import verify_api_key
 
 router = APIRouter(prefix="/api", tags=["Perception"])
@@ -16,15 +16,41 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
     # Sensor Radius (Logic Stat influenced)
     sensor_range = 5 + (agent.logic_precision // 10)
     
+    # Generate nearby coords (wrapped)
+    nearby_coords = []
+    for dq in range(-sensor_range, sensor_range + 1):
+        for dr in range(-sensor_range, sensor_range + 1):
+            if get_hex_distance(0, 0, dq, dr) <= sensor_range:
+                nearby_coords.append(wrap_coords(agent.q + dq, agent.r + dr))
+    
+    # De-duplicate
+    nearby_coords = list(set(nearby_coords))
+    
     # 1. Nearby Agents
+    # Using a list of tuples in SQL can be tricky; we'll fetch a bounding box and filter, 
+    # or just fetch all and filter in Python since the total agent count is low.
+    # For now, let's use the list of coords to query the DB.
+    # To keep it simple and performant, we'll query by ranges but include wrapped edges.
+    
+    def get_wrap_filter(field, val, rng, total):
+        v_min, v_max = val - rng, val + rng
+        filters = [(field >= v_min) & (field <= v_max)]
+        if v_min < 0:
+            filters.append((field >= v_min + total) & (field <= total))
+        if v_max >= total:
+            filters.append((field >= 0) & (field <= v_max - total))
+        from sqlalchemy import or_
+        return or_(*filters)
+
     visible_agents = db.execute(select(Agent).where(
-        Agent.q >= agent.q - sensor_range, Agent.q <= agent.q + sensor_range,
+        get_wrap_filter(Agent.q, agent.q, sensor_range, 100),
+        # r-wrapping is special (poles), so we'll just query a slightly larger range and filter in Python
         Agent.r >= agent.r - sensor_range, Agent.r <= agent.r + sensor_range
     )).scalars().all()
     
     # 2. Nearby Local Features (Scan WorldHex)
     nearby_hexes = db.execute(select(WorldHex).where(
-        WorldHex.q >= agent.q - sensor_range, WorldHex.q <= agent.q + sensor_range,
+        get_wrap_filter(WorldHex.q, agent.q, sensor_range, 100),
         WorldHex.r >= agent.r - sensor_range, WorldHex.r <= agent.r + sensor_range,
         (WorldHex.resource_type != None) | (WorldHex.is_station == True)
     )).scalars().all()

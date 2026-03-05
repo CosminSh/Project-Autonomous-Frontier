@@ -12,6 +12,7 @@ from config import (
 from logic.mission_logic import generate_daily_missions
 from logic.state_updates import update_global_agent_stats
 from logic.intent_processor import IntentProcessor
+from game_helpers import get_hex_terrain_data
 
 logger = logging.getLogger("heartbeat.tick_manager")
 
@@ -113,28 +114,13 @@ class TickManager:
             random.shuffle(voids)
             spawned = 0
             for h in voids:
-                dist = (abs(h.q) + abs(h.q + h.r) + abs(h.r)) // 2
-                
-                # Use same distance logic as seed_world
-                res_type = "IRON_ORE"
-                if dist <= 10:
-                    res_type = "IRON_ORE"
-                elif 10 < dist <= 25:
-                    res_type = "COPPER_ORE"
-                    if random.random() < 0.2: res_type = "HELIUM_GAS"
-                elif 25 < dist <= 35:
-                    res_type = "COBALT_ORE"
-                    if random.random() < 0.3: res_type = "HELIUM_GAS"
-                else:
-                    res_type = "GOLD_ORE"
-                    if random.random() < 0.2: res_type = "HELIUM_GAS"
-                    
-                h.terrain_type = "ASTEROID"
-                h.resource_type = res_type
-                h.resource_density = random.uniform(1.0, 3.0)
-                h.resource_quantity = random.randint(100, 1000)
-                
-                spawned += 1
+                data = get_hex_terrain_data(h.q, h.r)
+                if data["terrain_type"] == "ASTEROID":
+                    h.terrain_type = "ASTEROID"
+                    h.resource_type = data["resource_type"]
+                    h.resource_density = data["resource_density"]
+                    h.resource_quantity = data["resource_quantity"]
+                    spawned += 1
                 if spawned >= 20: break
 
     async def _process_player_intents(self, db):

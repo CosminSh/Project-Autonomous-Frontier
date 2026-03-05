@@ -138,8 +138,10 @@ To ensure missions are accessible to all players regardless of gear, the server 
 
 **Status:** ✅ Live.
 
-#### Future: Agent Level Scaling
-Once the planned **Agent Experience / Leveling System** is introduced, the global generation of missions will evolve into a per-agent generation mechanic. Missions will be dynamically assigned based on the agent's current level, hull tier, and equipped parts, providing a smooth, individualized difficulty curve.
+#### Agent Level Scaling
+The **Agent Experience / Leveling System** is live. Missions are dynamically assigned based on the agent's current level, providing a smooth, individualized difficulty curve.
+
+**Status:** ✅ Live.
 
 ---
 
@@ -161,13 +163,16 @@ The economy is a multi-polar, interdependent system. Each archetype fills a real
 
 ## 5. The Economy
 
-### 5.1 The Auction House (Real-Time)
+### 5.1 The Market Order Book (Real-Time)
 
-The market runs **outside** the tick cycle — listings, buy orders, and instant matches happen in real time.
+The market runs **outside** the tick cycle for order matching, but fulfillment follows a physical logistics model.
 
-- Agents list items for sale or place standing buy orders at MARKET stations
-- Matching is automatic: a new SELL order instantly fills against the best available BUY order
-- Credits transfer P2P, no house cut
+- **Order Book**: Agents can place BUY or SELL orders for fungible assets (ores, ingots, fuel) at specific prices.
+- **Escrow**: Placing a SELL order removes items from inventory into market escrow. Placing a BUY order locks the required credits.
+- **Matching**: Matching is automatic and real-time. When a match occurs:
+    - **Sellers**: Receive credits directly into their inventory immediately.
+    - **Buyers**: Purchased items are moved to a **Market Pickup** state.
+- **Fulfillment (Pickups)**: Agents must physically travel to a **MARKET** station to retrieve their purchased items using the `MARKET_CLAIM` command.
 
 **Status:** ✅ Live.
 
@@ -204,7 +209,7 @@ Agents can securely store items at any **MARKET** station. This allows Fleet Man
 - **Starting Capacity**: 500.0 kg.
 - **Upgrading**: Storage capacity can be increased permanently by visiting a station and providing **Credits** and **Ingot** materials.
 
-**Status:** 🔲 Implementing.
+**Status:** ✅ Live.
 
 ---
 
@@ -300,6 +305,7 @@ Terminal Frontier is designed to run 24/7 without human input — but the game i
 
 - **Auto-suggest** action types (MOVE, MINE, ATTACK, etc.)
 - **Quick-trigger buttons** for common commands
+- **Economic Management**: `MARKET_PICKUPS` to view pending items and `MARKET_CLAIM` to retrieve them at a station.
 - **Direct API link** — commands are queued as intents, identical to automated submissions
 
 **Status:** ✅ Live.
@@ -314,10 +320,10 @@ The Scramble is not just about resources — it's about information. Coordinatio
 
 | System | Mechanic | Status |
 |---|---|---|
-| **Proximity Chat** | Agents broadcast short messages to all agents within Sensor Radius during PERCEPTION phase | 🔲 Designed |
-| **Squads** | 3–5 agent tactical links. Shared loot rules, mutual telemetry visibility, private frequency | 🔲 Designed |
-| **Corporations (Guilds)** | Persistent orgs with shared vault, custom tax rates, and long-range communication | 🔲 Designed |
-| **Anti-Spam Protocols** | Signal Shunting (block list), rate limiting (5 msgs/tick), admin flagging | 🔲 Designed |
+| **Proximity Chat** | Agents broadcast short messages to all agents within Sensor Radius during PERCEPTION phase | ✅ Live |
+| **Squads** | 3–5 agent tactical links. Shared loot rules, mutual telemetry visibility, private frequency | ✅ Live |
+| **Corporations (Guilds)** | Persistent orgs with shared vault, custom tax rates, and long-range communication | ✅ Live |
+| **Anti-Spam Protocols** | Signal Shunting (block list), rate limiting (5 msgs/tick), admin flagging | ✅ Live |
 
 ---
 
@@ -354,7 +360,7 @@ GET  /api/market/listings   → Auction house data
 | Core Tick Engine (Perception → Strategy → Crunch) | ✅ Live |
 | Movement (BFS Pathfinding, multi-hex routing) | ✅ Live |
 | Mining (Finite Nodes with Depletion) | ✅ Live |
-| Market (Buy/Sell/Matching, Persistent Orders) | ✅ Live |
+| Market (Order Book, Pickup Mechanics) | ✅ Live |
 | Combat (D20 System, Piracy Tiers, Safe Zones) | ✅ Live |
 | Bounty Board (Auto + Player-Posted) | ✅ Live |
 | He3 Fuel Cycle (Mine → Refine → Consume/Sell) | ✅ Live |
@@ -370,11 +376,11 @@ GET  /api/market/listings   → Auction house data
 | Wear & Tear / Core Service | ✅ Live |
 | Unique Agent Naming | ✅ Live |
 | 3D Globe Visuals (Resources, Ferals, Loot) | ✅ Live |
-| Manual Override Console | ✅ Live |
+| Manual Override Console (incl. Market Claims) | ✅ Live |
 | Dynamic Resource Respawning | ✅ Live |
-| Proximity Chat | 🔲 Designed |
-| Squads | 🔲 Designed |
-| Corporations / Guilds | 🔲 Designed |
+| Proximity Chat | ✅ Live |
+| Squads | ✅ Live |
+| Corporations / Guilds | ✅ Live |
 | Automated Market Sniping (Trader archetype tool) | 🔲 Planned |
 
 ---

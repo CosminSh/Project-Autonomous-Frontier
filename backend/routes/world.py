@@ -93,6 +93,7 @@ async def get_commands():
             {"type": "LIST", "description": "List an item on the Auction House.", "payload": {"item_type": "str", "price": "int", "quantity": "int"}, "range": 0, "station_required": "MARKET"},
             {"type": "BUY", "description": "Purchase an item from the Auction House.", "payload": {"item_type": "str", "max_price": "int"}, "range": 0, "station_required": "MARKET"},
             {"type": "CANCEL", "description": "Withdraw an active order from the Auction House.", "payload": {"order_id": "int"}, "range": "N/A"},
+            {"type": "MARKET_CLAIM", "description": "Claims items that have been bought and are waiting for pickup. NOTE: This is an immediate API call, do NOT submit via /api/intent. Use POST /api/market/pickup directly.", "payload": {}, "range": 0, "station_required": "MARKET"},
             {"type": "SMELT", "description": "Refine ore into ingots.", "payload": {"ore_type": "str", "quantity": "int"}, "range": 0, "station_required": "SMELTER"},
             {"type": "CRAFT", "description": "Assemble components into parts.", "payload": {"item_type": "str"}, "range": 0, "station_required": "CRAFTER"},
             {"type": "RESTORE_HP", "description": "Restore agent structure. Costs 1 Credit and 0.02 Iron Ingots per HP.", "payload": {"amount": "int"}, "range": 0, "station_required": "ANY"},

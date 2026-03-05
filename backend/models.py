@@ -130,6 +130,17 @@ class AuctionOrder(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     owner = Column(String)
 
+class MarketPickup(Base):
+    __tablename__ = "market_pickups"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), index=True)
+    item_type = Column(String)
+    quantity = Column(Integer)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    agent = relationship("Agent", backref="market_pickups")
+
 class Intent(Base):
     __tablename__ = "intents"
 
