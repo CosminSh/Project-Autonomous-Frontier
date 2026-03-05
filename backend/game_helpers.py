@@ -155,28 +155,28 @@ def get_hex_terrain_data(q, r) -> dict:
     
     if roll < 0.1:
         terrain = "ASTEROID"
-        # Tiered resources based on latitude (r)
-        # r < 10: Iron
-        # 10 <= r < 25: Iron + Copper
-        # 25 <= r < 50: Intro Gold
-        # r >= 50: Intro Cobalt, dominant near r=100
+        # Tiered resources based on distance from North Pole (dist)
+        # dist < 10: Iron (Starting zone)
+        # 10 <= dist < 25: Iron + Copper
+        # 25 <= dist < 50: Intro Gold
+        # dist >= 50: Intro Cobalt, dominant near South Pole (dist=100)
         
         tier_roll = random.random()
         
-        if r < 10:
+        if dist < 10:
             res_type = "IRON_ORE"
             if tier_roll < 0.05: res_type = "COPPER_ORE" # "Superior" roll
-        elif 10 <= r < 25:
+        elif 10 <= dist < 25:
             res_type = "COPPER_ORE" if tier_roll < 0.7 else "IRON_ORE"
             if tier_roll < 0.05: res_type = "GOLD_ORE"
-        elif 25 <= r < 50:
+        elif 25 <= dist < 50:
             if tier_roll < 0.4: res_type = "GOLD_ORE"
             elif tier_roll < 0.8: res_type = "COPPER_ORE"
             else: res_type = "IRON_ORE"
             if tier_roll < 0.05: res_type = "COBALT_ORE"
-        else: # r >= 50
-            # Cobalt becomes dominant near r=100
-            cobalt_chance = (r - 50) / 50.0 # 0.0 at equator, 1.0 at south pole
+        else: # dist >= 50
+            # Cobalt becomes dominant near the South Pole (dist=100)
+            cobalt_chance = (dist - 50) / 50.0 # 0.0 at equator, 1.0 at south pole
             if tier_roll < cobalt_chance:
                 res_type = "COBALT_ORE"
             elif tier_roll < 0.7:
@@ -239,11 +239,11 @@ def seed_hex_if_missing(db: Session, q, r) -> WorldHex:
 
 
 def get_solar_intensity(q, r, tick_count=0) -> float:
-    """Calculates solar power intensity (0.0 to 1.0) based on latitude (r)."""
-    dist_r = abs(r)
-    if dist_r <= SOLAR_RADIUS_SAFE:
+    """Calculates solar power intensity (0.0 to 1.0) based on radial distance from North Pole."""
+    dist = get_hex_distance(q, r, 0, 0)
+    if dist <= SOLAR_RADIUS_SAFE:
         return 1.0
-    if dist_r <= SOLAR_RADIUS_TWILIGHT:
+    if dist <= SOLAR_RADIUS_TWILIGHT:
         day_night_cycle = (tick_count // 30) % 2 == 0
         return 1.0 if day_night_cycle else 0.0
     return 0.0
