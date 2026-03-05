@@ -73,6 +73,17 @@ async def handle_unequip(db, agent, intent, tick_count, manager):
     
     # Check if part name maps back to a config key
     config_key = next((k for k, v in PART_DEFINITIONS.items() if v["name"] == part.name), None)
+    
+    # Fallback to stat matching if name was changed in a patch
+    if not config_key:
+        matches = [k for k, v in PART_DEFINITIONS.items() if v["type"] == part.part_type and v.get("stats", {}) == (part.stats or {})]
+        if matches: config_key = matches[0]
+        
+    # Hardcoded fallback for known old names
+    if not config_key:
+        old_mapping = {"Titanium Drill": "DRILL_UNIT", "Titanium Frame": "BASIC_FRAME"}
+        config_key = old_mapping.get(part.name)
+
     item_type = f"PART_{config_key}" if config_key else "SCRAP_METAL"
     
     # Move to inventory

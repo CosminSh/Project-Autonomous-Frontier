@@ -59,6 +59,7 @@ export class TerminalHandler {
             'SQUAD': { cat: 'COMM', syntax: 'SQUAD <message>', example: 'SQUAD Need backup!', help: 'Squad Chat' },
             'CORP': { cat: 'COMM', syntax: 'CORP <message>', example: 'CORP Reporting in.', help: 'Corporation Chat' },
             'GLOBAL': { cat: 'COMM', syntax: 'GLOBAL <message>', example: 'GLOBAL Selling Iron!', help: 'Global Chat' },
+            'CLAIM_LOST_DRILL': { cat: 'OTHER', syntax: 'CLAIM_LOST_DRILL', example: 'CLAIM_LOST_DRILL', help: 'Emergency recovery if your drill became Scrap Metal' },
             'DROP_LOAD': { cat: 'OTHER', syntax: 'DROP_LOAD', example: 'DROP_LOAD', help: 'Jettison all cargo' },
             'STOP': { cat: 'NAV', syntax: 'STOP', example: 'STOP', help: 'Cancel all queued intents' },
             'FIELD_TRADE': { cat: 'MARKET', syntax: 'FIELD_TRADE <id> <price> <items...>', example: 'FIELD_TRADE 5 100 IRON_ORE', help: 'Direct trade with nearby agent' },
@@ -265,6 +266,8 @@ export class TerminalHandler {
                 if (args.length < 1) throw new Error('Usage: UNEQUIP <part_id>  — e.g. UNEQUIP 3');
                 data.part_id = parseInt(args[0]);
                 if (isNaN(data.part_id)) throw new Error('Part ID must be an integer.');
+                break;
+            case 'CLAIM_LOST_DRILL':
                 break;
             case 'CONSUME':
                 if (args.length < 1) throw new Error('Usage: CONSUME <item_type>  — e.g. CONSUME HE3_FUEL');

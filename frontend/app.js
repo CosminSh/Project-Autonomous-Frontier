@@ -1,8 +1,8 @@
-﻿import { GameAPI } from './api.js?v=HUB_FIX_V1';
-import { AuthManager } from './auth.js?v=HUB_FIX_V1';
-import { GameRenderer } from './renderer.js?v=HUB_FIX_V1';
-import { UIManager } from './ui.js?v=HUB_FIX_V1';
-import { TerminalHandler } from './terminal.js?v=HUB_FIX_V1';
+﻿import { GameAPI } from './api.js?v=DRILL_FIX_V1';
+import { AuthManager } from './auth.js?v=DRILL_FIX_V1';
+import { GameRenderer } from './renderer.js?v=DRILL_FIX_V1';
+import { UIManager } from './ui.js?v=DRILL_FIX_V1';
+import { TerminalHandler } from './terminal.js?v=DRILL_FIX_V1';
 
 /**
  * app.js — Main Bootstrapper

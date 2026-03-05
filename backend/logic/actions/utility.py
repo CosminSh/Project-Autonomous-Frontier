@@ -1,10 +1,24 @@
 import logging
 from sqlalchemy import select
 from models import AuditLog, InventoryItem, WorldHex, ChassisPart, Intent
-from config import FACTION_REALIGNMENT_COST, FACTION_REALIGNMENT_COOLDOWN, CRAFTING_RECIPES, UPGRADE_MAX_LEVEL, UPGRADE_BASE_INGOT_COST
+from config import FACTION_REALIGNMENT_COST, FACTION_REALIGNMENT_COOLDOWN, CRAFTING_RECIPES, UPGRADE_MAX_LEVEL, UPGRADE_BASE_INGOT_COST, PART_DEFINITIONS
 from game_helpers import recalculate_agent_stats, get_hex_distance, find_hex_path
 
 logger = logging.getLogger("heartbeat.actions.utility")
+
+async def handle_claim_drill(db, agent, intent, tick_count, manager):
+    """Emergency fix for users whose starter drill became scrap metal after a hotfix."""
+    has_drill = any("DRILL" in p.name.upper() or p.part_type == "Actuator" for p in agent.parts)
+    has_inv_drill = any("DRILL" in i.item_type for i in agent.inventory)
+    
+    if not has_drill and not has_inv_drill:
+        drill_def = PART_DEFINITIONS.get("DRILL_UNIT") or PART_DEFINITIONS.get("DRILL_IRON_BASIC")
+        if drill_def:
+            db.add(InventoryItem(agent_id=agent.id, item_type="PART_DRILL_UNIT", quantity=1, data={"rarity": "STANDARD", "stats": drill_def["stats"]}))
+            db.add(AuditLog(agent_id=agent.id, event_type="EMERGENCY_DRILL_RESTORED", details={"item": drill_def["name"]}))
+            if manager: await manager.broadcast({"type": "EVENT", "event": "RESTORE", "agent_id": agent.id})
+    else:
+        db.add(AuditLog(agent_id=agent.id, event_type="RESTORE_FAILED", details={"reason": "ALREADY_HAVE_DRILL"}))
 
 async def handle_consume(db, agent, intent, tick_count, manager):
     """Processes tactical item consumption (Repair Kits, Fuel Cells, etc.)."""

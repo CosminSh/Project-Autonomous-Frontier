@@ -34,6 +34,7 @@ class IntentProcessor:
             "UPGRADE_GEAR": utility.handle_upgrade_gear,
             "EQUIP": garage.handle_equip,
             "UNEQUIP": garage.handle_unequip,
+            "CLAIM_LOST_DRILL": utility.handle_claim_drill,
             "TURN_IN": handle_turn_in,
             "RESCUE": utility.handle_rescue,
             "RESCUE_STEP": utility.handle_rescue_step
