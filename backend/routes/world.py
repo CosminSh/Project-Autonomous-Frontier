@@ -65,7 +65,7 @@ async def get_game_guide():
             "A world map consists of Sectors (10x10) and Hexes. Movement costs 5 Energy.",
             "Form a Party: Use POST /api/squad/invite with a target_id to invite users to your squad. They can accept with POST /api/squad/accept.",
             "Squad Comms: Once in a squad, use POST /api/chat with channel: 'SQUAD' to securely message your squad members.",
-            "Personal Storage: At any MARKET station, use the Storage API or UI to safely vault your items. Deposits and withdrawals are free!",
+            "Personal Storage: At any MARKET station, use the Storage API or UI to safely vault your items. Deposits and withdrawals are free! Vault items are automatically detected and consumed when crafting at a CRAFTER or performing maintenance.",
             "Scrap Pit Arena: Donate extra gear to your custom Pit Fighter. WARNING: Donations are PERMANENT and gear is DESTROYED at the end of the weekly season (Sunday 00:00 UTC)."
         ],
         "intel": [

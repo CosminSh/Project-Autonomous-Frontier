@@ -698,7 +698,8 @@
                                 <h4 class="text-[10px] text-emerald-400 uppercase mb-3 tracking-widest font-bold">
                                     Smelting Furnace</h4>
                                 <p class="text-[10px] text-slate-500 mb-3 font-mono">Process raw ores into
-                                    industrial-grade ingots (5:1 Ratio). Requires proximity to a SMELTER station.</p>
+                                    industrial-grade ingots (5:1 Ratio). Requires proximity to a SMELTER station. Uses
+                                    inventory resources.</p>
                                 <div class="flex items-center space-x-3">
                                     <select id="smelt-ore-type"
                                         class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-emerald-500 outline-none">
@@ -715,7 +716,8 @@
                                 <h4 class="text-[10px] text-sky-400 uppercase mb-3 tracking-widest font-bold">
                                     Fabrication Unit</h4>
                                 <p class="text-[10px] text-slate-500 mb-3 font-mono">Convert ingots into advanced agent
-                                    components. Requires proximity to a CRAFTER station.</p>
+                                    components. Requires proximity to a CRAFTER station. <b>Uses resources from your
+                                        inventory OR vault storage automatically.</b></p>
                                 <div class="flex flex-wrap gap-2 mb-4 items-center" id="forge-filters">
                                     <button onclick="game.ui.setForgeFilter('All')"
                                         class="forge-filter-btn active px-3 py-1 rounded-full text-[9px] font-bold uppercase border border-sky-500/30 text-sky-400 bg-sky-500/10 transition-all">All</button>
@@ -748,7 +750,8 @@
                                 <h4 class="text-[10px] text-rose-400 uppercase mb-3 tracking-widest font-bold">Repair
                                     Bay</h4>
                                 <p class="text-[10px] text-slate-500 mb-2 font-mono">Restore agent structure. Costs 1
-                                    Credit and 0.02 Iron Ingots per HP.</p>
+                                    Credit and 0.02 Iron Ingots per HP. <b>Resources used from inventory or vault.</b>
+                                </p>
                                 <div
                                     class="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-3 mb-4">
                                     <div
@@ -766,7 +769,7 @@
                                     <p class="text-[10px] text-slate-500 mb-2 font-mono">Reset your Wear & Tear penalty
                                         to 0%. Maintenance costs scale with the quality and materials of your equipped
                                         gear. Requires REPAIR or MARKET station
-                                        proximity.</p>
+                                        proximity. <b>Costs extracted from inventory or vault.</b></p>
                                     <button id="btn-reset_wear"
                                         class="w-full md:w-auto border border-rose-500/50 hover:bg-rose-500/20 text-rose-400 px-6 py-2 rounded-lg font-bold text-[10px] orbitron transition-all">RESET_WEAR</button>
                                 </div>
