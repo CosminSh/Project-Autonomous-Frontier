@@ -9,9 +9,40 @@ from config import (
     UPGRADE_MAX_LEVEL, UPGRADE_BASE_INGOT_COST
 )
 import math
-from game_helpers import add_experience, recalculate_agent_stats
+from game_helpers import add_experience, recalculate_agent_stats, ITEM_WEIGHTS
 
 logger = logging.getLogger("heartbeat.actions.industry")
+
+def get_total_resource(agent, item_type):
+    """Returns total quantity of an item across inventory and vault."""
+    inv_qty = sum(i.quantity for i in agent.inventory if i.item_type == item_type)
+    vault_qty = sum(s.quantity for s in agent.storage if s.item_type == item_type)
+    return inv_qty + vault_qty
+
+def consume_resources(db, agent, item_type, total_needed):
+    """Consumes specified quantity of an item, prioritizing inventory then vault."""
+    remaining = total_needed
+    
+    # 1. Consume from Inventory first
+    inv_items = [i for i in agent.inventory if i.item_type == item_type]
+    for i in inv_items:
+        if remaining <= 0: break
+        take = min(i.quantity, remaining)
+        i.quantity -= take
+        remaining -= take
+        if i.quantity <= 0: db.delete(i)
+        
+    # 2. Consume from Vault if still needed
+    if remaining > 0:
+        vault_items = [s for s in agent.storage if s.item_type == item_type]
+        for s in vault_items:
+            if remaining <= 0: break
+            take = min(s.quantity, remaining)
+            s.quantity -= take
+            remaining -= take
+            if s.quantity <= 0: db.delete(s)
+            
+    return remaining == 0
 
 async def handle_smelt(db, agent, intent, tick_count, manager):
     """Converts raw ore into refined ingots at a SMELTER station."""
@@ -82,15 +113,12 @@ async def handle_craft(db, agent, intent, tick_count, manager):
         return
 
     for mat, qty in recipe.items():
-        inv_m = next((i for i in agent.inventory if i.item_type == mat), None)
-        if not inv_m or inv_m.quantity < qty:
-            db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INSUFFICIENT_MATERIALS"}))
+        if get_total_resource(agent, mat) < qty:
+            db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INSUFFICIENT_MATERIALS", "missing": mat}))
             return
 
     for mat, qty in recipe.items():
-        inv_m = next((i for i in agent.inventory if i.item_type == mat), None)
-        inv_m.quantity -= qty
-        if inv_m.quantity <= 0: db.delete(inv_m)
+        consume_resources(db, agent, mat, qty)
 
     rarity = "COMMON"
     r_roll = random.random()
@@ -119,14 +147,11 @@ async def handle_repair(db, agent, intent, tick_count, manager):
     cost_credits = actual * REPAIR_COST_PER_HP
     cost_ingots = int(actual * REPAIR_COST_IRON_INGOT_PER_HP)
     
-    credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
-    ingots = next((i for i in agent.inventory if i.item_type == "IRON_INGOT"), None)
-    
-    if credits and credits.quantity >= cost_credits and (cost_ingots == 0 or (ingots and ingots.quantity >= cost_ingots)):
-        credits.quantity -= int(cost_credits)
+    if get_total_resource(agent, "CREDITS") >= cost_credits and (cost_ingots == 0 or get_total_resource(agent, "IRON_INGOT") >= cost_ingots):
+        consume_resources(db, agent, "CREDITS", int(cost_credits))
         if cost_ingots > 0:
-            ingots.quantity -= cost_ingots
-            if ingots.quantity <= 0: db.delete(ingots)
+            consume_resources(db, agent, "IRON_INGOT", cost_ingots)
+            
         agent.health += actual
         db.add(AuditLog(agent_id=agent.id, event_type="REPAIR", details={"hp": actual}))
         if manager:
@@ -177,18 +202,14 @@ async def handle_core_service(db, agent, intent, tick_count, manager):
     # Check if agent has all required resources
     has_all_resources = True
     for resource, required_qty in required_costs.items():
-        inv_item = next((i for i in getattr(agent, "inventory", []) if i.item_type == resource), None)
-        if not inv_item or inv_item.quantity < required_qty:
+        if get_total_resource(agent, resource) < required_qty:
             has_all_resources = False
             break
             
     if has_all_resources:
-        # Consume the resources
+        # Consume the resources (prioritize inventory, then vault)
         for resource, required_qty in required_costs.items():
-            inv_item = next((i for i in agent.inventory if i.item_type == resource), None)
-            inv_item.quantity -= required_qty
-            if inv_item.quantity <= 0:
-                db.delete(inv_item)
+            consume_resources(db, agent, resource, required_qty)
                 
         agent.wear_and_tear = 0.0
         db.add(AuditLog(agent_id=agent.id, event_type="CORE_SERVICE", details={"success": True}))
