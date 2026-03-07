@@ -332,11 +332,35 @@
 
                 <!-- Stats -->
                 <div class="p-3 md:p-4 space-y-3 md:space-y-4 flex-grow overflow-y-auto custom-scrollbar">
+                    <!-- Tactical Row -->
+                    <div
+                        class="flex justify-between items-center bg-slate-900/40 p-2 rounded-xl border border-slate-800/80 mb-2">
+                        <div class="flex flex-col items-center flex-1">
+                            <span class="text-[7px] text-slate-500 uppercase tracking-tighter">Damage</span>
+                            <span id="stat-dmg" class="text-[10px] font-bold text-rose-400 orbitron">--</span>
+                        </div>
+                        <div class="w-px h-4 bg-slate-800"></div>
+                        <div class="flex flex-col items-center flex-1">
+                            <span class="text-[7px] text-slate-500 uppercase tracking-tighter">Speed</span>
+                            <span id="stat-spd" class="text-[10px] font-bold text-sky-400 orbitron">--</span>
+                        </div>
+                        <div class="w-px h-4 bg-slate-800"></div>
+                        <div class="flex flex-col items-center flex-1">
+                            <span class="text-[7px] text-slate-500 uppercase tracking-tighter">Accuracy</span>
+                            <span id="stat-acc" class="text-[10px] font-bold text-emerald-400 orbitron">--</span>
+                        </div>
+                        <div class="w-px h-4 bg-slate-800"></div>
+                        <div class="flex flex-col items-center flex-1">
+                            <span class="text-[7px] text-slate-500 uppercase tracking-tighter">Armor</span>
+                            <span id="stat-arm" class="text-[10px] font-bold text-amber-500 orbitron">--</span>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-2 lg:grid-cols-1 gap-3 lg:gap-4">
                         <div>
                             <div class="flex justify-between items-end mb-1">
                                 <span
-                                    class="text-[8px] md:text-[10px] text-slate-400 uppercase tracking-widest font-bold">Structure
+                                    class="text-[8px] md:text-[10px] text-slate-400 uppercase tracking-widest font-bold">Health
                                     (HP)</span>
                                 <span id="hp-text"
                                     class="text-[10px] md:text-xs font-mono text-emerald-400">100/100</span>
@@ -351,7 +375,7 @@
                         <div>
                             <div class="flex justify-between items-end mb-1">
                                 <span
-                                    class="text-[8px] md:text-[10px] text-slate-400 uppercase tracking-widest font-bold">Capacitor
+                                    class="text-[8px] md:text-[10px] text-slate-400 uppercase tracking-widest font-bold">Energy
                                     (NRG)</span>
                                 <span id="energy-text"
                                     class="text-[10px] md:text-xs font-mono text-sky-400">100/100</span>
@@ -463,6 +487,9 @@
                     <button id="tab-system"
                         class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">⚙️
                         System</button>
+                    <button id="tab-arena"
+                        class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">🏟️
+                        Arena</button>
                 </nav>
                 <div class="p-3 md:p-4 flex-grow overflow-y-auto custom-scrollbar">
 
@@ -975,7 +1002,102 @@
                         </div>
                     </div>
 
-                </div>
+                    <!-- ════════════════════════════════════════════════
+                         TAB 5: SCRAP PIT ARENA
+                         Status | Gear | Auto-Logs
+                    ════════════════════════════════════════════════ -->
+                    <div id="content-arena" class="hidden space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Arena Status -->
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                                <h4 class="text-[10px] text-sky-400 uppercase mb-3 tracking-widest font-bold">🏟️ Pit
+                                    Fighter Status</h4>
+                                <div id="arena-status-container" class="space-y-4">
+                                    <div
+                                        class="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                                        <span class="text-[10px] text-slate-400 uppercase">Registration</span>
+                                        <span id="arena-reg-status"
+                                            class="text-[10px] font-bold text-rose-500 font-mono">NOT REGISTERED</span>
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div class="bg-slate-900/50 p-2 rounded border border-slate-800 text-center">
+                                            <div class="text-[7px] text-slate-500 uppercase">Elo</div>
+                                            <div id="arena-elo" class="text-xs font-bold text-sky-400 font-mono">1200
+                                            </div>
+                                        </div>
+                                        <div class="bg-slate-900/50 p-2 rounded border border-slate-800 text-center">
+                                            <div class="text-[7px] text-slate-500 uppercase">Wins</div>
+                                            <div id="arena-wins" class="text-xs font-bold text-emerald-400 font-mono">0
+                                            </div>
+                                        </div>
+                                        <div class="bg-slate-900/50 p-2 rounded border border-slate-800 text-center">
+                                            <div class="text-[7px] text-slate-500 uppercase">Losses</div>
+                                            <div id="arena-losses" class="text-xs font-bold text-rose-400 font-mono">0
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button onclick="game.terminal.execute('ARENA_REGISTER')"
+                                        class="w-full py-2 bg-sky-600 hover:bg-sky-500 text-white rounded text-[9px] orbitron font-bold transition-all uppercase">Register
+                                        for Scrap Pit</button>
+                                </div>
+                            </div>
+
+                            <!-- Arena Gear -->
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
+                                <div class="flex justify-between items-center mb-1">
+                                    <h4 class="text-[10px] text-amber-500 uppercase tracking-widest font-bold">⚔️ Combat
+                                        Loadout</h4>
+                                    <span class="text-[7px] text-rose-500 font-bold uppercase animate-pulse">Gear Sink
+                                        Active</span>
+                                </div>
+                                <p
+                                    class="text-[8px] text-slate-500 mb-4 bg-rose-500/5 p-2 border border-rose-500/20 rounded">
+                                    <span class="text-rose-400 font-bold">WARNING:</span> Donated gear is <span
+                                        class="text-rose-400">PERMANENTLY BOUND</span> to the pit. It cannot be
+                                    recovered and is <span class="text-rose-400">DESTROYED</span> at the end of the
+                                    season.
+                                </p>
+
+                                <div class="mb-4">
+                                    <div class="text-[8px] text-slate-400 uppercase tracking-widest mb-2 font-bold">
+                                        Eligibility Requirements:</div>
+                                    <div class="flex space-x-2">
+                                        <div id="req-frame"
+                                            class="flex-1 py-1 px-2 rounded border border-slate-800 text-[7px] text-center font-bold uppercase transition-all">
+                                            1x Frame</div>
+                                        <div id="req-weapon"
+                                            class="flex-1 py-1 px-2 rounded border border-slate-800 text-[7px] text-center font-bold uppercase transition-all">
+                                            1x Weapon</div>
+                                    </div>
+                                </div>
+
+                                <div id="arena-gear-list" class="space-y-2">
+                                    <div class="text-[10px] text-slate-600 italic">No gear equipped for the pit.</div>
+                                </div>
+                                <div class="mt-4 pt-4 border-t border-slate-800">
+                                    <p class="text-[8px] text-slate-500 mb-2 font-mono">Arena gear is separate from your
+                                        main agent. Equip items from your inventory to the pit using the terminal:</p>
+                                    <code class="text-[9px] text-sky-400 font-mono">ARENA_EQUIP [item_id]</code>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Arena Logs -->
+                        <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-indigo-500">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="text-[10px] text-indigo-400 uppercase tracking-widest font-bold">📜 Combat
+                                    Archives</h4>
+                                <button onclick="game.terminal.execute('ARENA_LOGS')"
+                                    class="text-[8px] text-sky-500 hover:text-sky-400 uppercase font-bold tracking-widest">Refresh
+                                    Logs</button>
+                            </div>
+                            <div id="arena-logs-list"
+                                class="space-y-1 h-48 overflow-y-auto custom-scrollbar font-mono text-[9px]">
+                                <div class="text-slate-600 italic">No recent combat data found.</div>
+                            </div>
+                        </div>
+
+                    </div>
             </main>
         </div>
 

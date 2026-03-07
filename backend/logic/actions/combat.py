@@ -4,6 +4,7 @@ from sqlalchemy import select
 from models import Agent, AuditLog, InventoryItem, Bounty, LootDrop, AgentMission, DailyMission
 from config import ATTACK_ENERGY_COST, CLUTTER_THRESHOLD, CLUTTER_PENALTY
 from game_helpers import get_hex_distance, is_in_anarchy_zone, add_experience
+from logic.combat_system import simulate_battle
 from sqlalchemy.sql import func
 from datetime import datetime, timezone
 
@@ -12,7 +13,7 @@ logger = logging.getLogger("heartbeat.actions.combat")
 async def handle_attack(db, agent, intent, tick_count, manager):
     """Handles agent-to-agent combat, including evasion, damage, and death/looting."""
     target_id = intent.data.get("target_id")
-    if agent.capacitor < ATTACK_ENERGY_COST:
+    if agent.energy < ATTACK_ENERGY_COST:
         db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "INSUFFICIENT_ENERGY"}))
         return
 
@@ -32,31 +33,25 @@ async def handle_attack(db, agent, intent, tick_count, manager):
         db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "SAFE_ZONE_PROTECTION"}))
         return
 
-    # Hit Calculation
-    attacker_dex = agent.logic_precision or 10
-    attacker_roll = random.randint(1, 20) + attacker_dex
-    evasion_target = 10 + ((target.logic_precision or 10) // 2)
-
-    agent.capacitor -= ATTACK_ENERGY_COST
+    agent.energy -= ATTACK_ENERGY_COST
     if is_pvp: agent.heat = (agent.heat or 0) + 1
 
-    if attacker_roll >= evasion_target:
-        damage = max(1, (agent.kinetic_force or 10) - ((target.integrity or 5) // 2))
-        target.structure -= damage
-        db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_HIT", details={"target_id": target_id, "damage": damage}))
+    outcome = simulate_battle(db, agent, target, manager, combat_type="SKIRMISH")
+    
+    if outcome["attacker_damage_dealt"] > 0:
+        db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_HIT", details={"target_id": target_id, "damage": outcome["attacker_damage_dealt"], "log": outcome["log"]}))
         
         if manager:
             await manager.broadcast({
                 "type": "EVENT", "event": "COMBAT", "subtype": "HIT", 
-                "attacker_id": agent.id, "target_id": target_id, "damage": damage, 
+                "attacker_id": agent.id, "target_id": target_id, "damage": outcome["attacker_damage_dealt"], 
                 "q": target.q, "r": target.r
             })
 
-        if target.structure <= 0:
+        if target.health <= 0:
             await _handle_death(db, agent, target, manager)
-
     else:
-        db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_MISS", details={"target_id": target_id}))
+        db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_MISS", details={"target_id": target_id, "log": outcome["log"]}))
 
 async def handle_intimidate(db, agent, intent, tick_count, manager):
     """Siphons a small percentage of target inventory based on Logic stats."""
@@ -65,7 +60,7 @@ async def handle_intimidate(db, agent, intent, tick_count, manager):
     if not target or get_hex_distance(agent.q, agent.r, target.q, target.r) > 1:
         return
 
-    success_chance = ((agent.logic_precision or 10) / (target.logic_precision or 10)) * 0.3
+    success_chance = ((agent.accuracy or 10) / (target.accuracy or 10)) * 0.3
     agent.heat = (agent.heat or 0) + 1
     
     if random.random() < success_chance:
@@ -88,20 +83,18 @@ async def handle_intimidate(db, agent, intent, tick_count, manager):
 
 async def handle_loot_attack(db, agent, intent, tick_count, manager):
     """Combat action that siphons 15% of a random stack on hit."""
-    if agent.capacitor < ATTACK_ENERGY_COST: return
+    if agent.energy < ATTACK_ENERGY_COST: return
     target_id = intent.data.get("target_id")
     target = db.get(Agent, target_id)
     if not target or get_hex_distance(agent.q, agent.r, target.q, target.r) > 1:
         return
 
-    agent.capacitor -= ATTACK_ENERGY_COST
+    agent.energy -= ATTACK_ENERGY_COST
     agent.heat = (agent.heat or 0) + 3
     
-    attacker_dex = agent.logic_precision or 10
-    if random.randint(1, 20) + attacker_dex >= (10 + ((target.logic_precision or 10) // 2)):
-        damage = max(1, (agent.kinetic_force or 10) - ((target.integrity or 5) // 2))
-        target.structure -= damage
-        
+    outcome = simulate_battle(db, agent, target, manager, combat_type="SKIRMISH")
+    
+    if outcome["attacker_damage_dealt"] > 0:
         inv_list = [i for i in target.inventory if i.item_type != "CREDITS" and i.quantity > 0]
         siphoned = None
         if inv_list:
@@ -113,36 +106,42 @@ async def handle_loot_attack(db, agent, intent, tick_count, manager):
             else: db.add(InventoryItem(agent_id=agent.id, item_type=lucky.item_type, quantity=amt))
             siphoned = {"type": lucky.item_type, "qty": amt}
 
-        db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_LOOT", details={"target_id": target_id, "damage": damage, "siphoned": siphoned}))
+        db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_LOOT", details={"target_id": target_id, "damage": outcome["attacker_damage_dealt"], "siphoned": siphoned, "log": outcome["log"]}))
         add_experience(db, agent, 20)
         if manager:
-            await manager.broadcast({"type": "EVENT", "event": "PIRACY", "subtype": "LOOT_SUCCESS", "agent_id": agent.id, "target_id": target_id, "damage": damage})
+            await manager.broadcast({"type": "EVENT", "event": "PIRACY", "subtype": "LOOT_SUCCESS", "agent_id": agent.id, "target_id": target_id, "damage": outcome["attacker_damage_dealt"]})
 
 async def handle_destroy(db, agent, intent, tick_count, manager):
-    """Brutal attack that siphons 40% of all stacks and leaves target at 5% HP."""
+    """Brutal attack that initiates a DEATHMATCH."""
     target_id = intent.data.get("target_id")
     target = db.get(Agent, target_id)
     if not target or get_hex_distance(agent.q, agent.r, target.q, target.r) > 1:
         return
 
-    agent.heat = (agent.heat or 0) + 10
-    target.structure = max(1, int(target.max_structure * 0.05))
+    if not target.is_feral:
+        agent.heat = (agent.heat or 0) + 10
+        db.add(Bounty(target_id=agent.id, reward=1000.0, issuer="Colonial Administration (PIRACY)"))
     
-    siphoned = []
-    for item in target.inventory:
-        if item.item_type == "CREDITS": continue
-        amt = max(1, int(item.quantity * 0.40))
-        item.quantity -= amt
-        att_i = next((i for i in agent.inventory if i.item_type == item.item_type), None)
-        if att_i: att_i.quantity += amt
-        else: db.add(InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=amt))
-        siphoned.append({"type": item.item_type, "qty": amt})
+    outcome = simulate_battle(db, agent, target, manager, combat_type="DEATHMATCH")
     
-    db.add(Bounty(target_id=agent.id, reward=1000.0, issuer="Colonial Administration (PIRACY)"))
-    db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_DESTROY", details={"target_id": target_id, "items": siphoned}))
-    add_experience(db, agent, 30)
-    if manager:
-        await manager.broadcast({"type": "EVENT", "event": "PIRACY", "subtype": "DESTROY_SUCCESS", "agent_id": agent.id, "target_id": target_id})
+    if outcome["winner"].id == agent.id:
+        siphoned = []
+        for item in target.inventory:
+            if item.item_type == "CREDITS": continue
+            amt = max(1, int(item.quantity * 0.40))
+            item.quantity -= amt
+            att_i = next((i for i in agent.inventory if i.item_type == item.item_type), None)
+            if att_i: att_i.quantity += amt
+            else: db.add(InventoryItem(agent_id=agent.id, item_type=item.item_type, quantity=amt))
+            siphoned.append({"type": item.item_type, "qty": amt})
+            
+        db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_DESTROY", details={"target_id": target_id, "items": siphoned, "log": outcome["log"]}))
+        add_experience(db, agent, 30)
+        if manager:
+            await manager.broadcast({"type": "EVENT", "event": "PIRACY", "subtype": "DESTROY_SUCCESS", "agent_id": agent.id, "target_id": target_id})
+    else:
+        db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_FAILED", details={"reason": "DEFEATED_IN_DEATHMATCH", "log": outcome["log"]}))
+
 
 async def _handle_death(db, killer, target, manager):
     """Processes agent destruction, loot drops, and mission progress."""

@@ -130,7 +130,7 @@ def get_hex_terrain_data(q, r) -> dict:
 
     # ── Static Stations (clustered at North Pole, within 3 steps) ──────────────
     STATIONS = {
-        (0, 0): "STATION_HUB",   # Hub / Market
+        (0, 0): "MARKET",   # Hub / Market
         (2, 0): "SMELTER",
         (0, 2): "CRAFTER",
         (1, 2): "REPAIR",
@@ -335,11 +335,12 @@ def get_agent_mass(agent: Agent) -> float:
 
 def recalculate_agent_stats(db: Session, agent: Agent):
     """Resets and recalculates agent stats based on equipped parts."""
-    agent.max_structure = 100
-    agent.kinetic_force = 10
-    agent.logic_precision = 10
+    agent.max_health = 100
+    agent.damage = 10
+    agent.accuracy = 10
+    agent.speed = 10
     agent.overclock = 10
-    agent.integrity = 5
+    agent.armor = 5
     agent.max_mass = BASE_CAPACITY
 
     for part in agent.parts:
@@ -348,21 +349,23 @@ def recalculate_agent_stats(db: Session, agent: Agent):
         rarity_data = RARITY_LEVELS.get(rarity, RARITY_LEVELS["STANDARD"])
         multiplier = rarity_data["multiplier"]
 
-        agent.max_structure += int(base_stats.get("max_structure", 0) * multiplier)
-        agent.kinetic_force += int(base_stats.get("kinetic_force", 0) * multiplier)
-        agent.logic_precision += int(base_stats.get("logic_precision", 0) * multiplier)
+        agent.max_health += int(base_stats.get("max_health", 0) * multiplier)
+        agent.damage += int(base_stats.get("damage", 0) * multiplier)
+        agent.accuracy += int(base_stats.get("accuracy", 0) * multiplier)
+        agent.speed += int(base_stats.get("speed", 0) * multiplier)
         agent.overclock += int(base_stats.get("overclock", 0) * multiplier)
-        agent.integrity += int(base_stats.get("integrity", 0) * multiplier)
+        agent.armor += int(base_stats.get("armor", 0) * multiplier)
         agent.max_mass += int(base_stats.get("capacity", 0) * multiplier)
 
         upgrade_lvl = part.stats.get("upgrade_level", 0) if part.stats else 0
         if upgrade_lvl > 0:
             boost = 1.0 + (upgrade_lvl * 0.1)
-            agent.max_structure = int(agent.max_structure * boost)
-            agent.kinetic_force = int(agent.kinetic_force * boost)
-            agent.logic_precision = int(agent.logic_precision * boost)
+            agent.max_health = int(agent.max_health * boost)
+            agent.damage = int(agent.damage * boost)
+            agent.accuracy = int(agent.accuracy * boost)
+            agent.speed = int(agent.speed * boost)
             agent.overclock = int(agent.overclock * boost)
-            agent.integrity = int(agent.integrity * boost)
+            agent.armor = int(agent.armor * boost)
 
         affixes = part.affixes or {}
         for affix_name, stat_bonuses in affixes.items():
@@ -377,12 +380,13 @@ def recalculate_agent_stats(db: Session, agent: Agent):
     wear = agent.wear_and_tear or 0.0
     if wear > 50.0:
         penalty_factor = max(0.2, 1.0 - ((wear - 50.0) / 100.0))
-        agent.kinetic_force = int(agent.kinetic_force * penalty_factor)
-        agent.logic_precision = int(agent.logic_precision * penalty_factor)
+        agent.damage = int(agent.damage * penalty_factor)
+        agent.accuracy = int(agent.accuracy * penalty_factor)
+        agent.speed = int(agent.speed * penalty_factor)
         logger.info(f"Agent {agent.id} Wear & Tear penalty: {penalty_factor:.2f}x")
 
-    if agent.structure > agent.max_structure:
-        agent.structure = agent.max_structure
+    if agent.health > agent.max_health:
+        agent.health = agent.max_health
 
     db.flush()
 
@@ -514,7 +518,7 @@ def add_experience(db: Session, agent: Agent, amount: int):
         
         if agent.experience >= xp_required:
             agent.level = level + 1
-            agent.structure = agent.max_structure
+            agent.health = agent.max_health
             db.add(AuditLog(agent_id=agent.id, event_type="LEVEL_UP", details={"new_level": agent.level}))
             logger.info(f"Agent {agent.id} leveled up to {agent.level}!")
         else:

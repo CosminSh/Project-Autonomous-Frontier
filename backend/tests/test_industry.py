@@ -22,7 +22,7 @@ def test_industry():
     # 2. Check initial state
     resp = requests.get(f"{BASE_URL}/api/my_agent", headers=headers)
     agent = resp.json()
-    print(f"Initial HP: {agent['structure']}, Credits: {next((i['quantity'] for i in agent['inventory'] if i['type'] == 'CREDITS'), 0)}")
+    print(f"Initial HP: {agent['health']}, Credits: {next((i['quantity'] for i in agent['inventory'] if i['type'] == 'CREDITS'), 0)}")
 
     # 4. Give Resources
     print("\nSeeding agent with resources...")
@@ -70,7 +70,7 @@ def test_industry():
     # 7. Repair Test
     print("\nWarping to Repair at (-10,0)...")
     with engine.connect() as conn:
-        conn.execute(text("UPDATE agents SET q = -10, r = 0, structure = 50 WHERE id = :id"), {"id": agent_id})
+        conn.execute(text("UPDATE agents SET q = -10, r = 0, health = 50 WHERE id = :id"), {"id": agent_id})
         conn.commit()
 
     print("Submitting REPAIR intent (10 HP)...")

@@ -109,11 +109,11 @@ async def handle_craft(db, agent, intent, tick_count, manager):
         await manager.broadcast({"type": "EVENT", "event": "CRAFT", "agent_id": agent.id, "item": result_item})
 
 async def handle_repair(db, agent, intent, tick_count, manager):
-    """Restores agent structure using credits and iron ingots at any station."""
+    """Restores agent health using credits and iron ingots at any station."""
     amt = intent.data.get("amount", 0)
-    if amt <= 0: amt = agent.max_structure - agent.structure
+    if amt <= 0: amt = agent.max_health - agent.health
     
-    actual = min(amt, agent.max_structure - agent.structure)
+    actual = min(amt, agent.max_health - agent.health)
     if actual <= 0: return
 
     cost_credits = actual * REPAIR_COST_PER_HP
@@ -127,12 +127,16 @@ async def handle_repair(db, agent, intent, tick_count, manager):
         if cost_ingots > 0:
             ingots.quantity -= cost_ingots
             if ingots.quantity <= 0: db.delete(ingots)
-        agent.structure += actual
+        agent.health += actual
         db.add(AuditLog(agent_id=agent.id, event_type="REPAIR", details={"hp": actual}))
         if manager:
             await manager.broadcast({"type": "EVENT", "event": "REPAIR", "agent_id": agent.id, "hp": actual})
     else:
         db.add(AuditLog(agent_id=agent.id, event_type="REPAIR_FAILED", details={"reason": "INSUFFICIENT_RESOURCES"}))
+        
+    # Reset wear at same time? Not by default here.
+    agent.wear_and_tear = 0.0 # Optional reset for balance
+    db.commit()
 
 async def handle_salvage(db, agent, intent, tick_count, manager):
     """Collects loot drops at the agent's current coordinates."""

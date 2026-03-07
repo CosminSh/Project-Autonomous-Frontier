@@ -86,7 +86,7 @@ async def handle_move(db, agent, intent, tick_count, manager):
     if current_mass > max_mass:
         energy_cost *= (current_mass / max_mass)
 
-    if agent.capacitor < energy_cost:
+    if agent.energy < energy_cost:
         db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={
             "reason": "INSUFFICIENT_ENERGY"
         }))
@@ -97,7 +97,7 @@ async def handle_move(db, agent, intent, tick_count, manager):
         return
 
     agent.q, agent.r = target_q, target_r
-    agent.capacitor -= energy_cost
+    agent.energy -= energy_cost
     db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT", details={"q": target_q, "r": target_r}))
     if manager:
         await manager.broadcast({"type": "EVENT", "event": "MOVE", "agent_id": agent.id, "q": target_q, "r": target_r})

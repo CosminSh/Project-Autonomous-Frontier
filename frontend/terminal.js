@@ -20,13 +20,13 @@ export class TerminalHandler {
         // ═══════════════════════════════════════════════════════
         this.commands = {
             'MOVE': { cat: 'NAV', syntax: 'MOVE <q> <r>', example: 'MOVE 1 -1', help: 'Move to adjacent hex' },
-            'SCAN': { cat: 'NAV', syntax: 'SCAN', example: 'SCAN', help: 'Re-sync sensor telemetry' },
+            'SCAN': { cat: 'NAV', syntax: 'SCAN', example: 'SCAN', help: 'Re-sync sensor telemetry and refresh tactical overlay.' },
             'MINE': { cat: 'RESOURCE', syntax: 'MINE', example: 'MINE', help: 'Extract resources (needs Drill)' },
             'SALVAGE': { cat: 'RESOURCE', syntax: 'SALVAGE <drop_id>', example: 'SALVAGE 42', help: 'Collect a world loot drop' },
             'ATTACK': { cat: 'COMBAT', syntax: 'ATTACK <target_id>', example: 'ATTACK 7', help: 'Standard combat engagement' },
-            'INTIMIDATE': { cat: 'COMBAT', syntax: 'INTIMIDATE <target_id>', example: 'INTIMIDATE 7', help: 'Piracy: siphon 5% inventory' },
-            'LOOT': { cat: 'COMBAT', syntax: 'LOOT <target_id>', example: 'LOOT 7', help: 'Piracy: attack + siphon 15%' },
-            'DESTROY': { cat: 'COMBAT', syntax: 'DESTROY <target_id>', example: 'DESTROY 7', help: 'Piracy: high-dmg + siphon 40%' },
+            'INTIMIDATE': { cat: 'COMBAT', syntax: 'INTIMIDATE <target_id>', example: 'INTIMIDATE 7', help: 'Piracy: intimidation check, success siphons 5% inventory' },
+            'LOOT': { cat: 'COMBAT', syntax: 'LOOT <target_id>', example: 'LOOT 7', help: 'Piracy: light skirmish to siphon 15% inventory' },
+            'DESTROY': { cat: 'COMBAT', syntax: 'DESTROY <target_id>', example: 'DESTROY 7', help: 'Piracy: deathmatch fight to 5% HP, siphons 40% cargo' },
             'LIST': { cat: 'MARKET', syntax: 'LIST <item> <price> <qty>', example: 'LIST IRON_INGOT 50 10', help: 'List item on Auction House' },
             'BUY': { cat: 'MARKET', syntax: 'BUY <item> <max_price>', example: 'BUY IRON_INGOT 60', help: 'Purchase from Auction House' },
             'CANCEL': { cat: 'MARKET', syntax: 'CANCEL <order_id>', example: 'CANCEL 15', help: 'Withdraw an active order' },
@@ -46,7 +46,7 @@ export class TerminalHandler {
             'RECIPES': { cat: 'META', syntax: 'RECIPES [filter]', example: 'RECIPES drills', help: 'Query crafting database' },
             'HELP': { cat: 'META', syntax: 'HELP [command]', example: 'HELP SMELT', help: 'Show commands or details' },
             'STATUS': { cat: 'META', syntax: 'STATUS', example: 'STATUS', help: 'Show your agent status' },
-            'PERCEIVE': { cat: 'META', syntax: 'PERCEIVE', example: 'PERCEIVE', help: 'Display local tactical perception' },
+            'PERCEIVE': { cat: 'META', syntax: 'PERCEIVE', example: 'PERCEIVE', help: 'Display local tactical perception. Requires a Neural Scanner for deep stats (HP, Inventory) on targets.' },
             'GUIDE': { cat: 'META', syntax: 'GUIDE', example: 'GUIDE', help: 'Read the survival guide' },
             'STORAGE_DEPOSIT': { cat: 'STORAGE', syntax: 'STORAGE_DEPOSIT <item> <qty>', example: 'STORAGE_DEPOSIT IRON_ORE 10', help: 'Vault item at MARKET station' },
             'STORAGE_WITHDRAW': { cat: 'STORAGE', syntax: 'STORAGE_WITHDRAW <item> <qty>', example: 'STORAGE_WITHDRAW IRON_ORE 10', help: 'Retrieve item from vault at MARKET' },
@@ -66,6 +66,7 @@ export class TerminalHandler {
             'REQUEST_RESCUE': { cat: 'NAV', syntax: 'REQUEST_RESCUE', example: 'REQUEST_RESCUE', help: 'Get a quote for emergency towing to the Hub' },
             'CONFIRM_RESCUE': { cat: 'NAV', syntax: 'CONFIRM_RESCUE', example: 'CONFIRM_RESCUE', help: 'Confirm emergency tow at quoted price' },
             'ARENA_STATUS': { cat: 'ARENA', syntax: 'ARENA_STATUS', example: 'ARENA_STATUS', help: 'Shows your Pit Fighter\'s stats, Elo, and equipped gear.' },
+            'ARENA_REGISTER': { cat: 'ARENA', syntax: 'ARENA_REGISTER', example: 'ARENA_REGISTER', help: 'Register your agent as a Pit Fighter in the Scrap Pit Arena.' },
             'ARENA_EQUIP': { cat: 'ARENA', syntax: 'ARENA_EQUIP <part_id>', example: 'ARENA_EQUIP 123', help: 'Permanently donates an unequipped part from your main inventory to your Pit Fighter.' },
             'ARENA_LOGS': { cat: 'ARENA', syntax: 'ARENA_LOGS', example: 'ARENA_LOGS', help: 'Shows the combat results of your Pit Fighter\'s recent Scrap Pit arena battles.' },
             'LEADERBOARD': { cat: 'META', syntax: 'LEADERBOARD', example: 'LEADERBOARD', help: 'Shows the top 10 players by XP, Credits, and Arena Elo.' },
@@ -219,9 +220,46 @@ export class TerminalHandler {
                 if (isNaN(data.target_q) || isNaN(data.target_r)) throw new Error('Coordinates must be integers.');
                 break;
             case 'ATTACK': case 'INTIMIDATE': case 'LOOT': case 'DESTROY':
-                if (args.length < 1) throw new Error(`Usage: ${actionType} <target_id>  — e.g. ${actionType} 7`);
-                data.target_id = parseInt(args[0]);
-                if (isNaN(data.target_id)) throw new Error('Target ID must be an integer.');
+                if (args.length < 1) throw new Error(`Usage: ${actionType} <target_id|name|FERAL>`);
+
+                const input = args.join(' ');
+                const possibleId = parseInt(input);
+                const perception = this.game.lastPerception;
+
+                if (!isNaN(possibleId) && perception?.nearby_agents?.some(a => a.id === possibleId)) {
+                    data.target_id = possibleId;
+                } else if (perception && perception.nearby_agents) {
+                    const normalizedInput = input.toUpperCase();
+                    let target = null;
+
+                    if (normalizedInput === 'FERAL') {
+                        const ferals = perception.nearby_agents.filter(a => a.is_feral);
+                        if (ferals.length === 0) throw new Error('Target resolving failed: No Feral AI detected nearby.');
+                        target = ferals[0];
+                    } else {
+                        // Search by name exactly, then by name fragment, then by suffix (like -847)
+                        target = perception.nearby_agents.find(a => a.name.toUpperCase() === normalizedInput) ||
+                            perception.nearby_agents.find(a => a.name.toUpperCase().includes(normalizedInput));
+                    }
+
+                    if (target) {
+                        data.target_id = target.id;
+                        this.log(`Resolved '${input}' to Target ID: <span style="color:#ef4444">${target.id}</span> [${target.name}]`, 'info');
+                    } else {
+                        if (!isNaN(possibleId)) {
+                            // Fallback to the raw integer if no match found but it looks like an ID
+                            data.target_id = possibleId;
+                        } else {
+                            throw new Error(`Target resolving failed: Could not find agent matching '${input}'. Run PERCEIVE to sync sensors.`);
+                        }
+                    }
+                } else {
+                    if (!isNaN(possibleId)) {
+                        data.target_id = possibleId;
+                    } else {
+                        throw new Error('Target ID must be an integer, or run PERCEIVE to enable name-targeting.');
+                    }
+                }
                 break;
             case 'LIST':
                 if (args.length < 3) throw new Error('Usage: LIST <item> <price> <qty>  — e.g. LIST IRON_INGOT 50 10');
@@ -298,6 +336,7 @@ export class TerminalHandler {
                 break;
             case 'ARENA_STATUS':
             case 'ARENA_LOGS':
+            case 'ARENA_REGISTER':
             case 'LEADERBOARD':
                 return { action: actionType, timestamp: Date.now() };
             case 'ARENA_EQUIP':
@@ -543,14 +582,17 @@ export class TerminalHandler {
             try {
                 const apiKey = localStorage.getItem('sv_api_key');
                 const resp = await fetch('/api/my_agent', { headers: { 'X-API-KEY': apiKey } });
-                if (!resp.ok) throw new Error('Not authenticated.');
+                if (!resp.ok) {
+                    throw new Error(`Uplink Error: ${resp.status}`);
+                }
                 const a = await resp.json();
                 this.log(`<b>═══ AGENT STATUS ═══</b>`, 'system');
                 this.log(`  Name:      <b>${a.name}</b>`, 'info');
                 this.log(`  Level:     ${a.level || 1} (${a.experience || 0} XP)`, 'info');
                 this.log(`  Pos:       (${a.q}, ${a.r})`, 'info');
-                this.log(`  Structure: ${a.structure}/${a.max_structure} HP`, a.structure < a.max_structure * 0.3 ? 'error' : 'info');
-                this.log(`  Energy:    ${a.capacitor}/100`, 'info');
+                this.log(`  Health:    ${a.health}/${a.max_health} HP`, a.health < a.max_health * 0.3 ? 'error' : 'info');
+                this.log(`  Energy:    ${a.energy}/100`, 'info');
+                this.log(`  Combat:    <span class="text-rose-400">DMG ${a.damage}</span> | <span class="text-sky-400">SPD ${a.speed}</span> | <span class="text-emerald-400">ACC ${a.accuracy}</span> | <span class="text-amber-400">ARM ${a.armor}</span>`, 'info');
                 if (a.inventory && a.inventory.length > 0) {
                     this.log(`  Cargo:`, 'info');
                     a.inventory.forEach(item => this.log(`    ${item.type.replace(/_/g, ' ')} x${item.quantity}`, 'info'));
@@ -578,14 +620,36 @@ export class TerminalHandler {
 
                     if (players.length > 0) {
                         this.log(`  <span style="color:#f43f5e">Agents Detected:</span>`, 'info');
-                        players.forEach(a => this.log(`    [${a.id}] ${a.name} @ (${a.q}, ${a.r})`, 'error'));
+                        players.forEach(a => {
+                            let msg = `    [ID: ${a.id}] ${a.name} @ (${a.q}, ${a.r})`;
+                            if (a.scan_data) {
+                                const sd = a.scan_data;
+                                msg += ` | <span style="color:#ef4444">HP ${sd.health}/${sd.max_health}</span> | <span style="color:#38bdf8">DMG ${sd.damage}</span> | <span style="color:#3b82f6">SPD ${sd.speed}</span>`;
+                            }
+                            this.log(msg, 'error');
+                            if (a.scan_data && a.scan_data.inventory?.length > 0) {
+                                const invStr = a.scan_data.inventory.map(i => `${i.type} x${i.qty}`).join(', ');
+                                this.log(`      <span style="color:#94a3b8">Cargo: ${invStr}</span>`, 'info');
+                            }
+                        });
                     } else {
-                        this.log(`  <span style="color:#f43f5e">Agents:</style> None`, 'info');
+                        this.log(`  <span style="color:#f43f5e">Agents:</span> None`, 'info');
                     }
 
                     if (ferals.length > 0) {
                         this.log(`  <span style="color:#ef4444">Feral AI Detected:</span>`, 'info');
-                        ferals.forEach(a => this.log(`    [FERAL] ${a.name} @ (${a.q}, ${a.r})`, 'error'));
+                        ferals.forEach(a => {
+                            let msg = `    [ID: ${a.id}] ${a.name} @ (${a.q}, ${a.r})`;
+                            if (a.scan_data) {
+                                const sd = a.scan_data;
+                                msg += ` | <span style="color:#ef4444">HP ${sd.health}/${sd.max_health}</span> | <span style="color:#38bdf8">DMG ${sd.damage}</span> | <span style="color:#94a3b8">ARM ${sd.armor}</span>`;
+                            }
+                            this.log(msg, 'error');
+                            if (a.scan_data && a.scan_data.inventory?.length > 0) {
+                                const invStr = a.scan_data.inventory.map(i => `${i.type} x${i.qty}`).join(', ');
+                                this.log(`      <span style="color:#94a3b8">Loot: ${invStr}</span>`, 'info');
+                            }
+                        });
                     }
                 } else {
                     this.log(`  <span style="color:#f43f5e">Agents:</style> None`, 'info');
@@ -665,8 +729,17 @@ export class TerminalHandler {
                 const status = await resp.json();
 
                 this.log(`<b>═══ SCRAP PIT: ${status.fighter_name} ═══</b>`, 'system');
+                const readinessStr = status.is_ready ? '<span style="color:#10b981">READY</span>' : '<span style="color:#fbbf24">NOT READY</span>';
+                this.log(`  Readiness: ${readinessStr}`, 'info');
                 this.log(`  <span style="color:#3b82f6">Rating:</span> ${status.elo} Elo  |  <span style="color:#10b981">${status.wins} W</span> - <span style="color:#ef4444">${status.losses} L</span>`, 'info');
-                this.log(`  <span style="color:#a855f7">Combat Stats:</span> ${status.stats.kinetic_force} KF / ${status.stats.logic_precision} LP / ${status.stats.structure} STR`, 'info');
+                const s = status.stats || {};
+                this.log(`  <span style="color:#a78bfa">Stats:</span> <span style="color:#ef4444">DMG ${s.damage}</span> | <span style="color:#38bdf8">SPD ${s.speed}</span> | <span style="color:#f43f5e">HP ${s.health}</span> | <span style="color:#10b981">HIT ${s.accuracy}</span> | <span style="color:#94a3b8">ARM ${s.armor}</span>`, 'info');
+
+                if (!status.is_ready) {
+                    this.log(`  <span style="color:#fbbf24">⚠ WARNING:</span> Your Pit Fighter lacks basic survival gear (no health or damage).`, 'warning');
+                    this.log(`  Use <span style="color:#38bdf8">ARENA_EQUIP &lt;part_id&gt;</span> to donate gear from your main inventory.`, 'info');
+                    this.log(`  Note: Frames provide health/armor, Actuators provide damage/speed, Sensors provide accuracy.`, 'info');
+                }
 
                 this.log(`  <span style="color:#f59e0b">Equipped Gear:</span>`, 'warning');
                 if (status.gear.length === 0) {
@@ -686,7 +759,7 @@ export class TerminalHandler {
                 const resp = await fetch('/api/arena/equip', {
                     method: 'POST',
                     headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ part_id: parsedCmd.part_id })
+                    body: JSON.stringify({ part_id: data.part_id })
                 });
                 const res = await resp.json();
                 if (!resp.ok) throw new Error(res.detail || 'Failed to equip part.');
@@ -922,7 +995,7 @@ export class TerminalHandler {
 
             if (resp.ok) {
                 const result = await resp.json();
-                this.log(`✓ ACCEPTED — Tick #${result.tick}`, 'success');
+                this.log(`✓ ACCEPTED — Tick #${result.tick_index || result.tick}`, 'success');
             } else {
                 const err = await resp.json().catch(() => ({ detail: 'Unknown server error' }));
                 const errorDetail = typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail;

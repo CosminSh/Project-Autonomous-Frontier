@@ -53,7 +53,7 @@ class GameClient {
         document.getElementById('btn-mode-leaderboard')?.addEventListener('click', () => this.ui.setUIMode('leaderboard'));
 
         // Tabs
-        ['terminal', 'inventory', 'station', 'system'].forEach(tab => {
+        ['terminal', 'inventory', 'station', 'system', 'arena'].forEach(tab => {
             const el = document.getElementById(`tab-${tab}`);
             if (el) el.addEventListener('click', () => this.ui.switchTab(tab));
         });

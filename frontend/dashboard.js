@@ -70,13 +70,13 @@ class DashboardClient {
         const lvlEl = document.getElementById('agent-lvl');
         if (lvlEl) lvlEl.innerText = `LVL ${agent.level || 1}`;
 
-        const hpPct = (agent.structure / agent.max_structure) * 100;
+        const hpPct = (agent.health / agent.max_health) * 100;
         document.getElementById('hp-bar').style.width = `${hpPct}%`;
-        document.getElementById('hp-text').innerText = `${agent.structure}/${agent.max_structure}`;
+        document.getElementById('hp-text').innerText = `${agent.health}/${agent.max_health}`;
 
-        const enPct = (agent.capacitor / 100) * 100;
+        const enPct = (agent.energy / 100) * 100;
         document.getElementById('energy-bar').style.width = `${enPct}%`;
-        document.getElementById('energy-text').innerText = `${agent.capacitor}/100`;
+        document.getElementById('energy-text').innerText = `${agent.energy}/100`;
 
         const exp = agent.experience || 0;
         const lvl = agent.level || 1;

@@ -20,7 +20,10 @@ class ChatRequest(BaseModel):
 async def get_bounties(db: Session = Depends(get_db)):
     """Returns all active bounties."""
     bounties = db.execute(select(Bounty).where(Bounty.is_open == True)).scalars().all()
-    return [{"id": b.id, "target": b.target_id, "reward": b.reward, "issuer": b.issuer} for b in bounties]
+    return [{
+        "id": b.id, "target_id": b.target_id, "reward": b.reward, "issuer": b.issuer,
+        "created_at": b.created_at.isoformat() if b.created_at else None
+    } for b in bounties]
 
 @router.post("/api/chat")
 async def send_chat(req: ChatRequest, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):

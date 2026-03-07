@@ -19,7 +19,7 @@ from database import engine, SessionLocal, refresh_station_cache
 import heartbeat as hb
 
 # Routers
-from routes import auth, perception, agent_meta, intent, economy, missions, social, world, corp, admin, arena
+from routes import auth, perception, agent_meta, intent, economy, missions, social, world, corp, admin, arena, debug
 
 from contextlib import asynccontextmanager
 
@@ -44,7 +44,6 @@ async def lifespan(app: FastAPI):
     safe_migrations = [
         "ALTER TABLE bounties ADD COLUMN IF NOT EXISTS claimed_by INTEGER REFERENCES agents(id)",
         "ALTER TABLE bounties ADD COLUMN IF NOT EXISTS claim_tick BIGINT",
-        "ALTER TABLE agents ADD COLUMN IF NOT EXISTS is_pit_fighter BOOLEAN DEFAULT FALSE",
         "ALTER TABLE agents ADD COLUMN IF NOT EXISTS elo INTEGER DEFAULT 1200",
         "ALTER TABLE agents ADD COLUMN IF NOT EXISTS arena_wins INTEGER DEFAULT 0",
         "ALTER TABLE agents ADD COLUMN IF NOT EXISTS arena_losses INTEGER DEFAULT 0",
@@ -183,6 +182,7 @@ app.include_router(world.router)
 app.include_router(corp.router)
 app.include_router(admin.router)
 app.include_router(arena.router)
+app.include_router(debug.router)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

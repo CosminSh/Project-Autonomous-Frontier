@@ -9,7 +9,7 @@ logger = logging.getLogger("heartbeat.actions.mining")
 
 async def handle_mine(db, agent, intent, tick_count, manager):
     """Handles resource extraction, including drill tier checks and capacity validation."""
-    if agent.capacitor < MINE_ENERGY_COST:
+    if agent.energy < MINE_ENERGY_COST:
         return
 
     hex_data = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalar_one_or_none()
@@ -50,9 +50,9 @@ async def handle_mine(db, agent, intent, tick_count, manager):
             db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "DRILL_TIER_TOO_LOW"}))
             return
 
-    # Yield Calculation (Already uses agent.kinetic_force which sums all parts)
+    # Yield Calculation (Already uses agent.damage which sums all parts)
     roll = random.randint(1, 10)
-    base_yield = (roll + ((agent.kinetic_force or 10) / 2)) * (hex_data.resource_density or 1.0)
+    base_yield = (roll + ((agent.damage or 10) / 2)) * (hex_data.resource_density or 1.0)
     if (agent.overclock_ticks or 0) > 0: base_yield *= 2.0
     yield_amount = int(base_yield)
 
@@ -97,7 +97,7 @@ async def handle_mine(db, agent, intent, tick_count, manager):
         db.add(new_item)
         agent.inventory.append(new_item)
 
-    agent.capacitor -= MINE_ENERGY_COST
+    agent.energy -= MINE_ENERGY_COST
     
     # Durability Decay: Decay ALL drills simultaneously
     decay_amount = random.uniform(0.1, 0.3)

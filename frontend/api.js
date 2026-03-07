@@ -13,6 +13,7 @@ const CACHE_KEYS = {
     bounties: 'tf_bounties',
     chat: 'tf_chat',
     world: 'tf_world',
+    arena: 'tf_arena',
 };
 
 function cacheSet(key, data) {
@@ -62,6 +63,7 @@ export class GameAPI {
             const isFirstPoll = (this._pollCycle === 0);
             const isSecondary = isFirstPoll || (this._pollCycle % 2 === 0);  // every 20s (was 30s)
             const isSlow = isFirstPoll || (this._pollCycle % 4 === 0);       // every 40s (was 60s)
+            const isArenaPoll = isFirstPoll || (this._pollCycle % 3 === 0);  // every 30s
 
             // ── CRITICAL TIER (every 10s): state + agent ──
             const criticalResults = await Promise.allSettled([
@@ -79,6 +81,7 @@ export class GameAPI {
                     fetch('/api/bounties'),
                     apiKey ? fetch(`${window.location.origin}/api/perception`, { headers }) : Promise.resolve(null),
                     apiKey ? fetch(`${window.location.origin}/api/missions`, { headers }) : Promise.resolve(null),
+                    apiKey ? fetch(`${window.location.origin}/api/arena/status`, { headers }) : Promise.resolve(null),
                 ]);
             }
 
@@ -111,7 +114,7 @@ export class GameAPI {
             }
 
             // ── Parse Secondary (only when polled) ──
-            let stats = null, privateLogs = null, myOrders = null, bounties = null, perceptionData = null, missions = null;
+            let stats = null, privateLogs = null, myOrders = null, bounties = null, perceptionData = null, missions = null, arenaData = null;
             if (secondaryResults) {
                 stats = await safeJson(secondaryResults[0]);
                 privateLogs = await safeJson(secondaryResults[1]);
@@ -119,6 +122,7 @@ export class GameAPI {
                 bounties = await safeJson(secondaryResults[3]);
                 perceptionData = await safeJson(secondaryResults[4]);
                 missions = await safeJson(secondaryResults[5]);
+                arenaData = await safeJson(secondaryResults[6]);
             }
 
             const chatMessages = await safeJson(chatResult);
@@ -133,6 +137,7 @@ export class GameAPI {
             if (myOrders) cacheSet(CACHE_KEYS.orders, myOrders);
             if (bounties) cacheSet(CACHE_KEYS.bounties, bounties);
             if (chatMessages) cacheSet(CACHE_KEYS.chat, chatMessages);
+            if (arenaData) cacheSet(CACHE_KEYS.arena, arenaData);
 
             // ── Update game state ──
             if (data) this.game.lastWorldData = data;
@@ -175,6 +180,14 @@ export class GameAPI {
                     this.game.updatePrivateLogs(privateLogs, agentData ? agentData.pending_intent : null, chatMessages || []);
                 } catch (e) {
                     console.error("Error updating RM Logs:", e);
+                }
+            }
+
+            if (arenaData) {
+                try {
+                    this.game.ui.updateArenaUI(arenaData);
+                } catch (e) {
+                    console.error("Error updating Arena UI:", e);
                 }
             }
 
@@ -326,6 +339,8 @@ export class GameAPI {
             try { this.game.updatePrivateLogs(logs, agent ? agent.pending_intent : null, chat || []); } catch { }
         }
         if (orders) try { this.game.updateMyOrdersUI(orders); } catch { }
+        const arena = cacheGet(CACHE_KEYS.arena);
+        if (arena) try { this.game.updateArenaUI(arena); } catch { }
     }
 
     startPolling() {
@@ -611,6 +626,23 @@ export class GameAPI {
             }
         } catch (e) {
             console.error("Error fetching leaderboards:", e);
+        }
+    }
+
+    async fetchArenaStatus() {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return;
+        try {
+            const resp = await fetch(`${window.location.origin}/api/arena/status`, {
+                headers: { 'X-API-KEY': apiKey }
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                cacheSet(CACHE_KEYS.arena, data);
+                this.game.ui.updateArenaUI(data);
+            }
+        } catch (e) {
+            console.error("Error fetching arena status:", e);
         }
     }
 }

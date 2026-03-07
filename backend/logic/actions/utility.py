@@ -27,19 +27,19 @@ async def handle_consume(db, agent, intent, tick_count, manager):
     if not inv_item or inv_item.quantity < 1: return
 
     if item_type == "REPAIR_KIT":
-        gain = min(50, agent.max_structure - agent.structure)
-        agent.structure += gain
+        gain = min(50, agent.max_health - agent.health)
+        agent.health += gain
     elif item_type == "FIELD_REPAIR_KIT":
-        gain = min(int(agent.max_structure * 0.25), agent.max_structure - agent.structure)
-        agent.structure += gain
-        agent.capacitor = min(100, agent.capacitor + 25)
+        gain = min(int(agent.max_health * 0.25), agent.max_health - agent.health)
+        agent.health += gain
+        agent.energy = min(100, agent.energy + 25)
         for p in agent.parts: 
             if hasattr(p, "durability"): p.durability = 100.0
     elif item_type == "HE3_CANISTER":
         fill = (inv_item.data or {}).get("fill_level", 0)
         if fill <= 0: return
         gain = int(50 * (fill / 100.0))
-        agent.capacitor = min(100, agent.capacitor + gain)
+        agent.energy = min(100, agent.energy + gain)
         agent.overclock_ticks = max(agent.overclock_ticks or 0, 10)
         inv_item.item_type = "EMPTY_CANISTER"
         inv_item.data = {"fill_level": 0}
@@ -48,7 +48,7 @@ async def handle_consume(db, agent, intent, tick_count, manager):
         return
     else:
         # Default HE3 consumption
-        agent.capacitor = min(100, agent.capacitor + 50)
+        agent.energy = min(100, agent.energy + 50)
         agent.overclock_ticks = 10
 
     inv_item.quantity -= 1

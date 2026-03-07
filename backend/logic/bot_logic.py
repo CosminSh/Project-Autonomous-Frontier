@@ -14,7 +14,7 @@ def process_bot_brain(db, agent: Agent, current_tick: int, stations: list):
     4. Mining: If empty, go MINE or SIPHON.
     """
     
-    hp_pct = (agent.structure / agent.max_structure) if agent.max_structure > 0 else 1.0
+    hp_pct = (agent.health / agent.max_health) if agent.max_health > 0 else 1.0
     wear = agent.wear_and_tear or 0.0
     
     if hp_pct < 0.7 or wear > 50.0:
@@ -40,7 +40,7 @@ def process_bot_brain(db, agent: Agent, current_tick: int, stations: list):
             allies = db.execute(select(Agent).where(
                 Agent.id != agent.id,
                 Agent.faction_id == agent.faction_id,
-                Agent.capacitor < 30
+                Agent.energy < 30
             )).scalars().all()
             
             # Find closest ally within sensor range (simulated as dist <= 5)

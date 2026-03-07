@@ -83,18 +83,47 @@ class TickManager:
             await self.manager.broadcast({"type": "PHASE_CHANGE", "tick": self.tick_count, "phase": phase_name})
 
     def _repopulate_ferals(self, db):
-        """Ensures a minimum population of feral scrapper NPCs."""
+        """Ensures a minimum population of feral scrapper NPCs, tiered by distance."""
         count = db.execute(select(func.count(Agent.id)).where(Agent.is_feral == True)).scalar() or 0
-        if count < 8:
+        if count < 12:
             logger.info(f"Feral population low ({count}). Spawning replacements...")
-            for _ in range(8 - count):
-                fq = random.randint(-15, 15)
-                fr = random.randint(-15, 15)
+            for _ in range(12 - count):
+                # Pick a random distance and angle
+                angle = random.uniform(0, 3.14159 * 2)
+                dist = random.randint(6, 60)
+                # Simple axial approx for spawning
+                fq = int(dist * random.uniform(-1, 1))
+                fr = int(dist * random.uniform(-1, 1))
+                fq, fr = self._axial_clamp(fq, fr, dist)
+                
+                # Tiering logic (mirrors seed_world)
+                if dist <= 15:
+                    # Lvl 1: Drifter (Passive, low stats)
+                    name = f"Feral-Drifter-{random.randint(100,999)}"
+                    h, dmg, acc, spd, arm = 80, 8, 5, 10, 2
+                    aggro = False
+                elif dist <= 35:
+                    # Lvl 2: Scrapper (Aggressive, mid stats)
+                    name = f"Feral-Scrapper-{random.randint(100,999)}"
+                    h, dmg, acc, spd, arm = 120, 15, 8, 10, 5
+                    aggro = True
+                else:
+                    # Lvl 3: Raider (Elite)
+                    name = f"Feral-Raider-{random.randint(100,999)}"
+                    h, dmg, acc, spd, arm = 200, 25, 12, 12, 10
+                    aggro = True
+
                 db.add(Agent(
-                    name=f"SerScrapper-{random.randint(100,999)}", 
-                    q=fq, r=fr, is_bot=True, is_feral=True, 
-                    kinetic_force=15, logic_precision=8, structure=120, max_structure=120
+                    name=name, q=fq, r=fr, is_bot=True, is_feral=True,
+                    is_aggressive=aggro,
+                    health=h, max_health=h, damage=dmg, accuracy=acc, speed=spd, armor=arm
                 ))
+
+    def _axial_clamp(self, q, r, dist):
+        """Roughly clamps q,r to a dist circle for spawning."""
+        from game_helpers import get_hex_distance, wrap_coords
+        # If too far or close, just wrap and return
+        return wrap_coords(q, r)
 
     def _repopulate_resources(self, db):
         """Ensures a minimum number of resource nodes exist globally."""

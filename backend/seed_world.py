@@ -19,33 +19,33 @@ FERAL_TEMPLATES = {
     "passive_lvl1": {
         "name_prefix": "Feral-Drifter",
         "is_aggressive": False,
-        "structure": 80, "max_structure": 80,
-        "kinetic_force": 8, "logic_precision": 5,
-        "part_name": "Scrap Claws", "part_stats": {"kinetic_force": 5},
+        "health": 80, "max_health": 80,
+        "damage": 8, "accuracy": 5, "speed": 10, "armor": 2,
+        "part_name": "Scrap Claws", "part_stats": {"damage": 5},
         "loot": [("SCRAP_METAL", 3, 8)],
     },
     "mixed_lvl2": {
         "name_prefix": "Feral-Scrapper",
         "is_aggressive": True,
-        "structure": 120, "max_structure": 120,
-        "kinetic_force": 14, "logic_precision": 8,
-        "part_name": "Rusty Blaster", "part_stats": {"kinetic_force": 12},
+        "health": 120, "max_health": 120,
+        "damage": 14, "accuracy": 8, "speed": 10, "armor": 5,
+        "part_name": "Rusty Blaster", "part_stats": {"damage": 12},
         "loot": [("SCRAP_METAL", 5, 12), ("ELECTRONICS", 1, 3, 0.4)],
     },
     "elite_lvl3": {
         "name_prefix": "Feral-Raider",
         "is_aggressive": True,
-        "structure": 200, "max_structure": 200,
-        "kinetic_force": 22, "logic_precision": 12,
-        "part_name": "Plasma Cutter", "part_stats": {"kinetic_force": 20},
+        "health": 200, "max_health": 200,
+        "damage": 22, "accuracy": 12, "speed": 12, "armor": 10,
+        "part_name": "Plasma Cutter", "part_stats": {"damage": 20},
         "loot": [("SCRAP_METAL", 8, 20), ("ELECTRONICS", 2, 6, 0.6), ("IRON_INGOT", 1, 3, 0.3)],
     },
     "apex_lvl4": {
         "name_prefix": "Feral-Apex",
         "is_aggressive": True,
-        "structure": 350, "max_structure": 350,
-        "kinetic_force": 40, "logic_precision": 20,
-        "part_name": "Quantum Shredder", "part_stats": {"kinetic_force": 35},
+        "health": 350, "max_health": 350,
+        "damage": 40, "accuracy": 20, "speed": 15, "armor": 15,
+        "part_name": "Quantum Shredder", "part_stats": {"damage": 35},
         "loot": [("SCRAP_METAL", 10, 30), ("ELECTRONICS", 3, 8, 0.8), ("COBALT_ORE", 5, 15, 0.5)],
     },
 }
@@ -58,11 +58,13 @@ def _spawn_feral(db, template_key: str, q: int, r: int, index: int):
         q=q, r=r,
         is_bot=True, is_feral=True,
         is_aggressive=t["is_aggressive"],
-        kinetic_force=t["kinetic_force"],
-        logic_precision=t["logic_precision"],
-        structure=t["structure"],
-        max_structure=t["max_structure"],
-        capacitor=100,
+        damage=t["damage"],
+        accuracy=t["accuracy"],
+        speed=t["speed"],
+        armor=t["armor"],
+        health=t["health"],
+        max_health=t["max_health"],
+        energy=100,
     )
     db.add(feral)
     db.flush()
@@ -97,8 +99,12 @@ def seed_world():
     existing_hex_count = db.query(WorldHex).count()
 
     # ── Full re-seed: wipe old world, keep players ────────────────────────────
-    logger.info("Wiping world map (Truncating hexes/sectors)...")
-    db.execute(text("TRUNCATE TABLE world_hexes, sectors CASCADE"))
+    logger.info("Wiping world map (Cleaning hexes/sectors)...")
+    if DATABASE_URL.startswith("sqlite"):
+        db.execute(text("DELETE FROM world_hexes"))
+        db.execute(text("DELETE FROM sectors"))
+    else:
+        db.execute(text("TRUNCATE TABLE world_hexes, sectors CASCADE"))
     db.commit()
 
     logger.info("Wiping bots and resetting players...")
@@ -161,8 +167,8 @@ def seed_world():
         bot = Agent(
             name=f"Worker-Bot-{i}",
             q=max(0, q_off), r=max(0, r_off),
-            is_bot=True, capacitor=100,
-            structure=100, max_structure=100
+            is_bot=True, energy=100,
+            health=100, max_health=100
         )
         db.add(bot)
         db.flush()

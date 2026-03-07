@@ -31,8 +31,7 @@ async def handle_equip(db, agent, intent, tick_count, manager):
     part_type = part_def["type"]
     limit = slot_limits.get(part_type, 1)
     
-    # Distribution logic: We allow multiple actuators of the same type (e.g. 2 drills),
-    # but the mining logic will decay all of them simultaneously to balance the stat boost.
+    current_parts = [p for p in agent.parts if p.part_type == part_type]
     if len(current_parts) >= limit:
         db.add(AuditLog(agent_id=agent.id, event_type="EQUIP_FAILED", details={"reason": "SLOTS_FULL", "type": part_type}))
         return

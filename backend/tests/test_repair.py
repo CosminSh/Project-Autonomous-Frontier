@@ -20,7 +20,7 @@ async def run_test():
             print("No smelter found. Aborting test.")
             return
 
-        agent = Agent(name="RepairTester", q=station.q, r=station.r, max_structure=200, structure=100)
+        agent = Agent(name="RepairTester", q=station.q, r=station.r, max_health=200, health=100)
         db.add(agent)
         db.commit()
         db.refresh(agent)
@@ -37,7 +37,7 @@ async def run_test():
         db.add(intent1)
         db.commit()
 
-        print(f"Agent HP before universal repair: {agent.structure}")
+        print(f"Agent HP before universal repair: {agent.health}")
         # Run one heartbeat tick
         # Need to fake manager so heartbeat doesn't crash on broadcast
         class FakeManager:

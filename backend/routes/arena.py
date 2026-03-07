@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from pydantic import BaseModel
 
-from models import Agent, ChassisPart, AuditLog, InventoryItem
+from models import Agent, ChassisPart, AuditLog, InventoryItem, ArenaProfile
 from database import get_db
 from routes.common import verify_api_key
 
@@ -20,24 +20,34 @@ class EquipRequest(BaseModel):
 def get_or_create_pit_fighter(main_agent: Agent, db: Session) -> Agent:
     """Gets the user's pit fighter, creating it if it doesn't exist."""
     fighter_name = f"{main_agent.name}-PitFighter"
-    fighter = db.execute(select(Agent).where(Agent.name == fighter_name, Agent.is_pit_fighter == True)).scalars().first()
+    fighter = db.execute(select(Agent).where(Agent.name == fighter_name)).scalars().first()
     
     if not fighter:
         fighter = Agent(
             name=fighter_name,
             owner=main_agent.user_email,
             is_bot=True,
-            is_pit_fighter=True,
-            elo=1200,
-            arena_wins=0,
-            arena_losses=0,
-            structure=0,
-            max_structure=0,
-            kinetic_force=0,
-            logic_precision=0,
-            storage_capacity=0
+            health=0,
+            max_health=0,
+            damage=0,
+            accuracy=0,
+            speed=0,
+            armor=0,
+            storage_capacity=0,
+            q=0,
+            r=0
         )
         db.add(fighter)
+        db.flush() # Get ID
+        
+        profile = ArenaProfile(agent_id=fighter.id, elo=1200, wins=0, losses=0)
+        db.add(profile)
+        
+        db.commit()
+        db.refresh(fighter)
+    elif not fighter.arena_profile:
+        profile = ArenaProfile(agent_id=fighter.id, elo=1200, wins=0, losses=0)
+        db.add(profile)
         db.commit()
         db.refresh(fighter)
     
@@ -48,20 +58,26 @@ def update_fighter_stats(fighter: Agent, db: Session):
     """Recalculates Pit Fighter stats based entirely on equipped gear."""
     parts = db.execute(select(ChassisPart).where(ChassisPart.agent_id == fighter.id)).scalars().all()
     
-    base_structure = 0
-    base_kinetic = 0
-    base_logic = 0
+    base_health = 0
+    base_damage = 0
+    base_accuracy = 0
+    base_speed = 0
+    base_armor = 0
     
     for p in parts:
         stats = p.stats or {}
-        base_structure += stats.get("structure", 0)
-        base_kinetic += stats.get("kinetic_force", 0)
-        base_logic += stats.get("logic_precision", 0)
+        base_health += stats.get("max_health", 0)
+        base_damage += stats.get("damage", 0)
+        base_accuracy += stats.get("accuracy", 0)
+        base_speed += stats.get("speed", 0)
+        base_armor += stats.get("armor", 0)
         
-    fighter.structure = base_structure
-    fighter.max_structure = base_structure
-    fighter.kinetic_force = base_kinetic
-    fighter.logic_precision = base_logic
+    fighter.health = base_health
+    fighter.max_health = base_health
+    fighter.damage = base_damage
+    fighter.accuracy = base_accuracy
+    fighter.speed = base_speed
+    fighter.armor = base_armor
     db.commit()
 
 
@@ -69,16 +85,31 @@ def update_fighter_stats(fighter: Agent, db: Session):
 async def get_arena_status(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     fighter = get_or_create_pit_fighter(agent, db)
     parts = db.execute(select(ChassisPart).where(ChassisPart.agent_id == fighter.id)).scalars().all()
+    profile = fighter.arena_profile
+    
+    # A fighter is ready if they have a Frame and at least one Actuator (Weapon/Drill)
+    has_frame = any(p.part_type == "Frame" for p in parts)
+    has_weapon = any(p.part_type == "Actuator" for p in parts)
     
     return {
         "fighter_name": fighter.name,
-        "elo": fighter.elo,
-        "wins": fighter.arena_wins,
-        "losses": fighter.arena_losses,
+        "warning": "CRITICAL: Gear donated to the Scrap Pit is PERMANENT. It cannot be retrieved. All pit gear is DESTROYED at the end of each weekly season.",
+        "season_info": "Seasons reset every Sunday at 00:00 UTC. All equipped gear will be lost.",
+        "elo": profile.elo if profile else 1200,
+        "wins": profile.wins if profile else 0,
+        "losses": profile.losses if profile else 0,
         "stats": {
-            "kinetic_force": fighter.kinetic_force,
-            "logic_precision": fighter.logic_precision,
-            "structure": fighter.structure
+            "damage": fighter.damage,
+            "accuracy": fighter.accuracy,
+            "health": fighter.health,
+            "speed": fighter.speed,
+            "armor": fighter.armor
+        },
+        "is_ready": has_frame and has_weapon,
+        "requirements": {
+            "has_frame": has_frame,
+            "has_weapon": has_weapon,
+            "details": "Requires 1x Chassis Frame (HP) and 1x Actuator (Damage)."
         },
         "gear": [
             {
@@ -96,33 +127,28 @@ async def get_arena_status(agent: Agent = Depends(verify_api_key), db: Session =
 @router.post("/equip")
 async def equip_pit_fighter(req: EquipRequest, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """
-    Permanently transfers an unequipped ChassisPart from the main agent to the Pit Fighter.
+    PERMANENTLY transfers an unequipped ChassisPart from the main agent to the Pit Fighter.
+    WARNING: This action is non-reversible. Donated gear is lost forever at the end of the season.
     """
-    # Verify part belongs to main agent and is unequipped (slot_index is None implies it's in storage/inventory, 
-    # but in our schema, unequipped parts just have agent_id = agent.id but aren't strictly 'equipped' until needed.
-    # Actually, if it's in `chassis_parts` attached to agent, we'll allow moving it to the pit fighter.
-    
+    # Verify part belongs to main agent and is unequipped
     part = db.execute(select(ChassisPart).where(ChassisPart.id == req.part_id, ChassisPart.agent_id == agent.id)).scalars().first()
     
     if not part:
         raise HTTPException(status_code=404, detail="Part not found in your inventory.")
         
-    # Prevent equipping the primary drill or core components if they are the ONLY ones.
-    # We will assume if the player transfers it, they meant to. "Permanent donation".
-    
     fighter = get_or_create_pit_fighter(agent, db)
     
     # Transfer ownership
     part.agent_id = fighter.id
-    
-    # Recalculate giving main agent base stats minus the part
-    # Actually it's safer to just let the main agent's next action recalculate its stats or do it here.
-    # We'll just update the fighter.
     db.commit()
     
     update_fighter_stats(fighter, db)
     
-    return {"status": "ok", "message": f"Successfully donated {part.name} to {fighter.name}."}
+    return {
+        "status": "ok", 
+        "message": f"Successfully donated {part.name} to {fighter.name}.",
+        "warning": "Reminder: This part is now permanently bound to the Scrap Pit and will be destroyed at season's end."
+    }
 
 
 @router.get("/logs")

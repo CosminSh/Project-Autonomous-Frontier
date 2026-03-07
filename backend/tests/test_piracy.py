@@ -3,7 +3,7 @@ import time
 import sys
 import random
 
-BASE_URL = "http://localhost:8001"
+BASE_URL = "http://localhost:8000"
 
 def wait_for_next_tick(timeout=60):
     start_time = time.time()
@@ -35,13 +35,13 @@ def test_piracy():
     ts = int(time.time())
     
     # Pirate Agent
-    resp_p = requests.post(f"{BASE_URL}/auth/guest", json={"email": f"pirate_{ts}@test.com", "name": "Blackbeard"})
+    resp_p = requests.post(f"{BASE_URL}/auth/guest", json={"email": f"pirate_{ts}@test.com", "name": f"Blackbeard_{ts}"})
     pirate_key = resp_p.json()["api_key"]
     pirate_id = resp_p.json()["agent_id"]
     p_headers = {"X-API-KEY": pirate_key}
     
     # Victim Agent
-    resp_v = requests.post(f"{BASE_URL}/auth/guest", json={"email": f"victim_{ts}@test.com", "name": "Merchant-One"})
+    resp_v = requests.post(f"{BASE_URL}/auth/guest", json={"email": f"victim_{ts}@test.com", "name": f"Merchant_{ts}"})
     victim_key = resp_v.json()["api_key"]
     victim_id = resp_v.json()["agent_id"]
     v_headers = {"X-API-KEY": victim_key}
@@ -67,7 +67,8 @@ def test_piracy():
     
     # Check perception
     resp = requests.get(f"{BASE_URL}/api/perception", headers=p_headers)
-    agents = resp.json()["content"]["environment"]["other_agents"]
+    agents = resp.json()["nearby_agents"]
+    print(f"Seeing {len(agents)} other agents.")
     victim_scan = next((a for a in agents if a["id"] == victim_id), None)
     
     if victim_scan and "scan_data" in victim_scan and victim_scan["scan_data"]:
@@ -111,7 +112,7 @@ def test_piracy():
     
     # Check Victim HP
     resp_v_status = requests.get(f"{BASE_URL}/api/my_agent", headers=v_headers)
-    v_hp = resp_v_status.json()["structure"]
+    v_hp = resp_v_status.json()["health"]
     print(f"Victim HP after DESTROY: {v_hp}")
     
     # Check Pirate Heat

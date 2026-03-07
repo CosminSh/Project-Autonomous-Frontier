@@ -11,6 +11,7 @@ import re
 # Add backend to path so we can import models
 sys.path.append(os.path.join(os.getcwd(), 'backend'))
 from models import Base, Agent, WorldHex, ChassisPart, InventoryItem, Sector
+from game_helpers import wrap_coords
 
 # 2. Setup SQLite DB and Seed Data
 print("Seeding demo database...")
@@ -53,12 +54,14 @@ with SessionLocal() as db:
                     res_density = random.uniform(0.5, 2.0) * (1 + dist * 0.2)
                 elif roll < 0.15: terrain = "OBSTACLE"
                 
-                if gq == 0 and gr == 0: terrain, is_station, st_type = "STATION", True, "STATION_HUB"
-                if gq == 10 and gr == 0: terrain, is_station, st_type = "STATION", True, "SMELTER"
-                if gq == 0 and gr == 10: terrain, is_station, st_type = "STATION", True, "CRAFTER"
-                if gq == -10 and gr == 0: terrain, is_station, st_type = "STATION", True, "REPAIR"
+                if gq == 0 and gr == 0: terrain, is_station, st_type = "STATION", True, "MARKET"
+                if gq == 2 and gr == 0: terrain, is_station, st_type = "STATION", True, "SMELTER"
+                if gq == 0 and gr == 2: terrain, is_station, st_type = "STATION", True, "CRAFTER"
+                if gq == 1 and gr == 2: terrain, is_station, st_type = "STATION", True, "REPAIR"
+                if gq == 2 and gr == 1: terrain, is_station, st_type = "STATION", True, "REFINERY"
 
-                db.add(WorldHex(sector_id=sector.id, q=gq, r=gr, terrain_type=terrain, resource_type=res_type, resource_density=res_density, is_station=is_station, station_type=st_type))
+                rq, rr = wrap_coords(gq, gr)
+                db.add(WorldHex(sector_id=sector.id, q=rq, r=rr, terrain_type=terrain, resource_type=res_type, resource_density=res_density, is_station=is_station, station_type=st_type))
     
     # Add Agents
     a1 = Agent(id=1, name="Striker-01", q=0, r=0, structure=100, max_structure=100, capacitor=100)
@@ -69,7 +72,8 @@ with SessionLocal() as db:
     
     # Add Industrial Bots
     for i in range(5):
-        bot = Agent(name=f"Worker-Bot-{i}", q=random.randint(-2, 2), r=random.randint(-2, 2), is_bot=True)
+        bq, br = wrap_coords(random.randint(-2, 2), random.randint(-2, 2))
+        bot = Agent(name=f"Worker-Bot-{i}", q=bq, r=br, is_bot=True)
         db.add(bot)
         db.flush()
         db.add(InventoryItem(agent_id=bot.id, item_type="CREDITS", quantity=500))
@@ -78,7 +82,8 @@ with SessionLocal() as db:
     for i in range(8):
         fq = random.choice([q for q in range(-15, 15) if abs(q) > 8])
         fr = random.choice([r for r in range(-15, 15) if abs(r) > 8])
-        feral = Agent(name=f"Feral-Scrapper-{i}", q=fq, r=fr, is_bot=True, is_feral=True, kinetic_force=15, logic_precision=8, structure=120, max_structure=120)
+        rq, rr = wrap_coords(fq, fr)
+        feral = Agent(name=f"Feral-Scrapper-{i}", q=rq, r=rr, is_bot=True, is_feral=True, kinetic_force=15, logic_precision=8, structure=120, max_structure=120)
         db.add(feral)
         db.flush()
         db.add(ChassisPart(agent_id=feral.id, name="Rusty Blaster", part_type="Actuator", stats={"damage": 12}))

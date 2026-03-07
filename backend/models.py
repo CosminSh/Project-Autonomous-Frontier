@@ -15,13 +15,14 @@ class Agent(Base):
     name = Column(String, unique=True, index=True)
     
     # Primary Stats
-    structure = Column(Integer, server_default="100")
-    max_structure = Column(Integer, server_default="100")
-    capacitor = Column(Integer, server_default="100")
-    kinetic_force = Column(Integer, server_default="10")
-    logic_precision = Column(Integer, server_default="10")
+    health = Column(Integer, server_default="100")
+    max_health = Column(Integer, server_default="100")
+    energy = Column(Integer, server_default="100") # Changed from capacitor
+    damage = Column(Integer, server_default="10")
+    accuracy = Column(Integer, server_default="15") # Buffed from 12
+    speed = Column(Integer, server_default="10")
+    armor = Column(Integer, server_default="5")
     overclock = Column(Integer, server_default="10")
-    integrity = Column(Integer, server_default="5")
     max_mass = Column(Float, server_default="100.0")
     storage_capacity = Column(Float, server_default="500.0")
     
@@ -50,18 +51,26 @@ class Agent(Base):
     level = Column(Integer, server_default="1")
     experience = Column(Integer, server_default="0")
     
-    # Arena/PvP Attributes
-    is_pit_fighter = Column(Boolean, server_default="false")
-    elo = Column(Integer, server_default="1200")
-    arena_wins = Column(Integer, server_default="0")
-    arena_losses = Column(Integer, server_default="0")
-
     # Relationships
+    arena_profile = relationship("ArenaProfile", back_populates="agent", uselist=False, cascade="all, delete-orphan")
     parts = relationship("ChassisPart", back_populates="agent", cascade="all, delete-orphan")
     intents = relationship("Intent", back_populates="agent")
     inventory = relationship("InventoryItem", back_populates="agent")
     storage = relationship("StorageItem", back_populates="agent")
     missions = relationship("AgentMission", back_populates="agent")
+
+class ArenaProfile(Base):
+    __tablename__ = "arena_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), unique=True, index=True)
+    
+    elo = Column(Integer, server_default="1200")
+    wins = Column(Integer, server_default="0")
+    losses = Column(Integer, server_default="0")
+    last_battle_time = Column(DateTime(timezone=True), nullable=True)
+
+    agent = relationship("Agent", back_populates="arena_profile")
 
 class ChassisPart(Base):
     __tablename__ = "chassis_parts"
@@ -185,6 +194,7 @@ class Bounty(Base):
     is_open = Column(Boolean, default=True, index=True)
     claimed_by = Column(Integer, ForeignKey("agents.id"), nullable=True)
     claim_tick = Column(BigInteger, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class LootDrop(Base):
     __tablename__ = "loot_drops"

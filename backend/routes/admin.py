@@ -60,3 +60,22 @@ async def admin_teleport_all(x_admin_key: str = Header(...)):
         count = len(players)
     logger.info(f"ADMIN: Teleported {count} players to (0, 0).")
     return {"status": "ok", "message": f"Teleported {count} players to (0, 0)."}
+
+
+@router.post("/trigger_arena")
+async def admin_trigger_arena(x_admin_key: str = Header(...)):
+    """
+    Manually triggers a round of Scrap Pit battles.
+    
+    Requires: X-Admin-Key header matching ADMIN_KEY env var.
+    """
+    _check_key(x_admin_key)
+    logger.info("ADMIN: Manual arena battle trigger.")
+    try:
+        from logic.arena_manager import trigger_arena_battles
+        with SessionLocal() as db:
+            trigger_arena_battles(db)
+        return {"status": "ok", "message": "Arena battles resolved."}
+    except Exception as e:
+        logger.error(f"ADMIN: Arena trigger failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

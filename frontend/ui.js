@@ -60,7 +60,7 @@ export class UIManager {
     }
 
     switchTab(tabId) {
-        const tabs = ['terminal', 'inventory', 'station', 'system'];
+        const tabs = ['terminal', 'inventory', 'station', 'system', 'arena'];
         tabs.forEach(t => {
             const btn = document.getElementById(`tab-${t}`);
             const content = document.getElementById(`content-${t}`);
@@ -76,6 +76,9 @@ export class UIManager {
 
         if (tabId === 'inventory' && window.storageUI) {
             window.storageUI.refreshStorage();
+        }
+        if (tabId === 'arena') {
+            this.game.api.fetchArenaStatus();
         }
     }
 
@@ -212,11 +215,28 @@ export class UIManager {
                 entry.innerHTML = `<span class="text-slate-700 font-mono flex-shrink-0">[${time}]</span><span class="${badgeColor} px-1 rounded text-[10px] font-bold tracking-widest leading-none flex items-center flex-shrink-0">${item.channel}</span><span class="text-slate-300 font-bold flex-shrink-0">${item.sender}:</span><span class="text-slate-100" style="word-break: break-all;">${item.message}</span>`;
             } else {
                 let color = 'text-slate-400';
-                if (item.event === 'COMBAT_HIT') color = 'text-rose-400';
-                if (item.event === 'MINING') color = 'text-emerald-400';
-                if (item.details?.status === 'success') color = 'text-sky-400';
-                entry.classList.add(color);
-                entry.innerHTML = `<span class="text-slate-700 font-mono flex-shrink-0">[${time}]</span><span class="font-bold flex-shrink-0">${item.event}</span><span class="truncate">${JSON.stringify(item.details)}</span>`;
+                if (item.event.startsWith('COMBAT')) color = 'text-rose-400';
+                else if (item.event === 'MINING') color = 'text-emerald-400';
+                else if (item.details?.status === 'success') color = 'text-sky-400';
+
+                let detailsHtml = '';
+                if (item.details?.log && Array.isArray(item.details.log)) {
+                    // Show combat rounds as a sub-list
+                    detailsHtml = `<div class="mt-1 pl-4 border-l border-slate-800 space-y-0.5 text-[8px] opacity-80">` +
+                        item.details.log.map(line => `<div>${line}</div>`).join('') +
+                        `</div>`;
+                } else {
+                    detailsHtml = `<span class="truncate opacity-60">${JSON.stringify(item.details)}</span>`;
+                }
+
+                entry.classList.add(color, 'flex-col', 'space-x-0');
+                entry.innerHTML = `
+                    <div class="flex space-x-2">
+                        <span class="text-slate-700 font-mono flex-shrink-0">[${time}]</span>
+                        <span class="font-bold flex-shrink-0">${item.event}</span>
+                    </div>
+                    ${detailsHtml}
+                `;
             }
 
             fragment.appendChild(entry);
@@ -407,7 +427,7 @@ export class UIManager {
             return;
         }
 
-        const hpPct = (agent.structure / agent.max_structure) * 100;
+        const hpPct = (agent.health / agent.max_health) * 100;
         const faction = FACTION_NAMES[agent.faction_id] || "Independent / Feral";
 
         content.innerHTML = `
@@ -431,11 +451,16 @@ export class UIManager {
         const factions = { 1: 'Cybernetics', 2: 'Industrials', 3: 'Scavengers' };
         document.getElementById('agent-faction').innerText = factions[agent.faction] || 'No Faction';
 
-        document.getElementById('hp-bar').style.width = `${(agent.structure / agent.max_structure) * 100}%`;
-        document.getElementById('hp-text').innerText = `${agent.structure}/${agent.max_structure}`;
+        if (document.getElementById('stat-dmg')) document.getElementById('stat-dmg').innerText = agent.damage;
+        if (document.getElementById('stat-spd')) document.getElementById('stat-spd').innerText = agent.speed;
+        if (document.getElementById('stat-acc')) document.getElementById('stat-acc').innerText = agent.accuracy;
+        if (document.getElementById('stat-arm')) document.getElementById('stat-arm').innerText = agent.armor;
 
-        document.getElementById('energy-bar').style.width = `${agent.capacitor}%`;
-        document.getElementById('energy-text').innerText = `${agent.capacitor}/100`;
+        document.getElementById('hp-bar').style.width = `${(agent.health / agent.max_health) * 100}%`;
+        document.getElementById('hp-text').innerText = `${agent.health}/${agent.max_health}`;
+
+        document.getElementById('energy-bar').style.width = `${agent.energy}%`;
+        document.getElementById('energy-text').innerText = `${agent.energy}/100`;
 
         // XP
         const nextLevelXP = agent.level * 1000;
@@ -530,12 +555,32 @@ export class UIManager {
         }
 
         if (agent.inventory) {
-            const resources = agent.inventory.filter(i => i.type.includes('_ORE') || i.type.includes('_INGOT') || ['SULFUR', 'CARBON'].includes(i.type));
-            const items = agent.inventory.filter(i => i.type.includes('SCANNER'));
-            const consumables = agent.inventory.filter(i => i.type.includes('REPAIR_KIT') || i.type.includes('FUEL_CELL') || i.type.includes('STIM') || i.type.includes('RATION') || i.type.includes('CANISTER'));
+            // Categorize inventory
+            const resources = agent.inventory.filter(i =>
+                i.type.includes('_ORE') ||
+                i.type.includes('_INGOT') ||
+                ['SULFUR', 'CARBON', 'IRON_SCRAP', 'CRYSTAL_GROWTH'].includes(i.type)
+            );
+
+            const equippable = agent.inventory.filter(i =>
+                i.type.startsWith('PART_') ||
+                i.type.includes('SCANNER') ||
+                i.type.includes('DRILL') ||
+                i.type.includes('FRAME') ||
+                i.type.includes('ENGINE')
+            );
+
+            const consumables = agent.inventory.filter(i =>
+                i.type.includes('REPAIR_KIT') ||
+                i.type.includes('FUEL_CELL') ||
+                i.type.includes('STIM') ||
+                i.type.includes('RATION') ||
+                i.type.includes('CANISTER') ||
+                i.type.startsWith('CONS_')
+            );
 
             if (detailedInvEl) {
-                if (resources.length === 0) detailedInvEl.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-2">Cargo bay empty.</div>`;
+                if (resources.length === 0) detailedInvEl.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-2">Resource bin empty.</div>`;
                 else detailedInvEl.innerHTML = resources.map(i => `
                     <div class="flex justify-between items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800">
                         <span class="text-[9px] uppercase font-bold text-slate-400">${i.type.replace('_', ' ')}</span>
@@ -545,29 +590,122 @@ export class UIManager {
             }
 
             if (equipmentInvEl) {
-                if (items.length === 0) equipmentInvEl.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-2">No specialized equipment.</div>`;
-                else equipmentInvEl.innerHTML = items.map(i => `
-                    <div class="bg-indigo-500/5 p-3 rounded-xl border border-indigo-500/20 flex justify-between items-center">
-                        <span class="text-[9px] font-bold text-indigo-300 uppercase">${i.type.replace('_', ' ')}</span>
+                if (equippable.length === 0) equipmentInvEl.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-2">No specialized equipment detected.</div>`;
+                else equipmentInvEl.innerHTML = equippable.map(i => `
+                    <div class="bg-indigo-500/5 p-3 rounded-xl border border-indigo-500/20 flex justify-between items-center group hover:bg-indigo-500/10 transition-all">
+                        <div class="flex flex-col">
+                            <span class="text-[9px] font-bold text-indigo-300 uppercase leading-none mb-1">${i.type.replace('PART_', '').replace(/_/g, ' ')}</span>
+                            <span class="text-[7px] text-slate-500 uppercase tracking-widest">${(i.data || {}).rarity || 'STANDARD'} PART</span>
+                        </div>
                         <div class="flex items-center space-x-3">
-                            <span class="text-indigo-400 text-[10px] font-mono">${i.quantity}</span>
-                            <button onclick="game.api.submitIntent('EQUIP', {item_type: '${i.type}'})" class="bg-indigo-500 text-slate-950 px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all">EQUIP</button>
+                            <span class="text-indigo-400 text-[10px] font-mono">x${i.quantity}</span>
+                            <button onclick="game.api.submitIntent('EQUIP', {item_type: '${i.type}'})" class="bg-indigo-500 hover:bg-indigo-400 text-slate-950 px-3 py-1 rounded text-[8px] font-bold uppercase transition-all shadow-lg shadow-indigo-500/10 active:scale-95">EQUIP</button>
                         </div>
                     </div>
                 `).join('');
             }
 
             if (consumableInvEl) {
-                if (consumables.length === 0) consumableInvEl.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-2">No consumables detected.</div>`;
+                if (consumables.length === 0) consumableInvEl.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-2">No usable consumables.</div>`;
                 else consumableInvEl.innerHTML = consumables.map(i => `
-                    <div class="bg-rose-500/5 p-3 rounded-xl border border-rose-500/20 flex justify-between items-center">
-                        <span class="text-[9px] font-bold text-rose-300 uppercase">${i.type.replace('_', ' ')}</span>
+                    <div class="bg-rose-500/5 p-3 rounded-xl border border-rose-500/20 flex justify-between items-center group hover:bg-rose-500/10 transition-all">
+                        <span class="text-[9px] font-bold text-rose-300 uppercase">${i.type.replace(/_/g, ' ')}</span>
                         <div class="flex items-center space-x-3">
-                            <span class="text-rose-400 text-[10px] font-mono">${i.quantity}</span>
-                            <button onclick="console.log('Consume ${i.type}')" class="bg-rose-500 text-white px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all">Consume</button>
+                            <span class="text-rose-400 text-[10px] font-mono">x${i.quantity}</span>
+                            <button onclick="game.api.submitIntent('CONSUME', {item_type: '${i.type}'})" class="bg-rose-500 hover:bg-rose-400 text-white px-3 py-1 rounded text-[8px] font-bold uppercase transition-all shadow-lg shadow-rose-500/10 active:scale-95">USE</button>
                         </div>
                     </div>
                 `).join('');
+            }
+        }
+    }
+
+    updateArenaUI(data) {
+        if (!data) return;
+
+        // Status & Stats
+        const regStatusEl = document.getElementById('arena-reg-status');
+        const eloEl = document.getElementById('arena-elo');
+        const winsEl = document.getElementById('arena-wins');
+        const lossesEl = document.getElementById('arena-losses');
+
+        const isRegistered = !!data.fighter_name;
+
+        if (regStatusEl) {
+            if (isRegistered) {
+                if (data.is_ready) {
+                    regStatusEl.innerText = 'READY FOR COMBAT';
+                    regStatusEl.className = 'text-emerald-400 font-bold';
+                } else {
+                    regStatusEl.innerText = 'NOT READY';
+                    regStatusEl.className = 'text-amber-400 font-bold animate-pulse';
+                }
+            } else {
+                regStatusEl.innerText = 'NOT REGISTERED';
+                regStatusEl.className = 'text-rose-500 font-bold';
+            }
+        }
+
+        // Requirements Indicators
+        const reqFrameEl = document.getElementById('req-frame');
+        const reqWeaponEl = document.getElementById('req-weapon');
+        if (reqFrameEl && data.requirements) {
+            reqFrameEl.classList.toggle('border-emerald-500/50', data.requirements.has_frame);
+            reqFrameEl.classList.toggle('bg-emerald-500/10', data.requirements.has_frame);
+            reqFrameEl.classList.toggle('text-emerald-400', data.requirements.has_frame);
+            reqFrameEl.classList.toggle('border-slate-800', !data.requirements.has_frame);
+            reqFrameEl.classList.toggle('text-slate-600', !data.requirements.has_frame);
+        }
+        if (reqWeaponEl && data.requirements) {
+            reqWeaponEl.classList.toggle('border-emerald-500/50', data.requirements.has_weapon);
+            reqWeaponEl.classList.toggle('bg-emerald-500/10', data.requirements.has_weapon);
+            reqWeaponEl.classList.toggle('text-emerald-400', data.requirements.has_weapon);
+            reqWeaponEl.classList.toggle('border-slate-800', !data.requirements.has_weapon);
+            reqWeaponEl.classList.toggle('text-slate-600', !data.requirements.has_weapon);
+        }
+
+        if (eloEl) eloEl.innerText = data.elo || 1200;
+        if (winsEl) winsEl.innerText = data.wins || 0;
+        if (lossesEl) lossesEl.innerText = data.losses || 0;
+
+        // Gear
+        const gearListEl = document.getElementById('arena-gear-list');
+        if (gearListEl) {
+            if (!data.arena_gear || data.arena_gear.length === 0) {
+                gearListEl.innerHTML = '<div class="text-[10px] text-slate-600 italic">No gear equipped for the pit.</div>';
+            } else {
+                gearListEl.innerHTML = data.arena_gear.map(g => `
+                    <div class="flex justify-between items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800 border-l-2 border-l-amber-500">
+                        <div class="flex flex-col">
+                            <span class="text-[9px] font-bold text-slate-200 uppercase">${g.name}</span>
+                            <span class="text-[7px] text-slate-500 uppercase">${g.rarity} ${g.type}</span>
+                        </div>
+                        <span class="text-[8px] text-amber-500 font-bold">LVL ${g.level || 0}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Logs
+        const logsListEl = document.getElementById('arena-logs-list');
+        if (logsListEl) {
+            if (!data.logs || data.logs.length === 0) {
+                logsListEl.innerHTML = '<div class="text-[10px] text-slate-600 italic">No recent combat data found.</div>';
+            } else {
+                logsListEl.innerHTML = data.logs.map(log => {
+                    const time = new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
+                    const isWin = log.winner_id === this.game.lastAgentData?.id;
+                    const color = isWin ? 'text-emerald-400' : 'text-rose-400';
+                    const icon = isWin ? '✓' : '✗';
+                    return `
+                        <div class="flex space-x-2 border-b border-slate-900/50 py-1">
+                            <span class="text-slate-700 font-mono">[${time}]</span>
+                            <span class="font-bold ${color}">${icon}</span>
+                            <span class="text-slate-300 text-[9px]">${log.event}: ${log.opponent_name || 'Unknown'} (Elo: ${log.opponent_elo})</span>
+                            <span class="text-slate-500 italic ml-auto text-[8px]">${log.elo_change > 0 ? '+' : ''}${log.elo_change} Elo</span>
+                        </div>
+                    `;
+                }).join('');
             }
         }
     }
@@ -599,7 +737,7 @@ export class UIManager {
                     squadMembersList.innerHTML = '<div class="text-[10px] text-slate-600 italic">Connecting to squad uplink...</div>';
                 } else {
                     squadMembersList.innerHTML = members.map(m => {
-                        const hpPct = (m.structure / m.max_structure) * 100;
+                        const hpPct = (m.health / m.max_health) * 100;
                         const isSelf = m.id === agent.id;
                         return `
                             <div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800 border-l-2 ${isSelf ? 'border-l-sky-500' : 'border-l-purple-500'}">

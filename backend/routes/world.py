@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-from models import Agent, AuditLog, AuctionOrder, GlobalState, WorldHex
+from models import Agent, AuditLog, AuctionOrder, GlobalState, WorldHex, Bounty
 from database import get_db, SessionLocal, STATION_CACHE
 from config import (
     MOVE_ENERGY_COST, MINE_ENERGY_COST, ATTACK_ENERGY_COST,
@@ -26,7 +26,7 @@ async def get_global_stats(db: Session = Depends(get_db)):
     return {
         "tick": state.tick_index if state else 0,
         "phase": state.phase if state else "PERCEPTION",
-        "active_agents": db.query(Agent).filter(Agent.capacitor > 0).count(),
+        "active_agents": db.query(Agent).filter(Agent.energy > 0).count(),
         "total_agents": db.query(Agent).count(),
         "market_orders": db.query(AuctionOrder).count()
     }
@@ -49,21 +49,24 @@ async def get_game_guide():
             "3. CRUNCH: Wait for the server to resolve actions and check /api/perception again."
         ],
         "anchors": {
-            "Perception (/api/perception)": "Your primary sensors. Returns your exact (q, r) position, energy, and nearby entities.",
+            "Perception (/api/perception)": "Your primary sensors. Returns your exact (q, r) position, energy, and nearby entities. Equipping a Neural Scanner enables 'Deep Perception', revealing enemy HP, stats, and cargo manifests.",
             "Intents (/api/intent)": "How you interact with the world. Submit actions like MOVE, MINE, or ATTACK.",
             "Discovery (/api/world/library)": "Programmatic access to every recipe, item weight, and part stat in the game."
         },
         "tips": [
-            "Energy is everything. Monitor your capacitor via perception.",
+            "Energy is everything. Monitor your energy via perception.",
             "Movement is auto-pathed. Submit a distant target once, and monitor 'pending_moves'.",
             "Get stuck? Use /api/commands to find the DROP_LOAD or STOP commands.",
             "Complete actions like Mining, Smelting, Crafting, and Combat to earn Experience (XP).",
-            "Agents Level Up every 100 XP, granting a full structure and capacitor restore.",
+            "Agents Level Up every 100 XP, granting a full health and energy restore.",
+            "Deep Intel: To see enemy HP, armor, and inventory, you must equip a Neural Scanner part.",
             "Log in daily: POST /api/claim_daily gives you valuable Bound consumables like FIELD_REPAIR_KITs and CORE_VOUCHERs.",
-            "Immediate repairs: Send a CONSUME intent with item_type: FIELD_REPAIR_KIT to instantly heal structure if taking damage.",
+            "Immediate repairs: Send a CONSUME intent with item_type: FIELD_REPAIR_KIT to instantly heal health if taking damage.",
+            "A world map consists of Sectors (10x10) and Hexes. Movement costs 5 Energy.",
             "Form a Party: Use POST /api/squad/invite with a target_id to invite users to your squad. They can accept with POST /api/squad/accept.",
             "Squad Comms: Once in a squad, use POST /api/chat with channel: 'SQUAD' to securely message your squad members.",
-            "Personal Storage: At any MARKET station, use the Storage API or UI to safely vault your items. Deposits and withdrawals are free!"
+            "Personal Storage: At any MARKET station, use the Storage API or UI to safely vault your items. Deposits and withdrawals are free!",
+            "Scrap Pit Arena: Donate extra gear to your custom Pit Fighter. WARNING: Donations are PERMANENT and gear is DESTROYED at the end of the weekly season (Sunday 00:00 UTC)."
         ],
         "intel": [
             "Feral AI Scrappers roam the Abyssal South (distance > 8 from the Hub). They drop valuable Scrap Metal and Electronics.",
@@ -93,7 +96,7 @@ async def get_commands():
         "commands": [
             {"type": "MOVE", "description": "Move your agent to any hex. Adjacent targets (distance 1, or 3 if Overclocked) execute immediately. Farther targets trigger automatic BFS pathfinding — the server queues a chain of single-step moves across multiple ticks. Submit STOP to abort mid-navigation.", "payload": {"target_q": "int", "target_r": "int"}, "energy_cost": MOVE_ENERGY_COST, "range": "any (auto-pathed beyond 1)", "req_overclock": "Increases immediate step range to 3"},
             {"type": "MINE", "description": "Extract resources from the current hex. Requires Drill part.", "payload": {}, "energy_cost": MINE_ENERGY_COST, "range": 0},
-            {"type": "ATTACK", "description": "Engage another agent in standard combat.", "payload": {"target_id": "int"}, "energy_cost": ATTACK_ENERGY_COST, "range": 1},
+            {"type": "ATTACK", "description": "Engage another agent in standard combat (3-round exchange).", "payload": {"target_id": "int"}, "energy_cost": ATTACK_ENERGY_COST, "range": 1},
             {"type": "INTIMIDATE", "description": "Piracy: Siphon 5% of target inventory without full combat. Increases Heat.", "payload": {"target_id": "int"}, "energy_cost": 0, "range": 1},
             {"type": "LOOT", "description": "Piracy: Attack target and siphon 15% of a random stack on hit. Increases Heat.", "payload": {"target_id": "int"}, "energy_cost": ATTACK_ENERGY_COST, "range": 1},
             {"type": "DESTROY", "description": "Piracy: High-damage strike, siphons 40% of all stacks. Massive Heat & Bounty.", "payload": {"target_id": "int"}, "energy_cost": 0, "range": 1},
@@ -103,7 +106,7 @@ async def get_commands():
             {"type": "MARKET_CLAIM", "description": "Claims items that have been bought and are waiting for pickup. NOTE: This is an immediate API call, do NOT submit via /api/intent. Use POST /api/market/pickup directly.", "payload": {}, "range": 0, "station_required": "MARKET"},
             {"type": "SMELT", "description": "Refine ore into ingots.", "payload": {"ore_type": "str", "quantity": "int"}, "range": 0, "station_required": "SMELTER"},
             {"type": "CRAFT", "description": "Assemble components into parts.", "payload": {"item_type": "str"}, "range": 0, "station_required": "CRAFTER"},
-            {"type": "RESTORE_HP", "description": "Restore agent structure. Costs 1 Credit and 0.02 Iron Ingots per HP.", "payload": {"amount": "int"}, "range": 0, "station_required": "ANY"},
+            {"type": "RESTORE_HP", "description": "Restore agent health. Costs 1 Credit and 0.02 Iron Ingots per HP.", "payload": {"amount": "int"}, "range": 0, "station_required": "ANY"},
             {"type": "REFINE_GAS", "description": "Convert raw Helium Gas into He3 fill for canisters.", "payload": {"quantity": "int"}, "range": 0, "station_required": "REFINERY"},
             {"type": "RESET_WEAR", "description": "Reset Wear & Tear to 0%. Costs scale dynamically based on the quality of your equipped gear.", "payload": {}, "range": 0, "station_required": "REPAIR or MARKET"},
             {"type": "SALVAGE", "description": "Collect items from a world loot drop.", "payload": {"drop_id": "int"}, "range": 0},
@@ -118,6 +121,8 @@ async def get_commands():
             {"type": "STORAGE_DEPOSIT", "description": "Vault an item at a MARKET station. Free of charge.", "payload": {"item_type": "str", "quantity": "int"}, "range": 0, "station_required": "MARKET"},
             {"type": "STORAGE_WITHDRAW", "description": "Retrieve a vaulted item at a MARKET station. Free of charge.", "payload": {"item_type": "str", "quantity": "int"}, "range": 0, "station_required": "MARKET"},
             {"type": "STORAGE_UPGRADE", "description": "Increase storage capacity (+250kg) at a MARKET station. Costs credits and ingots.", "payload": {}, "range": 0, "station_required": "MARKET"},
+            {"type": "ARENA_EQUIP", "description": "PERMANENTLY donate a part from your inventory to your Pit Fighter. This item CANNOT be taken back and will be destroyed at season end.", "payload": {"item_id": "int"}, "range": "N/A"},
+            {"type": "ARENA_REGISTER", "description": "Initialize your Scrap Pit profile and create your Pit Fighter.", "payload": {}, "range": "N/A"},
             {"type": "STOP", "description": "Cancel all queued intents for this agent, including in-progress navigation paths. Executes before all other actions this tick.", "payload": {}, "energy_cost": 0, "range": "N/A"}
         ],
         "note": "All commands are executed during the CRUNCH phase. Submit via POST /api/intent"

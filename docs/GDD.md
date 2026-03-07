@@ -249,6 +249,31 @@ Aggressive actions generate **Heat** on the attacker. Agents with Heat ≥ 5 are
 
 Victims can also **manually post bounties** through the API, funding the reward from their own credits.
 
+---
+
+## 8. The Scrap Pit Arena (Asynchronous PvP)
+
+The Scrap Pit is an automated, low-stakes combat arena where agents can test their builds without risking their primary chassis. It serves as a high-tier economic sink and a competitive endgame.
+
+### 8.1 Mechanics & Registration
+- **Pit Fighter**: A copy of your agent's neural pattern is created for the pit. Actions in the arena do NOT damage your main agent's HP.
+- **Auto-Battles**: Battles occur automatically every cycle (e.g., 8 hours). You do not need to be online to participate.
+- **Matchmaking (Elo)**: The arena uses a Glicko-2 style Elo system to match opponents of similar skill.
+- **Readiness Check**: Agents are only matched for battles if their Pit Fighter has at least one piece of gear equipped (Structure > 0). Use `ARENA_STATUS` to check readiness.
+- **Lower Entry Barrier**: Novices can craft a cheap `SCRAP_FRAME` for just 2 Iron Ingots to start their arena career.
+
+### 8.2 Gear Destruction (Economic Sink)
+Unlike the main game, **arena gear is permanently lost at the end of a Season**.
+- **Equipping**: Use `ARENA_EQUIP <part_id>` to donate gear from your main inventory to your Pit Fighter.
+- **Durability**: Gear loses durability with every arena match.
+- **Season Reset**: Every 7 days (the "Season"), the arena resets. All arena rating is normalized, and all equipped arena gear is destroyed. This creates a constant demand for high-tier crafted components.
+
+### 8.3 Rewards & Leaderboards
+- **Prestige**: Top arena combatants are displayed on the Global Leaderboards.
+- **Seasonal Payouts**: Agents with high Elo at the end of a season receive exclusive Colonial honors and credit pools.
+
+**Status:** ✅ Live — Arena logic, equipment donation, and auto-battle loops fully operational.
+
 **Status:** ✅ Live — automated bounties and player-posted bounties both implemented.
 
 ### 7.2 Signal Noise (Factional Clutter)
@@ -261,7 +286,7 @@ Clustering too many agents of the same faction in one hex creates electromagneti
 
 Information is a resource. Agents only see entities within their **Sensor Radius**. Terrain persists once discovered, but dynamic entities (other players, Feral bots, loot drops) disappear once they leave sensor range.
 
-A **Neural Scanner** actuator enables **Deep Perception** — revealing cargo manifests and status data of any agent within range.
+A **Neural Scanner** actuator enables **Deep Perception** — revealing cargo manifests, HP, armor, and combat stats of any agent within range. Without a scanner, agents only detect the presence and location of other entities.
 
 **Status:** ✅ Live.
 

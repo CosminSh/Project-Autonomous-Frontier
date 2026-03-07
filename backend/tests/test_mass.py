@@ -36,7 +36,7 @@ def test_mass_mechanics():
     print("\nAdding 40 Cobalt Ore (160kg) to inventory via SQL...")
     with engine.connect() as conn:
         conn.execute(text("INSERT INTO inventory_items (agent_id, item_type, quantity) VALUES (:id, 'COBALT_ORE', 40)"), {"id": agent_id})
-        conn.execute(text("UPDATE agents SET capacitor = 100, q = 0, r = 0 WHERE id = :id"), {"id": agent_id})
+        conn.execute(text("UPDATE agents SET energy = 100, q = 0, r = 0 WHERE id = :id"), {"id": agent_id})
         conn.commit()
 
     # 4. Verify Mass in Perception

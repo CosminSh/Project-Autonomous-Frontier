@@ -51,9 +51,9 @@ async def update_global_agent_stats(db, tick_count, manager):
         regen = int(BASE_REGEN * efficiency * (1.0 if fuel_bypass else intensity))
         if agent.q == 0 and agent.r == 0: regen *= 2 # Town bonus
         
-        agent.capacitor = min(100, agent.capacitor + regen)
+        agent.energy = min(100, agent.energy + regen)
         if intensity == 0 and not fuel_bypass and regen == 0:
-            agent.capacitor = max(0, agent.capacitor - 1)
+            agent.energy = max(0, agent.energy - 1)
 
         # Progression Ticks
         if (agent.overclock_ticks or 0) > 0: agent.overclock_ticks -= 1
@@ -66,6 +66,6 @@ async def update_global_agent_stats(db, tick_count, manager):
                  Agent.faction_id == agent.faction_id, Agent.id != agent.id
              )).scalar() or 0
              if allies >= 2:
-                 agent.logic_precision = int(agent.logic_precision * (1.0 - CLUTTER_PENALTY))
+                 agent.accuracy = int(agent.accuracy * (1.0 - CLUTTER_PENALTY))
         
         await asyncio.sleep(0) # Yield for other tasks

@@ -70,10 +70,12 @@ def generate_leaderboards(db: Session):
 
     # 3. Top Arena Elo
     try:
+        from models import ArenaProfile
         elo_agents = db.execute(
-            select(Agent.id, Agent.name, Agent.elo, Agent.arena_wins, Agent.arena_losses)
-            .where(Agent.is_pit_fighter == True, Agent.elo > 1200)
-            .order_by(Agent.elo.desc())
+            select(Agent.id, Agent.name, ArenaProfile.elo, ArenaProfile.wins, ArenaProfile.losses)
+            .join(ArenaProfile, Agent.id == ArenaProfile.agent_id)
+            .where(ArenaProfile.elo > 1200)
+            .order_by(ArenaProfile.elo.desc())
             .limit(100)
         ).all()
         

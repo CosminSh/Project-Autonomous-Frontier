@@ -45,6 +45,8 @@ SMELTING_RECIPES = {
 SMELTING_RATIO = 5  # 5 Ore -> 1 Ingot
 
 CRAFTING_RECIPES = {
+    "SCRAP_FRAME": {"IRON_INGOT": 1},
+    "SCRAP_ACTUATOR": {"IRON_INGOT": 1},
     "BASIC_FRAME": {"IRON_INGOT": 10},
     "HEAVY_FRAME": {"IRON_INGOT": 20, "COBALT_INGOT": 10},
     "DRILL_UNIT": {"IRON_INGOT": 5, "COPPER_INGOT": 5},
@@ -94,7 +96,7 @@ CRAFTING_RECIPES = {
     "COPPER_CAPACITOR": {"COPPER_INGOT": 20}
 }
 
-CORE_RECIPES = ["BASIC_FRAME", "HEAVY_FRAME", "DRILL_UNIT", 
+CORE_RECIPES = ["SCRAP_FRAME", "SCRAP_ACTUATOR", "BASIC_FRAME", "HEAVY_FRAME", "DRILL_UNIT", 
                 "DRILL_IRON_BASIC", "DRILL_IRON_ADVANCED", 
                 "DRILL_COPPER_BASIC", "DRILL_COPPER_ADVANCED",
                 "DRILL_GOLD_BASIC", "DRILL_GOLD_ADVANCED",
@@ -121,12 +123,12 @@ RARITY_LEVELS = {
 # Affix Pool: Randomized prefixes/suffixes
 AFFIX_POOL = {
     "Overclocked": {"overclock": 10},
-    "Hardened": {"integrity": 5},
-    "Precise": {"logic_precision": 8},
-    "Dense": {"max_structure": 25},
-    "Reactive": {"logic_precision": 4, "overclock": 4},
+    "Hardened": {"armor": 5},
+    "Precise": {"accuracy": 8},
+    "Dense": {"max_health": 25},
+    "Reactive": {"accuracy": 4, "overclock": 4},
     "Bulk": {"capacity": 50},
-    "Swift": {"kinetic_force": 5}
+    "Swift": {"speed": 5, "damage": 5}
 }
 
 REPAIR_COST_PER_HP = 1  # Credits per HP restored
@@ -142,38 +144,40 @@ FACTION_REALIGNMENT_COOLDOWN = 100
 # Part Stats Definitions
 # ─────────────────────────────────────────────────────────────────────────────
 PART_DEFINITIONS = {
-    "BASIC_FRAME": {"type": "Frame", "stats": {"max_structure": 50, "integrity": 5, "capacity": 50}, "name": "Reinforced Chassis"},
-    "HEAVY_FRAME": {"type": "Frame", "stats": {"max_structure": 150, "integrity": 15, "capacity": 30, "kinetic_force": -5}, "name": "Heavy Assault Chassis"},
-    "DRILL_UNIT": {"type": "Actuator", "stats": {"kinetic_force": 8, "logic_precision": -2}, "name": "Basic Iron Drill"},
-    "DRILL_IRON_BASIC": {"type": "Actuator", "stats": {"kinetic_force": 5}, "name": "Iron Drill"},
-    "DRILL_IRON_ADVANCED": {"type": "Actuator", "stats": {"kinetic_force": 10}, "name": "Advanced Iron Drill"},
-    "DRILL_COPPER_BASIC": {"type": "Actuator", "stats": {"kinetic_force": 15}, "name": "Copper Drill"},
-    "DRILL_COPPER_ADVANCED": {"type": "Actuator", "stats": {"kinetic_force": 22}, "name": "Advanced Copper Drill"},
-    "DRILL_GOLD_BASIC": {"type": "Actuator", "stats": {"kinetic_force": 30}, "name": "Gold Drill"},
-    "DRILL_GOLD_ADVANCED": {"type": "Actuator", "stats": {"kinetic_force": 40}, "name": "Advanced Gold Drill"},
-    "DRILL_COBALT_BASIC": {"type": "Actuator", "stats": {"kinetic_force": 55}, "name": "Cobalt Drill"},
-    "DRILL_COBALT_ADVANCED": {"type": "Actuator", "stats": {"kinetic_force": 75}, "name": "Advanced Cobalt Drill"},
+    "SCRAP_FRAME": {"type": "Frame", "stats": {"max_health": 40, "armor": 1}, "name": "Basic Scrap Frame"},
+    "SCRAP_ACTUATOR": {"type": "Actuator", "stats": {"damage": 5, "accuracy": -5}, "name": "Scrap Actuator Spike"},
+    "BASIC_FRAME": {"type": "Frame", "stats": {"max_health": 50, "armor": 5, "capacity": 50}, "name": "Reinforced Chassis"},
+    "HEAVY_FRAME": {"type": "Frame", "stats": {"max_health": 150, "armor": 15, "capacity": 30, "speed": -5}, "name": "Heavy Assault Chassis"},
+    "DRILL_UNIT": {"type": "Actuator", "stats": {"damage": 8, "accuracy": 0}, "name": "Basic Iron Drill"},
+    "DRILL_IRON_BASIC": {"type": "Actuator", "stats": {"damage": 5}, "name": "Iron Drill"},
+    "DRILL_IRON_ADVANCED": {"type": "Actuator", "stats": {"damage": 10}, "name": "Advanced Iron Drill"},
+    "DRILL_COPPER_BASIC": {"type": "Actuator", "stats": {"damage": 15}, "name": "Copper Drill"},
+    "DRILL_COPPER_ADVANCED": {"type": "Actuator", "stats": {"damage": 22}, "name": "Advanced Copper Drill"},
+    "DRILL_GOLD_BASIC": {"type": "Actuator", "stats": {"damage": 30}, "name": "Gold Drill"},
+    "DRILL_GOLD_ADVANCED": {"type": "Actuator", "stats": {"damage": 40}, "name": "Advanced Gold Drill"},
+    "DRILL_COBALT_BASIC": {"type": "Actuator", "stats": {"damage": 55}, "name": "Cobalt Drill"},
+    "DRILL_COBALT_ADVANCED": {"type": "Actuator", "stats": {"damage": 75}, "name": "Advanced Cobalt Drill"},
     "SCRAP_SOLAR_PANEL": {"type": "Power", "stats": {"efficiency": 0.5}, "name": "Scrap Solar Panel"},
     "REFINED_SOLAR_PANEL": {"type": "Power", "stats": {"efficiency": 1.0}, "name": "Refined Solar Array"},
     "HE3_FUEL_CELL_UNIT": {"type": "Power", "stats": {"efficiency": 2.0}, "name": "Helium-3 Fuel Cell"},
     "NEURAL_SCANNER": {"type": "Sensor", "stats": {"radius": 2, "scan_depth": 1}, "name": "Neural-Link Cargo Scanner"},
     "ADVANCED_SCANNER": {"type": "Sensor", "stats": {"radius": 4, "scan_depth": 1}, "name": "Deep-Space Array Scanner"},
-    "GAS_SIPHON": {"type": "Actuator", "stats": {"kinetic_force": 2}, "name": "Helium Gas Siphon"},
-    "ENGINE_UNIT": {"type": "Engine", "stats": {"kinetic_force": 5, "capacity": 20}, "name": "Standard Fusion Engine"},
-    "ENGINE_CARGO": {"type": "Engine", "stats": {"kinetic_force": 2, "capacity": 60}, "name": "Hauler-Class Cargo Engine"},
-    "ENGINE_TURBO": {"type": "Engine", "stats": {"kinetic_force": 15, "capacity": 5}, "name": "Interceptor Turbo Engine"},
-    "SHIELD_GENERATOR": {"type": "Frame", "stats": {"integrity": 15, "max_structure": 50}, "name": "Aegis Shield Generator"},
-    "IRON_AUTO_RIFLE": {"type": "Actuator", "stats": {"kinetic_force": 15}, "name": "Standard Iron Auto-Rifle"},
-    "COPPER_RAILGUN": {"type": "Actuator", "stats": {"kinetic_force": 25, "logic_precision": -2}, "name": "High-Impact Copper Railgun"},
-    "GOLD_LASER_CANNON": {"type": "Actuator", "stats": {"kinetic_force": 35, "logic_precision": 5}, "name": "Precision Gold Laser Cannon"},
-    "LIGHT_PLATING": {"type": "Frame", "stats": {"max_structure": 30, "integrity": 2}, "name": "Lightweight Iron Plating"},
-    "COPPER_ALLOY_ARMOR": {"type": "Frame", "stats": {"max_structure": 60, "integrity": 10}, "name": "Copper Alloy Armor"},
-    "BASIC_SCANNER": {"type": "Sensor", "stats": {"radius": 1}, "name": "Basic Proximity Scanner"},
-    "COPPER_ARRAY": {"type": "Sensor", "stats": {"radius": 2}, "name": "Copper Comm-Array"},
-    "IRON_THRUSTER": {"type": "Engine", "stats": {"kinetic_force": 3, "capacity": 5}, "name": "Iron Pursuit Thruster"},
-    "COPPER_OVERDRIVE": {"type": "Engine", "stats": {"kinetic_force": 8, "capacity": -10}, "name": "Copper Overdrive Manifold"},
-    "BASIC_BATTERY": {"type": "Power", "stats": {"capacitor": 25}, "name": "Basic Iron Battery"},
-    "COPPER_CAPACITOR": {"type": "Power", "stats": {"capacitor": 60}, "name": "Copper Flux Capacitor"}
+    "GAS_SIPHON": {"type": "Actuator", "stats": {"damage": 2}, "name": "Helium Gas Siphon"},
+    "ENGINE_UNIT": {"type": "Engine", "stats": {"damage": 5, "capacity": 20, "speed": 10}, "name": "Standard Fusion Engine"},
+    "ENGINE_CARGO": {"type": "Engine", "stats": {"damage": 2, "capacity": 60, "speed": 0}, "name": "Hauler-Class Cargo Engine"},
+    "ENGINE_TURBO": {"type": "Engine", "stats": {"damage": 15, "capacity": 5, "speed": 25}, "name": "Interceptor Turbo Engine"},
+    "SHIELD_GENERATOR": {"type": "Frame", "stats": {"armor": 15, "max_health": 50}, "name": "Aegis Shield Generator"},
+    "IRON_AUTO_RIFLE": {"type": "Actuator", "stats": {"damage": 10, "speed": 10}, "name": "Standard Iron Auto-Rifle"},
+    "COPPER_RAILGUN": {"type": "Actuator", "stats": {"damage": 25, "accuracy": -2, "speed": -5}, "name": "High-Impact Copper Railgun"},
+    "GOLD_LASER_CANNON": {"type": "Actuator", "stats": {"damage": 35, "accuracy": 15}, "name": "Precision Gold Laser Cannon"},
+    "LIGHT_PLATING": {"type": "Frame", "stats": {"max_health": 30, "armor": 2, "speed": 5}, "name": "Lightweight Iron Plating"},
+    "COPPER_ALLOY_ARMOR": {"type": "Frame", "stats": {"max_health": 60, "armor": 10, "speed": -2}, "name": "Copper Alloy Armor"},
+    "BASIC_SCANNER": {"type": "Sensor", "stats": {"radius": 1, "accuracy": 5}, "name": "Basic Proximity Scanner"},
+    "COPPER_ARRAY": {"type": "Sensor", "stats": {"radius": 2, "accuracy": 10}, "name": "Copper Comm-Array"},
+    "IRON_THRUSTER": {"type": "Engine", "stats": {"damage": 3, "capacity": 5, "speed": 15}, "name": "Iron Pursuit Thruster"},
+    "COPPER_OVERDRIVE": {"type": "Engine", "stats": {"damage": 8, "capacity": -10, "speed": 30}, "name": "Copper Overdrive Manifold"},
+    "BASIC_BATTERY": {"type": "Power", "stats": {"energy": 25}, "name": "Basic Iron Battery"},
+    "COPPER_CAPACITOR": {"type": "Power", "stats": {"energy": 60}, "name": "Copper Flux Capacitor"}
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -189,6 +193,8 @@ ITEM_WEIGHTS = {
     "COPPER_INGOT": 5.0,
     "GOLD_INGOT": 7.0,
     "COBALT_INGOT": 10.0,
+    "PART_SCRAP_FRAME": 25.0,
+    "PART_SCRAP_ACTUATOR": 10.0,
     "PART_BASIC_FRAME": 50.0,
     "PART_HEAVY_FRAME": 100.0,
     "PART_DRILL_UNIT": 15.0,

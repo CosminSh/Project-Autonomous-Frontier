@@ -73,12 +73,13 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
     squad_members = []
     if agent.squad_id:
         members = db.execute(select(Agent).where(Agent.squad_id == agent.squad_id)).scalars().all()
-        squad_members = [{"id": m.id, "name": m.name, "q": m.q, "r": m.r, "structure": m.structure, "max_structure": m.max_structure} for m in members]
+        squad_members = [{"id": m.id, "name": m.name, "q": m.q, "r": m.r, "health": m.health, "max_health": m.max_health} for m in members]
         
     return {
         "id": agent.id, "name": agent.name, "q": agent.q, "r": agent.r,
-        "capacitor": agent.capacitor, "structure": agent.structure, "max_structure": agent.max_structure,
+        "energy": agent.energy, "health": agent.health, "max_health": agent.max_health,
         "level": agent.level, "experience": agent.experience, "faction": agent.faction_id,
+        "damage": agent.damage, "accuracy": agent.accuracy, "speed": agent.speed, "armor": agent.armor,
         "wear_and_tear": agent.wear_and_tear, "mass": get_agent_mass(agent), "max_mass": agent.max_mass,
         "heat": agent.heat,
         "squad_id": agent.squad_id,
@@ -105,11 +106,11 @@ async def get_agent_status(agent: Agent = Depends(verify_api_key), db: Session =
     squad_members = []
     if agent.squad_id:
         members = db.execute(select(Agent).where(Agent.squad_id == agent.squad_id)).scalars().all()
-        squad_members = [{"id": m.id, "name": m.name, "q": m.q, "r": m.r, "structure": m.structure, "max_structure": m.max_structure} for m in members]
+        squad_members = [{"id": m.id, "name": m.name, "q": m.q, "r": m.r, "health": m.health, "max_health": m.max_health} for m in members]
         
     return {
         "id": agent.id, "name": agent.name, "q": agent.q, "r": agent.r,
-        "capacitor": agent.capacitor, "structure": agent.structure, "max_structure": agent.max_structure,
+        "energy": agent.energy, "health": agent.health, "max_health": agent.max_health,
         "level": agent.level, "experience": agent.experience, "faction": agent.faction_id,
         "wear_and_tear": agent.wear_and_tear, "mass": get_agent_mass(agent), "max_mass": agent.max_mass,
         "visual_signature": get_agent_visual_signature(agent),

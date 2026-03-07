@@ -51,7 +51,7 @@ def verify():
         db.query(Bounty).delete()
         db.query(DailyMission).delete()
         db.commit()
-        agent = Agent(id=1, owner="tester", name="Unit-01", q=0, r=0, kinetic_force=20, api_key="TEST_API_KEY", structure=100, max_structure=100, capacitor=100)
+        agent = Agent(id=1, owner="tester", name="Unit-01", q=0, r=0, damage=20, api_key="TEST_API_KEY", health=100, max_health=100, energy=100)
         db.add(agent)
         drill = ChassisPart(agent_id=1, part_type="Actuator", name="Basic Iron Drill", stats={"bonus_str": 5})
         db.add(drill)
@@ -79,7 +79,7 @@ def verify():
     
     status = perception['self']
     q, r = status['q'], status['r']
-    energy = status['capacitor']
+    energy = status['energy']
     
     if q == 1 and r == 0:
         print(f"[SUCCESS] Movement Successful! Current Energy: {energy}")
@@ -99,7 +99,7 @@ def verify():
         agent = db.get(Agent, 1)
         logs = db.query(AuditLog).all()
         if any(log.event_type == "MINING" for log in logs):
-            print(f"[SUCCESS] Mining Successful! Current Energy: {agent.capacitor}")
+            print(f"[SUCCESS] Mining Successful! Current Energy: {agent.energy}")
             for log in logs:
                 if log.event_type == "MINING":
                     print(f"Log: {log.event_type} - {log.details}")
