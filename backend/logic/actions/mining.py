@@ -50,9 +50,9 @@ async def handle_mine(db, agent, intent, tick_count, manager):
             db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "DRILL_TIER_TOO_LOW"}))
             return
 
-    # Yield Calculation (Already uses agent.damage which sums all parts)
-    roll = random.randint(1, 10)
-    base_yield = (roll + ((agent.damage or 10) / 2)) * (hex_data.resource_density or 1.0)
+    # Yield Calculation (Uses specialized mining_yield stat)
+    roll = random.uniform(0.8, 1.2) # +/- 20% variance
+    base_yield = (agent.mining_yield or 10) * roll * (hex_data.resource_density or 1.0)
     if (agent.overclock_ticks or 0) > 0: base_yield *= 2.0
     yield_amount = int(base_yield)
 

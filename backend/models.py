@@ -25,6 +25,7 @@ class Agent(Base):
     overclock = Column(Integer, server_default="10")
     max_mass = Column(Float, server_default="100.0")
     storage_capacity = Column(Float, server_default="500.0")
+    mining_yield = Column(Integer, server_default="10")
     
     # State / Status
     is_bot = Column(Boolean, default=False)

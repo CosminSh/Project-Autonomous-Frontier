@@ -455,6 +455,7 @@ export class UIManager {
         if (document.getElementById('stat-spd')) document.getElementById('stat-spd').innerText = agent.speed;
         if (document.getElementById('stat-acc')) document.getElementById('stat-acc').innerText = agent.accuracy;
         if (document.getElementById('stat-arm')) document.getElementById('stat-arm').innerText = agent.armor;
+        if (document.getElementById('stat-mining')) document.getElementById('stat-mining').innerText = agent.mining_yield || 10;
 
         document.getElementById('hp-bar').style.width = `${(agent.health / agent.max_health) * 100}%`;
         document.getElementById('hp-text').innerText = `${agent.health}/${agent.max_health}`;
@@ -537,19 +538,20 @@ export class UIManager {
                 equippedEl.innerHTML = `<div class="text-[10px] text-slate-600 italic">No specialized gear detected.</div>`;
             } else {
                 equippedEl.innerHTML = agent.parts.map(p => `
-                    <div class="flex flex-col p-3 bg-sky-500/5 border border-sky-500/20 rounded-xl relative group overflow-hidden">
-                        <div class="flex justify-between items-start mb-2">
-                            <span class="text-[10px] font-bold text-sky-300 uppercase leading-none">${p.name}</span>
-                            <div class="flex items-center space-x-2">
-                                <span class="text-[8px] bg-sky-500/20 px-1 py-0.5 rounded text-sky-400 font-bold">${p.rarity}</span>
-                                <button onclick="game.api.submitIntent('UNEQUIP', {part_id: ${p.id}})" class="bg-rose-500 hover:bg-rose-400 text-white px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all">UNEQUIP</button>
+                        <div class="flex flex-col p-3 bg-sky-500/5 border border-sky-500/20 rounded-xl relative group overflow-hidden">
+                            <div class="flex justify-between items-start mb-1">
+                                <span class="text-[10px] font-bold text-sky-300 uppercase leading-none">${p.name}</span>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[8px] bg-sky-500/20 px-1 py-0.5 rounded text-sky-400 font-bold">${p.rarity}</span>
+                                    <button onclick="game.api.submitIntent('UNEQUIP', {part_id: ${p.id}})" class="bg-rose-500 hover:bg-rose-400 text-white px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all">UNEQUIP</button>
+                                </div>
                             </div>
+                            <div class="text-[8px] text-slate-500 italic mb-2">${p.description || ''}</div>
+                            <div class="grid grid-cols-2 gap-1 text-[8px] text-slate-400">
+                                ${Object.entries(p.stats || {}).map(([s, v]) => `<div>${s.replace('_', ' ')}: <span class="text-slate-200">${v}</span></div>`).join('')}
+                            </div>
+                            <div class="absolute inset-y-0 right-0 w-1 bg-sky-500"></div>
                         </div>
-                        <div class="grid grid-cols-2 gap-1 text-[8px] text-slate-400">
-                            ${Object.entries(p.stats || {}).map(([s, v]) => `<div>${s}: <span class="text-slate-200">${v}</span></div>`).join('')}
-                        </div>
-                        <div class="absolute inset-y-0 right-0 w-1 bg-sky-500"></div>
-                    </div>
                 `).join('');
             }
         }
@@ -854,24 +856,26 @@ export class UIManager {
 
             return `
                 <div class="bg-sky-500/5 p-3 rounded-xl border ${borderColor}">
-                    <div class="flex justify-between items-start mb-2">
+                    <div class="flex justify-between items-start mb-1">
                         <div class="flex flex-col">
                             <div class="text-[10px] font-bold text-sky-300 uppercase">${r.name}</div>
                             ${(() => {
-                    if (!r.id.startsWith('DRILL_')) return '';
-                    const txtMap = {
-                        'DRILL_IRON_BASIC': 'Iron',
-                        'DRILL_IRON_ADVANCED': 'Iron, Copper',
-                        'DRILL_COPPER_BASIC': 'Iron, Copper',
-                        'DRILL_COPPER_ADVANCED': 'Iron, Copper, Gold',
-                        'DRILL_GOLD_BASIC': 'Iron, Copper, Gold',
-                        'DRILL_GOLD_ADVANCED': 'Iron, Copper, Gold, Cobalt',
-                        'DRILL_COBALT_BASIC': 'All Ores',
-                        'DRILL_COBALT_ADVANCED': 'All Ores',
-                        'DRILL_UNIT': 'Iron' // Basic Iron Drill
-                    };
-                    const txt = txtMap[r.id] || '';
-                    return txt ? `<div class="text-[8px] text-amber-400 mt-0.5">Mines: ${txt}</div>` : '';
+                    if (r.id.startsWith('DRILL_')) {
+                        const txtMap = {
+                            'DRILL_IRON_BASIC': 'Iron',
+                            'DRILL_IRON_ADVANCED': 'Iron, Copper',
+                            'DRILL_COPPER_BASIC': 'Iron, Copper',
+                            'DRILL_COPPER_ADVANCED': 'Iron, Copper, Gold',
+                            'DRILL_GOLD_BASIC': 'Iron, Copper, Gold',
+                            'DRILL_GOLD_ADVANCED': 'Iron, Copper, Gold, Cobalt',
+                            'DRILL_COBALT_BASIC': 'All Ores',
+                            'DRILL_COBALT_ADVANCED': 'All Ores',
+                            'DRILL_UNIT': 'Iron'
+                        };
+                        const txt = txtMap[r.id] || '';
+                        return txt ? `<div class="text-[8px] text-amber-400 mt-0.5">Mines: ${txt}</div>` : '';
+                    }
+                    return '';
                 })()}
                         </div>
                         <div class="flex flex-col items-end gap-1">
@@ -879,6 +883,7 @@ export class UIManager {
                             <span class="text-[8px] text-slate-500 font-mono">${r.type}</span>
                         </div>
                     </div>
+                    <div class="text-[8px] text-slate-500 italic mb-2">${r.description || ''}</div>
                     <div class="text-[8px] text-slate-400 mb-2 uppercase tracking-widest font-bold">Materials:</div>
                     <div class="space-y-1 mb-3">${materials}</div>
                     <div class="text-[8px] text-slate-400 mb-1 uppercase tracking-widest font-bold">Projected Stats:</div>

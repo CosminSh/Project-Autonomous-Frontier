@@ -33,11 +33,12 @@ Every agent is built from physical parts slotted into a modular frame:
 
 | Slot | Purpose | Status |
 |---|---|---|
-| **Actuators (×2)** | Tools & Weapons — Drills, Blasters, Gas Siphons | ✅ Live |
-| **Sensors (×1)** | Determines perception radius (Fog of War) | ✅ Live |
-| **Processors (×1)** | Determines INT (logic, strategy, EW capability) | ✅ Live |
-| **Frame (×1)** | Determines base HP and cargo capacity | ✅ Live |
-| **Power (×1)** | Solar Panel (passive regen) or He3 Fuel Cell (dark zone power) | ✅ Live |
+| **Actuators (×1-4)** | Tools & Weapons — Drills, Blasters, Railguns. Drills provide `Mining Yield`. Weapons provide `Damage`. | ✅ Live |
+| **Sensors (×1)** | Determines `Radar Radius`. Scanners provide `Deep Perception` data. | ✅ Live |
+| **Processors (×1)** | Determines Intel/EW capability. | ✅ Live |
+| **Frame (×1)** | The chassis. Defines `Slot Limits` for other parts. | ✅ Live |
+| **Power (×1-2)** | Solar Panels or Fuel Cells. | ✅ Live |
+| **Engine (×1-2)** | Determines `Speed` and `Mass Capacity`. | ✅ Live |
 
 ### 2.2 Rarity Hierarchy
 
@@ -78,12 +79,31 @@ While late-game gear requires rare materials (Gold, Cobalt), the game features a
 |---|---|---|
 | **Structure (HP)** | Physical durability. At 0, the agent is Scrapped — it drops loot and respawns at the Hub. | ✅ Live |
 | **Capacitor (Energy)** | Every action costs energy. Restored via solar trickle or He3 fuel. | ✅ Live |
-| **Wear & Tear** | Increases by 0.1/tick. At high levels, reduces Logic Precision. Reset via CORE_SERVICE. | ✅ Live |
-| **Kinetic Force (STR)** | Powers mining yield and melee damage. | ✅ Live |
-| **Logic Precision (DEX)** | Determines hit chance and critical strike chance. | ✅ Live |
-| **Overclock (INT)** | Activated by consuming He3 fuel. Doubles mine yield and extends move range for 10 ticks. | ✅ Live |
-| **Integrity (Armor)** | Flat reduction to incoming physical damage. | ✅ Live |
-| **Mass & Cargo Capacity** | Heavier cargo costs more energy per move. Cargo limit enforced at the engine level. | ✅ Live |
+| **Wear & Tear** | Passive degradation. High levels reduce all effectiveness. | ✅ Live |
+| **Damage (DMG)** | Combat power used in `ATTACK`, `LOOT`, and `DESTROY` actions. | ✅ Live |
+| **Mining Yield** | Efficiency in `MINE` actions. Drills primarily provide this. | ✅ Live |
+| **Accuracy (ACC)** | Hit chance modifier for combat encounters. | ✅ Live |
+| **Speed (SPD)** | Determines move distance per tick and energy cost efficiency. | ✅ Live |
+| **Armor (ARM)** | Flat reduction to incoming damage. | ✅ Live |
+| **Radar Radius** | Discovery distance. Enhanced by Scanners and specialized Sensors. | ✅ Live |
+| **Mass & Cargo Capacity** | Heavier cargo slows the agent. Frames and Engines define limits. | ✅ Live |
+
+### 2.7 Specialized Frames & The RPS Dynamic
+
+The frontier has evolved beyond basic utility. Pilots now choose specialized Frames that define their role and combat profile:
+
+| Frame Type | Archetype | Strengths | Weaknesses | Slot Limits |
+|---|---|---|---|---|
+| **Striker** | ⚔️ Glass Cannon | High `Damage` & `Speed`. | Low `Armor` & `Cargo`. | 4 Actuators, 1 Engine |
+| **Heavy** | 🛡️ Juggernaut | High `Armor` & `HP`. | Low `Speed` & `Accuracy`. | 2 Actuators, 2 Engines |
+| **Industrial** | ⛏️ Producer | High `Mining Yield` & `Cargo`. | Low `Combat Stats`. | 4 Actuators, 1 Engine |
+| **Hybrid** | ⚖️ Generalist | Balanced stats across all fields. | No extreme specializations. | 2 Actuators, 1 Engine |
+
+#### The Combat Triangle (Rock-Paper-Scissors)
+- **Striker** beats **Industrial/Balanced** (High burst damage).
+- **Heavy** beats **Striker** (Armor absorbs burst, wins war of attrition).
+- **Penetrator (Fast Heavy)** beats **Heavy** (High accuracy weapons bypass slow defenses).
+- **Miners** are optimized for yield but can defend themselves with specialized combat drills.
 
 ---
 

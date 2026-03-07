@@ -26,11 +26,30 @@ async def handle_equip(db, agent, intent, tick_count, manager):
         db.add(AuditLog(agent_id=agent.id, event_type="EQUIP_FAILED", details={"reason": "NOT_IN_INVENTORY", "item": item_type}))
         return
 
-    # Slot Limits
-    slot_limits = {"Frame": 1, "Actuator": 2, "Engine": 1, "Sensor": 1, "Power": 1}
-    part_type = part_def["type"]
-    limit = slot_limits.get(part_type, 1)
+    # Modular Slot Limits based on Frame
+    from config import FRAME_SLOT_LIMITS
     
+    # 1. Identify equipped frame
+    equipped_frame = next((p for p in agent.parts if p.part_type == "Frame"), None)
+    
+    # 2. Get limits for that frame (or DEFAULT)
+    frame_key = "DEFAULT"
+    if equipped_frame:
+        # Map frame name back to config key
+        frame_key = next((k for k, v in PART_DEFINITIONS.items() if v["name"] == equipped_frame.name), "DEFAULT")
+    
+    current_limits = FRAME_SLOT_LIMITS.get(frame_key, FRAME_SLOT_LIMITS["DEFAULT"])
+    part_type = part_def["type"]
+    limit = current_limits.get(part_type, 1)
+    
+    # Frame swap is special: if equipping a Frame, it REPLACES the old one (if any)
+    if part_type == "Frame" and equipped_frame:
+        # Move old frame to inventory (handled by handle_equip callers or we do it here)
+        # For now, we allow the equip to proceed if they have 0 or exactly 1 frame.
+        # But if they are swapping, we should unequip first or support replacement.
+        # To avoid complexity, let's keep the standard "Must unequip first" logic if limit is 1.
+        pass
+
     current_parts = [p for p in agent.parts if p.part_type == part_type]
     if len(current_parts) >= limit:
         db.add(AuditLog(agent_id=agent.id, event_type="EQUIP_FAILED", details={"reason": "SLOTS_FULL", "type": part_type}))
