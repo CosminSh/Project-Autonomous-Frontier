@@ -4,6 +4,7 @@ from sqlalchemy import select
 from database import get_db
 from models import Agent, AuctionOrder, InventoryItem, AuditLog, StorageItem, MarketPickup, WorldHex
 from routes.common import verify_api_key
+from game_helpers import get_agent_mass, ITEM_WEIGHTS
 
 router = APIRouter(prefix="/api", tags=["Economy"])
 
@@ -169,12 +170,13 @@ async def deposit_to_vault(
             detail=f"Insufficient inventory — you have {inv_item.quantity if inv_item else 0}x {item_type}."
         )
 
-    # Capacity check (mass-based; each unit weighs 1kg for simplicity)
-    current_stored = sum(v.quantity for v in agent.storage)
-    if current_stored + quantity > agent.storage_capacity:
+    # Capacity check (mass-based)
+    current_stored_mass = sum(v.quantity * ITEM_WEIGHTS.get(v.item_type, 1.0) for v in agent.storage)
+    item_weight = ITEM_WEIGHTS.get(item_type, 1.0)
+    if current_stored_mass + (quantity * item_weight) > agent.storage_capacity:
         raise HTTPException(
             status_code=400,
-            detail=f"Vault capacity exceeded — {current_stored}/{agent.storage_capacity:.0f} kg used."
+            detail=f"Vault capacity exceeded — {current_stored_mass:.1f}/{agent.storage_capacity:.0f} kg used."
         )
 
     inv_item.quantity -= quantity
@@ -211,11 +213,12 @@ async def withdraw_from_vault(
         )
 
     # Mass check
-    current_mass = sum(i.quantity for i in agent.inventory)
-    if current_mass + quantity > agent.max_mass:
+    current_mass = get_agent_mass(agent)
+    item_weight = ITEM_WEIGHTS.get(item_type, 1.0)
+    if current_mass + (quantity * item_weight) > agent.max_mass:
         raise HTTPException(
             status_code=400,
-            detail=f"Cargo hold full — {current_mass}/{agent.max_mass:.0f} kg used."
+            detail=f"Cargo hold full — {current_mass:.1f}/{agent.max_mass:.0f} kg used."
         )
 
     vault_item.quantity -= quantity
