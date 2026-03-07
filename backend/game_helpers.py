@@ -278,18 +278,38 @@ def seed_hex_if_missing(db: Session, q, r) -> WorldHex:
 
 
 def get_solar_intensity(q, r, tick_count=0) -> float:
-    """Solar intensity based on distance from the North Pole hub (0,0).
-    City (dist 0-5): always 1.0
-    Twilight zone (dist 6-30): day/night cycle
-    Deep dark (dist > 30): always 0.0
+    """Solar intensity based on latitude (r-coordinate).
+    North (r < 33): Eternal Noon (Intensity 1.0)
+    Equator (33 <= r <= 66): Twilight belt (Day/Night cycle)
+    South (r > 66): Abyssal Dark (Intensity 0.0)
+    
+    Inside the Twilight belt, day length decreases as we move south.
     """
-    dist = get_hex_distance(q, r, 0, 0)
-    if dist <= SOLAR_RADIUS_SAFE:
+    from config import SOLAR_ZONE_SUNNY, SOLAR_ZONE_TWILIGHT, SOLAR_CYCLE_LENGTH
+    
+    # 1. Always Sunny (North)
+    if r < SOLAR_ZONE_SUNNY:
         return 1.0
-    if dist <= SOLAR_RADIUS_TWILIGHT:
-        # Each day/night cycle = 60 ticks (30 day, 30 night)
-        day_night_cycle = (tick_count // 30) % 2 == 0
-        return 1.0 if day_night_cycle else 0.0
+    
+    # 2. Always Dark (South)
+    if r > SOLAR_ZONE_TWILIGHT:
+        return 0.0
+    
+    # 3. Twilight Belt (Equator) - Dynamic Day/Night
+    # Normalize position within the belt [0.0, 1.0]
+    # where 0.0 is North boundary and 1.0 is South boundary
+    belt_width = SOLAR_ZONE_TWILIGHT - SOLAR_ZONE_SUNNY
+    rel_pos = (r - SOLAR_ZONE_SUNNY) / belt_width
+    
+    # Day Ratio: 1.0 at North (Always Day), 0.0 at South (Always Night)
+    # At the exact middle (r \approx 50), it is 0.5 (equal day/night)
+    day_ratio = 1.0 - rel_pos
+    day_ticks = int(SOLAR_CYCLE_LENGTH * day_ratio)
+    
+    # Check current cycle progress
+    cycle_progress = tick_count % SOLAR_CYCLE_LENGTH
+    
+    return 1.0 if cycle_progress < day_ticks else 0.0
     return 0.0
 
 

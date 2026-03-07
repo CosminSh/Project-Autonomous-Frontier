@@ -20,8 +20,11 @@ PHASE_CRUNCH_DURATION = 5
 RESPAWN_HP_PERCENT = 0.5
 TOWN_COORDINATES = (0, 0)   # North Pole — the hub
 ANARCHY_THRESHOLD = 6      # City is dist 0-5; anarchy starts at 6
-SOLAR_RADIUS_SAFE = 5      # Always sunny within 5 steps (City)
-SOLAR_RADIUS_TWILIGHT = 30 # Day/night zone: dist 6-30; pure dark beyond
+# Solar Zones (r-coordinate based)
+SOLAR_ZONE_SUNNY = 33      # Always sunny: r in [0, 32]
+SOLAR_ZONE_TWILIGHT = 66   # Day/Night cycle: r in [33, 66]
+# Global Cycle Length (60 ticks = ~1 hour real time at 1.5 min/tick)
+SOLAR_CYCLE_LENGTH = 60
 CLUTTER_THRESHOLD = 3
 CLUTTER_PENALTY = 0.2  # 20% reduction
 
