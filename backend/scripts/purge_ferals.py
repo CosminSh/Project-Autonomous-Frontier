@@ -1,5 +1,5 @@
-from backend.database import SessionLocal
-from backend.models import Agent
+from database import SessionLocal
+from models import Agent
 from sqlalchemy import delete
 
 with SessionLocal() as db:
