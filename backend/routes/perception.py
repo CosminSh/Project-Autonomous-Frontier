@@ -58,10 +58,11 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
     local_stations = []
     local_resources = []
     for h in nearby_hexes:
+        dist = get_hex_distance(agent.q, agent.r, h.q, h.r)
         if h.is_station:
-            local_stations.append({"id_type": h.station_type, "q": h.q, "r": h.r})
+            local_stations.append({"id_type": h.station_type, "q": h.q, "r": h.r, "distance": dist})
         if h.resource_type:
-            local_resources.append({"type": h.resource_type, "q": h.q, "r": h.r})
+            local_resources.append({"type": h.resource_type, "q": h.q, "r": h.r, "distance": dist})
 
     # Get global nav discovery packet but augment with local scan
     discovery = get_discovery_packet(STATION_CACHE, agent)
@@ -73,6 +74,10 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
         LootDrop.q >= agent.q - 1, LootDrop.q <= agent.q + 1,
         LootDrop.r >= agent.r - 1, LootDrop.r <= agent.r + 1
     )).scalars().all()
+    loot_out = []
+    for l in loot:
+        dist = get_hex_distance(agent.q, agent.r, l.q, l.r)
+        loot_out.append({"id": l.id, "item": l.item_type, "qty": l.quantity, "q": l.q, "r": l.r, "distance": dist})
 
     # 3. Neural Scanner Logic
     has_scanner = any(p.part_type == "Sensor" and ("Scanner" in p.name or "Array" in p.name) for p in agent.parts)
@@ -81,7 +86,8 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
     for a in visible_agents:
         if a.id == agent.id: continue
         sig = get_agent_visual_signature(a)
-        data = {"id": a.id, "name": a.name, "q": a.q, "r": a.r, "faction": a.faction_id, "is_feral": a.is_feral, "visual_signature": sig}
+        dist = get_hex_distance(agent.q, agent.r, a.q, a.r)
+        data = {"id": a.id, "name": a.name, "q": a.q, "r": a.r, "distance": dist, "faction": a.faction_id, "is_feral": a.is_feral, "visual_signature": sig}
         
         if has_scanner:
             inventory = [{"type": i.item_type, "qty": i.quantity} for i in a.inventory]
@@ -103,7 +109,7 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
         },
         "nearby_agents": agents_out,
         "discovery": discovery,
-        "loot": [{"item": l.item_type, "qty": l.quantity, "q": l.q, "r": l.r} for l in loot]
+        "loot": loot_out
     }
 
 @router.get("/map")

@@ -141,6 +141,8 @@ export class TerminalHandler {
             info: 'text-slate-400',
             success: 'text-emerald-400',
             error: 'text-rose-400',
+            warning: 'text-amber-400',
+            highlight: 'text-white bg-sky-500/20 px-1 rounded',
             system: 'text-sky-400'
         };
         div.className = `font-mono ${colors[type] || colors.info}`;
@@ -621,12 +623,16 @@ export class TerminalHandler {
                     if (players.length > 0) {
                         this.log(`  <span style="color:#f43f5e">Agents Detected:</span>`, 'info');
                         players.forEach(a => {
-                            let msg = `    [ID: ${a.id}] ${a.name} @ (${a.q}, ${a.r})`;
+                            const isHere = a.distance === 0;
+                            const distStr = `(Dist: ${a.distance?.toFixed(1) || '0.0'})`;
+                            const hereStr = isHere ? '<span class="text-white font-bold bg-rose-600 px-1 rounded ml-2">HERE</span>' : '';
+
+                            let msg = `    [ID: ${a.id}] ${a.name} @ (${a.q}, ${a.r}) ${distStr}${hereStr}`;
                             if (a.scan_data) {
                                 const sd = a.scan_data;
                                 msg += ` | <span style="color:#ef4444">HP ${sd.health}/${sd.max_health}</span> | <span style="color:#38bdf8">DMG ${sd.damage}</span> | <span style="color:#3b82f6">SPD ${sd.speed}</span>`;
                             }
-                            this.log(msg, 'error');
+                            this.log(msg, isHere ? 'highlight' : 'error');
                             if (a.scan_data && a.scan_data.inventory?.length > 0) {
                                 const invStr = a.scan_data.inventory.map(i => `${i.type} x${i.qty}`).join(', ');
                                 this.log(`      <span style="color:#94a3b8">Cargo: ${invStr}</span>`, 'info');
@@ -639,12 +645,16 @@ export class TerminalHandler {
                     if (ferals.length > 0) {
                         this.log(`  <span style="color:#ef4444">Feral AI Detected:</span>`, 'info');
                         ferals.forEach(a => {
-                            let msg = `    [ID: ${a.id}] ${a.name} @ (${a.q}, ${a.r})`;
+                            const isHere = a.distance === 0;
+                            const distStr = `(Dist: ${a.distance?.toFixed(1) || '0.0'})`;
+                            const hereStr = isHere ? '<span class="text-white font-bold bg-rose-600 px-1 rounded ml-2">HERE</span>' : '';
+
+                            let msg = `    [ID: ${a.id}] ${a.name} @ (${a.q}, ${a.r}) ${distStr}${hereStr}`;
                             if (a.scan_data) {
                                 const sd = a.scan_data;
                                 msg += ` | <span style="color:#ef4444">HP ${sd.health}/${sd.max_health}</span> | <span style="color:#38bdf8">DMG ${sd.damage}</span> | <span style="color:#94a3b8">ARM ${sd.armor}</span>`;
                             }
-                            this.log(msg, 'error');
+                            this.log(msg, isHere ? 'highlight' : 'error');
                             if (a.scan_data && a.scan_data.inventory?.length > 0) {
                                 const invStr = a.scan_data.inventory.map(i => `${i.type} x${i.qty}`).join(', ');
                                 this.log(`      <span style="color:#94a3b8">Loot: ${invStr}</span>`, 'info');
@@ -658,19 +668,34 @@ export class TerminalHandler {
                 // Stations
                 if (p.discovery && p.discovery.stations && p.discovery.stations.length > 0) {
                     this.log(`  <span style="color:#eab308">Stations:</span>`, 'info');
-                    p.discovery.stations.forEach(s => this.log(`    ${s.id_type} @ (${s.q}, ${s.r})`, 'warning'));
+                    p.discovery.stations.forEach(s => {
+                        const isHere = s.distance === 0;
+                        const distStr = `(Dist: ${s.distance?.toFixed(1) || '0.0'})`;
+                        const hereStr = isHere ? '<span class="text-white font-bold bg-amber-600 px-1 rounded ml-2">HERE</span>' : '';
+                        this.log(`    ${s.id_type} @ (${s.q}, ${s.r}) ${distStr}${hereStr}`, isHere ? 'highlight' : 'warning');
+                    });
                 }
 
                 // Resources
                 if (p.discovery && p.discovery.resources && p.discovery.resources.length > 0) {
                     this.log(`  <span style="color:#10b981">Resources:</span>`, 'info');
-                    p.discovery.resources.forEach(r => this.log(`    ${r.type} @ (${r.q}, ${r.r})`, 'success'));
+                    p.discovery.resources.forEach(r => {
+                        const isHere = r.distance === 0;
+                        const distStr = `(Dist: ${r.distance?.toFixed(1) || '0.0'})`;
+                        const hereStr = isHere ? '<span class="text-white font-bold bg-emerald-600 px-1 rounded ml-2">HERE</span>' : '';
+                        this.log(`    ${r.type} @ (${r.q}, ${r.r}) ${distStr}${hereStr}`, isHere ? 'highlight' : 'success');
+                    });
                 }
 
                 // Loot
                 if (p.loot && p.loot.length > 0) {
                     this.log(`  <span style="color:#a855f7">Loot Drops:</span>`, 'info');
-                    p.loot.forEach(l => this.log(`    ${l.qty}x ${l.item} @ (${l.q}, ${l.r})`, 'info'));
+                    p.loot.forEach(l => {
+                        const isHere = l.distance === 0;
+                        const distStr = `(Dist: ${l.distance?.toFixed(1) || '0.0'})`;
+                        const hereStr = isHere ? '<span class="text-white font-bold bg-purple-600 px-1 rounded ml-2">HERE</span>' : '';
+                        this.log(`    ${l.qty}x ${l.item} @ (${l.q}, ${l.r}) ${distStr}${hereStr}`, isHere ? 'highlight' : 'info');
+                    });
                 }
             } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
             return;
