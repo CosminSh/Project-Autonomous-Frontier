@@ -65,7 +65,13 @@ async def update_global_agent_stats(db, tick_count, manager):
                     canister.data = {}
 
         regen = int(BASE_REGEN * efficiency * (1.0 if fuel_bypass else intensity))
-        if agent.q == 0 and agent.r == 0: regen *= 2 # Town bonus
+        
+        # 2x Regeneration bonus at Stations (POI)
+        from models import WorldHex
+        is_at_station = db.execute(select(func.count(WorldHex.id)).where(
+            WorldHex.q == agent.q, WorldHex.r == agent.r, WorldHex.is_station == True
+        )).scalar()
+        if is_at_station: regen *= 2
         
         agent.energy = min(100, agent.energy + regen)
 

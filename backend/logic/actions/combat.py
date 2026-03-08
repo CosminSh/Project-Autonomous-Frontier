@@ -14,7 +14,10 @@ async def handle_attack(db, agent, intent, tick_count, manager):
     """Handles agent-to-agent combat, including evasion, damage, and death/looting."""
     target_id = intent.data.get("target_id")
     if agent.energy < ATTACK_ENERGY_COST:
-        db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "INSUFFICIENT_ENERGY"}))
+        db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={
+            "reason": "INSUFFICIENT_ENERGY", 
+            "help": "Combat requires 15 Energy at min. Recharging at stations is 2x faster!"
+        }))
         return
 
     target = db.get(Agent, target_id)

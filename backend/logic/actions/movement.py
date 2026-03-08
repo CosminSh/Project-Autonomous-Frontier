@@ -88,7 +88,8 @@ async def handle_move(db, agent, intent, tick_count, manager):
 
     if agent.energy < energy_cost:
         db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={
-            "reason": "INSUFFICIENT_ENERGY"
+            "reason": "INSUFFICIENT_ENERGY",
+            "help": "Move costs 5 energy. Latitude r < 66 is sunny — idle in the sun to recharge."
         }))
         return
 

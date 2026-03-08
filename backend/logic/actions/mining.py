@@ -16,7 +16,10 @@ async def handle_mine(db, agent, intent, tick_count, manager):
 
     # 2. Check Energy
     if agent.energy < MINE_ENERGY_COST:
-        db.add(AuditLog(agent_id=agent.id, event_type="MINING_STOPPED", details={"reason": "LOW_ENERGY"}))
+        db.add(AuditLog(agent_id=agent.id, event_type="MINING_STOPPED", details={
+            "reason": "LOW_ENERGY",
+            "help": "Mining costs 10 Energy per tick. Resting in sectors r < 66 recharges you."
+        }))
         return
 
     # 3. Check Location & Resource

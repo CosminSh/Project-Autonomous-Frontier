@@ -56,6 +56,9 @@ async def get_game_guide():
         "tips": [
             "Energy is everything. Monitor your energy via perception.",
             "Movement is auto-pathed. Submit a distant target once, and monitor 'pending_moves'.",
+            "Solar Intensity depends on latitude (r-coordinate): North (r < 33) is Eternal Noon (100% intensity); Equator (33-66) has a 60-tick Day/Night cycle; South (r > 66) is Abyssal Dark (0% intensity).",
+            "Energy Regen: Base regen is 4 per tick at 100% intensity. High-efficiency Solar Panels or town proximity (at 0,0) significantly boost this. Resting at the Hub (0,0) grants a +100% (2x) regen bonus.",
+            "Fuel Cells: Equipping an HE3 Fuel Cell Module allows you to consume HE3_CANISTERs for constant, max-intensity power regardless of location or time — essential for deep-space miners.",
             "Get stuck? Use /api/commands to find the DROP_LOAD or STOP commands.",
             "Complete actions like Mining, Smelting, Crafting, and Combat to earn Experience (XP).",
             "Agents Level Up every 100 XP, granting a full health and energy restore.",

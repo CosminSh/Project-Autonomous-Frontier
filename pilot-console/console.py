@@ -294,6 +294,7 @@ class PilotConsole:
             inv[it] = inv.get(it, 0) + item["quantity"]
 
         energy = agent.get("energy", 100)
+        intensity = perception.get("solar_intensity", 100) # Percentage integer
         obj_text = self.objective.get().upper()
         
         # Determine target ore and depth band from objective
@@ -316,8 +317,15 @@ class PilotConsole:
         # 1. Safety & Energy Check
         if energy < 20:
             if current_state != "CHARGING":
-                self.log(f"SYSTEM: Energy Critical ({energy}%). Initiating Charge.")
-                self.client.submit_intent("STOP")
+                # Smart Recharging: If solar intensity is good, stay here.
+                # Only return if in the dark, otherwise distance cost > charging profit
+                if intensity > 70:
+                    self.log(f"SYSTEM: Energy Low ({energy}%). Intensity High ({intensity}%). Recharging on-site.")
+                    self.client.submit_intent("STOP")
+                else:
+                    self.log(f"SYSTEM: Energy Low ({energy}%). Intensity Poor ({intensity}%). Returning to Hub for power.")
+                    self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
+                    return "CHARGING"
                 return "CHARGING"
             return "CHARGING"
         
