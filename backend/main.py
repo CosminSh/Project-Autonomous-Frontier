@@ -47,6 +47,9 @@ async def lifespan(app: FastAPI):
         ("agents", "elo", "INTEGER DEFAULT 1200"),
         ("agents", "arena_wins", "INTEGER DEFAULT 0"),
         ("agents", "arena_losses", "INTEGER DEFAULT 0"),
+        ("agents", "mining_yield", "INTEGER DEFAULT 10"),
+        ("agents", "experience", "INTEGER DEFAULT 0"),
+        ("agents", "level", "INTEGER DEFAULT 1"),
         ("bounties", "claimed_by", "INTEGER REFERENCES agents(id)"),
         ("bounties", "claim_tick", "BIGINT"),
     ]
