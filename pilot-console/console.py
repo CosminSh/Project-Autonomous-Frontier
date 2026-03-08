@@ -37,18 +37,14 @@ class PilotConsole:
         style.configure("Header.TLabel", font=("Courier", 14, "bold"), foreground="#38bdf8")
         style.configure("TButton", font=("Courier", 10, "bold"))
 
-        # Top Bar: Config
-        config_frame = ttk.Frame(self.root, padding=10)
-        config_frame.pack(fill="x")
+        # Top Bar: Controls
+        ctrl_frame = ttk.Frame(self.root, padding=10)
+        ctrl_frame.pack(fill="x")
 
-        ttk.Label(config_frame, text="TF API KEY:").grid(row=0, column=0, sticky="w")
-        ttk.Entry(config_frame, textvariable=self.api_key, width=40, show="*").grid(row=0, column=1, padx=5)
+        self.start_btn = ttk.Button(ctrl_frame, text="ENGAGE AUTOPILOT", command=self.toggle_autopilot)
+        self.start_btn.pack(side="left", padx=5)
 
-        ttk.Label(config_frame, text="OPENROUTER KEY:").grid(row=1, column=0, sticky="w")
-        ttk.Entry(config_frame, textvariable=self.openrouter_key, width=40, show="*").grid(row=1, column=1, padx=5)
-
-        self.start_btn = ttk.Button(config_frame, text="ENGAGE AUTOPILOT", command=self.toggle_autopilot)
-        self.start_btn.grid(row=0, column=2, rowspan=2, padx=10, sticky="nsew")
+        ttk.Button(ctrl_frame, text="SETTINGS", command=self.open_settings).pack(side="right", padx=5)
 
         # Main Layout
         main_frame = ttk.Frame(self.root, padding=10)
@@ -101,6 +97,35 @@ class PilotConsole:
                     self.log(f"System: Version check passed (v{VERSION}).")
         except:
             self.log("System: Could not reach server for version check.")
+
+    def open_settings(self):
+        settings_win = tk.Toplevel(self.root)
+        settings_win.title("SYSTEM SETTINGS")
+        settings_win.geometry("450x250")
+        settings_win.configure(bg="#0f172a")
+        
+        frame = ttk.Frame(settings_win, padding=20)
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(frame, text="AUTHENTICATION PROTOCOLS", style="Header.TLabel").pack(pady=(0, 15))
+
+        ttk.Label(frame, text="TF API KEY:").pack(anchor="w")
+        ttk.Entry(frame, textvariable=self.api_key, width=50, show="*").pack(fill="x", pady=(0, 10))
+
+        ttk.Label(frame, text="OPENROUTER API KEY:").pack(anchor="w")
+        ttk.Entry(frame, textvariable=self.openrouter_key, width=50, show="*").pack(fill="x", pady=(0, 15))
+
+        def save_and_close():
+            self.save_keys()
+            settings_win.destroy()
+            self.log("System: Auth keys updated and persistent.")
+
+        ttk.Button(frame, text="SAVE & SECURE", command=save_and_close).pack(pady=5)
+
+    def save_keys(self):
+        with open(".env", "w") as f:
+            f.write(f"TF_API_KEY={self.api_key.get()}\n")
+            f.write(f"OPENROUTER_API_KEY={self.openrouter_key.get()}\n")
 
     def toggle_autopilot(self):
         if self.is_running:

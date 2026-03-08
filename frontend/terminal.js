@@ -610,7 +610,7 @@ export class TerminalHandler {
             try {
                 const apiKey = localStorage.getItem('sv_api_key');
                 const resp = await fetch('/api/perception', { headers: { 'X-API-KEY': apiKey } });
-                if (!resp.ok) throw new Error('Not authenticated.');
+                if (!resp.ok) throw new Error(`Sensor Uplink Failure: ${resp.status}`);
                 const p = await resp.json();
                 this.log(`<b>═══ TACTICAL PERCEIVE ═══</b>`, 'system');
                 this.log(`  Agent:     <b>${p.self.name}</b> at (${p.self.q}, ${p.self.r})`, 'info');

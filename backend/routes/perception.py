@@ -108,8 +108,13 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
         "energy": agent.energy, "health": agent.health,
         "level": agent.level, "faction": agent.faction_id
     }
+    # Calculate pending moves by counting future MOVE intents
+    pending_moves = 0
+    if state:
+        pending_moves = sum(1 for i in agent.intents if i.action_type == "MOVE" and i.tick_index > state.tick_index)
+
     agent_status = {
-        "pending_moves": agent.pending_moves or 0
+        "pending_moves": pending_moves
     }
 
     # The 'content' wrapper is for the Pilot Console / Bot Client.
