@@ -38,24 +38,28 @@ async def lifespan(app: FastAPI):
     from sqlalchemy import text
     
     Base.metadata.create_all(engine)
-
+    
     # Safe column migrations: add new columns to existing tables without dropping data.
-    # PostgreSQL's "ADD COLUMN IF NOT EXISTS" is idempotent — safe to run every startup.
+    # We use a robust try-except approach to handle different DB backends.
     safe_migrations = [
-        "ALTER TABLE bounties ADD COLUMN IF NOT EXISTS claimed_by INTEGER REFERENCES agents(id)",
-        "ALTER TABLE bounties ADD COLUMN IF NOT EXISTS claim_tick BIGINT",
-        "ALTER TABLE agents ADD COLUMN IF NOT EXISTS elo INTEGER DEFAULT 1200",
-        "ALTER TABLE agents ADD COLUMN IF NOT EXISTS arena_wins INTEGER DEFAULT 0",
-        "ALTER TABLE agents ADD COLUMN IF NOT EXISTS arena_losses INTEGER DEFAULT 0",
+        ("agents", "last_attacked_tick", "INTEGER DEFAULT 0"),
+        ("agents", "is_in_anarchy_zone", "BOOLEAN DEFAULT FALSE"), # In case we want to store it
+        ("agents", "elo", "INTEGER DEFAULT 1200"),
+        ("agents", "arena_wins", "INTEGER DEFAULT 0"),
+        ("agents", "arena_losses", "INTEGER DEFAULT 0"),
+        ("bounties", "claimed_by", "INTEGER REFERENCES agents(id)"),
+        ("bounties", "claim_tick", "BIGINT"),
     ]
-    if "sqlite" not in str(engine.url):
-        with engine.connect() as conn:
-            for stmt in safe_migrations:
-                try:
-                    conn.execute(text(stmt))
-                    conn.commit()
-                except Exception as e:
-                    logger.warning(f"Migration skipped (may already exist): {e}")
+    
+    with engine.connect() as conn:
+        for table, col, col_type in safe_migrations:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+                conn.commit()
+                logger.info(f"Migration: Added column {col} to {table}.")
+            except Exception as e:
+                # Most likely 'duplicate column name' or similar
+                pass
 
     with SessionLocal() as db:
         hex_count = db.execute(select(func.count(WorldHex.id))).scalar()

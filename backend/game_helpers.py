@@ -527,7 +527,10 @@ def get_discovery_packet(station_cache: list, agent: Agent) -> dict:
             dist = get_hex_distance(agent.q, agent.r, nearest["q"], nearest["r"])
             # Ensure MARKET is presented as STATION_HUB for UI consistency if needed
             display_name = "STATION_HUB" if st == "MARKET" else st
-            discovery[display_name] = {"q": nearest["q"], "r": nearest["r"], "distance": dist}
+            info = {"id_type": display_name, "q": nearest["q"], "r": nearest["r"], "distance": dist}
+            discovery[display_name] = info
+            if "stations" not in discovery: discovery["stations"] = []
+            discovery["stations"].append(info)
 
     # Use pre-built cached recipes — no per-request allocation
     discovery["crafting_recipes"] = _CACHED_CRAFTING_RECIPES
