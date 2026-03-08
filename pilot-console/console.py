@@ -182,46 +182,66 @@ class PilotConsole:
                     last_tick = current_tick
                     self.log(f"Tick {current_tick}: Evaluating state...")
                     
-                    # VERY SIMPLE MINER LOGIC (Simplified from example_miner)
+                    # Miner Logic
                     inv = {i["type"]: i["quantity"] for i in agent.get("inventory", [])}
-                    ore = inv.get("IRON_ORE", 0)
                     energy = agent.get("energy", 100)
+                    
+                    # Target Resource from Objective (Very simple keyword check)
+                    target_res_type = "IRON_ORE"
+                    if "COPPER" in self.objective.get().upper(): target_res_type = "COPPER_ORE"
+                    elif "GOLD" in self.objective.get().upper(): target_res_type = "GOLD_ORE"
+                    elif "COBALT" in self.objective.get().upper(): target_res_type = "COBALT_ORE"
+
+                    ore_qty = inv.get(target_res_type, 0)
                     
                     if energy < 20:
                         if state != "CHARGING":
-                            self.log("Energy Low. Stopping.")
+                            self.log(f"Energy Low ({energy}%). Stopping.")
                             self.client.submit_intent("STOP")
                             state = "CHARGING"
                     elif energy >= 95 and state == "CHARGING":
                         state = "IDLE"
-                        self.log("Energy Restored.")
+                        self.log("Energy Restored. Resuming.")
 
                     if state == "IDLE":
-                        if ore >= 20:
-                            self.log("Inventory full. Returning to Hub.")
+                        if ore_qty >= 20:
+                            self.log(f"Cargo full ({ore_qty} units). Returning to Hub.")
                             self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
                             state = "RETURNING"
                         else:
-                            # Try to mine if at ore, otherwise find ore
-                            here = perception.get("self", {})
-                            if here.get("terrain") == "ASTEROID":
-                                self.log("At asteroid. Mining.")
+                            # Check current hex for resource
+                            self_data = perception.get("self", {})
+                            env_resources = perception.get("discovery", {}).get("resources", [])
+                            
+                            # Are we standing on it?
+                            on_target = any(r for r in env_resources if r["q"] == self_data["q"] and r["r"] == self_data["r"] and r["type"] == target_res_type)
+                            
+                            if on_target:
+                                self.log(f"At {target_res_type} vein. Initiating Mining Loop.")
                                 self.client.submit_intent("MINE")
                                 state = "MINING"
                             else:
-                                self.log("Searching for nearest iron vein...")
-                                env = perception.get("environment", {}).get("environment_hexes", [])
-                                target = next((h for h in env if h.get("resource") == "IRON_ORE"), None)
+                                self.log(f"Scanning for {target_res_type}...")
+                                # Look for target in local perception
+                                target = next((r for r in env_resources if r["type"] == target_res_type), None)
+                                
                                 if target:
+                                    self.log(f"Found {target_res_type} at ({target['q']}, {target['r']}). Moving.")
                                     self.client.submit_intent("MOVE", {"target_q": target["q"], "target_r": target["r"]})
                                     state = "MOVING"
                                 else:
-                                    self.log("No iron in range. Moving randomly.")
-                                    self.client.submit_intent("MOVE", {"target_q": agent["q"] + 2, "target_r": agent["r"] + 2})
+                                    self.log(f"No {target_res_type} nearby. Searching deeper into the frontier...")
+                                    self.client.submit_intent("MOVE", {"target_q": agent["q"] + 3, "target_r": agent["r"] + 3})
                                     state = "MOVING"
                     
                     elif state == "MOVING" or state == "RETURNING":
+                        # Check "pending_moves" in agent_status (wait for server to finish pathfinding)
                         if perception.get("agent_status", {}).get("pending_moves", 0) == 0:
+                            state = "IDLE"
+                    
+                    elif state == "MINING":
+                        # Check if we should stop
+                        if ore_qty >= 20 or energy < 15:
                             state = "IDLE"
 
                 # Ask LLM if key is present (Chat logic)
