@@ -9,7 +9,7 @@ import sys
 from bot_client import TFClient
 from dotenv import load_dotenv
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 DEFAULT_API_URL = "https://terminal-frontier.pixek.xyz"
 
 # Aesthetic Constants
@@ -283,16 +283,26 @@ class PilotConsole:
                 self.log(f"ERR: {e}")
             time.sleep(2)
 
+    def get_hex_distance(self, q1, r1, q2, r2):
+        return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
+
     def process_strategy(self, agent, perception, current_state):
         inv = {i["type"]: i["quantity"] for i in agent.get("inventory", [])}
         energy = agent.get("energy", 100)
         obj_text = self.objective.get().upper()
         
-        # Determine target ore from objective
+        # Determine target ore and depth band from objective
         target_res_type = "IRON_ORE"
-        if "COPPER" in obj_text: target_res_type = "COPPER_ORE"
-        elif "GOLD" in obj_text: target_res_type = "GOLD_ORE"
-        elif "COBALT" in obj_text: target_res_type = "COBALT_ORE"
+        target_zone = (6, 20) # Stay in inner ring for Iron
+        if "COPPER" in obj_text: 
+            target_res_type = "COPPER_ORE"
+            target_zone = (16, 40)
+        elif "GOLD" in obj_text: 
+            target_res_type = "GOLD_ORE"
+            target_zone = (31, 60)
+        elif "COBALT" in obj_text: 
+            target_res_type = "COBALT_ORE"
+            target_zone = (55, 100)
         
         ore_qty = inv.get(target_res_type, 0)
         ingots = {k: v for k, v in inv.items() if "_INGOT" in k}
@@ -337,8 +347,20 @@ class PilotConsole:
                     self.client.submit_intent("MOVE", {"target_q": target["q"], "target_r": target["r"]})
                     return "MOVING"
                 else:
-                    self.log("STRATEGY: Resource not detected in range. Conducting Grid Search...")
-                    self.client.submit_intent("MOVE", {"target_q": self_data["q"] + 3, "target_r": self_data["r"] + 3})
+                    self_data = perception.get("self", {})
+                    dist = self.get_hex_distance(0, 0, self_data["q"], self_data["r"])
+                    
+                    if dist < target_zone[0]:
+                        self.log(f"STRATEGY: Too close to Hub for {target_res_type} (Dist {dist}). Moving OUT.")
+                        self.client.submit_intent("MOVE", {"target_q": self_data["q"] + 4, "target_r": self_data["r"] + 4})
+                    elif dist > target_zone[1]:
+                        self.log(f"STRATEGY: Drifted into deep space (Dist {dist}). Returning to {target_res_type} Belt.")
+                        self.client.submit_intent("MOVE", {"target_q": max(0, self_data["q"] - 5), "target_r": max(0, self_data["r"] - 5)})
+                    else:
+                        self.log(f"STRATEGY: No {target_res_type} detected. Scouting within Belt (Dist {dist}).")
+                        # Mini random-walk scouting: zig-zag
+                        dq = 2 if (perception.get("tick_info", {}).get("current_tick", 0) % 2 == 0) else -2
+                        self.client.submit_intent("MOVE", {"target_q": self_data["q"] + dq, "target_r": self_data["r"] + 3})
                     return "MOVING"
 
         if current_state == "RETURNING":
