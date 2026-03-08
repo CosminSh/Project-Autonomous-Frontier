@@ -68,7 +68,11 @@ class PilotConsole:
         obj_frame.pack(fill="x", pady=(0, 10))
         ttk.Label(obj_frame, text="MISSION OBJECTIVE:").pack(side="left")
         ttk.Entry(obj_frame, textvariable=self.objective).pack(side="left", fill="x", expand=True, padx=5)
-        ttk.Button(obj_frame, text="UPDATE", command=self.update_objective).pack(side="left")
+        
+        btn_frame = ttk.Frame(obj_frame)
+        btn_frame.pack(side="left")
+        ttk.Button(btn_frame, text="UPDATE", command=self.update_objective_local).pack(side="left", padx=2)
+        ttk.Button(btn_frame, text="CONSULT AI", command=self.update_objective_ai).pack(side="left", padx=2)
 
         # Telemetry Log
         ttk.Label(right_frame, text="TELEMETRY FEED", style="Header.TLabel").pack(anchor="w")
@@ -169,7 +173,7 @@ class PilotConsole:
         self.client = TFClient(self.api_key.get(), DEFAULT_API_URL)
         self.is_running = True
         self.start_btn.config(text="DISENGAGE")
-        self.log("--- AUTOPILOT ENGAGED ---")
+        self.log("--- AUTOPILOT ENGAGED (SCRIPTED STRATEGY) ---")
         
         # Start Worker Thread
         threading.Thread(target=self.worker_loop, daemon=True).start()
@@ -179,17 +183,22 @@ class PilotConsole:
         self.start_btn.config(text="ENGAGE AUTOPILOT")
         self.log("--- AUTOPILOT DISENGAGED ---")
 
-    def update_objective(self):
+    def update_objective_local(self):
         obj = self.objective.get()
-        self.log(f"Mission: Received new directives: {obj}")
+        self.log(f"Mission: Scripted Directives Applied: {obj}")
+        self.log("System: Strategy updated using Python Rulebook.")
+
+    def update_objective_ai(self):
+        obj = self.objective.get()
+        self.log(f"Mission: Requesting AI Tactical Translation for: {obj}")
         
         rk = self.openrouter_key.get()
         if not rk:
-            self.log("System: No OpenRouter key found. Objective set locally only.")
+            messagebox.showwarning("Warning", "No OpenRouter key configured. Please add one in SETTINGS.")
             return
 
         def ask_llm():
-            self.log("System: Consulting Tactical AI...")
+            self.log("System: Consulting OpenRouter Tactical AI...")
             try:
                 resp = requests.post(
                     url="https://openrouter.ai/api/v1/chat/completions",
@@ -218,6 +227,8 @@ class PilotConsole:
                         self.log(f"System: AI locked onto resource target: {new_target}")
                 else:
                     self.log(f"Tactical AI Error: {resp.status_code}")
+                    if resp.status_code == 429:
+                        self.log("System: Quota Exceeded. Switching to internal Scripted Strategy.")
             except Exception as e:
                 self.log(f"Tactical AI Fail: {str(e)}")
 
@@ -268,68 +279,71 @@ class PilotConsole:
                         self.log("Energy Restored. Resuming.")
 
                     if state == "IDLE":
-                        if ore_qty >= 20:
+                        if ore_qty >= 20: 
                             self.log(f"Cargo full ({ore_qty} units). Returning to Hub.")
                             self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
                             state = "RETURNING"
-                        elif has_ingots and ("VAULT" in obj_text or "DEPOSIT" in obj_text):
-                             self.log("Have ingots and objective requires deposit. Returning to Hub.")
+                        elif has_ingots and ("VAULT" in obj_text or "DEPOSIT" in obj_text or "SELL" in obj_text):
+                             self.log("Have processed materials. Returning to Hub.")
                              self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
                              state = "RETURNING"
                         else:
-                            # Check current hex for resource
+                            # Are we standing on a resource?
                             self_data = perception.get("self", {})
                             env_resources = perception.get("discovery", {}).get("resources", [])
                             
-                            # Are we standing on it?
                             on_target = any(r for r in env_resources if r["q"] == self_data["q"] and r["r"] == self_data["r"] and r["type"] == target_res_type)
                             
                             if on_target:
-                                self.log(f"At {target_res_type} vein. Initiating Mining Loop.")
+                                self.log(f"At {target_res_type}. Initiating Mining.")
                                 self.client.submit_intent("MINE")
                                 state = "MINING"
                             else:
-                                self.log(f"Scanning for {target_res_type}...")
+                                self.log(f"Searching for {target_res_type}...")
                                 target = next((r for r in env_resources if r["type"] == target_res_type), None)
-                                
                                 if target:
-                                    self.log(f"Found {target_res_type} at ({target['q']}, {target['r']}). Moving.")
                                     self.client.submit_intent("MOVE", {"target_q": target["q"], "target_r": target["r"]})
                                     state = "MOVING"
                                 else:
-                                    self.log(f"No {target_res_type} in range. Moving randomly.")
-                                    self.client.submit_intent("MOVE", {"target_q": self_data["q"] + 2, "target_r": self_data["r"]})
+                                    self.log("Resource not in range. Scouting...")
+                                    self.client.submit_intent("MOVE", {"target_q": self_data["q"] + 3, "target_r": self_data["r"] + 3})
                                     state = "MOVING"
 
                     elif state == "RETURNING":
                         self_data = perception.get("self", {})
                         if self_data["q"] == 0 and self_data["r"] == 0:
-                            self.log("At Hub. Processing materials.")
-                            
-                            # Check for Smelting in objective
+                            # We are at the Hub
                             if ore_qty >= 10 and ("SMELT" in obj_text or "REFINE" in obj_text):
-                                self.log(f"Smelting {ore_qty}x {target_res_type}...")
+                                self.log(f"Internal Strategy: Smelting {target_res_type}...")
                                 self.client.submit_intent("SMELT", {"ore_type": target_res_type, "quantity": 10})
-                                # Stay in returning/smelting state until ore gone
+                                # Stay in RETURNING to finish smelting
                             elif has_ingots and ("VAULT" in obj_text or "DEPOSIT" in obj_text):
-                                for i_type, i_qty in ingots.items():
-                                    if i_qty > 0:
-                                        self.log(f"Depositing {i_qty}x {i_type} to Vault...")
-                                        self.client.submit_intent("STORAGE_DEPOSIT", {"item_type": i_type, "quantity": i_qty})
-                                        break
-                                # If we did all ingots, we can go back to IDLE
-                                if sum(ingots.values()) == 0:
+                                target_ingot = target_res_type.replace("_ORE", "_INGOT")
+                                qty = inv.get(target_ingot, 0)
+                                if qty > 0:
+                                    self.log(f"Internal Strategy: Depositing {qty}x {target_ingot}...")
+                                    self.client.submit_intent("STORAGE_DEPOSIT", {"item_type": target_ingot, "quantity": qty})
+                                else:
+                                    self.log("Vaulting complete.")
                                     state = "IDLE"
-                            else:
-                                self.log("Hub processing complete. Resuming operations.")
+                            elif "SELL" in obj_text and ore_qty > 0:
+                                self.log(f"Internal Strategy: Selling {ore_qty}x {target_res_type}...")
+                                # Using assume recipe path for simplicity
+                                self.client.submit_intent("CRAFT", {"recipe_id": f"SELL_{target_res_type}_BATCH"})
                                 state = "IDLE"
+                            else:
+                                self.log("Tasks at Hub finished.")
+                                state = "IDLE"
+                        else:
+                            # Still in transit
+                            pass
 
                     elif state == "MOVING":
-                        # If we were moving and reached, or tick advanced
+                        # Arrived or tick passed
                         state = "IDLE"
                     
                     elif state == "MINING":
-                        # Continue mining until cargo threshold
+                        # Mining active, wait for cargo
                         if ore_qty >= 20: 
                             state = "IDLE"
 
