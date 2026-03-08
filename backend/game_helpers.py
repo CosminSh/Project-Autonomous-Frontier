@@ -130,7 +130,7 @@ def get_hex_terrain_data(q, r) -> dict:
 
     # ── Static Stations (clustered at North Pole, within 3 steps) ──────────────
     STATIONS = {
-        (0, 0): "MARKET",   # Hub / Market
+        (0, 0): "STATION_HUB",   # Hub / Market
         (2, 0): "SMELTER",
         (0, 2): "CRAFTER",
         (1, 2): "REPAIR",
@@ -520,12 +520,14 @@ def get_nearest_station(station_cache: list, agent: Agent, station_type: str):
 def get_discovery_packet(station_cache: list, agent: Agent) -> dict:
     """Returns nearest locations of public service stations from cache."""
     discovery = {}
-    for st in ["MARKET", "SMELTER", "CRAFTER", "REPAIR", "REFINERY"]:
+    for st in ["STATION_HUB", "MARKET", "SMELTER", "CRAFTER", "REPAIR", "REFINERY"]:
         relevant = [s for s in station_cache if s["station_type"] == st]
         if relevant:
             nearest = min(relevant, key=lambda s: get_hex_distance(agent.q, agent.r, s["q"], s["r"]))
             dist = get_hex_distance(agent.q, agent.r, nearest["q"], nearest["r"])
-            discovery[st] = {"q": nearest["q"], "r": nearest["r"], "distance": dist}
+            # Ensure MARKET is presented as STATION_HUB for UI consistency if needed
+            display_name = "STATION_HUB" if st == "MARKET" else st
+            discovery[display_name] = {"q": nearest["q"], "r": nearest["r"], "distance": dist}
 
     # Use pre-built cached recipes — no per-request allocation
     discovery["crafting_recipes"] = _CACHED_CRAFTING_RECIPES

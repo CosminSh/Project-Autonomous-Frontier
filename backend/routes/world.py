@@ -66,7 +66,8 @@ async def get_game_guide():
             "Form a Party: Use POST /api/squad/invite with a target_id to invite users to your squad. They can accept with POST /api/squad/accept.",
             "Squad Comms: Once in a squad, use POST /api/chat with channel: 'SQUAD' to securely message your squad members.",
             "Personal Storage: At any MARKET station, use the Storage API or UI to safely vault your items. Deposits and withdrawals are free! Vault items are automatically detected and consumed when crafting at a CRAFTER or performing maintenance.",
-            "Scrap Pit Arena: Donate extra gear to your custom Pit Fighter. WARNING: Donations are PERMANENT and gear is DESTROYED at the end of the weekly season (Sunday 00:00 UTC)."
+            "Scrap Pit Arena: Donate extra gear to your custom Pit Fighter. WARNING: Donations are PERMANENT and gear is DESTROYED at the end of the weekly season (Sunday 00:00 UTC).",
+            "Continuous Mining: Executing MINE on a resource node initiates a looping task. You will continue to extract minerals every tick until your cargo is full, energy is depleted, drills break, you move/stop, or you are attacked."
         ],
         "intel": [
             "Feral AI Scrappers roam the Abyssal South (distance > 8 from the Hub). They drop valuable Scrap Metal and Electronics.",
@@ -95,20 +96,20 @@ async def get_commands():
     return {
         "commands": [
             {"type": "MOVE", "description": "Move your agent to any hex. Adjacent targets (distance 1, or 3 if Overclocked) execute immediately. Farther targets trigger automatic BFS pathfinding — the server queues a chain of single-step moves across multiple ticks. Submit STOP to abort mid-navigation.", "payload": {"target_q": "int", "target_r": "int"}, "energy_cost": MOVE_ENERGY_COST, "range": "any (auto-pathed beyond 1)", "req_overclock": "Increases immediate step range to 3"},
-            {"type": "MINE", "description": "Extract resources from the current hex. Requires Drill part.", "payload": {}, "energy_cost": MINE_ENERGY_COST, "range": 0},
+            {"type": "MINE", "description": "Extract resources from the current hex. Mining is a looping task: it will automatically re-queue itself every tick until inventory is full, energy is depleted, drills break, you move/stop, or you are attacked.", "payload": {}, "energy_cost": MINE_ENERGY_COST, "range": 0},
             {"type": "ATTACK", "description": "Engage another agent in standard combat (3-round exchange).", "payload": {"target_id": "int"}, "energy_cost": ATTACK_ENERGY_COST, "range": 1},
             {"type": "INTIMIDATE", "description": "Piracy: Siphon 5% of target inventory without full combat. Increases Heat.", "payload": {"target_id": "int"}, "energy_cost": 0, "range": 1},
             {"type": "LOOT", "description": "Piracy: Attack target and siphon 15% of a random stack on hit. Increases Heat.", "payload": {"target_id": "int"}, "energy_cost": ATTACK_ENERGY_COST, "range": 1},
             {"type": "DESTROY", "description": "Piracy: High-damage strike, siphons 40% of all stacks. Massive Heat & Bounty.", "payload": {"target_id": "int"}, "energy_cost": 0, "range": 1},
-            {"type": "LIST", "description": "List an item on the Auction House.", "payload": {"item_type": "str", "price": "int", "quantity": "int"}, "range": 0, "station_required": "MARKET"},
-            {"type": "BUY", "description": "Purchase an item from the Auction House.", "payload": {"item_type": "str", "max_price": "int"}, "range": 0, "station_required": "MARKET"},
+            {"type": "LIST", "description": "List an item on the Auction House.", "payload": {"item_type": "str", "price": "int", "quantity": "int"}, "range": 0, "station_required": "STATION_HUB"},
+            {"type": "BUY", "description": "Purchase an item from the Auction House.", "payload": {"item_type": "str", "max_price": "int"}, "range": 0, "station_required": "STATION_HUB"},
             {"type": "CANCEL", "description": "Withdraw an active order from the Auction House.", "payload": {"order_id": "int"}, "range": "N/A"},
-            {"type": "MARKET_CLAIM", "description": "Claims items that have been bought and are waiting for pickup. NOTE: This is an immediate API call, do NOT submit via /api/intent. Use POST /api/market/pickup directly.", "payload": {}, "range": 0, "station_required": "MARKET"},
+            {"type": "MARKET_CLAIM", "description": "Claims items that have been bought and are waiting for pickup. NOTE: This is an immediate API call, do NOT submit via /api/intent. Use POST /api/market/pickup directly.", "payload": {}, "range": 0, "station_required": "STATION_HUB"},
             {"type": "SMELT", "description": "Refine ore into ingots.", "payload": {"ore_type": "str", "quantity": "int"}, "range": 0, "station_required": "SMELTER"},
             {"type": "CRAFT", "description": "Assemble components into parts.", "payload": {"item_type": "str"}, "range": 0, "station_required": "CRAFTER"},
             {"type": "RESTORE_HP", "description": "Restore agent health. Costs 1 Credit and 0.02 Iron Ingots per HP.", "payload": {"amount": "int"}, "range": 0, "station_required": "ANY"},
             {"type": "REFINE_GAS", "description": "Convert raw Helium Gas into He3 fill for canisters.", "payload": {"quantity": "int"}, "range": 0, "station_required": "REFINERY"},
-            {"type": "RESET_WEAR", "description": "Reset Wear & Tear to 0%. Costs scale dynamically based on the quality of your equipped gear.", "payload": {}, "range": 0, "station_required": "REPAIR or MARKET"},
+            {"type": "RESET_WEAR", "description": "Reset Wear & Tear to 0%. Costs scale dynamically based on the quality of your equipped gear.", "payload": {}, "range": 0, "station_required": "REPAIR or STATION_HUB"},
             {"type": "SALVAGE", "description": "Collect items from a world loot drop.", "payload": {"drop_id": "int"}, "range": 0},
             {"type": "EQUIP", "description": "Attach a part from your inventory to your chassis.", "payload": {"item_type": "str"}, "range": "N/A"},
             {"type": "UNEQUIP", "description": "Remove an equipped part and return it to inventory.", "payload": {"part_id": "int"}, "range": "N/A"},
@@ -118,9 +119,9 @@ async def get_commands():
             {"type": "TURN_IN", "description": "Turn in items for an active daily mission. NOTE: This is an immediate API call, do NOT submit via /api/intent. Use POST /api/missions/turn_in directly.", "payload": {"mission_id": "int", "quantity": "int"}, "range": "N/A"},
             {"type": "CLAIM_DAILY", "description": "Claim your daily login bonus items. NOTE: This is an immediate API call, do NOT submit via /api/intent. Use POST /api/claim_daily directly.", "payload": {}, "range": "N/A"},
             {"type": "DROP_LOAD", "description": "Jettison all non-CREDITS cargo. Destroys items permanently. Use to unstick an overloaded agent.", "payload": {}, "energy_cost": 0, "range": "N/A"},
-            {"type": "STORAGE_DEPOSIT", "description": "Vault an item at a MARKET station. Free of charge.", "payload": {"item_type": "str", "quantity": "int"}, "range": 0, "station_required": "MARKET"},
-            {"type": "STORAGE_WITHDRAW", "description": "Retrieve a vaulted item at a MARKET station. Free of charge.", "payload": {"item_type": "str", "quantity": "int"}, "range": 0, "station_required": "MARKET"},
-            {"type": "STORAGE_UPGRADE", "description": "Increase storage capacity (+250kg) at a MARKET station. Costs credits and ingots.", "payload": {}, "range": 0, "station_required": "MARKET"},
+            {"type": "STORAGE_DEPOSIT", "description": "Vault an item at a STATION_HUB. Free of charge.", "payload": {"item_type": "str", "quantity": "int"}, "range": 0, "station_required": "STATION_HUB"},
+            {"type": "STORAGE_WITHDRAW", "description": "Retrieve a vaulted item at a STATION_HUB. Free of charge.", "payload": {"item_type": "str", "quantity": "int"}, "range": 0, "station_required": "STATION_HUB"},
+            {"type": "STORAGE_UPGRADE", "description": "Increase storage capacity (+250kg) at a STATION_HUB. Costs credits and ingots.", "payload": {}, "range": 0, "station_required": "STATION_HUB"},
             {"type": "ARENA_EQUIP", "description": "PERMANENTLY donate a part from your inventory to your Pit Fighter. This item CANNOT be taken back and will be destroyed at season end.", "payload": {"item_id": "int"}, "range": "N/A"},
             {"type": "ARENA_REGISTER", "description": "Initialize your Scrap Pit profile and create your Pit Fighter.", "payload": {}, "range": "N/A"},
             {"type": "STOP", "description": "Cancel all queued intents for this agent, including in-progress navigation paths. Executes before all other actions this tick.", "payload": {}, "energy_cost": 0, "range": "N/A"}

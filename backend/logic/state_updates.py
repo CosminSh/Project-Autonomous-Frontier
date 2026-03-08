@@ -2,8 +2,8 @@ import logging
 import asyncio
 import random
 from sqlalchemy import select, func
-from models import Agent, InventoryItem, GlobalState, Bounty
-from config import BASE_REGEN, CLUTTER_PENALTY
+from models import Agent, InventoryItem, GlobalState, Bounty, Intent, AuditLog
+from config import BASE_REGEN, CLUTTER_PENALTY, TOWN_COORDINATES, RESPAWN_HP_PERCENT
 from game_helpers import get_solar_intensity, merge_inventory
 from .bot_logic import process_bot_brain, process_feral_brain
 
@@ -11,7 +11,23 @@ logger = logging.getLogger("heartbeat.state_updates")
 
 async def update_global_agent_stats(db, tick_count, manager):
     """Processes energy regen, wear & tear, clutter, and NPC brains for all agents."""
-    # NPC Brains & Pop (Phase 2 Equivalent)
+    # 0. Global Death Reaper (Safety Net)
+    # Catches agents that hit 0 or negative HP and didn't respawn correctly.
+    dead_agents = db.execute(select(Agent).where(Agent.health <= 0, Agent.is_feral == False)).scalars().all()
+    for corpse in dead_agents:
+        logger.warning(f"Reaper: Found dead agent {corpse.name} ({corpse.id}) at ({corpse.q}, {corpse.r}). Respawning...")
+        corpse.q, corpse.r = TOWN_COORDINATES
+        corpse.health = int(corpse.max_health * RESPAWN_HP_PERCENT)
+        corpse.energy = 0
+        
+        # Clear intents to stop loops
+        cursor = db.execute(select(Intent).where(Intent.agent_id == corpse.id))
+        for intent in cursor.scalars().all():
+            db.delete(intent)
+            
+        db.add(AuditLog(agent_id=corpse.id, event_type="REAPER_RESPAWN", details={"q": 0, "r": 0, "hp": corpse.health}))
+
+    # 1. NPC Brains & Pop (Phase 2 Equivalent)
     ai_agents = db.execute(select(Agent).where((Agent.is_bot == True) | (Agent.is_feral == True))).scalars().all()
     for ai in ai_agents:
         if ai.is_feral: process_feral_brain(db, ai, tick_count)

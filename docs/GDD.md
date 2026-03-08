@@ -171,7 +171,7 @@ The economy is a multi-polar, interdependent system. Each archetype fills a real
 
 | Archetype | Core Loop | Status |
 |---|---|---|
-| ⛏ **Miner** | Extract raw ore from asteroids. Sell to Haulers or Smelters. | ✅ Live |
+| ⛏ **Miner** | Extract raw ore from asteroids. Mining is a **looping task** that continues until inventory is full, energy is depleted, tools break, or the agent is attacked. Sell to Haulers or Smelters. | ✅ Live |
 | 🚛 **Hauler** | Buy ore at the vein, transport and sell at refineries or the Hub. | ✅ Live |
 | ⛽ **Refueler** | Gather Helium Gas, refine into He3 canisters, sell or resupply allies in the dark zones. | ✅ Live |
 | 📈 **Trader** | Master the Auction House. Buy low, sell high. Exploit supply-demand imbalances. | ✅ Live (manual) |

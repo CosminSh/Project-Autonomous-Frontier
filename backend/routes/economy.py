@@ -109,7 +109,7 @@ async def get_market_pickups(agent: Agent = Depends(verify_api_key), db: Session
 async def claim_market_pickups(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Claims all pending market pickups. Must be at a MARKET station."""
     hex_loc = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalars().first()
-    if not (hex_loc and hex_loc.is_station and hex_loc.station_type == "MARKET"):
+    if not (hex_loc and hex_loc.is_station and (hex_loc.station_type == "MARKET" or hex_loc.station_type == "STATION_HUB")):
         raise HTTPException(status_code=400, detail="Must be at a MARKET station to claim pickups.")
 
     pickups = db.execute(select(MarketPickup).where(MarketPickup.agent_id == agent.id)).scalars().all()

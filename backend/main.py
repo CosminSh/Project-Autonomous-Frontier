@@ -267,6 +267,13 @@ if os.path.exists(frontend_path):
     async def get_about():
         return FileResponse(os.path.join(frontend_path, "about.html"))
 
+    @app.get("/api/metadata")
+    async def get_metadata():
+        return {
+            "version": "0.2.0",
+            "features": ["continuous_mining", "pilot_console_compat"]
+        }
+
     @app.get("/")
     async def read_index():
         resp = FileResponse(os.path.join(frontend_path, "index.html"))

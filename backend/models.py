@@ -45,6 +45,7 @@ class Agent(Base):
     overclock_ticks = Column(Integer, server_default="0")
     wear_and_tear = Column(Float, server_default="0.0")
     last_faction_change_tick = Column(Integer, server_default="0")
+    last_attacked_tick = Column(Integer, server_default="0")
     unlocked_recipes = Column(JSON, nullable=True) # List of strings: ["DRILL_UNIT", "ENGINE_UNIT"]
     last_daily_reward = Column(DateTime(timezone=True), nullable=True)
     

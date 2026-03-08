@@ -123,10 +123,11 @@ def simulate_battle(db: Session, attacker: Agent, defender: Agent, manager=None,
     loser = defender if winner == attacker else attacker
     
     # Enforce caps
+    if defender.health < 0: defender.health = 0
+    if attacker.health < 0: attacker.health = 0
+
     if combat_type == "DEATHMATCH":
         if loser.health < int(loser.max_health * 0.05): loser.health = max(1, int(loser.max_health * 0.05))
-    elif combat_type == "ARENA":
-        if loser.health < 0: loser.health = 0
 
     return {
         "winner": winner,

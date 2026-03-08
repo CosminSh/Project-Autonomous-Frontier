@@ -70,10 +70,6 @@ def main():
                 logging.info("Batteries full. Resuming.")
                 state = "IDLE"
 
-            # Skip decision making if we already have an intent queued
-            if agent.get("pending_intent") is not None:
-                continue
-                
             # 3. State Machine Logic
             if state == "CHARGING":
                 pass # Just wait for tick to advance
@@ -104,10 +100,13 @@ def main():
             elif state == "MINING":
                 if ore_qty >= 20: # Inventory getting full
                     logging.info("Cargo hold full. Returning to base.")
+                    client.submit_intent("STOP") # Stop the looping mining
                     state = "RETURN_TO_MARKET"
                 else:
-                    logging.info("Mining ore...")
-                    client.submit_intent("MINE")
+                    logging.info("Mining loop active...")
+                    # No need to submit MINE every tick as it's now a looping task!
+                    # We just stay in the MINING state until we're full or interrupted.
+                    pass
 
             elif state == "RETURN_TO_MARKET":
                 discovery = client.get_my_agent().get("discovery", {})

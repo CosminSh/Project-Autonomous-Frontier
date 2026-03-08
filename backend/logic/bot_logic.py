@@ -1,6 +1,7 @@
 import random
 from sqlalchemy import select
 from models import Agent, WorldHex, Intent, InventoryItem, AuditLog
+from game_helpers import is_in_anarchy_zone
 
 def get_hex_distance(q1, r1, q2, r2):
     return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
@@ -162,7 +163,11 @@ def process_feral_brain(db, agent: Agent, current_tick: int):
         )).scalars().all()
         
         # Aggressive ferals only attack if player is in immediate proximity (Range 1)
-        nearby_players = [p for p in players if get_hex_distance(agent.q, agent.r, p.q, p.r) <= 1]
+        # AND outside the safe zone.
+        nearby_players = [
+            p for p in players 
+            if get_hex_distance(agent.q, agent.r, p.q, p.r) <= 1 and is_in_anarchy_zone(p.q, p.r)
+        ]
         
         if nearby_players:
             target = random.choice(nearby_players)
