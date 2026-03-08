@@ -37,7 +37,9 @@ class IntentProcessor:
             "CLAIM_LOST_DRILL": utility.handle_claim_drill,
             "TURN_IN": handle_turn_in,
             "RESCUE": utility.handle_rescue,
-            "RESCUE_STEP": utility.handle_rescue_step
+            "RESCUE_STEP": utility.handle_rescue_step,
+            "STORAGE_DEPOSIT": economy.handle_storage_deposit,
+            "STORAGE_WITHDRAW": economy.handle_storage_withdraw
         }
 
     async def process_intent(self, db, agent, intent, tick_count):

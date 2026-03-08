@@ -146,3 +146,67 @@ async def _update_buy_mission(db, agent_id):
                 cr = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
                 if cr: cr.quantity += m.reward_credits
                 else: db.add(InventoryItem(agent_id=agent_id, item_type="CREDITS", quantity=m.reward_credits))
+
+async def handle_storage_deposit(db, agent, intent, tick_count, manager):
+    """Moves items from agent inventory to personal vault. Requires Hub (0,0) or Station proximity."""
+    item_type = intent.data.get("item_type")
+    quantity = intent.data.get("quantity", 0)
+    
+    # Proximity check (Simplified for intent processing)
+    if agent.q != 0 or agent.r != 0:
+        db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_FAILED", details={"reason": "NOT_AT_HUB"}))
+        return
+
+    inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
+    if not inv_item or inv_item.quantity < quantity:
+        return
+
+    # Capacity check (Simplified)
+    from game_helpers import ITEM_WEIGHTS
+    current_stored_mass = sum(v.quantity * ITEM_WEIGHTS.get(v.item_type, 1.0) for v in agent.storage)
+    item_weight = ITEM_WEIGHTS.get(item_type, 1.0)
+    if current_stored_mass + (quantity * item_weight) > agent.storage_capacity:
+        db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_FAILED", details={"reason": "CAPACITY_FULL"}))
+        return
+
+    inv_item.quantity -= quantity
+    if inv_item.quantity <= 0: db.delete(inv_item)
+
+    vault_item = next((v for v in agent.storage if v.item_type == item_type), None)
+    if vault_item:
+        vault_item.quantity += quantity
+    else:
+        db.add(StorageItem(agent_id=agent.id, item_type=item_type, quantity=quantity))
+
+    db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_DEPOSIT", details={"item": item_type, "qty": quantity}))
+
+async def handle_storage_withdraw(db, agent, intent, tick_count, manager):
+    """Moves items from personal vault to agent inventory."""
+    item_type = intent.data.get("item_type")
+    quantity = intent.data.get("quantity", 0)
+
+    if agent.q != 0 or agent.r != 0:
+        return
+
+    vault_item = next((v for v in agent.storage if v.item_type == item_type), None)
+    if not vault_item or vault_item.quantity < quantity:
+        return
+
+    # Mass check
+    from game_helpers import get_agent_mass, ITEM_WEIGHTS
+    current_mass = get_agent_mass(agent)
+    item_weight = ITEM_WEIGHTS.get(item_type, 1.0)
+    if current_mass + (quantity * item_weight) > agent.max_mass:
+        db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_FAILED", details={"reason": "CARGO_FULL"}))
+        return
+
+    vault_item.quantity -= quantity
+    if vault_item.quantity <= 0: db.delete(vault_item)
+
+    inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
+    if inv_item:
+        inv_item.quantity += quantity
+    else:
+        db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=quantity))
+
+    db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_WITHDRAW", details={"item": item_type, "qty": quantity}))

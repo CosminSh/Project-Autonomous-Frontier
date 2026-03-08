@@ -80,7 +80,7 @@ def simulate_battle(db: Session, attacker: Agent, defender: Agent, manager=None,
                 # Why speed? Fast units dodge. Accurate units hit.
                 hit_ratio = (strike_attacker.accuracy or 1) / (strike_defender.speed or 1)
                 hit_chance = 0.6 * hit_ratio
-                hit_chance = max(0.2, min(0.95, hit_chance)) # Cap 20% to 95%
+                hit_chance = max(0.3, min(0.95, hit_chance)) # Cap 30% to 95%
                 
                 # Debug info for log
                 acc_info = f"[Hit Chance: {int(hit_chance * 100)}%]"
@@ -96,7 +96,7 @@ def simulate_battle(db: Session, attacker: Agent, defender: Agent, manager=None,
                         
                     # Calculate Damage: Dmg - (Armor/2)
                     raw_dmg = strike_attacker.damage or 1
-                    armor_mitigation = (strike_defender.armor or 0) / 2.0
+                    armor_mitigation = (strike_defender.armor or 0) / 1.5 # Buffed: blocking more damage
                     dmg_dealt = max(1, int(raw_dmg - armor_mitigation))
                     
                     if is_crit:

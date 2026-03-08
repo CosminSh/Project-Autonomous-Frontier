@@ -35,9 +35,9 @@ FERAL_TEMPLATES = {
     "elite_lvl3": {
         "name_prefix": "Feral-Raider",
         "is_aggressive": True,
-        "health": 200, "max_health": 200,
-        "damage": 22, "accuracy": 12, "speed": 12, "armor": 10,
-        "part_name": "Plasma Cutter", "part_stats": {"damage": 20},
+        "health": 180, "max_health": 180,
+        "damage": 16, "accuracy": 10, "speed": 12, "armor": 8,
+        "part_name": "Plasma Cutter", "part_stats": {"damage": 12},
         "loot": [("SCRAP_METAL", 8, 20), ("ELECTRONICS", 2, 6, 0.6), ("IRON_INGOT", 1, 3, 0.3)],
     },
     "apex_lvl4": {

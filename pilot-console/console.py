@@ -5,6 +5,7 @@ import time
 import requests
 import json
 import os
+import sys
 from bot_client import TFClient
 from dotenv import load_dotenv
 
@@ -22,7 +23,7 @@ class PilotConsole:
         self.is_running = False
         self.api_key = tk.StringVar()
         self.openrouter_key = tk.StringVar()
-        self.objective = tk.StringVar(value="Mine Iron Ore and sell it at the Hub.")
+        self.objective = tk.StringVar(value="Mine Iron Ore, smelt it and deposit it at the vault")
 
         self.setup_ui()
         self.load_keys()
@@ -74,15 +75,38 @@ class PilotConsole:
         self.log_area = scrolledtext.ScrolledText(right_frame, bg="#020617", fg="#10b981", font=("Courier", 9), borderwidth=0)
         self.log_area.pack(fill="both", expand=True, pady=5)
 
+    def get_config_path(self):
+        if getattr(sys, 'frozen', False):
+            # Running as .exe
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            # Running as .py
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(base_dir, "pilot_settings.json")
+
     def load_keys(self):
-        load_dotenv()
-        self.api_key.set(os.getenv("TF_API_KEY", ""))
-        self.openrouter_key.set(os.getenv("OPENROUTER_API_KEY", ""))
+        path = self.get_config_path()
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    config = json.load(f)
+                    self.api_key.set(config.get("TF_API_KEY", ""))
+                    self.openrouter_key.set(config.get("OPENROUTER_API_KEY", ""))
+            except:
+                pass
+        
+        # Fallback to .env for legacy/manual setups
+        if not self.api_key.get():
+            load_dotenv()
+            self.api_key.set(os.getenv("TF_API_KEY", ""))
+            self.openrouter_key.set(os.getenv("OPENROUTER_API_KEY", ""))
 
     def log(self, msg):
-        timestamp = time.strftime("%H:%M:%S")
-        self.log_area.insert(tk.END, f"[{timestamp}] {msg}\n")
-        self.log_area.see(tk.END)
+        def _append():
+            timestamp = time.strftime("%H:%M:%S")
+            self.log_area.insert(tk.END, f"[{timestamp}] {msg}\n")
+            self.log_area.see(tk.END)
+        self.root.after(0, _append)
 
     def check_for_updates(self):
         try:
@@ -123,6 +147,15 @@ class PilotConsole:
         ttk.Button(frame, text="SAVE & SECURE", command=save_and_close).pack(pady=5)
 
     def save_keys(self):
+        path = self.get_config_path()
+        config = {
+            "TF_API_KEY": self.api_key.get(),
+            "OPENROUTER_API_KEY": self.openrouter_key.get()
+        }
+        with open(path, "w") as f:
+            json.dump(config, f, indent=4)
+        
+        # Also sync to .env for compatibility
         with open(".env", "w") as f:
             f.write(f"TF_API_KEY={self.api_key.get()}\n")
             f.write(f"OPENROUTER_API_KEY={self.openrouter_key.get()}\n")
@@ -167,19 +200,27 @@ class PilotConsole:
                     url="https://openrouter.ai/api/v1/chat/completions",
                     headers={
                         "Authorization": f"Bearer {rk}",
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://terminal-frontier.pixek.xyz",
+                        "X-Title": "Terminal Frontier Pilot Console"
                     },
                     data=json.dumps({
-                        "model": "stepfun/step-3.5-flash:free",
+                        "model": "google/gemini-2.0-flash-001",
                         "messages": [
-                            {"role": "system", "content": "You are the Tactical AI for a space miner. Translate the user's objective into a 1-sentence tactical plan."},
+                            {"role": "system", "content": "You are the Tactical AI for a space miner. Translate the user's objective into a 1-sentence tactical plan. IMPORTANT: Always append 'TARGET_RES: [RESOURCE_TYPE]' to your reply if a resource is mentioned (e.g. IRON_ORE, COPPER_ORE, GOLD_ORE, COBALT_ORE)."},
                             {"role": "user", "content": f"Objective: {obj}"}
                         ]
                     })
                 )
                 if resp.ok:
-                    plan = resp.json()['choices'][0]['message']['content']
+                    data = resp.json()
+                    plan = data['choices'][0]['message']['content']
                     self.log(f"Tactical AI: {plan}")
+                    
+                    # Try to parse a structured target if the LLM provided one
+                    if "TARGET_RES:" in plan:
+                        new_target = plan.split("TARGET_RES:")[1].split()[0].strip(".,[]")
+                        self.log(f"System: AI locked onto resource target: {new_target}")
                 else:
                     self.log(f"Tactical AI Error: {resp.status_code}")
             except Exception as e:
@@ -211,13 +252,16 @@ class PilotConsole:
                     inv = {i["type"]: i["quantity"] for i in agent.get("inventory", [])}
                     energy = agent.get("energy", 100)
                     
-                    # Target Resource from Objective (Very simple keyword check)
+                    obj_text = self.objective.get().upper()
                     target_res_type = "IRON_ORE"
-                    if "COPPER" in self.objective.get().upper(): target_res_type = "COPPER_ORE"
-                    elif "GOLD" in self.objective.get().upper(): target_res_type = "GOLD_ORE"
-                    elif "COBALT" in self.objective.get().upper(): target_res_type = "COBALT_ORE"
+                    if "COPPER" in obj_text: target_res_type = "COPPER_ORE"
+                    elif "GOLD" in obj_text: target_res_type = "GOLD_ORE"
+                    elif "COBALT" in obj_text: target_res_type = "COBALT_ORE"
+                    elif "IRON" in obj_text: target_res_type = "IRON_ORE"
 
                     ore_qty = inv.get(target_res_type, 0)
+                    ingots = {k: v for k, v in inv.items() if "_INGOT" in k}
+                    has_ingots = sum(ingots.values()) > 0
                     
                     if energy < 20:
                         if state != "CHARGING":
@@ -233,6 +277,10 @@ class PilotConsole:
                             self.log(f"Cargo full ({ore_qty} units). Returning to Hub.")
                             self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
                             state = "RETURNING"
+                        elif has_ingots and ("VAULT" in obj_text or "DEPOSIT" in obj_text):
+                             self.log("Have ingots and objective requires deposit. Returning to Hub.")
+                             self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
+                             state = "RETURNING"
                         else:
                             # Check current hex for resource
                             self_data = perception.get("self", {})
@@ -247,7 +295,6 @@ class PilotConsole:
                                 state = "MINING"
                             else:
                                 self.log(f"Scanning for {target_res_type}...")
-                                # Look for target in local perception
                                 target = next((r for r in env_resources if r["type"] == target_res_type), None)
                                 
                                 if target:
@@ -255,25 +302,46 @@ class PilotConsole:
                                     self.client.submit_intent("MOVE", {"target_q": target["q"], "target_r": target["r"]})
                                     state = "MOVING"
                                 else:
-                                    self.log(f"No {target_res_type} nearby. Searching deeper into the frontier...")
-                                    self.client.submit_intent("MOVE", {"target_q": agent["q"] + 3, "target_r": agent["r"] + 3})
+                                    self.log(f"No {target_res_type} in range. Moving randomly.")
+                                    self.client.submit_intent("MOVE", {"target_q": self_data["q"] + 2, "target_r": self_data["r"]})
                                     state = "MOVING"
-                    
-                    elif state == "MOVING" or state == "RETURNING":
-                        # Check "pending_moves" in agent_status (wait for server to finish pathfinding)
-                        if perception.get("agent_status", {}).get("pending_moves", 0) == 0:
-                            state = "IDLE"
+
+                    elif state == "RETURNING":
+                        self_data = perception.get("self", {})
+                        if self_data["q"] == 0 and self_data["r"] == 0:
+                            self.log("At Hub. Processing materials.")
+                            
+                            # Check for Smelting in objective
+                            if ore_qty >= 10 and ("SMELT" in obj_text or "REFINE" in obj_text):
+                                self.log(f"Smelting {ore_qty}x {target_res_type}...")
+                                self.client.submit_intent("SMELT", {"ore_type": target_res_type, "quantity": 10})
+                                # Stay in returning/smelting state until ore gone
+                            elif has_ingots and ("VAULT" in obj_text or "DEPOSIT" in obj_text):
+                                for i_type, i_qty in ingots.items():
+                                    if i_qty > 0:
+                                        self.log(f"Depositing {i_qty}x {i_type} to Vault...")
+                                        self.client.submit_intent("STORAGE_DEPOSIT", {"item_type": i_type, "quantity": i_qty})
+                                        break
+                                # If we did all ingots, we can go back to IDLE
+                                if sum(ingots.values()) == 0:
+                                    state = "IDLE"
+                            else:
+                                self.log("Hub processing complete. Resuming operations.")
+                                state = "IDLE"
+
+                    elif state == "MOVING":
+                        # If we were moving and reached, or tick advanced
+                        state = "IDLE"
                     
                     elif state == "MINING":
-                        # Check if we should stop
-                        if ore_qty >= 20 or energy < 15:
+                        # Continue mining until cargo threshold
+                        if ore_qty >= 20: 
                             state = "IDLE"
 
-                # Ask LLM if key is present (Chat logic)
-                # ... (Optional expansion: run LLM every N ticks or on button)
-
             except Exception as e:
+                import traceback
                 self.log(f"ERR: {str(e)}")
+                # traceback.print_exc()
             
             time.sleep(2)
 
@@ -291,7 +359,9 @@ class PilotConsole:
         for item in agent.get("inventory", []):
             stats.append(f" - {item['type']}: {item['quantity']}")
         
-        self.stats_label.config(text="\n".join(stats))
+        def _update():
+            self.stats_label.config(text="\n".join(stats))
+        self.root.after(0, _update)
 
 if __name__ == "__main__":
     root = tk.Tk()

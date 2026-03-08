@@ -102,6 +102,23 @@ class DashboardClient {
             document.getElementById('mass-bar').classList.add('bg-amber-500');
             document.getElementById('mass-text').classList.remove('text-rose-500', 'font-bold');
         }
+
+        // Wear & Tear (Condition)
+        const wearVal = agent.wear_and_tear || 0;
+        const conditionPct = Math.max(0, 100 - wearVal);
+        const wearBar = document.getElementById('wear-bar');
+        const wearText = document.getElementById('wear-text');
+
+        if (wearBar && wearText) {
+            wearBar.style.width = `${conditionPct}%`;
+            wearText.innerText = `${Math.round(conditionPct)}%`;
+
+            // Color feedback
+            wearBar.classList.remove('bg-rose-500', 'bg-amber-500', 'bg-emerald-500');
+            if (conditionPct > 70) wearBar.classList.add('bg-emerald-500');
+            else if (conditionPct > 30) wearBar.classList.add('bg-amber-500');
+            else wearBar.classList.add('bg-rose-500');
+        }
     }
 
     updateInventory(inventory) {

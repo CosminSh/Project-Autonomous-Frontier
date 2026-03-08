@@ -180,11 +180,29 @@ def process_feral_brain(db, agent: Agent, current_tick: int):
             return
 
     # 2. Roam Randomly (Both Passive and Aggressive when not attacking)
+    # Leash Logic: Stay within their designated distance zones
+    target_dist_center = 10 if "Drifter" in agent.name else (25 if "Scrapper" in agent.name else (45 if "Raider" in agent.name else 70))
+    leash_range = 8
+    
     neighbors = [
         (agent.q + 1, agent.r), (agent.q + 1, agent.r - 1), (agent.q, agent.r - 1),
         (agent.q - 1, agent.r), (agent.q - 1, agent.r + 1), (agent.q, agent.r + 1)
     ]
-    target_q, target_r = random.choice(neighbors)
+    
+    # Filter neighbors to keep them near their zone or generally moving back if drifted
+    from game_helpers import get_hex_distance
+    candidates = []
+    for q, r in neighbors:
+        dist = get_hex_distance(0, 0, q, r)
+        if abs(dist - target_dist_center) <= leash_range:
+            candidates.append((q, r))
+    
+    if not candidates:
+        # If outside leash, move towards the center of target zone
+        # We just pick the neighbor that gets closest to target_dist_center
+        candidates = [min(neighbors, key=lambda p: abs(get_hex_distance(0, 0, p[0], p[1]) - target_dist_center))]
+    
+    target_q, target_r = random.choice(candidates)
     db.add(Intent(
         agent_id=agent.id,
         tick_index=current_tick + 1,
