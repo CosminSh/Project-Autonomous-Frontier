@@ -44,6 +44,7 @@ export class TerminalHandler {
             'TURN_IN': { cat: 'OTHER', syntax: 'TURN_IN <mission_id>', example: 'TURN_IN 15', help: 'Complete local station delivery objectives' },
             'CLAIM_DAILY': { cat: 'OTHER', syntax: 'CLAIM_DAILY', example: 'CLAIM_DAILY', help: 'Claim daily login items' },
             'RECIPES': { cat: 'META', syntax: 'RECIPES [filter]', example: 'RECIPES drills', help: 'Query crafting database' },
+            'GEAR': { cat: 'META', syntax: 'GEAR', example: 'GEAR', help: 'Show currently equipped gear and stats' },
             'HELP': { cat: 'META', syntax: 'HELP [command]', example: 'HELP SMELT', help: 'Show commands or details' },
             'STATUS': { cat: 'META', syntax: 'STATUS', example: 'STATUS', help: 'Show your agent status' },
             'PERCEIVE': { cat: 'META', syntax: 'PERCEIVE', example: 'PERCEIVE', help: 'Display local tactical perception. Requires a Neural Scanner for deep stats (HP, Inventory) on targets.' },
@@ -70,6 +71,7 @@ export class TerminalHandler {
             'ARENA_EQUIP': { cat: 'ARENA', syntax: 'ARENA_EQUIP <part_id>', example: 'ARENA_EQUIP 123', help: 'Permanently donates an unequipped part from your main inventory to your Pit Fighter.' },
             'ARENA_LOGS': { cat: 'ARENA', syntax: 'ARENA_LOGS', example: 'ARENA_LOGS', help: 'Shows the combat results of your Pit Fighter\'s recent Scrap Pit arena battles.' },
             'LEADERBOARD': { cat: 'META', syntax: 'LEADERBOARD', example: 'LEADERBOARD', help: 'Shows the top 10 players by XP, Credits, and Arena Elo.' },
+            'ROTATE_KEY': { cat: 'OTHER', syntax: 'ROTATE_KEY', example: 'ROTATE_KEY', help: 'Regenerate your API key (Invalidates old key)' },
         };
 
         this.setupListeners();
@@ -575,6 +577,56 @@ export class TerminalHandler {
                     this.log(`  [#${p.id}] <b>${p.item.replace('_', ' ')}</b> x${p.qty}`, 'info');
                 });
                 this.log(`  <i>Use MARKET_CLAIM at a Market station to retrieve them.</i>`, 'system');
+            } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
+            return;
+        }
+
+        if (actionType === 'ROTATE_KEY') {
+            try {
+                if (!confirm("This will PERMANENTLY rotate your API key. Proceed?")) return;
+                const apiKey = localStorage.getItem('sv_api_key');
+                const resp = await fetch('/auth/rotate_key', {
+                    method: 'POST',
+                    headers: { 'X-API-KEY': apiKey }
+                });
+                const res = await resp.json();
+                if (res.status === 'success') {
+                    const newKey = res.new_api_key;
+                    localStorage.setItem('sv_api_key', newKey);
+                    this.log(`<b>ACCESS GRANTED.</b> New API Key generated.`, 'success');
+                    this.log(`KEY: <span style="color:#fbbf24">${newKey}</span>`, 'info');
+                    this.log(`Update your bots immediately.`, 'warning');
+                    if (window.dashboard) {
+                        document.getElementById('api-key-display').innerText = newKey;
+                        window.dashboard.apiKey = newKey;
+                    }
+                } else {
+                    this.log(`UPLINK DENIED: ${res.message || 'Internal Error'}`, 'error');
+                }
+            } catch (e) { this.log(`SECURITY FAILURE: ${e.message}`, 'error'); }
+            return;
+        }
+
+        // ── META: GEAR ──
+        if (actionType === 'GEAR') {
+            try {
+                const apiKey = localStorage.getItem('sv_api_key');
+                const resp = await fetch('/api/gear', { headers: { 'X-API-KEY': apiKey } });
+                if (!resp.ok) throw new Error(`Uplink Error: ${resp.status}`);
+                const gear = await resp.json();
+
+                this.log(`<b>═══ EQUIPPED GEAR ═══</b>`, 'system');
+                if (!gear || gear.length === 0) {
+                    this.log(`  No gear equipped. [CHASSIS ONLY]`, 'warning');
+                } else {
+                    gear.forEach(p => {
+                        const statsStr = Object.entries(p.stats || {})
+                            .map(([k, v]) => `<span style="color:#94a3b8">${k.toUpperCase()}:</span> <span style="color:#a78bfa">${v > 0 ? '+' : ''}${v}</span>`)
+                            .join(' | ');
+                        this.log(`  [ID: ${p.id}] <b>${p.name}</b> (${p.rarity})`, 'info');
+                        if (statsStr) this.log(`    ${statsStr}`, 'info');
+                    });
+                }
             } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
             return;
         }

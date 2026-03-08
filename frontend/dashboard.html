@@ -186,9 +186,13 @@
             <section class="lg:col-span-2 glass rounded-xl p-4 border-t-2 border-t-amber-500">
                 <h2 class="orbitron text-[11px] text-amber-400 mb-3 uppercase tracking-widest">API Command Access</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <p class="text-[10px] text-slate-400 mb-2 font-bold uppercase tracking-tighter">Your API Key:
-                        </p>
+                    <div class="flex-grow">
+                        <div class="flex justify-between items-center mb-2">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Your API Key:</p>
+                            <button onclick="window.dashboard.rotateKey()"
+                                class="text-[9px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/30 px-2 py-0.5 rounded transition-all transition-colors orbitron font-bold">ROTATE
+                                KEY</button>
+                        </div>
                         <div
                             class="bg-black/40 p-2 rounded-lg border border-slate-800 font-mono text-[10px] text-amber-200 break-all mb-4">
                             <code id="api-key-display">Generating...</code>

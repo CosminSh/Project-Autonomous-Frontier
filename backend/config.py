@@ -9,7 +9,7 @@ import random
 MOVE_ENERGY_COST = 5
 MINE_ENERGY_COST = 10
 ATTACK_ENERGY_COST = 15
-BASE_REGEN = 2  # Energy recharged per tick (at 100% intensity)
+BASE_REGEN = 4  # Energy recharged per tick (at 100% intensity)
 MAX_CAPACITOR = 100
 
 # Tick Phase Durations (GDD Section 5.2 - Scaled for Testing)

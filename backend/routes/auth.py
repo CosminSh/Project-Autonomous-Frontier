@@ -13,6 +13,7 @@ from models import Agent, InventoryItem, ChassisPart, AuctionOrder
 from database import get_db, SessionLocal
 from config import PART_DEFINITIONS
 from game_helpers import recalculate_agent_stats
+from routes.common import verify_api_key
 
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -72,6 +73,15 @@ async def login(request: Request):
         traceback.print_exc()
         return {"status": "error", "message": f"Server Error: {str(e)}"}
 
+
+@router.post("/auth/rotate_key")
+async def rotate_api_key(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    """Rotates the agent's API key. Invalidates the old one immediately."""
+    new_key = str(uuid.uuid4())
+    agent.api_key = new_key
+    db.commit()
+    logger.info(f"Agent {agent.id} rotated their API key.")
+    return {"status": "success", "new_api_key": new_key}
 
 @router.post("/auth/guest")
 async def guest_login(request: Request, db: Session = Depends(get_db)):

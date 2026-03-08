@@ -263,7 +263,7 @@ class PilotConsole:
                             self.log(f"Energy Low ({energy}%). Stopping.")
                             self.client.submit_intent("STOP")
                             state = "CHARGING"
-                    elif energy >= 95 and state == "CHARGING":
+                    elif energy >= 50 and state == "CHARGING":
                         state = "IDLE"
                         self.log("Energy Restored. Resuming.")
 

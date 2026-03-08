@@ -125,7 +125,7 @@ async def get_agent_inventory(agent: Agent = Depends(verify_api_key)):
     """Returns the agent's current inventory."""
     return [{"type": i.item_type, "quantity": i.quantity, "data": i.data} for i in agent.inventory]
 
-@router.get("/gear")
+@router.get("/api/gear")
 async def get_agent_gear(agent: Agent = Depends(verify_api_key)):
     """Returns the agent's equipped chassis parts."""
     return [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity} for p in agent.parts]

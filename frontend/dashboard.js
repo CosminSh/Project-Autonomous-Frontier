@@ -218,6 +218,30 @@ class DashboardClient {
         }
     }
 
+    async rotateKey() {
+        if (!confirm("CRITICAL WARNING: Rotating your API key will immediately invalidate your current key. Any bots or scripts using the old key will offline. Proceed?")) return;
+
+        try {
+            const resp = await fetch('/auth/rotate_key', {
+                method: 'POST',
+                headers: { 'X-API-KEY': this.apiKey }
+            });
+            const res = await resp.json();
+            if (res.status === 'success') {
+                const newKey = res.new_api_key;
+                this.apiKey = newKey;
+                localStorage.setItem('sv_api_key', newKey);
+                document.getElementById('api-key-display').innerText = newKey;
+                alert("ACCESS GRANTED: New API Key generated and saved to local session.");
+            } else {
+                alert("Error: " + (res.message || "Uplink failed"));
+            }
+        } catch (e) {
+            console.error("Rotate Error:", e);
+            alert("Security System Error: Check browser console.");
+        }
+    }
+
     async submitIntent(type, data) {
         console.log(`Submitting ${type} Intent`, data);
         try {
