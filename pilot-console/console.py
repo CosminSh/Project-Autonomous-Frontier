@@ -154,11 +154,6 @@ class PilotConsole:
         }
         with open(path, "w") as f:
             json.dump(config, f, indent=4)
-        
-        # Also sync to .env for compatibility
-        with open(".env", "w") as f:
-            f.write(f"TF_API_KEY={self.api_key.get()}\n")
-            f.write(f"OPENROUTER_API_KEY={self.openrouter_key.get()}\n")
 
     def toggle_autopilot(self):
         if self.is_running:
