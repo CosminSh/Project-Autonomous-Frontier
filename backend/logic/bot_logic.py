@@ -190,7 +190,6 @@ def process_feral_brain(db, agent: Agent, current_tick: int):
     ]
     
     # Filter neighbors to keep them near their zone or generally moving back if drifted
-    from game_helpers import get_hex_distance
     candidates = []
     for q, r in neighbors:
         dist = get_hex_distance(0, 0, q, r)

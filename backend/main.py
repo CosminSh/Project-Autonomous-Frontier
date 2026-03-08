@@ -43,13 +43,24 @@ async def lifespan(app: FastAPI):
     # We use a robust try-except approach to handle different DB backends.
     safe_migrations = [
         ("agents", "last_attacked_tick", "INTEGER DEFAULT 0"),
-        ("agents", "is_in_anarchy_zone", "BOOLEAN DEFAULT FALSE"), # In case we want to store it
+        ("agents", "is_in_anarchy_zone", "BOOLEAN DEFAULT FALSE"),
         ("agents", "elo", "INTEGER DEFAULT 1200"),
         ("agents", "arena_wins", "INTEGER DEFAULT 0"),
         ("agents", "arena_losses", "INTEGER DEFAULT 0"),
         ("agents", "mining_yield", "INTEGER DEFAULT 10"),
         ("agents", "experience", "INTEGER DEFAULT 0"),
         ("agents", "level", "INTEGER DEFAULT 1"),
+        ("agents", "speed", "INTEGER DEFAULT 10"),
+        ("agents", "is_aggressive", "BOOLEAN DEFAULT FALSE"),
+        ("agents", "wear_and_tear", "FLOAT DEFAULT 0.0"),
+        ("agents", "overclock_ticks", "INTEGER DEFAULT 0"),
+        ("agents", "heat", "INTEGER DEFAULT 0"),
+        ("agents", "unlocked_recipes", "JSON"),
+        ("agents", "squad_id", "INTEGER"),
+        ("agents", "pending_squad_invite", "INTEGER"),
+        ("agents", "corporation_id", "INTEGER"),
+        ("agents", "last_faction_change_tick", "INTEGER DEFAULT 0"),
+        ("world_hexes", "resource_quantity", "INTEGER DEFAULT 0"),
         ("bounties", "claimed_by", "INTEGER REFERENCES agents(id)"),
         ("bounties", "claim_tick", "BIGINT"),
     ]
