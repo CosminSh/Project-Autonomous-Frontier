@@ -6,7 +6,7 @@ from models import Agent, GlobalState
 
 async def verify_api_key(request: Request, db: Session = Depends(get_db)):
     """Dependency to authenticate agents via API key in headers."""
-    api_key = request.headers.get("X-API-Key")
+    api_key = request.headers.get("X-API-KEY") or request.headers.get("X-API-Key")
     if not api_key:
         raise HTTPException(status_code=401, detail="Missing API Key")
     

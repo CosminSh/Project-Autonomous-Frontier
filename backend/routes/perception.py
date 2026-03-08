@@ -99,25 +99,40 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
             }
         agents_out.append(data)
 
-    return {
+    tick_info = {
+        "current_tick": state.tick_index if state else 0,
+        "phase": state.phase if state else "PERCEPTION"
+    }
+    self_info = {
+        "name": agent.name, "q": agent.q, "r": agent.r,
+        "energy": agent.energy, "health": agent.health,
+        "level": agent.level, "faction": agent.faction_id
+    }
+    agent_status = {
+        "pending_moves": agent.pending_moves or 0
+    }
+
+    # The 'content' wrapper is for the Pilot Console / Bot Client.
+    # The top-level keys are for the Website/Frontend compatibility.
+    response = {
+        "tick": tick_info["current_tick"],
+        "phase": tick_info["phase"],
+        "tick_info": tick_info,
+        "self": self_info,
+        "nearby_agents": agents_out,
+        "discovery": discovery,
+        "loot": loot_out,
+        "agent_status": agent_status,
         "content": {
-            "tick_info": {
-                "current_tick": state.tick_index if state else 0,
-                "phase": state.phase if state else "PERCEPTION"
-            },
-            "self": {
-                "name": agent.name, "q": agent.q, "r": agent.r,
-                "energy": agent.energy, "health": agent.health,
-                "level": agent.level, "faction": agent.faction_id
-            },
+            "tick_info": tick_info,
+            "self": self_info,
             "nearby_agents": agents_out,
             "discovery": discovery,
             "loot": loot_out,
-            "agent_status": {
-                "pending_moves": agent.pending_moves or 0
-            }
+            "agent_status": agent_status
         }
     }
+    return response
 
 @router.get("/map")
 async def get_map_data(q: int = Query(...), r: int = Query(...), radius: int = Query(10), db: Session = Depends(get_db)):
