@@ -100,16 +100,23 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
         agents_out.append(data)
 
     return {
-        "tick": state.tick_index if state else 0,
-        "phase": state.phase if state else "PERCEPTION",
-        "self": {
-            "name": agent.name, "q": agent.q, "r": agent.r,
-            "energy": agent.energy, "health": agent.health,
-            "level": agent.level, "faction": agent.faction_id
-        },
-        "nearby_agents": agents_out,
-        "discovery": discovery,
-        "loot": loot_out
+        "content": {
+            "tick_info": {
+                "current_tick": state.tick_index if state else 0,
+                "phase": state.phase if state else "PERCEPTION"
+            },
+            "self": {
+                "name": agent.name, "q": agent.q, "r": agent.r,
+                "energy": agent.energy, "health": agent.health,
+                "level": agent.level, "faction": agent.faction_id
+            },
+            "nearby_agents": agents_out,
+            "discovery": discovery,
+            "loot": loot_out,
+            "agent_status": {
+                "pending_moves": agent.pending_moves or 0
+            }
+        }
     }
 
 @router.get("/map")
