@@ -21,3 +21,10 @@ Thumbs.db
 
 # Generated
 backend/demo_app.py
+
+# Pilot Console Build Artifacts & Secrets
+pilot-console/build/
+pilot-console/dist/
+pilot-console/pilot_settings.json
+.env*
+*.env
