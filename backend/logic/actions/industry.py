@@ -53,17 +53,16 @@ async def handle_smelt(db, agent, intent, tick_count, manager):
         db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INVALID_ORE"}))
         return
 
-    inv_ore = next((i for i in agent.inventory if i.item_type == ore_type), None)
-    if not inv_ore or inv_ore.quantity < quantity:
-        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INSUFFICIENT_ORE"}))
+    total_ore = get_total_resource(agent, ore_type)
+    if total_ore < quantity:
+        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INSUFFICIENT_ORE", "has": total_ore, "needs": quantity}))
         return
 
     ingot_type = SMELTING_RECIPES[ore_type]
     amount_produced = quantity // SMELTING_RATIO
     if amount_produced <= 0: return
 
-    inv_ore.quantity -= (amount_produced * SMELTING_RATIO)
-    if inv_ore.quantity <= 0: db.delete(inv_ore)
+    consume_resources(db, agent, ore_type, (amount_produced * SMELTING_RATIO))
     
     inv_ingot = next((i for i in agent.inventory if i.item_type == ingot_type), None)
     if inv_ingot: inv_ingot.quantity += amount_produced

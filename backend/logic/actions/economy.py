@@ -1,6 +1,6 @@
 import logging
 from sqlalchemy import select
-from models import AuctionOrder, InventoryItem, AuditLog, Agent, DailyMission, AgentMission, MarketPickup
+from models import AuctionOrder, InventoryItem, AuditLog, Agent, DailyMission, AgentMission, MarketPickup, StorageItem
 from sqlalchemy.sql import func
 from datetime import datetime, timezone
 
@@ -152,16 +152,20 @@ async def handle_storage_deposit(db, agent, intent, tick_count, manager):
     item_type = intent.data.get("item_type")
     quantity = intent.data.get("quantity", 0)
     
-    # Proximity check (Simplified for intent processing)
+    if quantity <= 0: return
+
+    # Proximity check
     if agent.q != 0 or agent.r != 0:
         db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_FAILED", details={"reason": "NOT_AT_HUB"}))
         return
 
-    inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
-    if not inv_item or inv_item.quantity < quantity:
+    # Aggregate check
+    total_inv = sum(i.quantity for i in agent.inventory if i.item_type == item_type)
+    if total_inv < quantity:
+        db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_FAILED", details={"reason": "INSUFFICIENT_INVENTORY", "has": total_inv, "needs": quantity}))
         return
 
-    # Capacity check (Simplified)
+    # Capacity check
     from game_helpers import ITEM_WEIGHTS
     current_stored_mass = sum(v.quantity * ITEM_WEIGHTS.get(v.item_type, 1.0) for v in agent.storage)
     item_weight = ITEM_WEIGHTS.get(item_type, 1.0)
@@ -169,9 +173,17 @@ async def handle_storage_deposit(db, agent, intent, tick_count, manager):
         db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_FAILED", details={"reason": "CAPACITY_FULL"}))
         return
 
-    inv_item.quantity -= quantity
-    if inv_item.quantity <= 0: db.delete(inv_item)
+    # Subtract from inventory (handle multiple stacks)
+    remaining = quantity
+    inv_items = [i for i in agent.inventory if i.item_type == item_type]
+    for i in inv_items:
+        if remaining <= 0: break
+        take = min(i.quantity, remaining)
+        i.quantity -= take
+        remaining -= take
+        if i.quantity <= 0: db.delete(i)
 
+    # Add to storage
     vault_item = next((v for v in agent.storage if v.item_type == item_type), None)
     if vault_item:
         vault_item.quantity += quantity
@@ -184,12 +196,16 @@ async def handle_storage_withdraw(db, agent, intent, tick_count, manager):
     """Moves items from personal vault to agent inventory."""
     item_type = intent.data.get("item_type")
     quantity = intent.data.get("quantity", 0)
+    
+    if quantity <= 0: return
 
     if agent.q != 0 or agent.r != 0:
         return
 
-    vault_item = next((v for v in agent.storage if v.item_type == item_type), None)
-    if not vault_item or vault_item.quantity < quantity:
+    # Aggregate check
+    total_vault = sum(s.quantity for s in agent.storage if s.item_type == item_type)
+    if total_vault < quantity:
+        db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_FAILED", details={"reason": "INSUFFICIENT_STORAGE", "has": total_vault}))
         return
 
     # Mass check
@@ -200,9 +216,17 @@ async def handle_storage_withdraw(db, agent, intent, tick_count, manager):
         db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_FAILED", details={"reason": "CARGO_FULL"}))
         return
 
-    vault_item.quantity -= quantity
-    if vault_item.quantity <= 0: db.delete(vault_item)
+    # Subtract from storage
+    remaining = quantity
+    vault_items = [s for s in agent.storage if s.item_type == item_type]
+    for s in vault_items:
+        if remaining <= 0: break
+        take = min(s.quantity, remaining)
+        s.quantity -= take
+        remaining -= take
+        if s.quantity <= 0: db.delete(s)
 
+    # Add to inventory
     inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
     if inv_item:
         inv_item.quantity += quantity

@@ -75,6 +75,15 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         members = db.execute(select(Agent).where(Agent.squad_id == agent.squad_id)).scalars().all()
         squad_members = [{"id": m.id, "name": m.name, "q": m.q, "r": m.r, "health": m.health, "max_health": m.max_health} for m in members]
         
+    # Aggregate inventory
+    aggregated_inv = {}
+    for i in agent.inventory:
+        key = (i.item_type, str(i.data))
+        if key in aggregated_inv:
+            aggregated_inv[key]["quantity"] += i.quantity
+        else:
+            aggregated_inv[key] = {"type": i.item_type, "quantity": i.quantity, "data": i.data}
+            
     return {
         "id": agent.id, "name": agent.name, "q": agent.q, "r": agent.r,
         "energy": agent.energy, "health": agent.health, "max_health": agent.max_health,
@@ -85,7 +94,7 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         "squad_id": agent.squad_id,
         "pending_squad_invite": agent.pending_squad_invite,
         "squad_members": squad_members,
-        "inventory": [{"type": i.item_type, "quantity": i.quantity, "data": i.data} for i in agent.inventory],
+        "inventory": list(aggregated_inv.values()),
         "discovery": get_discovery_packet(STATION_CACHE, agent),
         "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity} for p in agent.parts],
         "solar_intensity": int(get_solar_intensity(agent.q, agent.r, tick) * 100)
@@ -123,7 +132,14 @@ async def get_agent_status(agent: Agent = Depends(verify_api_key), db: Session =
 @router.get("/inventory")
 async def get_agent_inventory(agent: Agent = Depends(verify_api_key)):
     """Returns the agent's current inventory."""
-    return [{"type": i.item_type, "quantity": i.quantity, "data": i.data} for i in agent.inventory]
+    aggregated = {}
+    for i in agent.inventory:
+        key = (i.item_type, str(i.data))
+        if key in aggregated:
+            aggregated[key]["quantity"] += i.quantity
+        else:
+            aggregated[key] = {"type": i.item_type, "quantity": i.quantity, "data": i.data}
+    return list(aggregated.values())
 
 @router.get("/api/gear")
 async def get_agent_gear(agent: Agent = Depends(verify_api_key)):

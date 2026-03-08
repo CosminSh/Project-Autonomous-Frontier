@@ -287,7 +287,12 @@ class PilotConsole:
         return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
 
     def process_strategy(self, agent, perception, current_state):
-        inv = {i["type"]: i["quantity"] for i in agent.get("inventory", [])}
+        # Robust inventory aggregation for the script (server now does this too but we'll be safe)
+        inv = {}
+        for item in agent.get("inventory", []):
+            it = item["type"]
+            inv[it] = inv.get(it, 0) + item["quantity"]
+
         energy = agent.get("energy", 100)
         obj_text = self.objective.get().upper()
         
@@ -305,8 +310,8 @@ class PilotConsole:
             target_zone = (55, 100)
         
         ore_qty = inv.get(target_res_type, 0)
-        ingots = {k: v for k, v in inv.items() if "_INGOT" in k}
-        has_ingots = sum(ingots.values()) > 0
+        all_ingot_types = [k for k, v in inv.items() if "_INGOT" in k and v > 0]
+        has_ingots = len(all_ingot_types) > 0
         
         # 1. Safety & Energy Check
         if energy < 20:
@@ -326,7 +331,7 @@ class PilotConsole:
 
         if current_state == "IDLE" or current_state == "MOVING" or current_state == "MINING":
             if ore_qty >= 20 or (has_ingots and ("VAULT" in obj_text or "DEPOSIT" in obj_text)):
-                self.log(f"SYSTEM: Cargo threshold reached ({ore_qty} units). Navigating to Hub.")
+                self.log(f"SYSTEM: Logistics needed ({ore_qty} ore | {len(all_ingot_types)} ingot types). Navigating to Hub.")
                 self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
                 return "RETURNING"
             
@@ -372,15 +377,12 @@ class PilotConsole:
                     self.client.submit_intent("SMELT", {"ore_type": target_res_type, "quantity": 10})
                     return "RETURNING"
                 elif has_ingots and ("VAULT" in obj_text or "DEPOSIT" in obj_text):
-                    target_ingot = target_res_type.replace("_ORE", "_INGOT")
-                    qty = inv.get(target_ingot, 0)
-                    if qty > 0:
-                        self.log(f"INDUSTRIAL: Depositing {qty}x {target_ingot} to Vault.")
-                        self.client.submit_intent("STORAGE_DEPOSIT", {"item_type": target_ingot, "quantity": qty})
-                        return "RETURNING"
-                    else:
-                        self.log("INDUSTRIAL: Logistics complete.")
-                        return "IDLE"
+                    # Find ANY ingot type we have and deposit it
+                    ingot_to_vault = all_ingot_types[0]
+                    qty = inv.get(ingot_to_vault, 0)
+                    self.log(f"INDUSTRIAL: Depositing {qty}x {ingot_to_vault} to Vault.")
+                    self.client.submit_intent("STORAGE_DEPOSIT", {"item_type": ingot_to_vault, "quantity": qty})
+                    return "RETURNING" # Will handle the next one next tick
                 else:
                     self.log("INDUSTRIAL: All local tasks finished.")
                     return "IDLE"
