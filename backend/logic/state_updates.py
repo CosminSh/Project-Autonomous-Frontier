@@ -68,8 +68,6 @@ async def update_global_agent_stats(db, tick_count, manager):
         if agent.q == 0 and agent.r == 0: regen *= 2 # Town bonus
         
         agent.energy = min(100, agent.energy + regen)
-        if intensity == 0 and not fuel_bypass and regen == 0:
-            agent.energy = max(0, agent.energy - 1)
 
         # Progression Ticks
         if (agent.overclock_ticks or 0) > 0: agent.overclock_ticks -= 1
