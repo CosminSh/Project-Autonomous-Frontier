@@ -287,43 +287,30 @@ class PilotConsole:
         return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
 
     def process_strategy(self, agent, perception, current_state):
-        # Robust inventory aggregation for the script (server now does this too but we'll be safe)
+        # Robust inventory aggregation
         inv = {}
         for item in agent.get("inventory", []):
             it = item["type"]
             inv[it] = inv.get(it, 0) + item["quantity"]
 
         energy = agent.get("energy", 100)
-        intensity = perception.get("solar_intensity", 100) # Percentage integer
+        health_p = (agent.get("health", 100) / agent.get("max_health", 100)) * 100
+        intensity = perception.get("solar_intensity", 100)
         obj_text = self.objective.get().upper()
         
-        # Determine target ore and depth band from objective
-        target_res_type = "IRON_ORE"
-        target_zone = (6, 20) # Stay in inner ring for Iron
-        if "COPPER" in obj_text: 
-            target_res_type = "COPPER_ORE"
-            target_zone = (16, 40)
-        elif "GOLD" in obj_text: 
-            target_res_type = "GOLD_ORE"
-            target_zone = (31, 60)
-        elif "COBALT" in obj_text: 
-            target_res_type = "COBALT_ORE"
-            target_zone = (55, 100)
-        
-        ore_qty = inv.get(target_res_type, 0)
-        all_ingot_types = [k for k, v in inv.items() if "_INGOT" in k and v > 0]
-        has_ingots = len(all_ingot_types) > 0
-        
-        # 1. Safety & Energy Check
+        # 1. Critical Health & Energy Check
+        if health_p < 40:
+            self.log(f"CRITICAL: Hull Integrity at {health_p:.1f}%. Retreating for repairs.")
+            self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
+            return "RETREATING"
+
         if energy < 20:
             if current_state != "CHARGING":
-                # Smart Recharging: If solar intensity is good, stay here.
-                # Only return if in the dark, otherwise distance cost > charging profit
                 if intensity > 70:
-                    self.log(f"SYSTEM: Energy Low ({energy}%). Intensity High ({intensity}%). Recharging on-site.")
+                    self.log(f"SYSTEM: Energy Low ({energy}%). Intensity High. Recharging on-site.")
                     self.client.submit_intent("STOP")
                 else:
-                    self.log(f"SYSTEM: Energy Low ({energy}%). Intensity Poor ({intensity}%). Returning to Hub for power.")
+                    self.log(f"SYSTEM: Energy Low ({energy}%). Intensity Poor. Returning to Hub.")
                     self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
                     return "CHARGING"
                 return "CHARGING"
@@ -333,17 +320,83 @@ class PilotConsole:
             self.log("SYSTEM: Power nominal. Resuming Operations.")
             current_state = "IDLE"
 
-        # 2. Main Logic Tree
-        if current_state == "CHARGING":
-            return "CHARGING"
+        if current_state == "CHARGING": return "CHARGING"
 
-        if current_state == "IDLE" or current_state == "MOVING" or current_state == "MINING":
-            if ore_qty >= 20 or (has_ingots and ("VAULT" in obj_text or "DEPOSIT" in obj_text)):
-                self.log(f"SYSTEM: Logistics needed ({ore_qty} ore | {len(all_ingot_types)} ingot types). Navigating to Hub.")
+        # 2. Determine Profession (MINER vs HUNTER)
+        is_hunter = "HUNT" in obj_text or "FERAL" in obj_text
+        
+        # 3. Profession Logic
+        if is_hunter:
+            # --- HUNTER LOGIC ---
+            import re
+            lvl_match = re.search(r"LEVEL (\d+)-?(\d*)", obj_text)
+            min_lvl = int(lvl_match.group(1)) if lvl_match else 1
+            max_lvl = int(lvl_match.group(2)) if lvl_match and lvl_match.group(2) else min_lvl + 10
+            
+            mass = agent.get("mass", 0)
+            max_mass = agent.get("max_mass", 100)
+            if mass / max_mass > 0.9:
+                self.log("SYSTEM: Cargo saturated with trophies. Returning to Hub.")
+                self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
+                return "RETURNING"
+
+            # Check for ferals in range
+            nearby_agents = perception.get("agents", [])
+            target_feral = None
+            for a in nearby_agents:
+                if a.get("is_feral"):
+                    lvl = a.get("level", 1)
+                    if min_lvl <= lvl <= max_lvl:
+                        target_feral = a
+                        break
+            
+            if target_feral:
+                dist = a.get("distance", 999) # This is usually 1 for attackable
+                if dist <= 1:
+                    if current_state != "HUNTING":
+                        self.log(f"HUNT: Engaging {target_feral['name']} (Lvl {target_feral['level']})!")
+                    self.client.submit_intent("ATTACK", {"target_id": target_feral["id"]})
+                    return "HUNTING"
+                else:
+                    self.log(f"HUNT: Closing distance to {target_feral['name']} at ({target_feral['q']}, {target_feral['r']})")
+                    self.client.submit_intent("MOVE", {"target_q": target_feral["q"], "target_r": target_feral["r"]})
+                    return "MOVING"
+            else:
+                # Roam towards the target zone
+                # Tier 1: 6-15, Tier 2: 16-30, Tier 3: 31-50, Tier 4: 51+
+                zone_r = 10 if min_lvl <= 10 else 25 if min_lvl <= 20 else 40 if min_lvl <= 30 else 60
+                self_data = perception.get("self", {})
+                if abs(self_data["r"] - zone_r) > 5:
+                    self.log(f"HUNT: Moving to Level {min_lvl}+ habitat (r={zone_r}).")
+                    self.client.submit_intent("MOVE", {"target_q": self_data["q"] + 2, "target_r": zone_r})
+                else:
+                    self.log(f"HUNT: No {min_lvl}-{max_lvl} Ferals found. Scouting habitat...")
+                    dq = 3 if (perception.get("tick_info", {}).get("current_tick", 0) % 2 == 0) else -3
+                    self.client.submit_intent("MOVE", {"target_q": self_data["q"] + dq, "target_r": self_data["r"] + 1})
+                return "MOVING"
+        else:
+            # --- MINER LOGIC (Legacy) ---
+            target_res_type = "IRON_ORE"
+            target_zone = (6, 20)
+            if "COPPER" in obj_text: 
+                target_res_type = "COPPER_ORE"
+                target_zone = (16, 40)
+            elif "GOLD" in obj_text: 
+                target_res_type = "GOLD_ORE"
+                target_zone = (31, 60)
+            elif "COBALT" in obj_text: 
+                target_res_type = "COBALT_ORE"
+                target_zone = (55, 100)
+            
+            ore_qty = inv.get(target_res_type, 0)
+            all_ingot_types = [k for k, v in inv.items() if "_INGOT" in k and v > 0]
+            valuable_loot = [k for k, v in inv.items() if k in ["SYNTHETIC_WEAVE", "FERAL_CORE", "VOID_CHIP", "ANCIENT_CIRCUIT", "ELECTRONICS"] and v > 0]
+            
+            if ore_qty >= 20 or valuable_loot or (all_ingot_types and ("VAULT" in obj_text or "DEPOSIT" in obj_text)):
+                self.log(f"SYSTEM: Logistics needed. Navigating to Hub.")
                 self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
                 return "RETURNING"
             
-            # Are we standing on a resource?
             self_data = perception.get("self", {})
             env_resources = perception.get("discovery", {}).get("resources", [])
             on_target = any(r for r in env_resources if r["q"] == self_data["q"] and r["r"] == self_data["r"] and r["type"] == target_res_type)
@@ -356,45 +409,52 @@ class PilotConsole:
             else:
                 target = next((r for r in env_resources if r["type"] == target_res_type), None)
                 if target:
-                    self.log(f"STRATEGY: Detected {target_res_type} at ({target['q']}, {target['r']}). Intercepting.")
+                    self.log(f"STRATEGY: Detected {target_res_type}. Intercepting.")
                     self.client.submit_intent("MOVE", {"target_q": target["q"], "target_r": target["r"]})
                     return "MOVING"
                 else:
-                    self_data = perception.get("self", {})
                     dist = self.get_hex_distance(0, 0, self_data["q"], self_data["r"])
-                    
                     if dist < target_zone[0]:
-                        self.log(f"STRATEGY: Too close to Hub for {target_res_type} (Dist {dist}). Moving OUT.")
                         self.client.submit_intent("MOVE", {"target_q": self_data["q"] + 4, "target_r": self_data["r"] + 4})
                     elif dist > target_zone[1]:
-                        self.log(f"STRATEGY: Drifted into deep space (Dist {dist}). Returning to {target_res_type} Belt.")
                         self.client.submit_intent("MOVE", {"target_q": max(0, self_data["q"] - 5), "target_r": max(0, self_data["r"] - 5)})
                     else:
-                        self.log(f"STRATEGY: No {target_res_type} detected. Scouting within Belt (Dist {dist}).")
-                        # Mini random-walk scouting: zig-zag
                         dq = 2 if (perception.get("tick_info", {}).get("current_tick", 0) % 2 == 0) else -2
                         self.client.submit_intent("MOVE", {"target_q": self_data["q"] + dq, "target_r": self_data["r"] + 3})
                     return "MOVING"
 
-        if current_state == "RETURNING":
+        # 4. Return / Hub Logic
+        if current_state == "RETURNING" or current_state == "RETREATING":
             self_data = perception.get("self", {})
             if self_data["q"] == 0 and self_data["r"] == 0:
+                # REPAIR if needed
+                if health_p < 90:
+                    self.log("INDUSTRIAL: Repairing hull integrity...")
+                    self.client.submit_intent("RESET_WEAR")
+                    return "RETREATING"
+                
                 # HUB PROCESSING
-                if ore_qty >= 10 and ("SMELT" in obj_text or "REFINE" in obj_text):
+                target_res_type = "IRON_ORE"
+                if "COPPER" in obj_text: target_res_type = "COPPER_ORE"
+                elif "GOLD" in obj_text: target_res_type = "GOLD_ORE"
+                elif "COBALT" in obj_text: target_res_type = "COBALT_ORE"
+                
+                ore_qty = inv.get(target_res_type, 0)
+                all_valuable = [k for k, v in inv.items() if ("_INGOT" in k or k in ["SYNTHETIC_WEAVE", "FERAL_CORE", "VOID_CHIP", "ANCIENT_CIRCUIT", "ELECTRONICS"]) and v > 0]
+                
+                if ore_qty >= 5:
                     self.log(f"INDUSTRIAL: Smelting {target_res_type}...")
-                    self.client.submit_intent("SMELT", {"ore_type": target_res_type, "quantity": 10})
+                    self.client.submit_intent("SMELT", {"ore_type": target_res_type, "quantity": "MAX"})
                     return "RETURNING"
-                elif has_ingots and ("VAULT" in obj_text or "DEPOSIT" in obj_text):
-                    # Find ANY ingot type we have and deposit it
-                    ingot_to_vault = all_ingot_types[0]
-                    qty = inv.get(ingot_to_vault, 0)
-                    self.log(f"INDUSTRIAL: Depositing {qty}x {ingot_to_vault} to Vault.")
-                    self.client.submit_intent("STORAGE_DEPOSIT", {"item_type": ingot_to_vault, "quantity": qty})
-                    return "RETURNING" # Will handle the next one next tick
+                elif all_valuable:
+                    item_to_vault = all_valuable[0]
+                    self.log(f"INDUSTRIAL: Vaulting {item_to_vault}.")
+                    self.client.submit_intent("STORAGE_DEPOSIT", {"item_type": item_to_vault, "quantity": "MAX"})
+                    return "RETURNING"
                 else:
                     self.log("INDUSTRIAL: All local tasks finished.")
                     return "IDLE"
-            return "RETURNING"
+            return current_state
         
         return "IDLE"
 

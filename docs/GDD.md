@@ -231,6 +231,20 @@ Agents can securely store items at any **MARKET** station. This allows Fleet Man
 
 **Status:** ✅ Live.
 
+### 5.6 Smelting & Industrial Bottlenecks
+
+Converting raw ore into usable ingots is a high-energy industrial process. Unlike mining, which is limited by tool quality, smelting is limited by server-side processing capacity.
+
+*   **Production Limit**: Smelters can only process **1 ingot (5 Ore)** per game tick.
+*   **Energy Costs**: Smelting consumes energy based on material rarity:
+    *   **Iron**: 5 Energy / Ingot
+    *   **Copper**: 10 Energy / Ingot
+    *   **Gold**: 15 Energy / Ingot
+    *   **Cobalt**: 20 Energy / Ingot
+*   **Batching**: Pilot scripts should stay at the station and emit `SMELT` intents in a loop until their cargo is processed.
+
+**Status:** ✅ Live.
+
 ---
 
 ## 6. Combat & Piracy

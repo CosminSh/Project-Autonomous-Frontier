@@ -14,71 +14,91 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 logger = logging.getLogger("seed_world")
 logging.basicConfig(level=logging.INFO)
 
-# ─── Feral Templates by Zone ──────────────────────────────────────────────────
+# ─── Feral Templates by Tier ────────────────────────────────────────────────
 FERAL_TEMPLATES = {
-    "passive_lvl1": {
+    "tier1": {
         "name_prefix": "Feral-Drifter",
         "is_aggressive": False,
-        "health": 80, "max_health": 80,
-        "damage": 8, "accuracy": 5, "speed": 10, "armor": 2,
-        "part_name": "Scrap Claws", "part_stats": {"damage": 5},
-        "loot": [("SCRAP_METAL", 3, 8)],
+        "base_health": 80, "hp_scale": 10,
+        "base_damage": 8, "dmg_scale": 2,
+        "base_accuracy": 5, "base_speed": 10, "base_armor": 2,
+        "part_name": "Scrap Claws",
+        "loot": [("SYNTHETIC_WEAVE", 1, 3)],
+        "rare_loot": "VOID_CHIP"
     },
-    "mixed_lvl2": {
+    "tier2": {
         "name_prefix": "Feral-Scrapper",
         "is_aggressive": True,
-        "health": 120, "max_health": 120,
-        "damage": 14, "accuracy": 8, "speed": 10, "armor": 5,
-        "part_name": "Rusty Blaster", "part_stats": {"damage": 12},
-        "loot": [("SCRAP_METAL", 5, 12), ("ELECTRONICS", 1, 3, 0.4)],
+        "base_health": 120, "hp_scale": 15,
+        "base_damage": 14, "dmg_scale": 3,
+        "base_accuracy": 8, "base_speed": 10, "base_armor": 5,
+        "part_name": "Rusty Blaster",
+        "loot": [("SCRAP_METAL", 3, 8), ("ELECTRONICS", 1, 2)],
+        "rare_loot": "VOID_CHIP"
     },
-    "elite_lvl3": {
+    "tier3": {
         "name_prefix": "Feral-Raider",
         "is_aggressive": True,
-        "health": 180, "max_health": 180,
-        "damage": 16, "accuracy": 10, "speed": 12, "armor": 8,
-        "part_name": "Plasma Cutter", "part_stats": {"damage": 12},
-        "loot": [("SCRAP_METAL", 8, 20), ("ELECTRONICS", 2, 6, 0.6), ("IRON_INGOT", 1, 3, 0.3)],
+        "base_health": 180, "hp_scale": 25,
+        "base_damage": 20, "dmg_scale": 5,
+        "base_accuracy": 12, "base_speed": 12, "base_armor": 10,
+        "part_name": "Plasma Cutter",
+        "loot": [("ELECTRONICS", 2, 5), ("FERAL_CORE", 1, 1, 0.4)],
+        "rare_loot": "ANCIENT_CIRCUIT"
     },
-    "apex_lvl4": {
+    "tier4": {
         "name_prefix": "Feral-Apex",
         "is_aggressive": True,
-        "health": 350, "max_health": 350,
-        "damage": 40, "accuracy": 20, "speed": 15, "armor": 15,
-        "part_name": "Quantum Shredder", "part_stats": {"damage": 35},
-        "loot": [("SCRAP_METAL", 10, 30), ("ELECTRONICS", 3, 8, 0.8), ("COBALT_ORE", 5, 15, 0.5)],
+        "base_health": 400, "hp_scale": 50,
+        "base_damage": 50, "dmg_scale": 10,
+        "base_accuracy": 20, "base_speed": 15, "base_armor": 20,
+        "part_name": "Quantum Shredder",
+        "loot": [("FERAL_CORE", 1, 3, 1.0)],
+        "rare_loot": "ANCIENT_CIRCUIT"
     },
 }
 
-
-def _spawn_feral(db, template_key: str, q: int, r: int, index: int):
-    t = FERAL_TEMPLATES[template_key]
+def _spawn_feral(db, tier_key: str, level: int, q: int, r: int, index: int):
+    t = FERAL_TEMPLATES[tier_key]
+    
+    # Scale stats by level
+    health = t["base_health"] + (level * t["hp_scale"])
+    damage = t["base_damage"] + (level * t["dmg_scale"])
+    
     feral = Agent(
-        name=f"{t['name_prefix']}-{index}",
+        name=f"{t['name_prefix']}-L{level}-{index}",
         q=q, r=r,
         is_bot=True, is_feral=True,
+        level=level,
         is_aggressive=t["is_aggressive"],
-        damage=t["damage"],
-        accuracy=t["accuracy"],
-        speed=t["speed"],
-        armor=t["armor"],
-        health=t["health"],
-        max_health=t["max_health"],
+        damage=damage,
+        accuracy=t["base_accuracy"] + (level // 2),
+        speed=t["base_speed"] + (level // 5),
+        armor=t["base_armor"] + (level // 3),
+        health=health,
+        max_health=health,
         energy=100,
     )
     db.add(feral)
     db.flush()
+    
     db.add(ChassisPart(
         agent_id=feral.id,
         part_type="Actuator",
         name=t["part_name"],
-        stats=t["part_stats"]
+        stats={"damage": damage // 2}
     ))
+    
+    # Standard Loot
     for loot in t["loot"]:
         item_type, qty_min, qty_max = loot[0], loot[1], loot[2]
         drop_chance = loot[3] if len(loot) > 3 else 1.0
         if random.random() < drop_chance:
             db.add(InventoryItem(agent_id=feral.id, item_type=item_type, quantity=random.randint(qty_min, qty_max)))
+            
+    # Rare Loot (5% constant)
+    if t.get("rare_loot") and random.random() < 0.05:
+        db.add(InventoryItem(agent_id=feral.id, item_type=t["rare_loot"], quantity=1))
 
 
 def _random_pos_at_dist(target_dist: int, spread: int = 3):
@@ -177,32 +197,35 @@ def seed_world():
         db.add(ChassisPart(agent_id=bot.id, part_type="Actuator", name=drill_def["name"], stats=drill_def["stats"]))
 
     # ── Spawn Ferals by Zone ──────────────────────────────────────────────────
-    logger.info("Spawning feral AIs by tier zone...")
+    logger.info("Spawning tiered feral AIs...")
 
-    # Zone 1: Passive ferals, dist 6-15 (Iron Belt)
-    for i in range(10):
+    # Zone 1: Tier 1, Levels 1-10, dist 6-15 (Iron Belt)
+    for i in range(15):
         q = random.randint(0, 99)
         r = random.randint(6, 15)
-        _spawn_feral(db, "passive_lvl1", q, r, i)
+        lvl = random.randint(1, 10)
+        _spawn_feral(db, "tier1", lvl, q, r, i)
 
-    # Zone 2: Mixed ferals (50% aggressive), dist 16-30 (Copper Belt)
+    # Zone 2: Tier 2, Levels 11-20, dist 16-30 (Copper Belt)
     for i in range(12):
         q = random.randint(0, 99)
         r = random.randint(16, 30)
-        template = "mixed_lvl2" if i >= 6 else "passive_lvl1"
-        _spawn_feral(db, template, q, r, 100 + i)
+        lvl = random.randint(11, 20)
+        _spawn_feral(db, "tier2", lvl, q, r, 100 + i)
 
-    # Zone 3: Elite mostly-aggressive ferals, dist 31-50 (Gold Fields)
-    for i in range(8):
+    # Zone 3: Tier 3, Levels 21-30, dist 31-50 (Gold Fields)
+    for i in range(10):
         q = random.randint(0, 99)
         r = random.randint(31, 50)
-        _spawn_feral(db, "elite_lvl3", q, r, 200 + i)
+        lvl = random.randint(21, 30)
+        _spawn_feral(db, "tier3", lvl, q, r, 200 + i)
 
-    # Zone 4: Apex ferals, dist 51+ (Deep Dark)
-    for i in range(5):
+    # Zone 4: Tier 4, Levels 31-45, dist 51+ (Deep Dark)
+    for i in range(8):
         q = random.randint(0, 99)
         r = random.randint(55, 90)
-        _spawn_feral(db, "apex_lvl4", q, r, 300 + i)
+        lvl = random.randint(31, 45)
+        _spawn_feral(db, "tier4", lvl, q, r, 300 + i)
 
     db.commit()
     db.close()

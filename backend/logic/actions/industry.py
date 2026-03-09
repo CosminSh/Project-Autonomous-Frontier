@@ -3,7 +3,8 @@ import random
 from sqlalchemy import select
 from models import AuditLog, WorldHex, InventoryItem
 from config import (
-    SMELTING_RECIPES, SMELTING_RATIO, CRAFTING_RECIPES, CORE_RECIPES, 
+    SMELTING_RECIPES, SMELTING_RATIO, SMELTING_MAX_PER_TICK, SMELTING_ENERGY_COSTS,
+    CRAFTING_RECIPES, CORE_RECIPES, 
     PART_DEFINITIONS, REPAIR_COST_PER_HP, REPAIR_COST_IRON_INGOT_PER_HP,
     MAINTENANCE_BASE_COST, MAINTENANCE_COEFFICIENT,
     UPGRADE_MAX_LEVEL, UPGRADE_BASE_INGOT_COST
@@ -47,10 +48,10 @@ def consume_resources(db, agent, item_type, total_needed):
 async def handle_smelt(db, agent, intent, tick_count, manager):
     """Converts raw ore into refined ingots at a SMELTER station."""
     ore_type = intent.data.get("ore_type")
-    quantity = intent.data.get("quantity", 10)
+    raw_qty = intent.data.get("quantity", 5)
     
-    if quantity == "MAX":
-        quantity = get_total_resource(agent, ore_type)
+    if raw_qty == "MAX":
+        raw_qty = get_total_resource(agent, ore_type)
     
     if ore_type not in SMELTING_RECIPES:
         db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INVALID_ORE", "ore": ore_type}))
@@ -64,25 +65,42 @@ async def handle_smelt(db, agent, intent, tick_count, manager):
         db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "NOT_AT_SMELTER", "q": agent.q, "r": agent.r}))
         return
 
-    total_ore = get_total_resource(agent, ore_type)
-    if total_ore < quantity:
-        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INSUFFICIENT_ORE", "has": total_ore, "needs": quantity}))
-        return
-
-    ingot_type = SMELTING_RECIPES[ore_type]
-    amount_produced = quantity // SMELTING_RATIO
-    if amount_produced <= 0:
-        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "QUANTITY_TOO_LOW", "has": quantity, "min": SMELTING_RATIO}))
-        return
-
-    consume_resources(db, agent, ore_type, (amount_produced * SMELTING_RATIO))
+    # Production Logic (Bottlenecked to 1 Ingot per Tick)
+    amount_requested = int(raw_qty) // SMELTING_RATIO
+    amount_produced = min(amount_requested, SMELTING_MAX_PER_TICK)
     
+    if amount_produced <= 0:
+        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "QUANTITY_TOO_LOW", "has": raw_qty, "min": SMELTING_RATIO}))
+        return
+
+    energy_cost = amount_produced * SMELTING_ENERGY_COSTS.get(ore_type, 100)
+    if agent.energy < energy_cost:
+        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INSUFFICIENT_ENERGY", "has": agent.energy, "needs": energy_cost}))
+        return
+
+    total_ore = get_total_resource(agent, ore_type)
+    consumed_ore = amount_produced * SMELTING_RATIO
+    if total_ore < consumed_ore:
+        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INSUFFICIENT_ORE", "has": total_ore, "needs": consumed_ore}))
+        return
+
+    # Execution
+    consume_resources(db, agent, ore_type, consumed_ore)
+    agent.energy -= energy_cost
+    
+    ingot_type = SMELTING_RECIPES[ore_type]
     inv_ingot = next((i for i in agent.inventory if i.item_type == ingot_type), None)
     if inv_ingot: inv_ingot.quantity += amount_produced
     else:
         db.add(InventoryItem(agent_id=agent.id, item_type=ingot_type, quantity=amount_produced))
     
-    db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_SMELT", details={"ore": ore_type, "amount": amount_produced}))
+    db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_SMELT", details={
+        "ore": ore_type, 
+        "amount": amount_produced, 
+        "energy_cost": energy_cost,
+        "remaining_request": (amount_requested - amount_produced) if raw_qty != "MAX" else "MAX"
+    }))
+    
     add_experience(db, agent, amount_produced * 10)
     if manager:
         await manager.broadcast({"type": "EVENT", "event": "SMELT", "agent_id": agent.id, "ingot": ingot_type})
