@@ -93,7 +93,7 @@ def main():
             max_mass = agent.get("max_mass", 100.0)
             load_pct = (mass / max_mass) * 100
             
-            inv = {item["type"]: item["quantity"] for item in agent.inventory}
+            inv = {item["type"]: item["quantity"] for item in agent.get("inventory", [])}
             parts = [p["part_type"] for p in agent.get("parts", [])]
             part_names = [p["name"] for p in agent.get("parts", [])]
             
@@ -107,7 +107,7 @@ def main():
             pending = perception.get("agent_status", {}).get("pending_moves", 0)
             discovery = perception.get("discovery", {})
             
-            logging.info(f"[Tick {current_tick}] {state} | Energy: {energy}% | Load: {load_pct:.1f}% | Pos: ({agent['q']},{agent['r']})")
+            logging.info(f"[Tick {current_tick}] {state} | Energy: {energy}% | Load: {load_pct:.1f}% | Pos: ({agent.get('q',0)},{agent.get('r',0)})")
 
             # 3. Decision Tree
             if energy < RECHARGE_THRESHOLD and state != "CHARGING":
