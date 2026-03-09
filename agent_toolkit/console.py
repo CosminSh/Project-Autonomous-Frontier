@@ -91,7 +91,7 @@ class PilotConsole:
         
         # Bars
         self.hp_canvas = self.create_bar(sidebar, "INTEGRITY", COLORS["rose"])
-        self.nrg_canvas = self.create_bar(sidebar, "CAPACITOR", COLORS["accent"])
+        self.nrg_canvas = self.create_bar(sidebar, "ENERGY", COLORS["accent"])
         
         # Core Stats
         self.stats_box = ttk.Label(sidebar, text="WAITING FOR UPLINK...", justify="left", style="Sidebar.TLabel")

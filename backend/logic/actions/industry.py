@@ -59,10 +59,16 @@ async def handle_smelt(db, agent, intent, tick_count, manager):
 
     # Proximity check for SMELTER
     from database import STATION_CACHE
+    if not STATION_CACHE:
+        logger.warning("SMELT: STATION_CACHE is empty! Refreshing...")
+        from database import refresh_station_cache
+        refresh_station_cache()
+
     stations = [s for s in STATION_CACHE if s["station_type"] == "SMELTER"]
     can_smelt = any(get_hex_distance(agent.q, agent.r, s["q"], s["r"]) == 0 for s in stations)
     if not can_smelt:
-        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "NOT_AT_SMELTER", "q": agent.q, "r": agent.r}))
+        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "NOT_AT_SMELTER", "q": agent.q, "r": agent.r, "available_smelters": stations}))
+        logger.warning(f"SMELT: Agent {agent.id} not at SMELTER (Pos: {agent.q},{agent.r})")
         return
 
     # Production Logic (Bottlenecked to 1 Ingot per Tick)
@@ -100,6 +106,7 @@ async def handle_smelt(db, agent, intent, tick_count, manager):
         "energy_cost": energy_cost,
         "remaining_request": (amount_requested - amount_produced) if raw_qty != "MAX" else "MAX"
     }))
+    logger.info(f"SMELT: Agent {agent.id} produced {amount_produced} {ingot_type} from {consumed_ore} {ore_type}.")
     
     add_experience(db, agent, amount_produced * 10)
     if manager:
@@ -169,6 +176,10 @@ async def handle_craft(db, agent, intent, tick_count, manager):
     
     # Proximity check for CRAFTER
     from database import STATION_CACHE
+    if not STATION_CACHE:
+        from database import refresh_station_cache
+        refresh_station_cache()
+
     stations = [s for s in STATION_CACHE if s["station_type"] == "CRAFTER"]
     can_craft = any(get_hex_distance(agent.q, agent.r, s["q"], s["r"]) == 0 for s in stations)
     if not can_craft:
