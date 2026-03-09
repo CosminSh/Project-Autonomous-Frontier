@@ -12,6 +12,9 @@ async def handle_list(db, agent, intent, tick_count, manager):
     price = intent.data.get("price")
     quantity = intent.data.get("quantity", 1)
     
+    if quantity == "MAX":
+        quantity = sum(i.quantity for i in agent.inventory if i.item_type == item_type)
+    
     inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
     if not inv_item or inv_item.quantity < quantity:
         db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "INSUFFICIENT_INVENTORY"}))
@@ -152,6 +155,15 @@ async def handle_storage_deposit(db, agent, intent, tick_count, manager):
     item_type = intent.data.get("item_type")
     quantity = intent.data.get("quantity", 0)
     
+    if quantity == "MAX":
+        quantity = sum(i.quantity for i in agent.inventory if i.item_type == item_type)
+        # Limit by capacity
+        from game_helpers import ITEM_WEIGHTS
+        current_stored_mass = sum(v.quantity * ITEM_WEIGHTS.get(v.item_type, 1.0) for v in agent.storage)
+        item_weight = ITEM_WEIGHTS.get(item_type, 1.0)
+        max_possible = int((agent.storage_capacity - current_stored_mass) / item_weight)
+        quantity = max(0, min(quantity, max_possible))
+
     if quantity <= 0: return
 
     # Proximity check
@@ -197,6 +209,15 @@ async def handle_storage_withdraw(db, agent, intent, tick_count, manager):
     item_type = intent.data.get("item_type")
     quantity = intent.data.get("quantity", 0)
     
+    if quantity == "MAX":
+        quantity = sum(s.quantity for s in agent.storage if s.item_type == item_type)
+        # Limit by inventory mass capacity
+        from game_helpers import get_agent_mass, ITEM_WEIGHTS
+        current_mass = get_agent_mass(agent)
+        item_weight = ITEM_WEIGHTS.get(item_type, 1.0)
+        max_possible = int((agent.max_mass - current_mass) / item_weight)
+        quantity = max(0, min(quantity, max_possible))
+
     if quantity <= 0: return
 
     if agent.q != 0 or agent.r != 0:

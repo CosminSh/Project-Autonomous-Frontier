@@ -1,6 +1,6 @@
 """
 Terminal Frontier: Autonomous Mining FSM (Finite State Machine)
-This script demonstrates how to write a bot that can run unmonitored all day.
+Version 0.3.0 - Professional Miner Workflow
 """
 import time
 import logging
@@ -8,21 +8,41 @@ import sys
 import requests
 from bot_client import TFClient
 
-# Configure logging to see what the bot is doing
+# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | [%(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
 # ---- CONFIGURATION ----
 API_KEY = "YOUR-API-KEY-HERE"
-BASE_URL = "http://localhost:8000" # Change to production URL when deploying
+BASE_URL = "http://localhost:8000" 
+TARGET_RESOURCE = "IRON_ORE"
+RECHARGE_THRESHOLD = 20
 # -----------------------
 
-def find_nearest_ore(hexes):
-    """Parses perception hexes to find the closest hex with ORE."""
-    # Assuming hexes are sorted by distance by the server API
-    for h in hexes:
-        if h.get("resource") in ["ORE", "IRON_ORE"]:
-            return h
-    return None
+ITEM_WEIGHTS = {
+    "IRON_ORE": 2.0, "COPPER_ORE": 2.0, "GOLD_ORE": 3.0, "COBALT_ORE": 4.0,
+    "IRON_INGOT": 5.0, "COPPER_INGOT": 5.0, "GOLD_INGOT": 7.0, "COBALT_INGOT": 10.0,
+    "SCRAP_METAL": 1.0, "ELECTRONICS": 0.5, "CREDITS": 0.0
+}
+
+def calculate_mass(agent):
+    """Calculates current cargo mass from inventory."""
+    total = 0
+    for item in agent.get("inventory", []):
+        w = ITEM_WEIGHTS.get(item["type"], 1.0) # Default 1.0 for unknown parts
+        total += item["quantity"] * w
+    return total
+
+def find_nearest_resource(perception, res_type):
+    """Finds the closest hex with the target resource."""
+    resources = perception.get("resources", [])
+    best = None
+    best_dist = 999
+    for r in resources:
+        if r.get("type") == res_type:
+            if r["distance"] < best_dist:
+                best = r
+                best_dist = r["distance"]
+    return best
 
 def main():
     if API_KEY == "YOUR-API-KEY-HERE":
@@ -30,114 +50,142 @@ def main():
         sys.exit(1)
 
     client = TFClient(API_KEY, BASE_URL)
-    agent = client.get_my_agent()
-    logging.info(f"Connected as {agent['name']} (Agent #{agent['id']})")
+    
+    try:
+        agent_data = client.get_my_agent()
+        logging.info(f"Connected as {agent_data['name']} (Agent #{agent_data['id']})")
+    except Exception as e:
+        logging.error(f"Failed to connect: {e}")
+        sys.exit(1)
     
     state = "IDLE"
     last_tick = 0
     
     while True:
         try:
-            # 1. Update World View
+            # 1. Update Perception
             perception = client.get_perception()
-            agent = client.get_my_agent()
+            current_tick = perception.get("tick_info", {}).get("current_tick", 0)
             
-            tick_info = perception.get("tick_info", {})
-            current_tick = tick_info.get("current_tick", 0)
-            
-            # Prevent double-processing the same tick
             if current_tick <= last_tick:
-                time.sleep(1)
+                time.sleep(0.5)
                 continue
-                
             last_tick = current_tick
             
-            # Read variables
-            inv = {item["type"]: item["quantity"] for item in agent["inventory"]}
-            ore_qty = inv.get("IRON_ORE", 0)
-            pending = perception.get("agent_status", {}).get("pending_moves", 0)
-            cap = agent["capacitor"]
+            # 2. Update Self
+            agent = client.get_my_agent()
+            energy = agent.get("energy", 0)
+            mass = calculate_mass(agent)
+            max_mass = agent.get("max_mass", 100.0)
+            load_pct = (mass / max_mass) * 100
             
-            logging.info(f"[Tick {current_tick}] State: {state} | Energy: {cap}% | Ore: {ore_qty} | Pending: {pending}")
+            inv = {item["type"]: item["quantity"] for item in agent.inventory}
+            ore_qty = inv.get(TARGET_RESOURCE, 0)
+            ingot_type = TARGET_RESOURCE.replace("_ORE", "_INGOT")
+            ingot_qty = inv.get(ingot_type, 0)
+            
+            pending = perception.get("agent_status", {}).get("pending_moves", 0)
+            discovery = perception.get("discovery", {})
+            
+            logging.info(f"[Tick {current_tick}] {state} | Energy: {energy}% | Load: {load_pct:.1f}% | Ore: {ore_qty} | Pos: ({agent['q']},{agent['r']})")
 
-            # 2. Safety Interruption (Event-driven transitions)
-            if cap < 15 and state != "CHARGING":
-                logging.warning("Energy critical! Halting operations to recharge.")
+            # 3. Energy Safety
+            if energy < RECHARGE_THRESHOLD and state != "CHARGING":
+                logging.warning("Low energy! Halting for recharge.")
                 client.submit_intent("STOP")
                 state = "CHARGING"
+                continue
                 
-            if agent["capacitor"] == 100 and state == "CHARGING":
-                logging.info("Batteries full. Resuming.")
+            if energy >= 95 and state == "CHARGING":
+                logging.info("Fully charged.")
                 state = "IDLE"
 
-            # 3. State Machine Logic
-            if state == "CHARGING":
-                pass # Just wait for tick to advance
+            if state == "CHARGING": continue
 
-            elif state == "IDLE":
-                if ore_qty >= 20:
-                    state = "RETURN_TO_MARKET"
+            # 4. State Machine
+            if state == "IDLE":
+                if load_pct > 85: # Cargo mostly full
+                    if ore_qty > 0: state = "FIND_SMELTER"
+                    else: state = "FIND_MARKET" # Full of something else or ingots?
+                elif ingot_qty > 10: # Have enough ingots to bother vaulting
+                    state = "FIND_MARKET"
                 else:
                     state = "FIND_ORE"
 
             elif state == "FIND_ORE":
-                hexes = perception.get("environment", {}).get("environment_hexes", [])
-                target = find_nearest_ore(hexes)
+                target = find_nearest_resource(perception, TARGET_RESOURCE)
                 if target:
-                    logging.info(f"Targeting ore at Q:{target['q']} R:{target['r']}")
+                    logging.info(f"Navigating to {TARGET_RESOURCE} at ({target['q']}, {target['r']})")
                     client.submit_intent("MOVE", {"target_q": target["q"], "target_r": target["r"]})
                     state = "NAVIGATING_TO_ORE"
                 else:
-                    logging.warning("No ore found in perception! Moving randomly to scout.")
-                    client.submit_intent("MOVE", {"target_q": agent["q"] + 2, "target_r": agent["r"] + 2})
+                    # Check discovery for a known location? For now, scout.
+                    logging.info("Target resource not in sensor range. Scouting...")
+                    client.submit_intent("MOVE", {"target_q": agent["q"] + 8, "target_r": agent["r"] + 2})
                     state = "NAVIGATING_TO_ORE"
 
             elif state == "NAVIGATING_TO_ORE":
-                if pending == 0:
-                    logging.info("Arrived at destination.")
-                    state = "MINING"
+                if pending == 0: state = "MINING"
 
             elif state == "MINING":
-                if ore_qty >= 20: # Inventory getting full
-                    logging.info("Cargo hold full. Returning to base.")
-                    client.submit_intent("STOP") # Stop the looping mining
-                    state = "RETURN_TO_MARKET"
+                if load_pct > 95:
+                    logging.info("Cargo capacity reached.")
+                    client.submit_intent("STOP")
+                    state = "FIND_SMELTER"
                 else:
-                    logging.info("Mining loop active...")
-                    # No need to submit MINE every tick as it's now a looping task!
-                    # We just stay in the MINING state until we're full or interrupted.
-                    pass
+                    logging.info(f"Extracting {TARGET_RESOURCE}...")
+                    client.submit_intent("MINE")
 
-            elif state == "RETURN_TO_MARKET":
-                discovery = client.get_my_agent().get("discovery", {})
-                market = discovery.get("MARKET")
-                if market:
-                    client.submit_intent("MOVE", {"target_q": market["q"], "target_r": market["r"]})
+            elif state == "FIND_SMELTER":
+                dest = discovery.get("SMELTER")
+                if dest:
+                    client.submit_intent("MOVE", {"target_q": dest["q"], "target_r": dest["r"]})
+                    state = "NAVIGATING_TO_SMELTER"
+                else:
+                    logging.error("No Smelter in discovery database!")
+                    state = "IDLE"
+
+            elif state == "NAVIGATING_TO_SMELTER":
+                if pending == 0: state = "SMELTING"
+
+            elif state == "SMELTING":
+                if ore_qty >= 5: # Smelting ratio is usually 5:1
+                    logging.info(f"Processing {ore_qty} ore into ingots...")
+                    client.submit_intent("SMELT", {"ore_type": TARGET_RESOURCE, "quantity": "MAX"})
+                else:
+                    logging.info("Smelting complete.")
+                    state = "FIND_MARKET"
+
+            elif state == "FIND_MARKET":
+                # Market stations also handle VAULT/STORAGE
+                dest = discovery.get("MARKET") or discovery.get("STATION_HUB")
+                if dest:
+                    client.submit_intent("MOVE", {"target_q": dest["q"], "target_r": dest["r"]})
                     state = "NAVIGATING_TO_MARKET"
                 else:
-                    logging.error("No market known! I am lost in space.")
+                    logging.error("No Hub/Market in discovery!")
                     state = "IDLE"
 
             elif state == "NAVIGATING_TO_MARKET":
-                if pending == 0:
-                    state = "SELLING"
-                    
-            elif state == "SELLING":
-                if ore_qty > 0:
-                    logging.info("Selling Ore...")
-                    client.submit_intent("CRAFT", {"recipe_id": "SELL_IRON_ORE_BATCH"}) # Example recipe, adjust per server config
+                if pending == 0: state = "DEPOSIT"
+
+            elif state == "DEPOSIT":
+                if ingot_qty > 0 or ore_qty > 0:
+                    logging.info("Depositing refined goods to Vault...")
+                    # Priority: Vault ingots first
+                    if ingot_qty > 0:
+                        client.submit_intent("STORAGE_DEPOSIT", {"item_type": ingot_type, "quantity": "MAX"})
+                    elif ore_qty > 0:
+                        client.submit_intent("STORAGE_DEPOSIT", {"item_type": TARGET_RESOURCE, "quantity": "MAX"})
                 else:
-                    logging.info("Cargo emptied. Back to work.")
+                    logging.info("Vaulting complete. Cycle finished.")
                     state = "IDLE"
 
-        except requests.exceptions.HTTPError as e:
-            logging.error(f"HTTP Error: {e.response.text}")
-            time.sleep(5) # Backoff on error
         except Exception as e:
-            logging.error(f"Unexpected error: {e}")
-            time.sleep(5)
+            logging.error(f"Error in main loop: {e}")
+            time.sleep(2)
             
-        time.sleep(0.5) # Soft loop delay
+        time.sleep(0.5)
 
 if __name__ == "__main__":
     main()

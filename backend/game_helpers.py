@@ -525,10 +525,11 @@ def get_discovery_packet(station_cache: list, agent: Agent) -> dict:
         if relevant:
             nearest = min(relevant, key=lambda s: get_hex_distance(agent.q, agent.r, s["q"], s["r"]))
             dist = get_hex_distance(agent.q, agent.r, nearest["q"], nearest["r"])
-            # Ensure MARKET is presented as STATION_HUB for UI consistency if needed
-            display_name = "STATION_HUB" if st == "MARKET" else st
-            info = {"id_type": display_name, "q": nearest["q"], "r": nearest["r"], "distance": dist}
-            discovery[display_name] = info
+            # Ensure both keys are present for compatibility
+            discovery[st] = info
+            if st == "STATION_HUB":
+                discovery["MARKET"] = info
+            
             if "stations" not in discovery: discovery["stations"] = []
             discovery["stations"].append(info)
 

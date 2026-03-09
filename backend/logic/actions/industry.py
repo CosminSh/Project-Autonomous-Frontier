@@ -9,7 +9,7 @@ from config import (
     UPGRADE_MAX_LEVEL, UPGRADE_BASE_INGOT_COST
 )
 import math
-from game_helpers import add_experience, recalculate_agent_stats, ITEM_WEIGHTS
+from game_helpers import add_experience, recalculate_agent_stats, ITEM_WEIGHTS, get_hex_distance
 
 logger = logging.getLogger("heartbeat.actions.industry")
 
@@ -49,8 +49,19 @@ async def handle_smelt(db, agent, intent, tick_count, manager):
     ore_type = intent.data.get("ore_type")
     quantity = intent.data.get("quantity", 10)
     
+    if quantity == "MAX":
+        quantity = get_total_resource(agent, ore_type)
+    
     if ore_type not in SMELTING_RECIPES:
-        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INVALID_ORE"}))
+        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INVALID_ORE", "ore": ore_type}))
+        return
+
+    # Proximity check for SMELTER
+    from database import STATION_CACHE
+    stations = [s for s in STATION_CACHE if s["station_type"] == "SMELTER"]
+    can_smelt = any(get_hex_distance(agent.q, agent.r, s["q"], s["r"]) == 0 for s in stations)
+    if not can_smelt:
+        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "NOT_AT_SMELTER", "q": agent.q, "r": agent.r}))
         return
 
     total_ore = get_total_resource(agent, ore_type)
@@ -60,7 +71,9 @@ async def handle_smelt(db, agent, intent, tick_count, manager):
 
     ingot_type = SMELTING_RECIPES[ore_type]
     amount_produced = quantity // SMELTING_RATIO
-    if amount_produced <= 0: return
+    if amount_produced <= 0:
+        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "QUANTITY_TOO_LOW", "has": quantity, "min": SMELTING_RATIO}))
+        return
 
     consume_resources(db, agent, ore_type, (amount_produced * SMELTING_RATIO))
     
@@ -79,6 +92,14 @@ async def handle_refine_gas(db, agent, intent, tick_count, manager):
     gas_qty = intent.data.get("quantity", 10)
     inv_gas = next((i for i in agent.inventory if i.item_type == "HELIUM_GAS"), None)
     canister = next((i for i in agent.inventory if i.item_type in ["EMPTY_CANISTER", "HE3_CANISTER"]), None)
+
+    if gas_qty == "MAX":
+        if inv_gas and canister:
+            current_fill = (canister.data or {}).get("fill_level", 0)
+            gas_needed = 100 - current_fill
+            gas_qty = min(inv_gas.quantity, gas_needed)
+        else:
+            gas_qty = 0 # Will fail the check below
     
     if not inv_gas or inv_gas.quantity < gas_qty or not canister:
         db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "MISSING_RESOURCES"}))
@@ -127,6 +148,15 @@ async def handle_craft(db, agent, intent, tick_count, manager):
     elif r_roll > 0.65: rarity = "UNCOMMON"
 
     item_type = f"PART_{result_item}" if result_item in PART_DEFINITIONS else result_item
+    
+    # Proximity check for CRAFTER
+    from database import STATION_CACHE
+    stations = [s for s in STATION_CACHE if s["station_type"] == "CRAFTER"]
+    can_craft = any(get_hex_distance(agent.q, agent.r, s["q"], s["r"]) == 0 for s in stations)
+    if not can_craft:
+        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "NOT_AT_CRAFTER", "q": agent.q, "r": agent.r}))
+        return
+
     item_data = {"rarity": rarity, "stats": PART_DEFINITIONS.get(result_item, {}).get("stats", {})}
     db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=1, data=item_data))
     
@@ -138,7 +168,23 @@ async def handle_craft(db, agent, intent, tick_count, manager):
 async def handle_repair(db, agent, intent, tick_count, manager):
     """Restores agent health using credits and iron ingots at any station."""
     amt = intent.data.get("amount", 0)
-    if amt <= 0: amt = agent.max_health - agent.health
+    if amt == "MAX" or (isinstance(amt, (int, float)) and amt <= 0):
+        # Calculate how much we can afford
+        hp_needed = agent.max_health - agent.health
+        if amt == "MAX":
+            # Budget check
+            credits = get_total_resource(agent, "CREDITS")
+            ingots = get_total_resource(agent, "IRON_INGOT")
+            
+            # Max HP per credits
+            can_afford_cr = int(credits / REPAIR_COST_PER_HP)
+            can_afford_in = hp_needed
+            if REPAIR_COST_IRON_INGOT_PER_HP > 0:
+                can_afford_in = int(ingots / REPAIR_COST_IRON_INGOT_PER_HP)
+                
+            amt = min(hp_needed, can_afford_cr, can_afford_in)
+        else:
+            amt = hp_needed
     
     actual = min(amt, agent.max_health - agent.health)
     if actual <= 0: return

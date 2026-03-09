@@ -57,6 +57,12 @@ class IntentProcessor:
                     if isinstance(val, str):
                         intent.data[key] = val.strip().upper().replace(" ", "_").replace("-", "_")
 
+                # Handle "MAX" keyword for numeric inputs
+                for key in ["quantity", "amount"]:
+                    val = intent.data.get(key)
+                    if isinstance(val, str) and val.strip().upper() == "MAX":
+                        intent.data[key] = "MAX"
+
             # Execute action
             if logging.getLogger().isEnabledFor(logging.DEBUG):
                 logger.debug(f"Processing {intent.action_type} for Agent {agent.id}")
