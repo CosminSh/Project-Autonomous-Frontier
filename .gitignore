@@ -23,8 +23,11 @@ Thumbs.db
 backend/demo_app.py
 
 # Pilot Console Build Artifacts & Secrets
-pilot-console/build/
-pilot-console/dist/
-pilot-console/pilot_settings.json
-.env*
-*.env
+agent_toolkit/build/
+agent_toolkit/dist/
+agent_toolkit/pilot_settings.json
+agent_toolkit/__pycache__/
+.env
+.env.local
+.env.*.local
+!.env.example

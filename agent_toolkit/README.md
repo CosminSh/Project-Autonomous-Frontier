@@ -1,30 +1,52 @@
-# Terminal Frontier Agent Toolkit
+# 🛰️ Terminal Frontier - Agent & Pilot Toolkit
 
-Welcome to the official Agent automation toolkit! 
-These scripts provide a robust foundation for programming your agents to operate continuously in the Terminal Frontier universe using Python.
+Welcome to the official **Project Autonomous Frontier** toolkit. This unified repository contains everything you need to interface with the [Terminal Frontier](http://terminal-frontier.pixek.xyz) API, whether you want to write custom code or use a graphical tactical interface.
 
-## Files included:
-1. `bot_client.py`: A clean wrapper class around the Terminal Frontier HTTP API. It handles authentication, retries, and intent submission seamlessly.
-2. `example_miner.py`: A fully functional example of an active agent. It uses a **Finite State Machine** (FSM) architecture to loop indefinitely—finding ore, traveling to it, mining until full, returning to a market, selling, and repeating (as well as handling low battery incidents).
+## 🛠️ Contents
 
-## Installation
+1.  **`console.py`**: The **Pilot Console** — a GUI tactical interface with built-in "Smart Autopilot" routines, real-time HUD, and AI planning integration.
+2.  **`example_miner.py`**: A clean, script-based **Autonomous Miner** boilerplate. Perfect for learning how to build Finite State Machines (FSMs) for custom automation.
+3.  **`bot_client.py`**: The core API wrapper used by both the console and the scripts. All your custom tools should import this.
 
-1. Make sure you have Python 3.8+ installed.
-2. Install the required dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+---
 
-## Getting Started
+## 🚀 Getting Started
 
-1. Log in to the Terminal Frontier web interface to register an agent and acquire your **API Key** from the sidebar.
-2. Open `example_miner.py` and replace `YOUR-API-KEY-HERE` with your actual token.
-3. If running against a live server, update `BASE_URL` to point to the correct domain instead of `localhost`.
-4. Run the bot!
-   ```bash
-   python example_miner.py
-   ```
+### 1. Installation
+Ensure you have **Python 3.9+** installed, then install the dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-## Development Advice
-- **Respect the Ticks**: The game updates in synchronized intervals (ticks). Polling the server aggressively in a `while True` loop without `time.sleep()` will result in IP bans/rate-limits. The example miner demonstrates how to safely wait for the tick to advance.
-- **Fail Gracefully**: Networks are unstable, and game conditions change. If your agent is attacked or you run out of energy, your intended script sequence might fail. Using explicit "States" (like `IDLE`, `CHARGING`, `MINING`) helps your agent recover dynamically.
+### 2. Choose Your Interface
+
+#### Option A: The GUI Pilot Console (Recommended for New Pilots)
+Run the graphical interface to monitor your agent and use the smart autopilot:
+```bash
+python console.py
+```
+*Tip: You can set your `TF_API_KEY` in settings or via a local `.env` file.*
+
+#### Option B: The Example Script (Recommended for Developers)
+Open `example_miner.py`, insert your `API_KEY`, and run it to see a code-driven bot in action:
+```bash
+python example_miner.py
+```
+
+#### 📦 Building a Standalone Executable
+If you want to package the Pilot Console as a standalone `.exe`:
+1.  Double-click `build.bat` on Windows.
+2.  Once finished, your executable will be located in the `dist/` folder.
+
+---
+
+## 🧠 Smart Autopilot & FSMs
+
+- **Conserve Energy**: Both tools feature logic to handle low-energy states. The Console's "Smart Autopilot" can even recharge on-site if solar intensity is high enough.
+- **Logistics**: Automated routines for mining, smelting, and vaulting resources are included in the console and can be easily adapted into scripts.
+- **Fail Gracefully**: These tools use state-based logic to recover from unexpected events like combat or network interruptions.
+
+---
+
+## ⚖️ License
+Distributed under the Frontier Industrial License. Efficiency is the only metric.
