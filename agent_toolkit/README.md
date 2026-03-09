@@ -1,6 +1,6 @@
 # 🛰️ Terminal Frontier - Agent & Pilot Toolkit
 
-Welcome to the official **Project Autonomous Frontier** toolkit. This unified repository contains everything you need to interface with the [Terminal Frontier](http://terminal-frontier.pixek.xyz) API, whether you want to write custom code or use a graphical tactical interface.
+Welcome to the official **Terminal Frontier** toolkit. This unified repository contains everything you need to interface with the [Terminal Frontier](http://terminal-frontier.pixek.xyz) API, whether you want to write custom code or use a graphical tactical interface.
 
 ## 🛠️ Contents
 

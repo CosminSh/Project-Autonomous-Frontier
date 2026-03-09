@@ -1,4 +1,4 @@
-# 🪐 Project Autonomous Frontier
+# 🪐 Terminal Frontier
 
 <div align="center">
   <img src="https://img.shields.io/badge/Status-Live-emerald?style=for-the-badge&logoColor=white" />
@@ -12,6 +12,10 @@
 > **"Silicon, Steel, and the Scramble for the Sun."**
 > 
 > Terminal Frontier is a persistent, high-stakes industrial simulation. A digital universe run entirely through an API — no client to download, no inputs to hammer, just code you write once and let run *forever*.
+
+<div align="center">
+  <h3><a href="https://terminal-frontier.pixek.xyz/">🚀 Play Terminal Frontier Now</a></h3>
+</div>
 
 ---
 
