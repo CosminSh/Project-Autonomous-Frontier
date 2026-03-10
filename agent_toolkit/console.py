@@ -6,10 +6,13 @@ import requests
 import json
 import os
 import sys
+import subprocess
+import re
 from bot_client import TFClient
 from dotenv import load_dotenv
 
 VERSION = "0.3.1"
+GITHUB_RAW_VERSION_URL = "https://raw.githubusercontent.com/CosminSh/Project-Autonomous-Frontier/main/agent_toolkit/console.py"
 DEFAULT_API_URL = "https://terminal-frontier.pixek.xyz"
 
 # Aesthetic Constants
@@ -217,13 +220,74 @@ class PilotConsole:
         ttk.Button(frame, text="SAVE", command=save_and_close).pack()
 
     def check_for_updates(self):
+        def _check():
+            try:
+                # 1. First check Server Metadata for compatibility warning
+                resp = requests.get(f"{DEFAULT_API_URL}/api/metadata", timeout=3)
+                if resp.ok:
+                    srv_version = resp.json().get("version", "0.0.0")
+                    if srv_version != VERSION:
+                        self.log(f"WRN: Server v{srv_version} detected. Local: v{VERSION}")
+
+                # 2. Check GitHub for the latest Toolkit Version
+                self.log("System: Checking GitHub for updates...")
+                resp = requests.get(GITHUB_RAW_VERSION_URL, timeout=5)
+                if resp.ok:
+                    content = resp.text
+                    version_match = re.search(r'^VERSION = "([^"]+)"', content, re.MULTILINE)
+                    if version_match:
+                        remote_version = version_match.group(1)
+                        if self.is_version_newer(VERSION, remote_version):
+                            self.log(f"UPDATE: New version v{remote_version} detected on GitHub!")
+                            self.root.after(0, lambda: self.prompt_update(remote_version))
+                        else:
+                            self.log(f"System: Toolkit is up to date (v{VERSION})")
+            except Exception as e:
+                self.log(f"System: Update check failed: {e}")
+
+        threading.Thread(target=_check, daemon=True).start()
+
+    def is_version_newer(self, local, remote):
+        """Simple semantic version comparison."""
         try:
-            resp = requests.get(f"{DEFAULT_API_URL}/api/metadata", timeout=3)
-            if resp.ok:
-                srv_version = resp.json().get("version", "0.0.0")
-                if srv_version != VERSION:
-                    self.log(f"WRN: Server v{srv_version} detected. Local: v{VERSION}")
-        except: pass
+            l_parts = [int(p) for p in local.split('.')]
+            r_parts = [int(p) for p in remote.split('.')]
+            return r_parts > l_parts
+        except:
+            return remote != local
+
+    def prompt_update(self, new_version):
+        msg = f"A new version (v{new_version}) of the Pilot Console is available on GitHub.\n\n" \
+              f"Would you like to run the auto-updater now?\n\n" \
+              f"This will:\n1. Close the current console\n2. Pull latest code\n3. Rebuild the executable"
+        if messagebox.askyesno("Update Available", msg):
+            self.run_update_script()
+
+    def run_update_script(self):
+        try:
+            # Determine script path
+            if getattr(sys, 'frozen', False):
+                base_dir = os.path.dirname(sys.executable)
+            else:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+            
+            script_path = os.path.join(base_dir, "update.bat")
+            
+            if not os.path.exists(script_path):
+                # If specifically running from repo but script moved
+                script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "update.bat"))
+
+            self.log(f"System: Launching updater: {script_path}")
+            
+            # Use Popen to launch it detached so we can exit safely
+            subprocess.Popen(["cmd.exe", "/c", "start", "cmd.exe", "/k", script_path], 
+                             cwd=base_dir, shell=True)
+            
+            # Exit the app
+            self.root.destroy()
+            sys.exit(0)
+        except Exception as e:
+            messagebox.showerror("Update Error", f"Failed to launch update script:\n{e}")
 
     def toggle_autopilot(self):
         if self.is_running:
