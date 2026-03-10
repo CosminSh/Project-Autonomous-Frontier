@@ -11,7 +11,7 @@ import re
 from bot_client import TFClient
 from dotenv import load_dotenv
 
-VERSION = "0.3.3"
+VERSION = "0.3.4"
 GITHUB_RAW_VERSION_URL = "https://raw.githubusercontent.com/CosminSh/Project-Autonomous-Frontier/main/agent_toolkit/console.py"
 DEFAULT_API_URL = "https://terminal-frontier.pixek.xyz"
 
@@ -265,23 +265,33 @@ class PilotConsole:
 
     def run_update_script(self):
         try:
-            # Determine script path
+            # Determine base directory
             if getattr(sys, 'frozen', False):
                 base_dir = os.path.dirname(sys.executable)
             else:
                 base_dir = os.path.dirname(os.path.abspath(__file__))
             
-            script_path = os.path.join(base_dir, "update.bat")
+            is_windows = sys.platform.startswith("win")
+            script_name = "update.bat" if is_windows else "update.sh"
+            script_path = os.path.join(base_dir, script_name)
             
             if not os.path.exists(script_path):
-                # If specifically running from repo but script moved
-                script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "update.bat"))
+                # Fallback to local script directory
+                script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), script_name))
 
             self.log(f"System: Launching updater: {script_path}")
             
-            # Use Popen to launch it detached so we can exit safely
-            subprocess.Popen(["cmd.exe", "/c", "start", "cmd.exe", "/k", script_path], 
-                             cwd=base_dir, shell=True)
+            if is_windows:
+                subprocess.Popen(["cmd.exe", "/c", "start", "cmd.exe", "/k", script_path], 
+                                 cwd=base_dir, shell=True)
+            else:
+                # For Mac/Linux, try to open a new terminal window
+                # chmod +x first just in case
+                os.chmod(script_path, 0o755)
+                if sys.platform == "darwin": # Mac
+                    subprocess.Popen(["open", "-a", "Terminal", script_path], cwd=base_dir)
+                else: # Linux (generic attempt)
+                    subprocess.Popen(["x-terminal-emulator", "-e", f"bash {script_path}"], cwd=base_dir)
             
             # Exit the app
             self.root.destroy()
