@@ -11,7 +11,7 @@ import re
 from bot_client import TFClient
 from dotenv import load_dotenv
 
-VERSION = "0.3.4"
+VERSION = "0.3.5"
 GITHUB_RAW_VERSION_URL = "https://raw.githubusercontent.com/CosminSh/Project-Autonomous-Frontier/main/agent_toolkit/console.py"
 DEFAULT_API_URL = "https://terminal-frontier.pixek.xyz"
 
@@ -449,7 +449,7 @@ class PilotConsole:
                     self.client.submit_intent("MOVE", {"target_q": self_data["q"] + dq, "target_r": self_data["r"] + 1})
                 return "MOVING"
         else:
-            # --- MINER LOGIC (Legacy) ---
+            # --- MINER LOGIC ---
             target_res_type = "IRON_ORE"
             target_zone = (6, 20)
             if "COPPER" in obj_text: 
@@ -463,16 +463,45 @@ class PilotConsole:
                 target_zone = (55, 100)
             
             ore_qty = inv.get(target_res_type, 0)
-            all_ingot_types = [k for k, v in inv.items() if "_INGOT" in k and v > 0]
+            all_ingots = [k for k, v in inv.items() if "_INGOT" in k and v > 0]
             valuable_loot = [k for k, v in inv.items() if k in ["SYNTHETIC_WEAVE", "FERAL_CORE", "VOID_CHIP", "ANCIENT_CIRCUIT", "ELECTRONICS"] and v > 0]
             
-            if ore_qty >= 20 or valuable_loot or (all_ingot_types and ("VAULT" in obj_text or "DEPOSIT" in obj_text)):
-                self.log(f"SYSTEM: Logistics needed. Navigating to Hub.")
-                self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
-                return "RETURNING"
+            discovery = perception.get("discovery", {})
+            stations = discovery.get("stations", [])
+            
+            # Helper to find station by type
+            def find_station(st_type):
+                # Try discovery list first
+                found = next((s for s in stations if s["id_type"] == st_type), None)
+                if not found:
+                    # Fallback to general discovery cache
+                    found = discovery.get(st_type)
+                return found
+
+            # New Logistics Decision Tree
+            if ore_qty >= 20:
+                dest = find_station("SMELTER")
+                if dest:
+                    self.log(f"SYSTEM: Cargo full of Ore ({ore_qty}). Navigating to Smelter at ({dest['q']}, {dest['r']}).")
+                    self.client.submit_intent("MOVE", {"target_q": dest["q"], "target_r": dest["r"]})
+                    return "NAV_TO_SMELTER"
+                else:
+                    self.log("WRN: No Smelter found in discovery! Forcing return to Hub.")
+                    current_state = "RETURNING" # Fallback
+
+            if valuable_loot or (all_ingots and ("VAULT" in obj_text or "DEPOSIT" in obj_text)):
+                dest = find_station("STATION_HUB") or find_station("MARKET")
+                if dest:
+                    self.log(f"SYSTEM: Carrying valuables. Navigating to Hub at ({dest['q']}, {dest['r']}).")
+                    self.client.submit_intent("MOVE", {"target_q": dest["q"], "target_r": dest["r"]})
+                    return "RETURNING"
+                else:
+                    self.log("SYSTEM: Logistics needed but no Hub found. Using coords (0,0) as fallback.")
+                    self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
+                    return "RETURNING"
             
             self_data = perception.get("self", {})
-            env_resources = perception.get("discovery", {}).get("resources", [])
+            env_resources = discovery.get("resources", [])
             on_target = any(r for r in env_resources if r["q"] == self_data["q"] and r["r"] == self_data["r"] and r["type"] == target_res_type)
             
             if on_target:
@@ -497,10 +526,35 @@ class PilotConsole:
                         self.client.submit_intent("MOVE", {"target_q": self_data["q"] + dq, "target_r": self_data["r"] + 3})
                     return "MOVING"
 
-        # 4. Return / Hub Logic
+        # 4. Return / Hub / Industrial Logic
+        self_data = perception.get("self", {})
+        discovery = perception.get("discovery", {})
+        stations = discovery.get("stations", [])
+        
+        def is_at(st_type):
+            s = next((s for s in stations if s["id_type"] == st_type), None)
+            if s: return s["distance"] == 0
+            return False
+
+        if current_state == "NAV_TO_SMELTER":
+            if is_at("SMELTER"):
+                target_res_type = "IRON_ORE"
+                if "COPPER" in obj_text: target_res_type = "COPPER_ORE"
+                elif "GOLD" in obj_text: target_res_type = "GOLD_ORE"
+                elif "COBALT" in obj_text: target_res_type = "COBALT_ORE"
+                
+                ore_qty = inv.get(target_res_type, 0)
+                if ore_qty >= 5:
+                    self.log(f"INDUSTRIAL: Smelting {target_res_type}...")
+                    self.client.submit_intent("SMELT", {"ore_type": target_res_type, "quantity": "MAX"})
+                    return "NAV_TO_SMELTER"
+                else:
+                    self.log("INDUSTRIAL: Smelting complete. Redirecting to Hub.")
+                    return "RETURNING"
+            return "NAV_TO_SMELTER"
+
         if current_state == "RETURNING" or current_state == "RETREATING":
-            self_data = perception.get("self", {})
-            if self_data["q"] == 0 and self_data["r"] == 0:
+            if is_at("STATION_HUB") or is_at("MARKET") or (self_data["q"] == 0 and self_data["r"] == 0):
                 # REPAIR if needed
                 if health_p < 90:
                     self.log("INDUSTRIAL: Repairing hull integrity...")
@@ -508,19 +562,9 @@ class PilotConsole:
                     return "RETREATING"
                 
                 # HUB PROCESSING
-                target_res_type = "IRON_ORE"
-                if "COPPER" in obj_text: target_res_type = "COPPER_ORE"
-                elif "GOLD" in obj_text: target_res_type = "GOLD_ORE"
-                elif "COBALT" in obj_text: target_res_type = "COBALT_ORE"
-                
-                ore_qty = inv.get(target_res_type, 0)
                 all_valuable = [k for k, v in inv.items() if ("_INGOT" in k or k in ["SYNTHETIC_WEAVE", "FERAL_CORE", "VOID_CHIP", "ANCIENT_CIRCUIT", "ELECTRONICS"]) and v > 0]
                 
-                if ore_qty >= 5:
-                    self.log(f"INDUSTRIAL: Smelting {target_res_type}...")
-                    self.client.submit_intent("SMELT", {"ore_type": target_res_type, "quantity": "MAX"})
-                    return "RETURNING"
-                elif all_valuable:
+                if all_valuable:
                     item_to_vault = all_valuable[0]
                     self.log(f"INDUSTRIAL: Vaulting {item_to_vault}.")
                     self.client.submit_intent("STORAGE_DEPOSIT", {"item_type": item_to_vault, "quantity": "MAX"})
