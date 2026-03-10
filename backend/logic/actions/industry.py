@@ -100,17 +100,32 @@ async def handle_smelt(db, agent, intent, tick_count, manager):
     else:
         db.add(InventoryItem(agent_id=agent.id, item_type=ingot_type, quantity=amount_produced))
     
+    is_max = intent.data.get("quantity") == "MAX"
     db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_SMELT", details={
         "ore": ore_type, 
         "amount": amount_produced, 
         "energy_cost": energy_cost,
-        "remaining_request": (amount_requested - amount_produced) if raw_qty != "MAX" else "MAX"
+        "remaining_request": "MAX" if is_max else (amount_requested - amount_produced)
     }))
     logger.info(f"SMELT: Agent {agent.id} produced {amount_produced} {ingot_type} from {consumed_ore} {ore_type}.")
     
     add_experience(db, agent, amount_produced * 10)
     if manager:
         await manager.broadcast({"type": "EVENT", "event": "SMELT", "agent_id": agent.id, "ingot": ingot_type})
+        
+    # Auto-requeue if we still have more to smelt (like MINE does)
+    remaining_to_smelt = amount_requested - amount_produced
+    if remaining_to_smelt > 0 or (is_max and get_total_resource(agent, ore_type) >= SMELTING_RATIO):
+        from models import Intent
+        # Don't overwrite if user queued something else for next tick
+        override = db.execute(select(Intent).where(Intent.agent_id == agent.id, Intent.tick_index == tick_count + 1)).scalars().first()
+        if not override:
+            db.add(Intent(
+                agent_id=agent.id,
+                action_type="SMELT",
+                data=intent.data,
+                tick_index=tick_count + 1
+            ))
 
 async def handle_refine_gas(db, agent, intent, tick_count, manager):
     """Fills Helium canisters at a REFINERY station."""

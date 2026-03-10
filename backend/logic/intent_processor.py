@@ -60,8 +60,16 @@ class IntentProcessor:
                 # Handle "MAX" keyword for numeric inputs
                 for key in ["quantity", "amount"]:
                     val = intent.data.get(key)
-                    if isinstance(val, str) and val.strip().upper() == "MAX":
-                        intent.data[key] = "MAX"
+                    if isinstance(val, str):
+                        s_val = val.strip().upper()
+                        if s_val == "MAX":
+                            intent.data[key] = "MAX"
+                        elif s_val == "":
+                            intent.data[key] = 0
+                        else:
+                            import contextlib
+                            with contextlib.suppress(ValueError):
+                                intent.data[key] = int(s_val)
 
             # Execute action
             if logging.getLogger().isEnabledFor(logging.DEBUG):
