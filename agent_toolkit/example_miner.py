@@ -5,15 +5,20 @@ Version 0.4.0 - Universal Resource Extraction (Ore & Gas)
 import time
 import logging
 import sys
+import os
 import requests
 from bot_client import TFClient
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | [%(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
 # ---- CONFIGURATION ----
-API_KEY = "YOUR-API-KEY-HERE"
-BASE_URL = "http://localhost:8000" 
+API_KEY = os.getenv("TF_API_KEY", "YOUR-API-KEY-HERE")
+BASE_URL = os.getenv("TF_BASE_URL", "https://terminal-frontier.pixek.xyz")
 RECHARGE_THRESHOLD = 20
 # -----------------------
 
