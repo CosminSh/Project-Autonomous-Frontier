@@ -146,7 +146,15 @@ def main():
                     state = "NAVIGATING_TO_WORK"
 
             elif state == "NAVIGATING_TO_WORK":
-                if pending == 0: state = "EXTRACTING"
+                if pending == 0:
+                    # Verify arrival
+                    q, r = agent.get("q"), agent.get("r")
+                    target = next((res for res in discovery.get("resources", []) if res["q"] == q and res["r"] == r), None)
+                    if target:
+                        state = "EXTRACTING"
+                    else:
+                        logging.warning(f"Arrived at ({q}, {r}) but target is gone. Re-scouting.")
+                        state = "TARGET_RESOURCE"
 
             elif state == "EXTRACTING":
                 # Check if we are still on a valid resource
@@ -172,7 +180,13 @@ def main():
                     state = "FIND_SMELTER" if ores else "FIND_HUB"
 
             elif state == "NAVIGATING_TO_REFINERY":
-                if pending == 0: state = "REFINING"
+                if pending == 0:
+                    dest = discovery.get("REFINERY")
+                    if dest and agent.get("q") == dest["q"] and agent.get("r") == dest["r"]:
+                        state = "REFINING"
+                    else:
+                        logging.warning("Pending moves zero but not at Refinery. Retrying.")
+                        state = "FIND_REFINERY"
 
             elif state == "REFINING":
                 if inv.get("HELIUM_GAS", 0) >= 10:
@@ -191,7 +205,13 @@ def main():
                     state = "FIND_HUB"
 
             elif state == "NAVIGATING_TO_SMELTER":
-                if pending == 0: state = "SMELTING"
+                if pending == 0:
+                    dest = discovery.get("SMELTER")
+                    if dest and agent.get("q") == dest["q"] and agent.get("r") == dest["r"]:
+                        state = "SMELTING"
+                    else:
+                        logging.warning("Pending moves zero but not at Smelter. Retrying.")
+                        state = "FIND_SMELTER"
 
             elif state == "SMELTING":
                 active_ore = next((o for o in ores if inv[o] >= 5), None)
@@ -211,7 +231,17 @@ def main():
                     state = "IDLE"
 
             elif state == "NAVIGATING_TO_HUB":
-                if pending == 0: state = "DEPOSITING"
+                if pending == 0:
+                    dest = discovery.get("MARKET") or discovery.get("STATION_HUB")
+                    if dest and agent.get("q") == dest["q"] and agent.get("r") == dest["r"]:
+                        state = "DEPOSITING"
+                    else:
+                        # Hard fallback for hub at 0,0
+                        if agent.get("q") == 0 and agent.get("r") == 0:
+                            state = "DEPOSITING"
+                        else:
+                            logging.warning("Pending moves zero but not at Hub. Retrying.")
+                            state = "FIND_HUB"
 
             elif state == "DEPOSITING":
                 # Deposit anything that isn't a tool or credits

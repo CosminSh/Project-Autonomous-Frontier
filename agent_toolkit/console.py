@@ -11,7 +11,7 @@ import re
 from bot_client import TFClient
 from dotenv import load_dotenv
 
-VERSION = "0.3.5"
+VERSION = "0.3.6"
 GITHUB_RAW_VERSION_URL = "https://raw.githubusercontent.com/CosminSh/Project-Autonomous-Frontier/main/agent_toolkit/console.py"
 DEFAULT_API_URL = "https://terminal-frontier.pixek.xyz"
 
@@ -537,6 +537,7 @@ class PilotConsole:
             return False
 
         if current_state == "NAV_TO_SMELTER":
+            dest = find_station("SMELTER")
             if is_at("SMELTER"):
                 target_res_type = "IRON_ORE"
                 if "COPPER" in obj_text: target_res_type = "COPPER_ORE"
@@ -551,9 +552,13 @@ class PilotConsole:
                 else:
                     self.log("INDUSTRIAL: Smelting complete. Redirecting to Hub.")
                     return "RETURNING"
+            elif dest and pending_moves == 0:
+                self.log(f"SYSTEM: Still navigating to Smelter at ({dest['q']}, {dest['r']}).")
+                self.client.submit_intent("MOVE", {"target_q": dest["q"], "target_r": dest["r"]})
             return "NAV_TO_SMELTER"
 
         if current_state == "RETURNING" or current_state == "RETREATING":
+            dest = find_station("STATION_HUB") or find_station("MARKET")
             if is_at("STATION_HUB") or is_at("MARKET") or (self_data["q"] == 0 and self_data["r"] == 0):
                 # REPAIR if needed
                 if health_p < 90:
@@ -572,6 +577,12 @@ class PilotConsole:
                 else:
                     self.log("INDUSTRIAL: All local tasks finished.")
                     return "IDLE"
+            elif dest and pending_moves == 0:
+                self.log(f"SYSTEM: Still navigating to Hub at ({dest['q']}, {dest['r']}).")
+                self.client.submit_intent("MOVE", {"target_q": dest["q"], "target_r": dest["r"]})
+            elif not dest and pending_moves == 0 and not (self_data["q"] == 0 and self_data["r"] == 0):
+                self.log("SYSTEM: Still navigating to default Hub (0,0).")
+                self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
             return current_state
         
         return "IDLE"
