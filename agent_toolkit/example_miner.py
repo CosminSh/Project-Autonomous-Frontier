@@ -100,7 +100,7 @@ def main():
             load_pct = (mass / max_mass) * 100
             
             inv = {item["type"]: item["quantity"] for item in agent.get("inventory", [])}
-            parts = [p["part_type"] for p in agent.get("parts", [])]
+            parts = [p.get("part_type") or p.get("type", "") for p in agent.get("parts", [])]
             part_names = [p["name"] for p in agent.get("parts", [])]
             
             can_mine = any("Drill" in name for name in part_names)

@@ -11,7 +11,7 @@ import re
 from bot_client import TFClient
 from dotenv import load_dotenv
 
-VERSION = "0.3.2"
+VERSION = "0.3.3"
 GITHUB_RAW_VERSION_URL = "https://raw.githubusercontent.com/CosminSh/Project-Autonomous-Frontier/main/agent_toolkit/console.py"
 DEFAULT_API_URL = "https://terminal-frontier.pixek.xyz"
 
