@@ -40,7 +40,8 @@ def calculate_mass(agent):
 
 def find_best_work(perception, can_mine, can_siphon):
     """Finds the closest work hex (Ore or Gas) based on equipped tools."""
-    resources = perception.get("resources", [])
+    discovery = perception.get("discovery", {})
+    resources = discovery.get("resources", [])
     best = None
     best_dist = 999
     
@@ -143,7 +144,14 @@ def main():
                 if pending == 0: state = "EXTRACTING"
 
             elif state == "EXTRACTING":
-                if load_pct > 95:
+                # Check if we are still on a valid resource
+                q, r = agent.get("q"), agent.get("r")
+                discovery_res = perception.get("discovery", {}).get("resources", [])
+                on_target = any(res for res in discovery_res if res["q"] == q and res["r"] == r)
+
+                if load_pct > 95 or not on_target:
+                    if not on_target:
+                        logging.warning(f"Resource depleted or vanished at ({q}, {r}). Stopping.")
                     client.submit_intent("STOP")
                     state = "IDLE"
                 else:
