@@ -4,6 +4,49 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 /**
  * renderer.js — THREE.js Scene and Map rendering
  */
+
+/**
+ * Socket definitions for each chassis type to ensure parts align correctly.
+ */
+const CHASSIS_TEMPLATES = {
+    'BASIC': {
+        engines: [{ x: 0, y: 0, z: -0.5 }],
+        sensors: [{ x: 0, y: 0.3, z: 0 }],
+        actuators: [{ x: -0.2, y: 0, z: 0.4 }, { x: 0.2, y: 0, z: 0.4 }],
+        power: [{ x: -0.6, y: 0.1, z: 0 }, { x: 0.6, y: 0.1, z: 0 }]
+    },
+    'STRIKER': {
+        engines: [{ x: -0.15, y: 0, z: -0.5 }, { x: 0.15, y: 0, z: -0.5 }],
+        sensors: [{ x: 0, y: 0.2, z: 0 }],
+        actuators: [{ x: -0.25, y: 0, z: 0.5 }, { x: 0, y: 0, z: 0.6 }, { x: 0.25, y: 0, z: 0.5 }],
+        power: []
+    },
+    'HEAVY': {
+        engines: [{ x: 0, y: 0, z: -0.6 }],
+        sensors: [{ x: 0, y: 0.35, z: 0.1 }],
+        actuators: [{ x: 0, y: 0, z: 0.7 }],
+        power: [{ x: -0.5, y: 0.4, z: -0.2 }, { x: 0, y: 0.4, z: -0.2 }, { x: 0.5, y: 0.4, z: -0.2 }]
+    },
+    'INDUSTRIAL': {
+        engines: [{ x: 0, y: 0, z: -0.8 }],
+        sensors: [{ x: -0.3, y: 0.5, z: 0 }, { x: 0.3, y: 0.5, z: 0 }],
+        actuators: [{ x: -0.4, y: 0, z: 0.8 }, { x: -0.15, y: 0, z: 0.8 }, { x: 0.15, y: 0, z: 0.8 }, { x: 0.4, y: 0, z: 0.8 }],
+        power: [{ x: -0.6, y: 0.5, z: -0.4 }, { x: 0.6, y: 0.5, z: -0.4 }]
+    },
+    'SHIELDED': {
+        engines: [{ x: 0, y: 0, z: -0.5 }],
+        sensors: [{ x: 0, y: 0.6, z: 0 }],
+        actuators: [{ x: -0.3, y: 0, z: 0.5 }, { x: 0.3, y: 0, z: 0.5 }],
+        power: [{ x: 0, y: 0.3, z: -0.4 }]
+    },
+    'HYBRID': {
+        engines: [{ x: -0.2, y: 0, z: -0.4 }, { x: 0.2, y: 0, z: -0.4 }],
+        sensors: [{ x: 0, y: 0.5, z: 0 }],
+        actuators: [{ x: -0.3, y: 0, z: 0.4 }, { x: 0.3, y: 0, z: 0.4 }],
+        power: [{ x: -0.5, y: 0.2, z: 0 }, { x: 0.5, y: 0.2, z: 0 }]
+    }
+};
+
 export class GameRenderer {
     constructor(game) {
         this.game = game;
@@ -479,9 +522,6 @@ export class GameRenderer {
                 obelisk.position.y = 2;
                 group.add(platform, obelisk);
                 break;
-            default:
-                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 1.5, 4), mat);
-                group.add(post);
         }
         return group;
     }
@@ -589,28 +629,36 @@ export class GameRenderer {
             mesh.add(chassisMesh);
             mesh.userData.chassis = chassisMesh;
 
-            // 2. Add Engines
-            if (sig.engine) {
-                const engGeom = new THREE.CylinderGeometry(0.2, 0.1, 0.4, 8);
-                const engMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, emissive: 0x38bdf8, emissiveIntensity: 2 });
-                const eng = new THREE.Mesh(engGeom, engMat);
-                eng.position.z = -0.6;
-                eng.rotation.x = Math.PI / 2;
-                mesh.add(eng);
+            const template = CHASSIS_TEMPLATES[sig.chassis] || CHASSIS_TEMPLATES['BASIC'];
 
-                if (sig.engine === 'TURBO' || sig.engine === 'THRUSTER') {
-                    const eng2 = eng.clone();
-                    eng.position.x = -0.2;
-                    eng2.position.x = 0.2;
-                    mesh.add(eng2);
-                }
+            // Socket Helper
+            const createSocket = (pos) => {
+                const sGeom = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+                const sMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
+                const s = new THREE.Mesh(sGeom, sMat);
+                s.position.copy(pos);
+                mesh.add(s);
+            };
+
+            // 2. Add Engines
+            if (sig.engine && template.engines.length > 0) {
+                const engGeom = new THREE.CylinderGeometry(0.2, 0.15, 0.4, 8);
+                const engMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, emissive: 0x38bdf8, emissiveIntensity: 2 });
+                
+                template.engines.forEach(socketPos => {
+                    const eng = new THREE.Mesh(engGeom, engMat);
+                    eng.position.set(socketPos.x, socketPos.y, socketPos.z);
+                    eng.rotation.x = Math.PI / 2;
+                    mesh.add(eng);
+                    createSocket(new THREE.Vector3(socketPos.x, socketPos.y, socketPos.z + 0.1));
+                });
             }
 
             // 3. Add Actuators
             const actuators = sig.actuators || [];
             actuators.forEach((act, idx) => {
-                const side = idx % 2 === 0 ? 1 : -1;
-                const offset = actuators.length > 1 ? 0.3 * side : 0;
+                if (idx >= template.actuators.length) return;
+                const socketPos = template.actuators[idx];
 
                 if (act.includes('DRILL')) {
                     let drillColor = 0x94a3b8;
@@ -621,9 +669,10 @@ export class GameRenderer {
                     const drillGeom = new THREE.ConeGeometry(0.15, 0.5, 8);
                     const drillMat = new THREE.MeshStandardMaterial({ color: drillColor, metalness: 0.9, flatShading: true });
                     const drill = new THREE.Mesh(drillGeom, drillMat);
-                    drill.position.set(offset, 0, 0.7);
+                    drill.position.set(socketPos.x, socketPos.y, socketPos.z);
                     drill.rotation.x = Math.PI / 2;
                     mesh.add(drill);
+                    createSocket(new THREE.Vector3(socketPos.x, socketPos.y, socketPos.z - 0.2));
 
                     if (!mesh.userData.tools) mesh.userData.tools = [];
                     mesh.userData.tools.push(drill);
@@ -631,32 +680,39 @@ export class GameRenderer {
                     const gunGeom = new THREE.CylinderGeometry(0.04, 0.04, 0.7, 8);
                     const gunMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9 });
                     const gun = new THREE.Mesh(gunGeom, gunMat);
-                    gun.position.set(offset, 0, 0.4);
+                    gun.position.set(socketPos.x, socketPos.y, socketPos.z - 0.1);
                     gun.rotation.x = Math.PI / 2;
                     mesh.add(gun);
+                    createSocket(new THREE.Vector3(socketPos.x, socketPos.y, socketPos.z - 0.3));
                     if (act === 'RAILGUN' || act === 'CANNON') gun.scale.set(2, 1, 2);
                 }
             });
 
             // 4. Add Sensors
-            if (sig.sensor === 'SCANNER' || sig.sensor === 'ARRAY') {
+            if ((sig.sensor === 'SCANNER' || sig.sensor === 'ARRAY') && template.sensors.length > 0) {
                 const dishGeom = new THREE.SphereGeometry(0.25, 8, 4, 0, Math.PI * 2, 0, Math.PI / 3);
                 const dish = new THREE.Mesh(dishGeom, material);
-                dish.position.y = 0.4;
+                const socketPos = template.sensors[0];
+                dish.position.set(socketPos.x, socketPos.y, socketPos.z);
                 dish.rotation.x = -Math.PI / 4;
                 mesh.add(dish);
                 mesh.userData.dish = dish;
+                createSocket(new THREE.Vector3(socketPos.x, socketPos.y - 0.1, socketPos.z));
             }
 
             // 5. Add Power (Solar Panels)
-            if (sig.power === 'SOLAR') {
-                const panelGeom = new THREE.BoxGeometry(0.8, 0.05, 0.4);
+            if (sig.power === 'SOLAR' && template.power.length > 0) {
+                const panelGeom = new THREE.BoxGeometry(0.6, 0.05, 0.3);
                 const panelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, emissive: 0x0ea5e9, emissiveIntensity: 0.2 });
-                const left = new THREE.Mesh(panelGeom, panelMat);
-                left.position.set(-0.8, 0.2, 0);
-                const right = left.clone();
-                right.position.x = 0.8;
-                mesh.add(left, right);
+                template.power.forEach(socketPos => {
+                    const panel = new THREE.Mesh(panelGeom, panelMat);
+                    panel.position.set(socketPos.x, socketPos.y, socketPos.z);
+                    if (socketPos.x !== 0) {
+                        panel.rotation.z = (socketPos.x > 0 ? -1 : 1) * Math.PI / 8;
+                    }
+                    mesh.add(panel);
+                    createSocket(new THREE.Vector3(socketPos.x, socketPos.y - 0.05, socketPos.z));
+                });
             }
 
             const labelColor = agentData.is_feral ? '#ff4422' : '#38bdf8';
