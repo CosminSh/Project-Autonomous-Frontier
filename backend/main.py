@@ -130,40 +130,9 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
 
-import redis.asyncio as aioredis
-
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-_rate_limit_redis = aioredis.from_url(REDIS_URL, decode_responses=True)
-
-RATE_LIMIT_MAX = 60       # max requests
-RATE_LIMIT_WINDOW = 10    # per N seconds
-
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     try:
-        # Skip rate limiting for health checks and WebSocket upgrades
-        path = request.url.path
-        if path == "/api/health" or request.headers.get("upgrade") == "websocket":
-            return await call_next(request)
-
-        # ── Redis Rate Limiter ──
-        client_ip = request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip() or request.client.host
-        rate_key = f"rl:{client_ip}"
-        try:
-            current = await _rate_limit_redis.incr(rate_key)
-            if current == 1:
-                await _rate_limit_redis.expire(rate_key, RATE_LIMIT_WINDOW)
-            if current > RATE_LIMIT_MAX:
-                from fastapi.responses import JSONResponse
-                return JSONResponse(
-                    status_code=429,
-                    content={"detail": "Rate limit exceeded. Slow down."}
-                )
-        except Exception as e:
-            logger.error(f"Rate limiter error (Redis down?): {e} - FAILING CLOSED")
-            from fastapi.responses import JSONResponse
-            return JSONResponse(status_code=503, content={"detail": "Service temporarily unavailable. Please try again later."})
-
         response = await call_next(request)
         
         # ── Security Headers ──
@@ -181,7 +150,8 @@ async def add_security_headers(request: Request, call_next):
         import traceback
         logger.error(f"CRASH in {request.method} {request.url.path}: {str(e)}")
         logger.error(traceback.format_exc())
-        raise e
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=500, content={"detail": "Internal server crash"})
 
 # ─────────────────────────────────────────────────────────────────────────────
 # WebSocket
@@ -191,28 +161,30 @@ class ConnectionManager:
         self.active_connections = []
 
     async def connect(self, websocket: WebSocket, agent_id: int):
-        await websocket.accept()
+        # Already accepted in the endpoint
         websocket.agent_id = agent_id
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict):
         for connection in list(self.active_connections):
             try:
                 await connection.send_json(message)
             except Exception:
-                self.active_connections.remove(connection)
+                if connection in self.active_connections:
+                    self.active_connections.remove(connection)
 
 manager = ConnectionManager()
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, token: str = None):
-    # If no token in query param, check headers (though WS usually uses query params)
-    if not token:
-        token = websocket.query_params.get("token")
+async def websocket_endpoint(websocket: WebSocket):
+    # Standard upgrade
+    await websocket.accept()
     
+    token = websocket.query_params.get("token")
     if not token:
         await websocket.close(code=4001)
         return
@@ -231,8 +203,11 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
     await manager.connect(websocket, agent_id)
     try:
         while True:
+            # Keep-alive loop
             await websocket.receive_text()
     except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception:
         manager.disconnect(websocket)
 
 # ─────────────────────────────────────────────────────────────────────────────
