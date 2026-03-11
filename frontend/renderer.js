@@ -827,8 +827,20 @@ export class GameRenderer {
 
         const agentPos = mesh.position.clone();
         const normal = agentPos.clone().normalize();
-        const camDistance = 15;
-        const targetCamPos = agentPos.clone().add(normal.multiplyScalar(camDistance));
+
+        // Find a vector pointing "south" along the sphere surface
+        let up = new THREE.Vector3(0, 1, 0);
+        if (Math.abs(normal.y) > 0.99) {
+            up.set(1, 0, 0);
+        }
+        const right = new THREE.Vector3().crossVectors(up, normal).normalize();
+        const back = new THREE.Vector3().crossVectors(normal, right).normalize();
+
+        const camElevation = 10;
+        const camPullback = 12;
+
+        const offset = normal.clone().multiplyScalar(camElevation).add(back.multiplyScalar(camPullback));
+        const targetCamPos = agentPos.clone().add(offset);
 
         const startTarget = this.controls.target.clone();
         const startCamPos = this.camera.position.clone();
