@@ -222,7 +222,7 @@ export class GameAPI {
 
             if (this.game.lastPerception) {
                 worldDataToRender = this.game.lastPerception.discovery?.environment_hexes || this.game.lastPerception.environment?.environment_hexes || data.world;
-                agentsToRender = this.game.lastPerception.nearby_agents || this.game.lastPerception.environment?.other_agents || data.agents;
+                agentsToRender = this.game.lastPerception.agents || this.game.lastPerception.environment?.other_agents || data.agents;
             }
 
             const visibleHexKeys = new Set();

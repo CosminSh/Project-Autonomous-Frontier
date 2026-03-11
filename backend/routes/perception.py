@@ -124,14 +124,14 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
         "phase": tick_info["phase"],
         "tick_info": tick_info,
         "self": self_info,
-        "nearby_agents": agents_out,
+        "agents": agents_out,
         "discovery": discovery,
         "loot": loot_out,
         "agent_status": agent_status,
         "content": {
             "tick_info": tick_info,
             "self": self_info,
-            "nearby_agents": agents_out,
+            "agents": agents_out,
             "discovery": discovery,
             "loot": loot_out,
             "agent_status": agent_status

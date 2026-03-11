@@ -425,7 +425,7 @@ class PilotConsole:
                         break
             
             if target_feral:
-                dist = a.get("distance", 999) # This is usually 1 for attackable
+                dist = target_feral.get("distance", 999) # This is usually 1 for attackable
                 if dist <= 1:
                     if current_state != "HUNTING":
                         self.log(f"HUNT: Engaging {target_feral['name']} (Lvl {target_feral['level']})!")

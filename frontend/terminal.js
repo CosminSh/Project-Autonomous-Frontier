@@ -230,20 +230,20 @@ export class TerminalHandler {
                 const possibleId = parseInt(input);
                 const perception = this.game.lastPerception;
 
-                if (!isNaN(possibleId) && perception?.nearby_agents?.some(a => a.id === possibleId)) {
+                if (!isNaN(possibleId) && perception?.agents?.some(a => a.id === possibleId)) {
                     data.target_id = possibleId;
-                } else if (perception && perception.nearby_agents) {
+                } else if (perception && perception.agents) {
                     const normalizedInput = input.toUpperCase();
                     let target = null;
 
                     if (normalizedInput === 'FERAL') {
-                        const ferals = perception.nearby_agents.filter(a => a.is_feral);
+                        const ferals = perception.agents.filter(a => a.is_feral);
                         if (ferals.length === 0) throw new Error('Target resolving failed: No Feral AI detected nearby.');
                         target = ferals[0];
                     } else {
                         // Search by name exactly, then by name fragment, then by suffix (like -847)
-                        target = perception.nearby_agents.find(a => a.name.toUpperCase() === normalizedInput) ||
-                            perception.nearby_agents.find(a => a.name.toUpperCase().includes(normalizedInput));
+                        target = perception.agents.find(a => a.name.toUpperCase() === normalizedInput) ||
+                            perception.agents.find(a => a.name.toUpperCase().includes(normalizedInput));
                     }
 
                     if (target) {
@@ -668,9 +668,9 @@ export class TerminalHandler {
                 this.log(`  Agent:     <b>${p.self.name}</b> at (${p.self.q}, ${p.self.r})`, 'info');
 
                 // Agents & Ferals
-                if (p.nearby_agents && p.nearby_agents.length > 0) {
-                    const players = p.nearby_agents.filter(a => !a.is_feral);
-                    const ferals = p.nearby_agents.filter(a => a.is_feral);
+                if (p.agents && p.agents.length > 0) {
+                    const players = p.agents.filter(a => !a.is_feral);
+                    const ferals = p.agents.filter(a => a.is_feral);
 
                     if (players.length > 0) {
                         this.log(`  <span style="color:#f43f5e">Agents Detected:</span>`, 'info');
@@ -714,7 +714,7 @@ export class TerminalHandler {
                         });
                     }
                 } else {
-                    this.log(`  <span style="color:#f43f5e">Agents:</style> None`, 'info');
+                    this.log(`  <span style="color:#f43f5e">Agents:</span> None`, 'info');
                 }
 
                 // Stations
