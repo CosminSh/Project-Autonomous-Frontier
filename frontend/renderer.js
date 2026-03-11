@@ -199,9 +199,9 @@ export class GameRenderer {
             this.scene.backgroundRotation.y += 0.0002;
         }
 
-        // 4. Spin Resources & Loot
+        // 4. Spin Resources (Only Gas) & Loot
         for (let mesh of this.resources.values()) {
-            if (mesh.visible) {
+            if (mesh.visible && mesh.userData.isGas) {
                 mesh.rotation.y += 0.02;
             }
         }
@@ -485,11 +485,13 @@ export class GameRenderer {
             const centroid = this.faceCentroids[faceIndex];
             if (centroid) {
                 if (isGas) {
-                    mesh.position.copy(centroid.clone().normalize().multiplyScalar(50.2));
+                    mesh.position.copy(centroid.clone().normalize().multiplyScalar(50.6));
                     mesh.scale.set(0.6, 1.2, 0.6);
+                    mesh.userData.isGas = true;
                 } else {
-                    mesh.position.copy(centroid.clone().normalize().multiplyScalar(49.9));
+                    mesh.position.copy(centroid.clone().normalize().multiplyScalar(49.8));
                     mesh.scale.set(1.0, 0.5 + Math.random() * 0.4, 1.0); // Flatten slightly
+                    mesh.userData.isGas = false;
                 }
 
                 mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), centroid.clone().normalize());
@@ -813,10 +815,18 @@ export class GameRenderer {
             }
 
             const isGas = resData.type === 'HE3_FUEL';
-            const offset = isGas ? 0.5 : 0.0;
+            mesh.userData.isGas = isGas;
+            
+            // Embed rocks slightly into the planet (radius 50) so they look solid/grounded
+            const offset = isGas ? 0.6 : -0.2; 
             const { x, y, z } = this.qToSphere(resData.q, resData.r, offset);
             mesh.position.set(x, y, z);
             mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), mesh.position.clone().normalize());
+
+            // Randomize rotation for stationary rocks so they don't all look identical
+            if (!isGas) {
+                mesh.rotateY(Math.random() * Math.PI * 2);
+            }
 
             this.scene.add(mesh);
             this.resources.set(id, mesh);
