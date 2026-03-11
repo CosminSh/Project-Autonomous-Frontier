@@ -181,10 +181,12 @@ class TickManager:
         # 3. Global Activity Analytics -- Isolated Session to prevent transaction poisoning
         if processed_count > 0:
             with SessionLocal() as act_db:
-                from sqlalchemy import text
                 try:
-                    act_db.execute(text("UPDATE global_state SET actions_processed = COALESCE(actions_processed, 0) + :count"), {"count": processed_count})
-                    act_db.commit()
+                    from models import GlobalState
+                    state = act_db.execute(select(GlobalState)).scalars().first()
+                    if state:
+                        state.actions_processed = (state.actions_processed or 0) + processed_count
+                        act_db.commit()
                 except Exception as e:
                     logger.debug(f"Activity counter update skipped (col missing?): {e}")
 
