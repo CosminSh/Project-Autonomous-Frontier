@@ -561,9 +561,13 @@ export class UIManager {
                     <div class="mb-4 p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-xl relative overflow-hidden">
                         <div class="flex justify-between items-center mb-1">
                             <span class="text-[10px] font-bold text-indigo-300 uppercase leading-none">PRIMARY HULL: ${framePart.name}</span>
-                            <span class="text-[8px] bg-indigo-500/20 px-1 py-0.5 rounded text-indigo-400 font-bold">${framePart.rarity}</span>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[8px] bg-indigo-500/20 px-1 py-0.5 rounded text-indigo-400 font-bold">${framePart.rarity}</span>
+                                <button onclick="game.api.submitIntent('UNEQUIP', {part_id: ${framePart.id}})" class="bg-rose-500 hover:bg-rose-400 text-white px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all">UNEQUIP</button>
+                            </div>
                         </div>
                         <div class="text-[8px] text-slate-500 italic mb-2">The foundation of your agent. Defines slot capacities.</div>
+
                          <div class="grid grid-cols-2 gap-1 text-[8px] text-slate-400">
                             ${Object.entries(framePart.stats || {}).map(([s, v]) => `<div>${s.replace('_', ' ')}: <span class="text-slate-200">${v}</span></div>`).join('')}
                         </div>
