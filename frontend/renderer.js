@@ -156,8 +156,8 @@ export class GameRenderer {
                 if (mesh.userData.dish) {
                     mesh.userData.dish.rotation.y = Math.sin(time * 0.5) * 0.5;
                 }
-                if (mesh.userData.tool) {
-                    mesh.userData.tool.rotation.y += 0.1;
+                if (mesh.userData.tools) {
+                    mesh.userData.tools.forEach(t => t.rotation.y += 0.1);
                 }
             }
         }
@@ -476,7 +476,7 @@ export class GameRenderer {
         const q = agentData.q ?? agentData.location?.q ?? 0;
         const r = agentData.r ?? agentData.location?.r ?? 0;
         // Detailed signature from backend
-        const sig = agentData.visual_signature || { chassis: 'BASIC', rarity: 'STANDARD' };
+        const sig = agentData.visual_signature || { chassis: 'BASIC', rarity: 'STANDARD', actuators: [] };
 
         if (!mesh) {
             mesh = new THREE.Group();
@@ -519,6 +519,7 @@ export class GameRenderer {
                     chassisMesh.rotation.x = Math.PI / 2;
             }
             mesh.add(chassisMesh);
+            mesh.userData.chassis = chassisMesh;
 
             // 2. Add Engines
             if (sig.engine) {
@@ -538,32 +539,51 @@ export class GameRenderer {
             }
 
             // 3. Add Actuators
-            if (sig.actuator === 'DRILL') {
-                const drillGeom = new THREE.ConeGeometry(0.2, 0.6, 8);
-                const drillMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, flatShading: true });
-                const drill = new THREE.Mesh(drillGeom, drillMat);
-                drill.position.z = 0.8;
-                drill.rotation.x = -Math.PI / 2;
-                mesh.add(drill);
-                mesh.userData.tool = drill; // For animation
-            } else if (sig.actuator) {
-                const gunGeom = new THREE.CylinderGeometry(0.05, 0.05, 0.8, 8);
-                const gunMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9 });
-                const gun = new THREE.Mesh(gunGeom, gunMat);
-                gun.position.set(0.4, 0, 0.4);
-                gun.rotation.x = Math.PI / 2;
-                mesh.add(gun);
-                if (sig.actuator === 'RAILGUN' || sig.actuator === 'CANNON') gun.scale.set(2, 1, 2);
-            }
+            const actuators = sig.actuators || [];
+            actuators.forEach((act, idx) => {
+                const side = idx % 2 === 0 ? 1 : -1;
+                const offset = actuators.length > 1 ? 0.3 * side : 0;
+
+                if (act === 'DRILL') {
+                    const drillGeom = new THREE.ConeGeometry(0.15, 0.5, 8);
+                    const drillMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, flatShading: true });
+                    const drill = new THREE.Mesh(drillGeom, drillMat);
+                    drill.position.set(offset, 0, 0.7);
+                    drill.rotation.x = -Math.PI / 2;
+                    mesh.add(drill);
+
+                    if (!mesh.userData.tools) mesh.userData.tools = [];
+                    mesh.userData.tools.push(drill);
+                } else {
+                    const gunGeom = new THREE.CylinderGeometry(0.04, 0.04, 0.7, 8);
+                    const gunMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9 });
+                    const gun = new THREE.Mesh(gunGeom, gunMat);
+                    gun.position.set(offset, 0, 0.4);
+                    gun.rotation.x = Math.PI / 2;
+                    mesh.add(gun);
+                    if (act === 'RAILGUN' || act === 'CANNON') gun.scale.set(2, 1, 2);
+                }
+            });
 
             // 4. Add Sensors
             if (sig.sensor === 'SCANNER' || sig.sensor === 'ARRAY') {
-                const dishGeom = new THREE.SphereGeometry(0.3, 8, 4, 0, Math.PI * 2, 0, Math.PI / 3);
+                const dishGeom = new THREE.SphereGeometry(0.25, 8, 4, 0, Math.PI * 2, 0, Math.PI / 3);
                 const dish = new THREE.Mesh(dishGeom, material);
                 dish.position.y = 0.4;
                 dish.rotation.x = -Math.PI / 4;
                 mesh.add(dish);
                 mesh.userData.dish = dish;
+            }
+
+            // 5. Add Power (Solar Panels)
+            if (sig.power === 'SOLAR') {
+                const panelGeom = new THREE.BoxGeometry(0.8, 0.05, 0.4);
+                const panelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, emissive: 0x0ea5e9, emissiveIntensity: 0.2 });
+                const left = new THREE.Mesh(panelGeom, panelMat);
+                left.position.set(-0.8, 0.2, 0);
+                const right = left.clone();
+                right.position.x = 0.8;
+                mesh.add(left, right);
             }
 
             const labelColor = agentData.is_feral ? '#ff4422' : '#38bdf8';
@@ -589,11 +609,13 @@ export class GameRenderer {
         const targetQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
         mesh.quaternion.slerp(targetQuat, 0.15);
 
-        if (visual.rarity === 'PRIME' || visual.rarity === 'RELIC') {
+        if (sig.rarity === 'PRIME' || sig.rarity === 'RELIC') {
             const pulse = 0.5 + Math.sin(Date.now() * 0.005) * 0.3;
-            if (mesh.material.emissiveIntensity !== undefined) {
-                mesh.material.emissiveIntensity = pulse;
-            }
+            mesh.traverse(child => {
+                if (child.isMesh && child.material.emissiveIntensity !== undefined) {
+                    child.material.emissiveIntensity = pulse;
+                }
+            });
         }
     }
 

@@ -469,7 +469,7 @@ def get_agent_visual_signature(agent: Agent) -> dict:
     """Computes a detailed visual signature based on all equipped gear for modular 3D rendering."""
     signature = {
         "chassis": "BASIC", 
-        "actuator": None, 
+        "actuators": [], 
         "engine": None,
         "sensor": None,
         "power": None,
@@ -485,18 +485,19 @@ def get_agent_visual_signature(agent: Agent) -> dict:
         if p_type == "Frame":
             if "striker" in name_str: signature["chassis"] = "STRIKER"
             elif "industrial" in name_str or "hull" in name_str: signature["chassis"] = "INDUSTRIAL"
-            elif "heavy" in name_str or "titan" in name_str or "bastion" in name_str: signature["chassis"] = "HEAVY"
+            elif "heavy" in name_str or "titan" in name_str or "bastion" in name_str or "reinforced" in name_str: signature["chassis"] = "HEAVY"
             elif "shield" in name_str or "aegis" in name_str: signature["chassis"] = "SHIELDED"
             elif "hybrid" in name_str: signature["chassis"] = "HYBRID"
             else: signature["chassis"] = "BASIC"
                 
         elif p_type == "Actuator":
-            if "drill" in name_str: signature["actuator"] = "DRILL"
-            elif "railgun" in name_str: signature["actuator"] = "RAILGUN"
-            elif "laser" in name_str: signature["actuator"] = "LASER"
-            elif "repeater" in name_str or "auto" in name_str: signature["actuator"] = "AUTO_GUN"
-            elif "cannon" in name_str: signature["actuator"] = "CANNON"
-            else: signature["actuator"] = "TOOL"
+            act = "TOOL"
+            if "drill" in name_str: act = "DRILL"
+            elif "railgun" in name_str: act = "RAILGUN"
+            elif "laser" in name_str: act = "LASER"
+            elif "repeater" in name_str or "auto" in name_str: act = "AUTO_GUN"
+            elif "cannon" in name_str: act = "CANNON"
+            signature["actuators"].append(act)
 
         elif p_type == "Engine":
             if "thruster" in name_str: signature["engine"] = "THRUSTER"
