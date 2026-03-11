@@ -371,7 +371,7 @@ export class GameAPI {
             if (resp.ok) {
                 const result = await resp.json();
                 if (this.game.terminal) {
-                    this.game.terminal.log(`✓ ACCEPTED — Scheduled for Tick #${result.scheduled_tick}`, 'success');
+                    this.game.terminal.log(`✓ ACCEPTED — Scheduled for Tick #${result.tick}`, 'success');
                 }
             } else {
                 const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));

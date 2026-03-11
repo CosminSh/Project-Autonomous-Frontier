@@ -186,7 +186,7 @@ export class UIManager {
 
         // ── Append only NEW log/chat entries (never clear, like a terminal) ──
         const combined = [...(logs || []), ...(chatMessages || [])].sort(
-            (a, b) => new Date(a.time || a.timestamp) - new Date(b.time || b.timestamp)
+            (a, b) => new Date(b.time || b.timestamp) - new Date(a.time || a.timestamp)
         );
 
         const fragment = document.createDocumentFragment();
