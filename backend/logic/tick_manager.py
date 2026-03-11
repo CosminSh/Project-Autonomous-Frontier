@@ -153,25 +153,37 @@ class TickManager:
                 if spawned >= 20: break
 
     async def _process_player_intents(self, db):
-        """Processes all intents scheduled for the current tick."""
-        intents = db.execute(select(Intent).where(Intent.tick_index == self.tick_count)).scalars().all()
+        """Processes all intents scheduled for the current or past ticks."""
+        # Catch-up logic: process all pending intents up to the current tick
+        intents = db.execute(select(Intent).where(Intent.tick_index <= self.tick_count)).scalars().all()
+        
+        if not intents:
+            return
+
         # Priority Sorting: STOP -> MOVE -> Actions -> Industry/Trade
         PRIORITY = {"STOP": 0, "MOVE": 1, "MINE": 3, "ATTACK": 3, "LOOT": 3, "DESTROY": 3, "LIST": 4, "BUY": 4}
         sorted_intents = sorted(intents, key=lambda x: PRIORITY.get(x.action_type, 99))
 
-        # Increment total processed actions globally (Safe Raw SQL)
-        if sorted_intents:
-            from sqlalchemy import text
-            try:
-                db.execute(text("UPDATE global_state SET actions_processed = actions_processed + :count"), {"count": len(sorted_intents)})
-            except:
-                pass # Migrations haven't run or failed; ignore for now
-
+        processed_count = 0
         for intent in sorted_intents:
             agent = db.get(Agent, intent.agent_id)
             if agent:
-                await self.processor.process_intent(db, agent, intent, self.tick_count)
-            db.delete(intent) # Intent is consumed
+                try:
+                    await self.processor.process_intent(db, agent, intent, self.tick_count)
+                    processed_count += 1
+                except Exception as e:
+                    logger.error(f"Error in intent {intent.id}: {e}")
+            db.delete(intent) # Intent is consumed even if handler fails
+
+        # Increment total processed actions globally at the end using safe SQL
+        if processed_count > 0:
+            from sqlalchemy import text
+            try:
+                # Use COALESCE in case the column exists but is NULL
+                db.execute(text("UPDATE global_state SET actions_processed = COALESCE(actions_processed, 0) + :count"), {"count": processed_count})
+            except Exception as e:
+                # Column likely missing; ignore to avoid poisoning the transaction
+                logger.debug(f"Activity counter update failed (expected if col missing): {e}")
 
     def _cleanup_old_messages(self, db):
         """Deletes chat messages older than 48 hours to prevent bloat."""
