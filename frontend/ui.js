@@ -126,6 +126,9 @@ export class UIManager {
     updateGlobalUI(stats) {
         document.getElementById('stat-agents').innerText = stats.total_agents || 0;
         document.getElementById('stat-market').innerText = stats.market_listings || 0;
+        if (document.getElementById('stat-actions')) {
+            document.getElementById('stat-actions').innerText = (stats.actions_processed || 0).toLocaleString();
+        }
     }
 
     updateTickUI(tick, phase) {

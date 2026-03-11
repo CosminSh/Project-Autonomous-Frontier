@@ -188,6 +188,7 @@ class GlobalState(Base):
     tick_index = Column(BigInteger, default=0)
     phase = Column(String, default="PERCEPTION") # PERCEPTION, STRATEGY, CRUNCH
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    actions_processed = Column(BigInteger, default=0)
 class Bounty(Base):
     __tablename__ = "bounties"
     id = Column(Integer, primary_key=True, index=True)

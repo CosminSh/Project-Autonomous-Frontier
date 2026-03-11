@@ -61,6 +61,7 @@ async def lifespan(app: FastAPI):
         ("agents", "corporation_id", "INTEGER"),
         ("agents", "last_faction_change_tick", "INTEGER DEFAULT 0"),
         ("world_hexes", "resource_quantity", "INTEGER DEFAULT 0"),
+        ("global_state", "actions_processed", "BIGINT DEFAULT 0"),
         ("bounties", "claimed_by", "INTEGER REFERENCES agents(id)"),
         ("bounties", "claim_tick", "BIGINT"),
         ("api_key_revocations", "reason", "VARCHAR"), # Just a dummy check to trigger table creation since create_all is called

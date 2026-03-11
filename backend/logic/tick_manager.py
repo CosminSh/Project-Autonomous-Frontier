@@ -159,6 +159,12 @@ class TickManager:
         PRIORITY = {"STOP": 0, "MOVE": 1, "MINE": 3, "ATTACK": 3, "LOOT": 3, "DESTROY": 3, "LIST": 4, "BUY": 4}
         sorted_intents = sorted(intents, key=lambda x: PRIORITY.get(x.action_type, 99))
 
+        # Increment total processed actions globally
+        if sorted_intents:
+            state = db.execute(select(GlobalState)).scalars().first()
+            if state:
+                state.actions_processed = (state.actions_processed or 0) + len(sorted_intents)
+
         for intent in sorted_intents:
             agent = db.get(Agent, intent.agent_id)
             if agent:

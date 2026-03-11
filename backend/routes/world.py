@@ -29,7 +29,8 @@ async def get_global_stats(db: Session = Depends(get_db)):
         "phase": state.phase if state else "PERCEPTION",
         "active_agents": db.query(Agent).filter(Agent.energy > 0).count(),
         "total_agents": db.query(Agent).count(),
-        "market_orders": db.query(AuctionOrder).count()
+        "market_listings": db.query(AuctionOrder).count(),
+        "actions_processed": state.actions_processed if state else 0
     }
 
 
