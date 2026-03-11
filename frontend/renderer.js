@@ -475,11 +475,21 @@ export class GameRenderer {
         let mesh = this.agents.get(agentData.id);
         const q = agentData.q ?? agentData.location?.q ?? 0;
         const r = agentData.r ?? agentData.location?.r ?? 0;
-        // Detailed signature from backend
         const sig = agentData.visual_signature || { chassis: 'BASIC', rarity: 'STANDARD', actuators: [] };
+        if (agentData.name === 'Wabbs' || agentData.id === parseInt(localStorage.getItem('sv_agent_id'))) {
+            console.log('Visual Signature for player:', sig);
+        }
+
+        // If signature changed, rebuild the mesh
+        if (mesh && mesh.userData.sigHash !== JSON.stringify(sig)) {
+            this.scene.remove(mesh);
+            this.agents.delete(agentData.id);
+            mesh = null;
+        }
 
         if (!mesh) {
             mesh = new THREE.Group();
+            mesh.userData.sigHash = JSON.stringify(sig);
 
             const rarityColors = { 'SCRAP': 0x64748b, 'STANDARD': 0x38bdf8, 'REFINED': 0x3b82f6, 'PRIME': 0xfacc15, 'RELIC': 0xf97316 };
             const rarityEmissives = { 'SCRAP': 0x334155, 'STANDARD': 0x0ea5e9, 'REFINED': 0x2563eb, 'PRIME': 0xeab308, 'RELIC': 0xea580c };

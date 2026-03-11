@@ -107,6 +107,7 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         "storage": list(aggregated_storage.values()),
         "discovery": get_discovery_packet(STATION_CACHE, agent),
         "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity} for p in agent.parts],
+        "visual_signature": get_agent_visual_signature(agent),
         "solar_intensity": int(get_solar_intensity(agent.q, agent.r, tick) * 100)
     }
 
