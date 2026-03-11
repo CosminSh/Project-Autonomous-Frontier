@@ -27,6 +27,8 @@ def simulate_battle(db: Session, attacker: Agent, defender: Agent, manager=None,
     a_hp_start = attacker.health
     d_hp_start = defender.health
     
+    combat_log.append(f"--- BATTLE START: {attacker.name} (HP: {a_hp_start}/{attacker.max_health}) vs {defender.name} (HP: {d_hp_start}/{defender.max_health}) ---")
+    
     a_damage_dealt = 0
     d_damage_dealt = 0
     
@@ -94,18 +96,17 @@ def simulate_battle(db: Session, attacker: Agent, defender: Agent, manager=None,
                     if random.random() < crit_chance:
                         is_crit = True
                         
-                    # Calculate Damage: Dmg - (Armor/2)
                     raw_dmg = strike_attacker.damage or 1
                     armor_mitigation = (strike_defender.armor or 0) / 1.5 # Buffed: blocking more damage
                     dmg_dealt = max(1, int(raw_dmg - armor_mitigation))
                     
+                    strike_defender.health -= dmg_dealt
+                    
                     if is_crit:
                         dmg_dealt *= 2
-                        round_events.append(f"{strike_attacker.name} CRITS {strike_defender.name} for {dmg_dealt} DMG!")
+                        round_events.append(f"{strike_attacker.name} CRITS {strike_defender.name} for {dmg_dealt} DMG! ({strike_defender.name} HP: {max(0, strike_defender.health)}/{strike_defender.max_health})")
                     else:
-                        round_events.append(f"{strike_attacker.name} hits for {dmg_dealt} DMG. (Mitigated {armor_mitigation} via Armor)")
-                        
-                    strike_defender.health -= dmg_dealt
+                        round_events.append(f"{strike_attacker.name} hits for {dmg_dealt} DMG. (Mitigated {armor_mitigation:.1f} via Armor) ({strike_defender.name} HP: {max(0, strike_defender.health)}/{strike_defender.max_health})")
                     
                     if strike_attacker.id == attacker.id: a_damage_dealt += dmg_dealt
                     else: d_damage_dealt += dmg_dealt
@@ -125,6 +126,9 @@ def simulate_battle(db: Session, attacker: Agent, defender: Agent, manager=None,
     # Enforce caps
     if defender.health < 0: defender.health = 0
     if attacker.health < 0: attacker.health = 0
+
+    combat_log.append(f"--- BATTLE END: Winner is {winner.name} (Remaining HP: {winner.health}/{winner.max_health}) ---")
+
 
     if combat_type == "DEATHMATCH":
         if loser.health < int(loser.max_health * 0.05): loser.health = max(1, int(loser.max_health * 0.05))

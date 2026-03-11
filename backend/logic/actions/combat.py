@@ -63,8 +63,7 @@ async def handle_attack(db, agent, intent, tick_count, manager):
 
     outcome = simulate_battle(db, agent, target, manager, combat_type="SKIRMISH")
     
-    if outcome["attacker_damage_dealt"] > 0:
-        db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_HIT", details={"target_id": target_id, "damage": outcome["attacker_damage_dealt"], "log": outcome["log"]}))
+    if outcome["attacker_damage_dealt"] > 0 or target.health <= 0 or agent.health <= 0:
         
         if manager:
             await manager.broadcast({
@@ -74,7 +73,14 @@ async def handle_attack(db, agent, intent, tick_count, manager):
             })
 
         if target.health <= 0:
-            await _handle_death(db, agent, target, manager)
+            loot_gained = await _handle_death(db, agent, target, manager)
+            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_VICTORY", details={"target_id": target_id, "damage": outcome["attacker_damage_dealt"], "log": outcome["log"], "gained": loot_gained}))
+        elif agent.health <= 0:
+            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_DEFEAT", details={"target_id": target_id, "damage": outcome["attacker_damage_dealt"], "log": outcome["log"], "note": "You were defeated and respawned at the Hub point."}))
+            await _handle_death(db, target, agent, manager) # The other guy killed you!
+        else:
+            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_HIT", details={"target_id": target_id, "damage": outcome["attacker_damage_dealt"], "log": outcome["log"]}))
+            
     else:
         db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_MISS", details={"target_id": target_id, "log": outcome["log"]}))
 
@@ -217,6 +223,8 @@ async def _handle_death(db, killer, target, manager):
         )).scalars().all()
         eligible_members.extend(squad_members)
 
+    loot_summary = []
+    
     # 1. Loot Distribution
     for item in target.inventory:
         if item.item_type == "CREDITS": continue 
@@ -231,8 +239,11 @@ async def _handle_death(db, killer, target, manager):
                     inv_i = next((it for it in member.inventory if it.item_type == item.item_type), None)
                     if inv_i: inv_i.quantity += member_share
                     else: db.add(InventoryItem(agent_id=member.id, item_type=item.item_type, quantity=member_share))
+                    if member.id == killer.id:
+                        loot_summary.append({"type": item.item_type, "qty": member_share})
 
     add_experience(db, killer, 50)
+
 
     # 2. Bounty Claims
     bounty = db.execute(select(Bounty).where(Bounty.target_id == target.id, Bounty.is_open == True)).scalar_one_or_none()
@@ -280,5 +291,6 @@ async def _handle_death(db, killer, target, manager):
         for intent in cursor.scalars().all():
             db.delete(intent)
             
-        db.add(AuditLog(agent_id=target.id, event_type="DEATH_RESPAWN", details={"spawn_q": target.q, "spawn_r": target.r, "reset_hp": target.health}))
+        db.add(AuditLog(agent_id=target.id, event_type="DEATH_RESPAWN", details={"spawn_q": target.q, "spawn_r": target.r, "reset_hp": target.health, "killer": killer.name}))
         logger.info(f"Agent {target.id} respawned at {TOWN_COORDINATES} after death.")
+    return loot_summary
