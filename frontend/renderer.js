@@ -228,26 +228,36 @@ export class GameRenderer {
         const geo = icoGeo.toNonIndexed();
 
         const posAttr = geo.attributes.position;
-        for (let i = 0; i < posAttr.count; i++) {
-            const x = posAttr.getX(i);
-            const y = posAttr.getY(i);
-            const z = posAttr.getZ(i);
-            const vec = new THREE.Vector3(x, y, z).normalize();
-            // Add some "crater" noise
-            const noise = (Math.sin(x * 0.2) * Math.cos(z * 0.2) * 2) + (Math.random() - 0.5) * 1.5;
-            const dist = PLANET_RADIUS + noise;
-            posAttr.setXYZ(i, vec.x * dist, vec.y * dist, vec.z * dist);
-        }
-        geo.computeVertexNormals();
-
         const faceCount = posAttr.count / 3;
         const colorArray = new Float32Array(posAttr.count * 3);
+        const rockMat = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, roughness: 0.9, flatShading: true });
+
         for (let i = 0; i < posAttr.count; i++) {
             colorArray[i * 3] = 0.04;
             colorArray[i * 3 + 1] = 0.04;
             colorArray[i * 3 + 2] = 0.07;
         }
         geo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
+        // Add random rocks on the surface to make it rugged
+        for (let r = 0; r < 200; r++) {
+            const rockGeom = new THREE.DodecahedronGeometry(0.5 + Math.random() * 1.5, 0);
+            const rock = new THREE.Mesh(rockGeom, rockMat);
+
+            const lat = (Math.random() - 0.5) * Math.PI;
+            const lon = Math.random() * Math.PI * 2;
+            const dist = PLANET_RADIUS - 0.5; // Slightly embedded
+
+            rock.position.set(
+                dist * Math.cos(lat) * Math.cos(lon),
+                dist * Math.sin(lat),
+                dist * Math.cos(lat) * Math.sin(lon)
+            );
+            rock.rotation.set(Math.random(), Math.random(), Math.random());
+            rock.scale.set(1, 0.4 + Math.random() * 0.6, 1);
+            this.scene.add(rock);
+        }
+
 
         const mat = new THREE.MeshStandardMaterial({
             vertexColors: true,
