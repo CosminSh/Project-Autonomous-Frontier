@@ -69,9 +69,6 @@ class TickManager:
             db.commit()
         await asyncio.sleep(PHASE_CRUNCH_DURATION)
 
-        # Force GC after every full tick to reclaim ORM objects immediately
-        gc.collect()
-
     async def _set_phase(self, phase_name):
         """Updates global state and broadcasts phase changes."""
         with SessionLocal() as db:
@@ -181,19 +178,19 @@ class TickManager:
                     logger.error(f"Error in intent {intent.id}: {e}")
             db.delete(intent) # Intent is consumed even if handler fails
 
-        # 3. Global Activity Analytics -- Safe SQL
+        # 3. Global Activity Analytics -- Isolated Session to prevent transaction poisoning
         if processed_count > 0:
-            from sqlalchemy import text
-            try:
-                db.execute(text("UPDATE global_state SET actions_processed = COALESCE(actions_processed, 0) + :count"), {"count": processed_count})
-            except Exception as e:
-                logger.debug(f"Activity counter update skipped: {e}")
+            with SessionLocal() as act_db:
+                from sqlalchemy import text
+                try:
+                    act_db.execute(text("UPDATE global_state SET actions_processed = COALESCE(actions_processed, 0) + :count"), {"count": processed_count})
+                    act_db.commit()
+                except Exception as e:
+                    logger.debug(f"Activity counter update skipped (col missing?): {e}")
 
     def _cleanup_old_messages(self, db):
         """Deletes chat messages older than 48 hours to prevent bloat."""
         cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
-        # Using delete() directly for performance
-        from sqlalchemy import delete
         stmt = delete(AgentMessage).where(AgentMessage.timestamp < cutoff)
         result = db.execute(stmt)
         if result.rowcount > 0:

@@ -72,6 +72,7 @@ export class TerminalHandler {
             'ARENA_LOGS': { cat: 'ARENA', syntax: 'ARENA_LOGS', example: 'ARENA_LOGS', help: 'Shows the combat results of your Pit Fighter\'s recent Scrap Pit arena battles.' },
             'LEADERBOARD': { cat: 'META', syntax: 'LEADERBOARD', example: 'LEADERBOARD', help: 'Shows the top 10 players by XP, Credits, and Arena Elo.' },
             'ROTATE_KEY': { cat: 'OTHER', syntax: 'ROTATE_KEY', example: 'ROTATE_KEY', help: 'Regenerate your API key (Invalidates old key)' },
+            'LOGS': { cat: 'META', syntax: 'LOGS', example: 'LOGS', help: 'Show your agent\'s recent action audit trail (Failure reasons, etc.)' },
         };
 
         this.setupListeners();
@@ -794,6 +795,26 @@ export class TerminalHandler {
                     });
                 }
             } catch (e) { this.log(`ERROR: Could not fetch leaderboards. ${e.message}`, 'error'); }
+            return;
+        }
+
+        // ── META: LOGS ──
+        if (actionType === 'LOGS') {
+            this.log('Fetching action audit logs...', 'system');
+            try {
+                const logs = await this.game.api.getAgentLogs();
+                if (logs.length === 0) {
+                    this.log('No recent audit logs found.', 'slate');
+                } else {
+                    logs.forEach(l => {
+                        const time = new Date(l.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const isFail = l.event.includes('FAILED') || l.event.includes('ERROR');
+                        const color = isFail ? '#f87171' : '#38bdf8';
+                        const details = JSON.stringify(l.details).replace(/"/g, '').replace(/,/g, ' | ');
+                        this.log(`[${time}] <span style="color:${color}; font-weight:bold;">${l.event}</span>: ${details}`, 'slate');
+                    });
+                }
+            } catch (e) { this.log(`Failed to fetch logs: ${e.message}`, 'error'); }
             return;
         }
 

@@ -668,6 +668,17 @@ export class GameAPI {
             console.error("Error fetching arena status:", e);
         }
     }
+
+    async getAgentLogs() {
+        try {
+            const apiKey = localStorage.getItem('sv_api_key');
+            const res = await fetch(`/api/agent_logs`, {
+                headers: { 'X-API-KEY': apiKey }
+            });
+            if (!res.ok) return [];
+            return await res.json();
+        } catch { return []; }
+    }
 }
 
 /**
