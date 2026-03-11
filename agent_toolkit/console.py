@@ -419,28 +419,34 @@ class PilotConsole:
             target_feral = None
             for a in nearby_agents:
                 if a.get("is_feral"):
-                    lvl = a.get("level", 1)
+                    # Level isn't directly exposed in basic agent perception packet, we derive it from name
+                    # e.g., "Feral-Drifter-L10-5" -> Level 10
+                    import re
+                    name = a.get("name", "")
+                    lvl_match = re.search(r"-L(\d+)-", name)
+                    lvl = int(lvl_match.group(1)) if lvl_match else 1
+                    
                     if min_lvl <= lvl <= max_lvl:
                         target_feral = a
                         break
             
             if target_feral:
-                dist = target_feral.get("distance", 999) # This is usually 1 for attackable
+                dist = target_feral.get("distance", 999)
                 if dist <= 1:
                     if current_state != "HUNTING":
-                        self.log(f"HUNT: Engaging {target_feral['name']} (Lvl {target_feral['level']})!")
-                    self.client.submit_intent("ATTACK", {"target_id": target_feral["id"]})
-                    return "HUNTING"
+                        self.log(f"HUNT: Engaging {target_feral['name']} in CQC!")
                 else:
-                    self.log(f"HUNT: Closing distance to {target_feral['name']} at ({target_feral['q']}, {target_feral['r']})")
-                    self.client.submit_intent("MOVE", {"target_q": target_feral["q"], "target_r": target_feral["r"]})
-                    return "MOVING"
+                    self.log(f"HUNT: Locking on to {target_feral['name']} at ({target_feral['q']}, {target_feral['r']}). Auto-navigating.")
+                
+                # Server now auto-paths ATTACK intents if out of range! Just send ATTACK.    
+                self.client.submit_intent("ATTACK", {"target_id": target_feral["id"]})
+                return "HUNTING"
             else:
                 # Roam towards the target zone
                 # Tier 1: 6-15, Tier 2: 16-30, Tier 3: 31-50, Tier 4: 51+
                 zone_r = 10 if min_lvl <= 10 else 25 if min_lvl <= 20 else 40 if min_lvl <= 30 else 60
                 self_data = perception.get("self", {})
-                if abs(self_data["r"] - zone_r) > 5:
+                if abs(self_data.get("r", 0) - zone_r) > 5:
                     self.log(f"HUNT: Moving to Level {min_lvl}+ habitat (r={zone_r}).")
                     self.client.submit_intent("MOVE", {"target_q": self_data["q"] + 2, "target_r": zone_r})
                 else:
