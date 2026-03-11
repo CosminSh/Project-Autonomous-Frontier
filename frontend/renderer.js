@@ -104,7 +104,7 @@ export class GameRenderer {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        this.controls.minDistance = 1.0;
+        this.controls.minDistance = 2.0;
         this.controls.maxDistance = 500;
 
         // Lighting
@@ -140,6 +140,19 @@ export class GameRenderer {
     animate() {
         requestAnimationFrame(() => this.animate());
         if (this.controls) this.controls.update();
+
+        // Prevent camera from going inside the planet (radius 50)
+        if (this.camera) {
+            const minAltitude = 51.5;
+            if (this.camera.position.length() < minAltitude) {
+                this.camera.position.normalize().multiplyScalar(minAltitude);
+                if (this.controls) {
+                    // Update controls to reflect the position change if necessary
+                    // Note: We don't call this.controls.update() again to avoid recursion/jitter,
+                    // the next frame will handle the alignment.
+                }
+            }
+        }
 
         const stacks = new Map();
 

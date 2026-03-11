@@ -64,7 +64,7 @@ with SessionLocal() as db:
                 db.add(WorldHex(sector_id=sector.id, q=rq, r=rr, terrain_type=terrain, resource_type=res_type, resource_density=res_density, is_station=is_station, station_type=st_type))
     
     # Add Agents
-    a1 = Agent(id=1, name="Striker-01", q=0, r=0, structure=100, max_structure=100, capacitor=100)
+    a1 = Agent(id=1, name="Striker-01", q=0, r=0, health=100, max_health=100, energy=100)
     db.add(a1)
     db.flush()
     db.add(InventoryItem(agent_id=1, item_type="CREDITS", quantity=1000))
@@ -83,7 +83,7 @@ with SessionLocal() as db:
         fq = random.choice([q for q in range(-15, 15) if abs(q) > 8])
         fr = random.choice([r for r in range(-15, 15) if abs(r) > 8])
         rq, rr = wrap_coords(fq, fr)
-        feral = Agent(name=f"Feral-Scrapper-{i}", q=rq, r=rr, is_bot=True, is_feral=True, kinetic_force=15, logic_precision=8, structure=120, max_structure=120)
+        feral = Agent(name=f"Feral-Scrapper-{i}", q=rq, r=rr, is_bot=True, is_feral=True, accuracy=15, health=120, max_health=120)
         db.add(feral)
         db.flush()
         db.add(ChassisPart(agent_id=feral.id, name="Rusty Blaster", part_type="Actuator", stats={"damage": 12}))
