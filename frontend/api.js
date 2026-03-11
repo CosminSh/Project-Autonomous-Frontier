@@ -202,8 +202,8 @@ export class GameAPI {
 
             // Render World & Agents (Fog of War)
             const visibleAgentIds = new Set();
-            let worldDataToRender = data.world;
-            let agentsToRender = data.agents;
+            let worldDataToRender = (data && data.world) ? data.world : [];
+            let agentsToRender = (data && data.agents) ? data.agents : [];
 
             if (agentData) {
                 visibleAgentIds.add(agentData.id);
@@ -221,8 +221,8 @@ export class GameAPI {
             }
 
             if (this.game.lastPerception) {
-                worldDataToRender = this.game.lastPerception.discovery?.environment_hexes || this.game.lastPerception.environment?.environment_hexes || data.world;
-                agentsToRender = this.game.lastPerception.agents || this.game.lastPerception.environment?.other_agents || data.agents;
+                worldDataToRender = this.game.lastPerception.discovery?.environment_hexes || this.game.lastPerception.environment?.environment_hexes || (data && data.world) || [];
+                agentsToRender = this.game.lastPerception.agents || this.game.lastPerception.environment?.other_agents || (data && data.agents) || [];
             }
 
             const visibleHexKeys = new Set();

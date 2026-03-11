@@ -24,14 +24,23 @@ router = APIRouter(tags=["World"])
 async def get_global_stats(db: Session = Depends(get_db)):
     """Returns global metrics and current game tick/phase."""
     state = db.execute(select(GlobalState)).scalars().first()
-    return {
+    stats_out = {
         "tick": state.tick_index if state else 0,
         "phase": state.phase if state else "PERCEPTION",
         "active_agents": db.query(Agent).filter(Agent.energy > 0).count(),
         "total_agents": db.query(Agent).count(),
         "market_listings": db.query(AuctionOrder).count(),
-        "actions_processed": state.actions_processed if state else 0
+        "actions_processed": 0
     }
+    # Safely try to fetch the counter if the column exists
+    from sqlalchemy import text
+    try:
+        res = db.execute(text("SELECT actions_processed FROM global_state LIMIT 1")).scalar()
+        if res is not None:
+            stats_out["actions_processed"] = res
+    except:
+        pass
+    return stats_out
 
 
 @router.get("/api/leaderboards")
