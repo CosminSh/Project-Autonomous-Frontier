@@ -416,7 +416,8 @@ class PilotConsole:
 
             # Check for ferals in range
             nearby_agents = perception.get("agents", [])
-            target_feral = None
+            valid_ferals = []
+            
             for a in nearby_agents:
                 if a.get("is_feral"):
                     # Level isn't directly exposed in basic agent perception packet, we derive it from name
@@ -427,8 +428,13 @@ class PilotConsole:
                     lvl = int(lvl_match.group(1)) if lvl_match else 1
                     
                     if min_lvl <= lvl <= max_lvl:
-                        target_feral = a
-                        break
+                        valid_ferals.append(a)
+                        
+            # Sort by distance and pick closest
+            target_feral = None
+            if valid_ferals:
+                valid_ferals.sort(key=lambda f: f.get("distance", 999))
+                target_feral = valid_ferals[0]
             
             if target_feral:
                 dist = target_feral.get("distance", 999)
