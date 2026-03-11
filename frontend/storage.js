@@ -77,7 +77,7 @@ class StorageUI {
         if (depositList) {
             const agentData = window.game && (window.game.agentData || window.game.lastAgentData);
             const inv = agentData && agentData.inventory
-                ? agentData.inventory.filter(i => i.item_type !== 'CREDITS')
+                ? agentData.inventory.filter(i => i.type !== 'CREDITS')
                 : [];
             if (inv.length === 0) {
                 depositList.innerHTML = `<div class="text-[10px] text-slate-600 italic">Inventory is empty.</div>`;
@@ -85,10 +85,10 @@ class StorageUI {
                 depositList.innerHTML = inv.map(item => `
                     <div class="flex justify-between items-center p-2 bg-slate-900/40 border border-slate-800 rounded group hover:border-emerald-500/30 transition-all">
                         <div>
-                            <span class="text-[10px] text-slate-300 font-bold uppercase">${item.item_type.replace(/_/g, ' ')}</span>
+                            <span class="text-[10px] text-slate-300 font-bold uppercase">${item.type.replace(/_/g, ' ')}</span>
                             <span class="text-[9px] text-slate-500 block">Cargo: ${item.quantity}</span>
                         </div>
-                        <button onclick="window.storageUI.depositPartial('${item.item_type}', ${item.quantity})"
+                        <button onclick="window.storageUI.depositPartial('${item.type}', ${item.quantity})"
                                 class="bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 px-2 py-1 rounded text-[8px] orbitron font-bold border border-emerald-500/20 transition-all">
                             DEPOSIT
                         </button>
@@ -165,13 +165,21 @@ class StorageUI {
     }
 
     async upgradeStorage() {
-        if (!this.nextUpgradeRequirements) return;
+        if (!this.nextUpgradeRequirements) {
+            await this.refreshStorage();
+        }
+        if (!this.nextUpgradeRequirements) {
+            alert("Unable to fetch upgrade requirements. Please try again.");
+            return;
+        }
 
         const reqStr = Object.entries(this.nextUpgradeRequirements)
             .map(([res, qty]) => `${qty} ${res.replace('_', ' ')}`)
             .join('\n- ');
 
-        if (!confirm(`Upgrade vault capacity by 250 kg?\n\nRequired:\n- ${reqStr}\n\nProceed?`)) return;
+        const nextCap = this.capacity + 250;
+        if (!confirm(`Upgrade vault capacity from ${this.capacity}kg to ${nextCap}kg?\n\nRequired:\n- ${reqStr}\n\nProceed?`)) return;
+
         try {
             const response = await fetch('/api/storage/upgrade', {
                 method: 'POST',
@@ -215,4 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (vaultTabBtn) {
         vaultTabBtn.addEventListener('click', () => window.storageUI.refreshStorage());
     }
+
+    // Initial check after a short delay
+    setTimeout(() => window.storageUI.refreshStorage(), 1500);
 });

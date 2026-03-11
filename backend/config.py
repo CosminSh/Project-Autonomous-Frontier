@@ -163,7 +163,7 @@ def get_vault_upgrade_requirements(current_capacity: float) -> dict:
     Upgrade 2 (1000 kg) -> Upgrade 3 (1250 kg): 2500 CR + 50 Iron Ingot + 20 Copper Ingot
     and so on...
     """
-    level = int((current_capacity - VAULT_BASE_CAPACITY) / VAULT_UPGRADE_SIZE)
+    level = round((current_capacity - VAULT_BASE_CAPACITY) / VAULT_UPGRADE_SIZE)
     
     if level == 0:
         return {"CREDITS": 500}

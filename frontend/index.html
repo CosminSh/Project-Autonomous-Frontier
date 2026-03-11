@@ -644,8 +644,10 @@
                                     <div class="text-right">
                                         <p class="text-[8px] text-slate-500 uppercase font-bold">Capacity</p>
                                         <p id="storage-mass-text" class="text-xs font-mono text-sky-400">0 / 500 kg</p>
+                                        <p id="storage-upgrade-cost"
+                                            class="text-[8px] text-amber-500/70 font-mono mt-1"></p>
                                     </div>
-                                    <button onclick="window.storageUI.upgradeStorage()"
+                                    <button onclick="window.storageUI.upgradeStorage()" id="storage-upgrade-btn"
                                         class="bg-amber-500/20 hover:bg-amber-500/40 text-amber-500 border border-amber-500/30 px-3 py-1.5 rounded text-[9px] orbitron font-bold transition-all interactive">UPGRADE</button>
                                 </div>
                             </div>
@@ -698,8 +700,10 @@
                                 <h4 class="text-[10px] text-emerald-400 uppercase mb-3 tracking-widest font-bold">
                                     Smelting Furnace</h4>
                                 <p class="text-[10px] text-slate-500 mb-3 font-mono">Process raw ores into
-                                    industrial-grade ingots (5:1 Ratio). Requires proximity to a SMELTER station. Uses
-                                    inventory resources.</p>
+                                    industrial-grade ingots (5:1 Ratio). Requires proximity to a SMELTER station.
+                                    <b>Uses
+                                        resources from your inventory OR vault storage.</b>
+                                </p>
                                 <div class="flex items-center space-x-3">
                                     <select id="smelt-ore-type"
                                         class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-emerald-500 outline-none">

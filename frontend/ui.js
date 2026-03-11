@@ -500,6 +500,9 @@ export class UIManager {
             }
         }
 
+        if (agent.inventory) this.cachedInventory = agent.inventory;
+        if (agent.storage) this.cachedStorage = agent.storage;
+
         if (agent.discovery) {
             this.updateNavComputer(agent.discovery);
             this.updateForgeUI(agent.discovery);
@@ -516,8 +519,6 @@ export class UIManager {
         }
 
         const invList = document.getElementById('inventory-list');
-        if (agent.inventory) this.cachedInventory = agent.inventory;
-        if (agent.storage) this.cachedStorage = agent.storage;
         if (invList && agent.inventory) {
             invList.innerHTML = agent.inventory.map(i => `
                 <div class="flex justify-between items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800">

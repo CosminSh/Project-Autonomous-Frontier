@@ -84,6 +84,15 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         else:
             aggregated_inv[key] = {"type": i.item_type, "quantity": i.quantity, "data": i.data}
             
+    # Aggregate storage (vault)
+    aggregated_storage = {}
+    for i in agent.storage:
+        key = (i.item_type, str(i.data))
+        if key in aggregated_storage:
+            aggregated_storage[key]["quantity"] += i.quantity
+        else:
+            aggregated_storage[key] = {"type": i.item_type, "quantity": i.quantity, "data": i.data}
+            
     return {
         "id": agent.id, "name": agent.name, "q": agent.q, "r": agent.r,
         "energy": agent.energy, "health": agent.health, "max_health": agent.max_health,
@@ -95,6 +104,7 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         "pending_squad_invite": agent.pending_squad_invite,
         "squad_members": squad_members,
         "inventory": list(aggregated_inv.values()),
+        "storage": list(aggregated_storage.values()),
         "discovery": get_discovery_packet(STATION_CACHE, agent),
         "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity} for p in agent.parts],
         "solar_intensity": int(get_solar_intensity(agent.q, agent.r, tick) * 100)
