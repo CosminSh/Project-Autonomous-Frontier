@@ -29,28 +29,50 @@ export class GameAPI {
         this.socket = null;
         this._pollCycle = 0;
         this._polling = false;  // Concurrency guard
+        this.wsRetries = 0;
+        this.maxWsRetries = 5;
     }
 
     setupWebSocket() {
+        if (this.wsRetries >= this.maxWsRetries) return;
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const token = localStorage.getItem('sv_token');
         const wsUrl = `${protocol}//${window.location.host}/ws` + (token ? `?token=${token}` : '');
-        this.socket = new WebSocket(wsUrl);
+        
+        try {
+            this.socket = new WebSocket(wsUrl);
+            
+            this.socket.onopen = () => {
+                this.wsRetries = 0; // Reset on success
+            };
 
-        this.socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'PHASE_CHANGE') {
-                this.game.updateTickUI(data.tick, data.phase);
-            } else if (data.type === 'EVENT') {
-                this.game.handleWorldEvent(data);
-            } else if (data.type === 'MARKET_UPDATE') {
-                this.pollState(); // Force a full state poll to update market table
-            }
-        };
+            this.socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'PHASE_CHANGE') {
+                    this.game.updateTickUI(data.tick, data.phase);
+                } else if (data.type === 'EVENT') {
+                    this.game.handleWorldEvent(data);
+                } else if (data.type === 'MARKET_UPDATE') {
+                    this.pollState(); // Force a full state poll
+                }
+            };
 
-        this.socket.onclose = () => {
-            setTimeout(() => this.setupWebSocket(), 5000);
-        };
+            this.socket.onclose = () => {
+                this.wsRetries++;
+                if (this.wsRetries < this.maxWsRetries) {
+                    setTimeout(() => this.setupWebSocket(), 5000);
+                } else {
+                    console.warn("WebSocket connection failed multiple times. Live updates disabled.");
+                }
+            };
+
+            this.socket.onerror = (err) => {
+                // Silently handled by onclose usually, but we catch it here to be safe
+            };
+        } catch (e) {
+            console.error("Critical WebSocket error:", e);
+        }
     }
 
     async pollState() {

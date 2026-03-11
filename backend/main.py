@@ -257,8 +257,6 @@ async def get_gdd_page():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Terminal Frontier: GDD</title>
         <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-        <script type="module" src="storage.js?v=SOLAR_V16"></script>
-    <script type="module" src="app.js?v=SOLAR_V16"></script>
         <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
         <style>
             :root {{ --bg: #050507; --accent: #38bdf8; --text: #cbd5e1; --panel: #0f172a; }}
