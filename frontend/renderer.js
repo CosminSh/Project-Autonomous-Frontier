@@ -503,11 +503,11 @@ export class GameRenderer {
             const metalness = 0.4 + (Math.random() * 0.2);
 
             const material = new THREE.MeshStandardMaterial({
-                color: color,
+                color: 0xffffff,
                 emissive: emissive,
-                emissiveIntensity: 0.3,
-                metalness: metalness,
-                roughness: roughness,
+                emissiveIntensity: 0.15,
+                metalness: 0.15,
+                roughness: 0.9,
                 vertexColors: true,
                 flatShading: true
             });
@@ -528,12 +528,19 @@ export class GameRenderer {
             const pos = geo.attributes.position;
             const cols = new Float32Array(pos.count * 3);
             const baseCol = new THREE.Color(color);
-            const rustCol = new THREE.Color(0x451a03); // Dark oily/rust color
+            const rustCol = new THREE.Color(0x3e1d10);
+            const grimeCol = new THREE.Color(0x1a1a1a);
 
             for (let i = 0; i < pos.count; i++) {
                 const noise = Math.random();
-                // Mix base color with rust based on random noise and wear
-                const mixed = baseCol.clone().lerp(rustCol, noise * 0.4);
+                let mixed;
+                if (noise > 0.82) {
+                    mixed = baseCol.clone().lerp(rustCol, 0.7 + Math.random() * 0.3);
+                } else if (noise > 0.55) {
+                    mixed = baseCol.clone().lerp(grimeCol, 0.5);
+                } else {
+                    mixed = baseCol.clone().multiplyScalar(0.7 + Math.random() * 0.3);
+                }
                 cols[i * 3] = mixed.r;
                 cols[i * 3 + 1] = mixed.g;
                 cols[i * 3 + 2] = mixed.b;
