@@ -1,8 +1,8 @@
-﻿import { GameAPI } from './api.js?v=SOLAR_V6';
-import { AuthManager } from './auth.js?v=SOLAR_V6';
-import { GameRenderer } from './renderer.js?v=SOLAR_V6';
-import { UIManager } from './ui.js?v=SOLAR_V6';
-import { TerminalHandler } from './terminal.js?v=SOLAR_V6';
+﻿import { GameAPI } from './api.js?v=SOLAR_V7';
+import { AuthManager } from './auth.js?v=SOLAR_V7';
+import { GameRenderer } from './renderer.js?v=SOLAR_V7';
+import { UIManager } from './ui.js?v=SOLAR_V7';
+import { TerminalHandler } from './terminal.js?v=SOLAR_V7';
 
 /**
  * app.js — Main Bootstrapper

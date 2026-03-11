@@ -497,36 +497,52 @@ export class GameRenderer {
             const color = agentData.is_feral ? 0xff4422 : (rarityColors[sig.rarity] || 0x38bdf8);
             const emissive = agentData.is_feral ? 0xff0000 : (rarityEmissives[sig.rarity] || 0x0ea5e9);
 
+            // Create Grunge/Weathered Material
+            const wear = agentData.wear_and_tear || 0;
+            const roughness = 0.7 + (Math.random() * 0.2);
+            const metalness = 0.4 + (Math.random() * 0.2);
+
             const material = new THREE.MeshStandardMaterial({
                 color: color,
                 emissive: emissive,
-                emissiveIntensity: 0.5,
-                metalness: 0.8,
-                roughness: 0.2
+                emissiveIntensity: 0.3,
+                metalness: metalness,
+                roughness: roughness,
+                vertexColors: true,
+                flatShading: true
             });
 
             // 1. Build Chassis
-            let chassisMesh;
+            let chassisGeo;
             switch (sig.chassis) {
-                case 'STRIKER':
-                    chassisMesh = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.2, 3), material);
-                    chassisMesh.rotation.x = Math.PI / 2;
-                    break;
-                case 'HEAVY':
-                    chassisMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 1.2), material);
-                    break;
-                case 'INDUSTRIAL':
-                    chassisMesh = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.8, 1.5), material);
-                    break;
-                case 'SHIELDED':
-                    chassisMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.0, 6), material);
-                    break;
-                case 'HYBRID':
-                    chassisMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.7), material);
-                    break;
-                default:
-                    chassisMesh = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1, 4), material);
-                    chassisMesh.rotation.x = Math.PI / 2;
+                case 'STRIKER': chassisGeo = new THREE.ConeGeometry(0.4, 1.2, 3); break;
+                case 'HEAVY': chassisGeo = new THREE.BoxGeometry(0.8, 0.6, 1.2); break;
+                case 'INDUSTRIAL': chassisGeo = new THREE.BoxGeometry(1.0, 0.8, 1.5); break;
+                case 'SHIELDED': chassisGeo = new THREE.CylinderGeometry(0.6, 0.6, 1.0, 6); break;
+                case 'HYBRID': chassisGeo = new THREE.OctahedronGeometry(0.7); break;
+                default: chassisGeo = new THREE.ConeGeometry(0.5, 1, 4);
+            }
+
+            // Procedural Grunge via Vertex Colors
+            const geo = chassisGeo.toNonIndexed();
+            const pos = geo.attributes.position;
+            const cols = new Float32Array(pos.count * 3);
+            const baseCol = new THREE.Color(color);
+            const rustCol = new THREE.Color(0x451a03); // Dark oily/rust color
+
+            for (let i = 0; i < pos.count; i++) {
+                const noise = Math.random();
+                // Mix base color with rust based on random noise and wear
+                const mixed = baseCol.clone().lerp(rustCol, noise * 0.4);
+                cols[i * 3] = mixed.r;
+                cols[i * 3 + 1] = mixed.g;
+                cols[i * 3 + 2] = mixed.b;
+            }
+            geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+
+            const chassisMesh = new THREE.Mesh(geo, material);
+            if (sig.chassis === 'STRIKER' || sig.chassis === 'BASIC') {
+                chassisMesh.rotation.x = Math.PI / 2;
             }
             mesh.add(chassisMesh);
             mesh.userData.chassis = chassisMesh;
