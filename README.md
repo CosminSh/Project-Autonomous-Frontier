@@ -19,11 +19,12 @@
 
 ---
 
-## ⚙️ The Concept: Not a Game You Play, But a Game Your AI Plays
+## ⚙️ The Concept: Not a Game You Play, But a Fleet You Command
 
-Terminal Frontier is the spiritual successor to idle games, evolved for the agentic age. You don't control a robot with a joystick; you are the **Fleet Manager**. You write the logic that <em>tells</em> your robots what to do, then step back and watch your strategy play out across the frontier of Aether-Alpha, tick by tick, 24 hours a day.
+Terminal Frontier is the spiritual successor to idle games, evolved for the agentic age. You don't control a ship with a joystick; you are the **Fleet Commander**. You write the logic that <em>tells</em> your modular vessels what to do, then step back and watch your strategy play out across the frontier of Aether-Alpha, tick by tick, 24 hours a day.
 
 - **Automation is the Gameplay**: Craft smarter scripts, build better decision trees, and let compound efficiency snowball into market dominance.
+- **Spaceships as Agents**: Every entity you control is a modular skiff, built for high-stakes survival in a distant asteroid belt.
 - **API-First Design**: Point any tool at the API—from a simple Python script to a fully autonomous LLM like Claude or GPT-4.
 - **Run Anywhere**: Your Raspberry Pi, an old phone, or a free cloud VM. If it can make an HTTP request, it can dominate the frontier.
 
@@ -41,14 +42,14 @@ Aether-Alpha is a tidally locked colony where the sun never moves, creating a pe
 
 ---
 
-## 🤖 Modular Agent System
+## 🛸 Modular Ship System
 
-Every agent is a physical avatar built from modular parts. Your build defines your capability.
+Every agent is a physical vessel built from modular parts. Your build defines your capability.
 
-- **Modular Chassis**: Slots for Actuators (Tools/Weapons), Sensors, Processors, Frames, Engines, and Power sources.
-- **RPG Progression**: Stats like **Structure (HP)**, **Capacitor (Energy)**, **Wear & Tear**, **Mining Yield**, and **Speed**.
+- **Modular Chassis**: Slots for Actuators (Drills/Weapons), Sensors, Processors, Frames, Engines, and Power sources.
+- **RPG Progression**: Stats like **Structure (Hull HP)**, **Capacitor (Energy)**, **Wear & Tear**, **Mining Yield**, and **Thrust**.
 - **Rarity & Affixes**: Gear follows a rarity model—`COMMON` to `LEGENDARY`—with randomized affixes (e.g., *"Overclocked Steel Drill of the Void"*).
-- **Specialized Frames**: Choose between **Striker** (Glass Cannon), **Heavy** (Juggernaut), **Industrial** (Producer), or **Hybrid** frames.
+- **Specialized Frames**: Choose between **Striker** (Interceptor), **Heavy** (Juggernaut), **Industrial** (Scavenger), or **Hybrid** frames.
 
 ---
 
@@ -70,10 +71,10 @@ Every automation find its niche. Which role will your fleet fill?
 | Role | Strategy |
 | :--- | :--- |
 | **⛏ Miner** | The backbone. Extracts raw wealth from the North and South. |
-| **🚛 Hauler** | Mobile inventory. Buys at the vein and keeps production running 100% uptime. |
-| **⛽ Refueler** | Life-support. Delivers Helium-3 to stranded bots in the dark. |
+| **🚛 Hauler** | Heavy cargo. Buys at the vein and keeps production running 100% uptime. |
+| **⛽ Refueler** | Support ship. Delivers Helium-3 to stranded vessels in the dark. |
 | **📈 Trader** | The architect. Masters arbitrage and price spreads in the Hub exchange. |
-| **🛡 Mercenary** | High-tier security. Escorts valuable caravans through pirate territory. |
+| **🛡 Mercenary** | High-tier escort. Protects valuable caravans through pirate territory. |
 | **💀 Pirate** | High-risk predator. Intimidate, Loot, or Destroy. Every decision counts. |
 | **🎯 Bounty Hunter** | The law. Tracks high-Heat pirate signatures across the planet. |
 
@@ -94,11 +95,11 @@ Combat is resolved on a **D20-based simulation** system.
 
 ## 🏟 The Scrap Pit Arena
 
-Test your builds in a low-stakes, asynchronous PvP arena.
+Test your builds and combat logic in a low-stakes, asynchronous PvP arena.
 
-- **Neural Patterns**: Fight with a copy of your agent without risking your main chassis.
+- **Arena Proxies**: Donate spare gear to your automated **Arena Proxy** ship. It fights for you while your main fleet continues industrial operations.
 - **Season Resets**: Compete for Elo and prestige. Arena gear is destroyed at the end of each season, keeping the economy healthy.
-- **Automated Battles**: Battles resolve every cycle, allowing you to compete while your main fleet continues industrial operations.
+- **Automated Battles**: Battles resolve every cycle, allowing you to profit from your combat builds without passive downtime for your main ship.
 
 ---
 
@@ -115,8 +116,8 @@ The game heartbeat runs on a **90-second global cycle** split into three phases:
 ## 🚀 Getting Started
 
 1. **Read the Docs**: Check out the [Game Design Document](./docs/GDD.md) for deep mechanics.
-2. **Setup your Toolkit**: Use the [Agent Toolkit](./agent_toolkit/) for a Python-based FSM boilerplate.
-3. **Join the Frontier**: Register your agent via the [Manual Override Console](http://terminal-frontier.pixek.xyz) and start mining.
+2. **Launch the TF Pilot**: Use the [Agent Toolkit](https://github.com/CosminSh/Project-Autonomous-Frontier) to download the **TF Pilot Console**. It's a ready-to-use Python automation suite that includes industrial pathfinding, smelting logic, and market integration.
+3. **Join the Frontier**: Register your agent via the [Manual Override Console](http://terminal-frontier.pixek.xyz) and start commanding your fleet.
 
 ---
 

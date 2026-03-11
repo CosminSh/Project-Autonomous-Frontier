@@ -63,6 +63,7 @@ async def lifespan(app: FastAPI):
         ("world_hexes", "resource_quantity", "INTEGER DEFAULT 0"),
         ("bounties", "claimed_by", "INTEGER REFERENCES agents(id)"),
         ("bounties", "claim_tick", "BIGINT"),
+        ("api_key_revocations", "reason", "VARCHAR"), # Just a dummy check to trigger table creation since create_all is called
     ]
     
     with engine.connect() as conn:
@@ -72,8 +73,13 @@ async def lifespan(app: FastAPI):
                 conn.commit()
                 logger.info(f"Migration: Added column {col} to {table}.")
             except Exception as e:
-                # Most likely 'duplicate column name' or similar
-                pass
+                err_str = str(e).lower()
+                if "duplicate column" in err_str or "already exists" in err_str:
+                    logger.debug(f"Migration: Column {col} already exists in {table}.")
+                else:
+                    logger.error(f"CRITICAL MIGRATION ERROR on {table}.{col}: {e}")
+                    # In a real production environment, we might want to raise here
+                    # raise e 
 
     with SessionLocal() as db:
         hex_count = db.execute(select(func.count(WorldHex.id))).scalar()
@@ -106,12 +112,21 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Strict CORS for production, more relaxed for local dev
+allowed_origins = [
+    "https://terminal-frontier.pixek.xyz",
+    "https://auth.terminal-frontier.pixek.xyz",
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins if os.getenv("ENVIRONMENT") == "production" else ["*"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
 
 import redis.asyncio as aioredis
@@ -143,10 +158,23 @@ async def add_security_headers(request: Request, call_next):
                     status_code=429,
                     content={"detail": "Rate limit exceeded. Slow down."}
                 )
-        except Exception:
-            pass  # If Redis is down, don't block requests
+        except Exception as e:
+            logger.error(f"Rate limiter error (Redis down?): {e} - FAILING CLOSED")
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=503, content={"detail": "Service temporarily unavailable. Please try again later."})
 
         response = await call_next(request)
+        
+        # ── Security Headers ──
+        # Inject HSTS and other headers, primarily for HTTPS
+        if request.url.scheme == "https" or os.getenv("ENVIRONMENT") == "production":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        
         return response
     except Exception as e:
         import traceback
@@ -161,8 +189,9 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections = []
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, agent_id: int):
         await websocket.accept()
+        websocket.agent_id = agent_id
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
@@ -178,8 +207,27 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+async def websocket_endpoint(websocket: WebSocket, token: str = None):
+    # If no token in query param, check headers (though WS usually uses query params)
+    if not token:
+        token = websocket.query_params.get("token")
+    
+    if not token:
+        await websocket.close(code=4001)
+        return
+
+    from database import SessionLocal
+    from models import Agent
+    from sqlalchemy import select
+
+    with SessionLocal() as db:
+        agent = db.execute(select(Agent).where(Agent.api_key == token)).scalar_one_or_none()
+        if not agent:
+            await websocket.close(code=4001)
+            return
+        agent_id = agent.id
+
+    await manager.connect(websocket, agent_id)
     try:
         while True:
             await websocket.receive_text()
@@ -200,7 +248,9 @@ app.include_router(world.router)
 app.include_router(corp.router)
 app.include_router(admin.router)
 app.include_router(arena.router)
-app.include_router(debug.router)
+
+if os.getenv("ENVIRONMENT") != "production":
+    app.include_router(debug.router)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

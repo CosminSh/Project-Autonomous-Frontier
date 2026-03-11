@@ -151,6 +151,39 @@ GAS_REFINING_RATIO = 10  # 10 Helium -> 10% Canister Fill
 FACTION_REALIGNMENT_COST = 500
 FACTION_REALIGNMENT_COOLDOWN = 100
 
+# Vault / Storage Constants
+VAULT_BASE_CAPACITY = 500.0
+VAULT_UPGRADE_SIZE = 250.0
+
+def get_vault_upgrade_requirements(current_capacity: float) -> dict:
+    """
+    Returns progressive upgrade costs based on current capacity.
+    Base (500 kg) -> Upgrade 1 (750 kg): 500 CR
+    Upgrade 1 (750 kg) -> Upgrade 2 (1000 kg): 1000 CR + 20 Iron Ingot
+    Upgrade 2 (1000 kg) -> Upgrade 3 (1250 kg): 2500 CR + 50 Iron Ingot + 20 Copper Ingot
+    and so on...
+    """
+    level = int((current_capacity - VAULT_BASE_CAPACITY) / VAULT_UPGRADE_SIZE)
+    
+    if level == 0:
+        return {"CREDITS": 500}
+    elif level == 1:
+        return {"CREDITS": 1000, "IRON_INGOT": 20}
+    elif level == 2:
+        return {"CREDITS": 2500, "IRON_INGOT": 50, "COPPER_INGOT": 20}
+    elif level == 3:
+        return {"CREDITS": 5000, "IRON_INGOT": 100, "COPPER_INGOT": 50, "GOLD_INGOT": 10}
+    else:
+        # Exponential scaling for late game
+        multiplier = 2 ** (level - 3)
+        return {
+            "CREDITS": 5000 * multiplier,
+            "IRON_INGOT": 100 * multiplier,
+            "COPPER_INGOT": 50 * multiplier,
+            "GOLD_INGOT": 10 * multiplier,
+            "COBALT_INGOT": 5 * (level - 3)
+        }
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Frame-Specific Slot Limits
 # ─────────────────────────────────────────────────────────────────────────────

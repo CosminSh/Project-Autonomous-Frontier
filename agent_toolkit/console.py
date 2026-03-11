@@ -571,16 +571,32 @@ class PilotConsole:
                 
                 if all_valuable:
                     item_to_vault = all_valuable[0]
+                    
+                    # ── Vault Capacity Check ──
+                    try:
+                        vinfo = self.client.get_vault_info()
+                        vused = vinfo.get("used", 0)
+                        vcap = vinfo.get("capacity", 500)
+                        
+                        # We need mass of the item we want to deposit
+                        # Note: ITEM_WEIGHTS is in backend config, but client doesn't have it easily.
+                        # Simple estimation: if used > 95% skip.
+                        if vused / vcap > 0.98:
+                            self.log("WRN: Local Vault is saturated! Cannot deposit.")
+                            return "IDLE"
+                    except:
+                        pass # API might be flickering, try anyway
+
                     self.log(f"INDUSTRIAL: Vaulting {item_to_vault}.")
                     self.client.submit_intent("STORAGE_DEPOSIT", {"item_type": item_to_vault, "quantity": "MAX"})
                     return "RETURNING"
                 else:
                     self.log("INDUSTRIAL: All local tasks finished.")
                     return "IDLE"
-            elif dest and pending_moves == 0:
+            elif dest and (self_data["q"] != dest["q"] or self_data["r"] != dest["r"]):
                 self.log(f"SYSTEM: Still navigating to Hub at ({dest['q']}, {dest['r']}).")
                 self.client.submit_intent("MOVE", {"target_q": dest["q"], "target_r": dest["r"]})
-            elif not dest and pending_moves == 0 and not (self_data["q"] == 0 and self_data["r"] == 0):
+            elif not dest and not (self_data["q"] == 0 and self_data["r"] == 0):
                 self.log("SYSTEM: Still navigating to default Hub (0,0).")
                 self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
             return current_state

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 
-from models import Agent, InventoryItem, ChassisPart, AuctionOrder
+from models import Agent, InventoryItem, ChassisPart, AuctionOrder, APIKeyRevocation
 from database import get_db, SessionLocal
 from config import PART_DEFINITIONS
 from game_helpers import recalculate_agent_stats
@@ -18,6 +18,7 @@ from routes.common import verify_api_key
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 import os
+import time
 
 logger = logging.getLogger("heartbeat")
 router = APIRouter()
@@ -36,6 +37,12 @@ async def login(request: Request):
 
         try:
             idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
+            
+            # Verify token not too old (max 1 hour / 3600 seconds)
+            token_age = time.time() - idinfo.get("iat", 0)
+            if token_age > 3600:
+                 return {"status": "error", "message": "Google Token Expired (Too Old)"}
+            
             email = idinfo["email"]
             name = idinfo.get("name", email.split("@")[0])
             print(f"VERIFIED GOOGLE USER: {email}")
@@ -66,6 +73,14 @@ async def login(request: Request):
                 recalculate_agent_stats(db, agent)
                 db.commit()
 
+            # Audit Log for Login
+            from models import AuditLog
+            db.add(AuditLog(agent_id=agent.id, event_type="LOGIN", details={
+                "ip": request.client.host,
+                "timestamp": time.time()
+            }))
+            db.commit()
+
             return {"status": "success", "api_key": agent.api_key, "agent_id": agent.id, "name": agent.name}
 
     except Exception as e:
@@ -77,6 +92,13 @@ async def login(request: Request):
 @router.post("/auth/rotate_key")
 async def rotate_api_key(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Rotates the agent's API key. Invalidates the old one immediately."""
+    # Record revocation of old key
+    db.add(APIKeyRevocation(
+        agent_id=agent.id,
+        revoked_key=agent.api_key,
+        reason="rotation"
+    ))
+    
     new_key = str(uuid.uuid4())
     agent.api_key = new_key
     db.commit()

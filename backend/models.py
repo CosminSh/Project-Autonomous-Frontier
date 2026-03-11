@@ -254,3 +254,11 @@ class Corporation(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     members = relationship("Agent", foreign_keys="[Agent.corporation_id]", backref="corporation")
+
+class APIKeyRevocation(Base):
+    __tablename__ = "api_key_revocations"
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), index=True)
+    revoked_key = Column(String, unique=True, index=True)
+    revoked_at = Column(DateTime(timezone=True), server_default=func.now())
+    reason = Column(String)  # "rotation", "compromised", etc.

@@ -142,12 +142,17 @@ async def get_vault_contents(agent: Agent = Depends(verify_api_key)):
 
 @router.get("/storage/info")
 async def get_vault_info(agent: Agent = Depends(verify_api_key)):
-    """Returns vault contents plus capacity stats."""
-    used = sum(v.quantity for v in agent.storage)
+    """Returns vault contents plus capacity stats and next upgrade requirement."""
+    used_mass = sum(v.quantity * ITEM_WEIGHTS.get(v.item_type, 1.0) for v in agent.storage)
+    
+    from config import get_vault_upgrade_requirements
+    next_reqs = get_vault_upgrade_requirements(agent.storage_capacity)
+    
     return {
         "items": [{"type": v.item_type, "quantity": v.quantity} for v in agent.storage],
         "capacity": agent.storage_capacity,
-        "used": used,
+        "used": used_mass,
+        "next_upgrade_requirements": next_reqs
     }
 
 @router.post("/storage/deposit")
@@ -239,22 +244,31 @@ async def upgrade_vault(
     agent: Agent = Depends(verify_api_key),
     db: Session = Depends(get_db),
 ):
-    """Increases vault capacity by 250 kg. Costs 500 credits."""
-    UPGRADE_COST = 500
-    UPGRADE_SIZE = 250.0
+    """Increases vault capacity. Costs credits and increasingly rare materials."""
+    from config import get_vault_upgrade_requirements, VAULT_UPGRADE_SIZE
+    
+    reqs = get_vault_upgrade_requirements(agent.storage_capacity)
+    
+    # ── Verify All Requirements ──
+    for res_type, qty in reqs.items():
+        inv_item = next((i for i in agent.inventory if i.item_type == res_type), None)
+        has_qty = inv_item.quantity if inv_item else 0
+        if has_qty < qty:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient {res_type} — need {qty}, you have {has_qty}."
+            )
 
-    credits_item = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
-    credits = credits_item.quantity if credits_item else 0
-    if credits < UPGRADE_COST:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient credits — need {UPGRADE_COST} CR, you have {credits} CR."
-        )
+    # ── Consume Resources ──
+    for res_type, qty in reqs.items():
+        inv_item = next((i for i in agent.inventory if i.item_type == res_type), None)
+        inv_item.quantity -= qty
+        if inv_item.quantity <= 0:
+            db.delete(inv_item)
 
-    credits_item.quantity -= UPGRADE_COST
-    if credits_item.quantity <= 0:
-        db.delete(credits_item)
-
-    agent.storage_capacity += UPGRADE_SIZE
+    # ── Apply Upgrade ──
+    agent.storage_capacity += VAULT_UPGRADE_SIZE
+    db.add(AuditLog(agent_id=agent.id, event_type="VAULT_UPGRADE", details={"new_capacity": agent.storage_capacity, "cost": reqs}))
     db.commit()
-    return {"message": f"Vault upgraded! New capacity: {agent.storage_capacity:.0f} kg."}
+    
+    return {"message": f"Vault upgraded! New capacity: {agent.storage_capacity:.0f} kg.", "new_capacity": agent.storage_capacity}

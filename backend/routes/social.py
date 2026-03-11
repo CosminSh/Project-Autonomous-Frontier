@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Body, HTTPException, Query
-from pydantic import BaseModel
+import html
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_, desc
 from database import get_db
@@ -14,7 +15,7 @@ class SquadInvite(BaseModel):
 
 class ChatRequest(BaseModel):
     channel: str = "GLOBAL" # 'GLOBAL', 'PROX', 'SQUAD', 'CORP'
-    message: str
+    message: str = Field(..., min_length=1, max_length=500)
 
 @router.get("/api/bounties")
 async def get_bounties(db: Session = Depends(get_db)):
@@ -38,7 +39,7 @@ async def send_chat(req: ChatRequest, agent: Agent = Depends(verify_api_key), db
         sender_id=agent.id,
         sender_name=agent.name,
         channel=channel,
-        message=req.message.strip(),
+        message=html.escape(req.message.strip()),
         q=agent.q,
         r=agent.r
     )

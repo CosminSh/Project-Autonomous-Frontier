@@ -55,6 +55,10 @@ class TFClient:
     def get_pending_commands(self) -> dict:
         return self._get("/api/intent/pending")
 
+    def get_vault_info(self) -> dict:
+        """Returns current vault usage and capacity."""
+        return self._get("/api/storage/info")
+
     def wait_for_next_tick(self, current_tick: int, poll_interval: float = 2.0):
         """Sleeps and polls until the server tick advances."""
         while True:

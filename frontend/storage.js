@@ -25,6 +25,7 @@ class StorageUI {
                 this.items = data.items;
                 this.capacity = data.capacity;
                 this.used = data.used;
+                this.nextUpgradeRequirements = data.next_upgrade_requirements;
                 this.render();
             }
         } catch (err) {
@@ -36,7 +37,7 @@ class StorageUI {
 
     render() {
         const massText = document.getElementById('storage-mass-text');
-        if (massText) massText.innerText = `${this.used} / ${this.capacity} kg`;
+        if (massText) massText.innerText = `${this.used.toFixed(1)} / ${this.capacity.toFixed(0)} kg`;
 
         // ── Vault contents ──
         const storageList = document.getElementById('storage-list');
@@ -59,6 +60,16 @@ class StorageUI {
                     </div>
                 `).join('');
             }
+        }
+
+        // ── Upgrade Section ──
+        const upgradeBtn = document.getElementById('storage-upgrade-btn');
+        const upgradeCostEl = document.getElementById('storage-upgrade-cost');
+        if (upgradeBtn && this.nextUpgradeRequirements) {
+            const reqStr = Object.entries(this.nextUpgradeRequirements)
+                .map(([res, qty]) => `${qty} ${res.replace('_', ' ')}`)
+                .join(', ');
+            if (upgradeCostEl) upgradeCostEl.innerText = `Next: +250kg (${reqStr})`;
         }
 
         // ── Quick Deposit from current agent inventory ──
@@ -154,7 +165,13 @@ class StorageUI {
     }
 
     async upgradeStorage() {
-        if (!confirm(`Upgrade vault capacity by 250 kg for 500 credits?`)) return;
+        if (!this.nextUpgradeRequirements) return;
+
+        const reqStr = Object.entries(this.nextUpgradeRequirements)
+            .map(([res, qty]) => `${qty} ${res.replace('_', ' ')}`)
+            .join('\n- ');
+
+        if (!confirm(`Upgrade vault capacity by 250 kg?\n\nRequired:\n- ${reqStr}\n\nProceed?`)) return;
         try {
             const response = await fetch('/api/storage/upgrade', {
                 method: 'POST',

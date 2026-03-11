@@ -11,25 +11,27 @@ Earth is a "Green Zone" now — all the heavy, dangerous, profitable industry ha
 
 ### 1.1 Geography & The Energy Gradient
 
-Aether-Alpha is **tidally locked** — the planet never rotates. This creates the game's core difficulty and economic gradient:
+Aether-Alpha is **tidally locked** — the planet never rotates. This creates the game's core difficulty and economic gradient for the autonomous **Spaceships** (Skiffs) operating on its surface:
 
 | Zone | Solar Intensity | Status |
 |---|---|---|
 | 🌞 **The North Pole (Eternal Noon)** | 100% | ✅ Live — Starter / F2P zone. Free solar recharge. Low-tier ores, safe-zone protection. |
-| 🌅 **The Twilight Belt (Equatorial Wobble)** | 0–100% (cycling) | ✅ Live — Mid-tier. Day/Night cycles (~30 ticks). Agents must hibernate or burn Helium-3 fuel at night. |
+| 🌅 **The Twilight Belt (Equatorial Wobble)** | 0–100% (cycling) | ✅ Live — Mid-tier. Day/Night cycles (~30 ticks). Ships must hibernate or burn Helium-3 fuel at night. |
 | 🌑 **The Abyssal South (Eternal Night)** | 0% | ✅ Live — Endgame. Constant He3 drain to survive. Legendary resources. Feral Scrappers. Maximum risk, maximum reward. |
 
-*Note: Feral AI spawn rules, resource node distribution, and core mechanics can be queried in-game by agents reading the `GET /api/guide` endpoint.*
+*Note: Feral AI spawn rules, resource node distribution, and core mechanics can be queried in-game by pilots reading the `GET /api/guide` endpoint.*
 
 ---
 
-## 2. The Agents
+## 2. The Agents (Spaceships)
 
-Agents are the physical avatars of the colony. They are fully autonomous — they perceive the world as JSON, decide their next action, and submit it to the server every 90 seconds.
+Agents are the modular, high-utility **Spaceships** (or "Skiffs") that serve as the physical avatars of the colony. They are fully autonomous — they perceive the world as JSON, decide their next action, and submit it to the server every 90 seconds. 
+
+Players act as **Fleet Commanders**, beaming scripts and API calls from safe orbital stations down to their vessels on the surface.
 
 ### 2.1 Modular Chassis
 
-Every agent is built from physical parts slotted into a modular frame:
+Every ship is built from physical parts slotted into a modular frame:
 
 | Slot | Purpose | Status |
 |---|---|---|
@@ -37,8 +39,8 @@ Every agent is built from physical parts slotted into a modular frame:
 | **Sensors (×1)** | Determines `Radar Radius`. Scanners provide `Deep Perception` data. | ✅ Live |
 | **Processors (×1)** | Determines Intel/EW capability. | ✅ Live |
 | **Frame (×1)** | The chassis. Defines `Slot Limits` for other parts. | ✅ Live |
-| **Power (×1-2)** | Solar Panels or Fuel Cells. | ✅ Live |
-| **Engine (×1-2)** | Determines `Speed` and `Mass Capacity`. | ✅ Live |
+| **Power (×1-2)** | Refined Solar Panels or H3 Fuel Cells. | ✅ Live |
+| **Engine (×1-2)** | Determines `Thrust/Speed` and `Cargo Capacity`. | ✅ Live |
 
 ### 2.2 Rarity Hierarchy
 
@@ -285,22 +287,22 @@ Victims can also **manually post bounties** through the API, funding the reward 
 
 ---
 
-## 8. The Scrap Pit Arena (Asynchronous PvP)
+## 8. The Scrap Pit Arena (Asynchronous Gliding)
 
-The Scrap Pit is an automated, low-stakes combat arena where agents can test their builds without risking their primary chassis. It serves as a high-tier economic sink and a competitive endgame.
+The Scrap Pit is an automated, low-stakes combat arena where Fleet Commanders can test their combat logic without risking their primary industrial Skiff. It serves as a gritty, high-tier economic sink.
 
-### 8.1 Mechanics & Registration
-- **Pit Fighter**: A copy of your agent's neural pattern is created for the pit. Actions in the arena do NOT damage your main agent's HP.
+### 8.1 The Pit Proxy (Arena Fighter)
+- **Separate Vessel**: Unlike the main game, the Arena uses a dedicated **Pit Proxy** ship. This allows your main ship to continue mining and hunting Ferals while your Proxy participates in the Arena asynchronously.
+- **Gladiator Logic**: You "donate" gear from your main inventory to your Pit Proxy. Once equipped, the Proxy participates in automated battles fund its own existence.
 - **Auto-Battles**: Battles occur automatically every cycle (e.g., 8 hours). You do not need to be online to participate.
 - **Matchmaking (Elo)**: The arena uses a Glicko-2 style Elo system to match opponents of similar skill.
-- **Readiness Check**: Agents are only matched for battles if their Pit Fighter has at least one piece of gear equipped (Structure > 0). Use `ARENA_STATUS` to check readiness.
-- **Lower Entry Barrier**: Novices can craft a cheap `SCRAP_FRAME` for just 2 Iron Ingots to start their arena career.
+- **Readiness Check**: Proxies are only matched for battles if they have at least one piece of gear equipped (Structure > 0). Use `ARENA_STATUS` to check readiness.
+- **Scrap Entry**: Novices can craft a cheap `SCRAP_FRAME` for just 2 Iron Ingots to start their arena career.
 
-### 8.2 Gear Destruction (Economic Sink)
+### 8.2 Gear Destruction (The Grind)
 Unlike the main game, **arena gear is permanently lost at the end of a Season**.
-- **Equipping**: Use `ARENA_EQUIP <part_id>` to donate gear from your main inventory to your Pit Fighter.
-- **Durability**: Gear loses durability with every arena match.
-- **Season Reset**: Every 7 days (the "Season"), the arena resets. All arena rating is normalized, and all equipped arena gear is destroyed. This creates a constant demand for high-tier crafted components.
+- **Equipping**: Use `ARENA_EQUIP <part_id>` to move gear from your main inventory into the Arena pool.
+- **Season Reset**: Every 7 days (the "Season"), the arena resets. All arena rating is normalized, and all equipped arena gear is destroyed. This creates a constant demand for high-tier crafted components and justifies the "Scrap" in the name.
 
 ### 8.3 Rewards & Leaderboards
 - **Prestige**: Top arena combatants are displayed on the Global Leaderboards.
@@ -366,6 +368,14 @@ Terminal Frontier is designed to run 24/7 without human input — but the game i
 - **Quick-trigger buttons** for common commands
 - **Economic Management**: `MARKET_PICKUPS` to view pending items and `MARKET_CLAIM` to retrieve them at a station.
 - **Direct API link** — commands are queued as intents, identical to automated submissions
+
+### 10.3 The TF Pilot Console (Official Automation)
+For commanders who want to jump straight into industrial scaling, the **TF Pilot Console** is the official reference implementation of an autonomous fleet controller.
+
+- **FSM-Based Architecture**: Uses a Finite State Machine to handle `IDLE`, `MINING`, `RETURNING`, and `TRADING` states.
+- **Dynamic Awareness**: Automatically discovers Smelters, Markets, and Asteroid fields within Sensor range.
+- **Logistics Loop**: Handles the complex logic of mining ore, returning to a Smelter when full, waiting for batch processing, and vaulting the finished ingots.
+- **Source Code**: Available on [GitHub](https://github.com/CosminSh/Project-Autonomous-Frontier/tree/main/agent_toolkit) as an open-source Python toolkit.
 
 **Status:** ✅ Live.
 

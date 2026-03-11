@@ -1,7 +1,12 @@
 import os
 from sqlalchemy import create_engine, text
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:password@db:5432/terminal_frontier")
+import sys
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    print("\nCRITICAL: DATABASE_URL environment variable is not set for migration.", flush=True)
+    sys.exit(1)
+
 engine = create_engine(DATABASE_URL)
 
 def run_migration():
@@ -34,9 +39,10 @@ def run_migration():
                     if "already exists" in str(e).lower():
                         print(f"  Column {col_name} already exists.", flush=True)
                     else:
-                        print(f"  Error adding {col_name}: {e}", flush=True)
-                    conn.rollback()
-
+                        print(f"  CRITICAL ERROR adding {col_name}: {e}", flush=True)
+                        conn.rollback()
+                        raise
+            
             parts_cols = [
                 ("rarity", "VARCHAR DEFAULT 'STANDARD'"),
                 ("affixes", "JSON"),
@@ -53,8 +59,9 @@ def run_migration():
                     if "already exists" in str(e).lower():
                         print(f"  Column {col_name} already exists.", flush=True)
                     else:
-                        print(f"  Error adding {col_name}: {e}", flush=True)
-                    conn.rollback()
+                        print(f"  CRITICAL ERROR adding {col_name}: {e}", flush=True)
+                        conn.rollback()
+                        raise
 
             # Check and add columns to 'inventory_items' table
             inv_cols = [
@@ -71,8 +78,9 @@ def run_migration():
                     if "already exists" in str(e).lower():
                         print(f"  Column {col_name} already exists.", flush=True)
                     else:
-                        print(f"  Error adding {col_name}: {e}", flush=True)
-                    conn.rollback()
+                        print(f"  CRITICAL ERROR adding {col_name}: {e}", flush=True)
+                        conn.rollback()
+                        raise
     except Exception as e:
         print(f"CRITICAL MIGRATION ERROR: {e}", flush=True)
 
