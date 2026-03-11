@@ -720,17 +720,32 @@ export class GameRenderer {
                     transparent: true,
                     opacity: 0.7
                 });
+                mesh = new THREE.Mesh(geom, mat);
             } else {
-                geom = new THREE.TetrahedronGeometry(scale, 0);
-                mat = new THREE.MeshStandardMaterial({ color: resColor, roughness: 0.2, metalness: 0.8, flatShading: true });
+                // Ore Boulders
+                if (resData.type === 'IRON_ORE' || resData.type === 'ORE') resColor = 0x8b5e3c; // Rust
+                else if (resData.type === 'COPPER_ORE') resColor = 0xb45309; // Amber
+                else if (resData.type === 'GOLD_ORE') { resColor = 0xfacc15; scale = 1.2; }
+                else if (resData.type === 'COBALT_ORE') resColor = 0x0ea5e9;
+
+                geom = new THREE.DodecahedronGeometry(scale, 1);
+                const pos = geom.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const noise = Math.random() * 0.4 - 0.2;
+                    pos.setX(i, pos.getX(i) + noise);
+                    pos.setY(i, pos.getY(i) + noise);
+                    pos.setZ(i, pos.getZ(i) + noise);
+                }
+                geom.computeVertexNormals();
+
+                mat = new THREE.MeshStandardMaterial({ color: resColor, roughness: 0.9, metalness: 0.2, flatShading: true });
+                mesh = new THREE.Mesh(geom, mat);
+                mesh.scale.set(1.0, 0.5 + Math.random() * 0.4, 1.0); // Flatten slightly
             }
 
-            mesh = new THREE.Mesh(geom, mat);
-            if (resData.type !== 'HE3_FUEL') {
-                mesh.scale.set(0.6, 1.2, 0.6);
-            }
-
-            const { x, y, z } = this.qToSphere(resData.q, resData.r, 0.5); // float slightly above ground
+            const isGas = resData.type === 'HE3_FUEL';
+            const offset = isGas ? 0.5 : 0.0;
+            const { x, y, z } = this.qToSphere(resData.q, resData.r, offset);
             mesh.position.set(x, y, z);
             mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), mesh.position.clone().normalize());
 

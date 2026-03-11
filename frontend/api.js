@@ -33,7 +33,8 @@ export class GameAPI {
 
     setupWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        const token = localStorage.getItem('sv_token');
+        const wsUrl = `${protocol}//${window.location.host}/ws` + (token ? `?token=${token}` : '');
         this.socket = new WebSocket(wsUrl);
 
         this.socket.onmessage = (event) => {
