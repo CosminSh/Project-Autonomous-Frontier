@@ -153,9 +153,15 @@ class TickManager:
                 if spawned >= 20: break
 
     async def _process_player_intents(self, db):
-        """Processes all intents scheduled for the current or past ticks."""
-        # Catch-up logic: process all pending intents up to the current tick
-        intents = db.execute(select(Intent).where(Intent.tick_index <= self.tick_count)).scalars().all()
+        """Processes all intents scheduled for the current or recent ticks."""
+        # 1. Catch-up logic: Only process intents from the last 5 ticks to avoid backlog explosions.
+        # This prevents 520 errors if thousands of old intents are queued during lag.
+        min_tick = max(0, self.tick_count - 5)
+        intents = db.execute(select(Intent).where(Intent.tick_index >= min_tick, Intent.tick_index <= self.tick_count)).scalars().all()
+        
+        # 2. Hard Cleanup: Delete all intents older than our catch-up window to prevent DB bloat.
+        from sqlalchemy import delete
+        db.execute(delete(Intent).where(Intent.tick_index < min_tick))
         
         if not intents:
             return
@@ -175,15 +181,13 @@ class TickManager:
                     logger.error(f"Error in intent {intent.id}: {e}")
             db.delete(intent) # Intent is consumed even if handler fails
 
-        # Increment total processed actions globally at the end using safe SQL
+        # 3. Global Activity Analytics -- Safe SQL
         if processed_count > 0:
             from sqlalchemy import text
             try:
-                # Use COALESCE in case the column exists but is NULL
                 db.execute(text("UPDATE global_state SET actions_processed = COALESCE(actions_processed, 0) + :count"), {"count": processed_count})
             except Exception as e:
-                # Column likely missing; ignore to avoid poisoning the transaction
-                logger.debug(f"Activity counter update failed (expected if col missing): {e}")
+                logger.debug(f"Activity counter update skipped: {e}")
 
     def _cleanup_old_messages(self, db):
         """Deletes chat messages older than 48 hours to prevent bloat."""
