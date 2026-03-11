@@ -61,7 +61,7 @@ export class GameRenderer {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        this.controls.minDistance = 50.5;
+        this.controls.minDistance = 1.0;
         this.controls.maxDistance = 500;
 
         // Lighting
