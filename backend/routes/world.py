@@ -13,7 +13,8 @@ from models import Agent, AuditLog, AuctionOrder, GlobalState, WorldHex, Bounty
 from database import get_db, SessionLocal, STATION_CACHE
 from config import (
     MOVE_ENERGY_COST, MINE_ENERGY_COST, ATTACK_ENERGY_COST,
-    PART_DEFINITIONS, CRAFTING_RECIPES, SMELTING_RECIPES, SMELTING_RATIO, ITEM_WEIGHTS
+    PART_DEFINITIONS, CRAFTING_RECIPES, SMELTING_RECIPES, SMELTING_RATIO, ITEM_WEIGHTS,
+    FRAME_SLOT_LIMITS
 )
 from logic.leaderboard_manager import LEADERBOARD_CACHE
 
@@ -141,7 +142,8 @@ async def get_world_library():
         "crafting_recipes": CRAFTING_RECIPES,
         "smelting_recipes": SMELTING_RECIPES,
         "smelting_ratio": SMELTING_RATIO,
-        "item_weights": ITEM_WEIGHTS
+        "item_weights": ITEM_WEIGHTS,
+        "frame_slot_limits": FRAME_SLOT_LIMITS
     }
 
 

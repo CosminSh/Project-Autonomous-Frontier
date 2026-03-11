@@ -16,6 +16,7 @@ from config import (
     ANARCHY_THRESHOLD,
     BASE_REGEN, CLUTTER_PENALTY,
     CRAFTING_RECIPES, SMELTING_RECIPES, CORE_RECIPES,
+    FRAME_SLOT_LIMITS,
     WORLD_WIDTH, WORLD_HEIGHT, MAP_MIN_Q, MAP_MAX_Q, MAP_MIN_R, MAP_MAX_R
 )
 
@@ -568,6 +569,8 @@ def get_discovery_packet(station_cache: list, agent: Agent) -> dict:
     # Use pre-built cached recipes — no per-request allocation
     discovery["crafting_recipes"] = _CACHED_CRAFTING_RECIPES
     discovery["smelting_recipes"] = SMELTING_RECIPES
+    discovery["frame_slot_limits"] = FRAME_SLOT_LIMITS
+    discovery["part_definitions"] = PART_DEFINITIONS
     return discovery
 
 

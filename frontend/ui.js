@@ -535,10 +535,53 @@ export class UIManager {
         const consumableInvEl = document.getElementById('consumable-inventory');
 
         if (equippedEl && agent.parts) {
-            if (agent.parts.length === 0) {
-                equippedEl.innerHTML = `<div class="text-[10px] text-slate-600 italic">No specialized gear detected.</div>`;
-            } else {
-                equippedEl.innerHTML = agent.parts.map(p => `
+            const framePart = agent.parts.find(p => p.type === 'Frame');
+            const frameName = framePart ? framePart.name : "Scrap Frame";
+            const FRAME_KEY_MAP = {
+                "Scrap Frame": "SCRAP_FRAME",
+                "Standard Chassis": "BASIC_FRAME",
+                "Hybrid Multi-Role Frame": "HYBRID_CHASSIS",
+                "Bastion Heavy Frame": "HEAVY_FRAME",
+                "Striker Light Chassis": "STRIKER_CHASSIS",
+                "Industrial Super-Hull": "INDUSTRIAL_HULL"
+            };
+            const frameKey = FRAME_KEY_MAP[frameName] || "DEFAULT";
+            const limits = agent.discovery?.frame_slot_limits?.[frameKey] || { Actuator: 1, Engine: 1, Sensor: 1, Power: 1 };
+
+            const grouped = { Actuator: [], Engine: [], Sensor: [], Power: [] };
+            agent.parts.forEach(p => { if (grouped[p.type]) grouped[p.type].push(p); });
+
+            let garageHtml = '';
+            // Frame is special, always shown at top if exists
+            if (framePart) {
+                garageHtml += `
+                    <div class="mb-4 p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-xl relative overflow-hidden">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] font-bold text-indigo-300 uppercase leading-none">PRIMARY HULL: ${framePart.name}</span>
+                            <span class="text-[8px] bg-indigo-500/20 px-1 py-0.5 rounded text-indigo-400 font-bold">${framePart.rarity}</span>
+                        </div>
+                        <div class="text-[8px] text-slate-500 italic mb-2">The foundation of your agent. Defines slot capacities.</div>
+                         <div class="grid grid-cols-2 gap-1 text-[8px] text-slate-400">
+                            ${Object.entries(framePart.stats || {}).map(([s, v]) => `<div>${s.replace('_', ' ')}: <span class="text-slate-200">${v}</span></div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            Object.entries(limits).forEach(([slotType, max]) => {
+                if (slotType === 'Frame') return;
+                const filled = grouped[slotType] || [];
+
+                garageHtml += `<div class="mb-4">
+                    <div class="flex justify-between items-center mb-2 px-1">
+                        <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">${slotType} SLOTS</span>
+                        <span class="text-[9px] font-mono ${filled.length >= max ? 'text-rose-400' : 'text-sky-400'}">${filled.length} / ${max}</span>
+                    </div>
+                    <div class="space-y-2">`;
+
+                // Render filled slots
+                filled.forEach(p => {
+                    garageHtml += `
                         <div class="flex flex-col p-3 bg-sky-500/5 border border-sky-500/20 rounded-xl relative group overflow-hidden">
                             <div class="flex justify-between items-start mb-1">
                                 <span class="text-[10px] font-bold text-sky-300 uppercase leading-none">${p.name}</span>
@@ -547,14 +590,27 @@ export class UIManager {
                                     <button onclick="game.api.submitIntent('UNEQUIP', {part_id: ${p.id}})" class="bg-rose-500 hover:bg-rose-400 text-white px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all">UNEQUIP</button>
                                 </div>
                             </div>
-                            <div class="text-[8px] text-slate-500 italic mb-2">${p.description || ''}</div>
                             <div class="grid grid-cols-2 gap-1 text-[8px] text-slate-400">
                                 ${Object.entries(p.stats || {}).map(([s, v]) => `<div>${s.replace('_', ' ')}: <span class="text-slate-200">${v}</span></div>`).join('')}
                             </div>
                             <div class="absolute inset-y-0 right-0 w-1 bg-sky-500"></div>
                         </div>
-                `).join('');
-            }
+                    `;
+                });
+
+                // Render empty slots
+                for (let i = filled.length; i < max; i++) {
+                    garageHtml += `
+                        <div class="flex items-center justify-center p-4 border border-dashed border-slate-800 rounded-xl bg-slate-900/20">
+                            <span class="text-[9px] text-slate-700 uppercase font-bold italic">Empty ${slotType} Slot</span>
+                        </div>
+                    `;
+                }
+
+                garageHtml += `</div></div>`;
+            });
+
+            equippedEl.innerHTML = garageHtml;
         }
 
         if (agent.inventory) {
@@ -598,7 +654,10 @@ export class UIManager {
                     <div class="bg-indigo-500/5 p-3 rounded-xl border border-indigo-500/20 flex justify-between items-center group hover:bg-indigo-500/10 transition-all">
                         <div class="flex flex-col">
                             <span class="text-[9px] font-bold text-indigo-300 uppercase leading-none mb-1">${i.type.replace('PART_', '').replace(/_/g, ' ')}</span>
-                            <span class="text-[7px] text-slate-500 uppercase tracking-widest">${(i.data || {}).rarity || 'STANDARD'} PART</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[7px] text-slate-500 uppercase tracking-widest">${(i.data || {}).rarity || 'STANDARD'}</span>
+                                <span class="text-[7px] bg-indigo-500/10 px-1 py-0.5 rounded text-indigo-400 font-bold">${agent.discovery?.part_definitions?.[i.type.replace('PART_', '')]?.type || 'PART'} SLOT</span>
+                            </div>
                         </div>
                         <div class="flex items-center space-x-3">
                             <span class="text-indigo-400 text-[10px] font-mono">x${i.quantity}</span>
@@ -881,7 +940,10 @@ export class UIManager {
                         </div>
                         <div class="flex flex-col items-end gap-1">
                             ${craftable ? '<span class="text-[8px] text-emerald-400 font-bold">✓ READY</span>' : ''}
-                            <span class="text-[8px] text-slate-500 font-mono">${r.type}</span>
+                            <div class="flex flex-col items-end">
+                                <span class="text-[8px] text-slate-500 font-mono leading-none">${r.type} SLOT</span>
+                                <span class="text-[6px] text-slate-600 uppercase font-bold tracking-tighter">Hardware Port</span>
+                            </div>
                         </div>
                     </div>
                     <div class="text-[8px] text-slate-500 italic mb-2">${r.description || ''}</div>
