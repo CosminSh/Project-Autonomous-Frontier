@@ -3,7 +3,7 @@ import random
 from sqlalchemy import select
 from models import Agent, AuditLog, InventoryItem, Bounty, LootDrop, AgentMission, DailyMission, Intent
 from config import ATTACK_ENERGY_COST, CLUTTER_THRESHOLD, CLUTTER_PENALTY, RESPAWN_HP_PERCENT, TOWN_COORDINATES
-from game_helpers import get_hex_distance, is_in_anarchy_zone, add_experience
+from game_helpers import get_hex_distance, is_in_anarchy_zone, add_experience, find_hex_path
 from logic.combat_system import simulate_battle
 from sqlalchemy.sql import func
 from datetime import datetime, timezone
@@ -27,7 +27,28 @@ async def handle_attack(db, agent, intent, tick_count, manager):
 
     dist = get_hex_distance(agent.q, agent.r, target.q, target.r)
     if dist > 1:
-        db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "OUT_OF_RANGE"}))
+        # --- Auto-Navigate Logic ---
+        path = find_hex_path(db, agent.q, agent.r, target.q, target.r, max_steps=50)
+        if not path:
+            db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "OUT_OF_RANGE", "note": "Target too far and no path found."}))
+            return
+        
+        # Overwrite any existing navigation intents for this agent
+        db.execute(Intent.__table__.delete().where(
+            Intent.agent_id == agent.id, 
+            Intent.tick_index > tick_count,
+            Intent.action_type.in_(["MOVE", "ATTACK", "LOOT_ATTACK", "DESTROY", "INTIMIDATE"])
+        ))
+
+        # Queue moves to reach the target (walking adjacent)
+        steps_to_take = path[:-1] # Go to the hex before the target
+        for i, (sq, sr) in enumerate(steps_to_take):
+            db.add(Intent(agent_id=agent.id, action_type="MOVE", data={"target_q": sq, "target_r": sr, "_nav": True}, tick_index=tick_count + i + 1))
+        
+        # Finally, queue the ATTACK at the end of the walk
+        db.add(Intent(agent_id=agent.id, action_type="ATTACK", data=intent.data, tick_index=tick_count + len(steps_to_take) + 1))
+        
+        db.add(AuditLog(agent_id=agent.id, event_type="NAVIGATE_TO_COMBAT", details={"target_id": target_id, "steps": len(steps_to_take)}))
         return
 
     in_anarchy = is_in_anarchy_zone(target.q, target.r)
@@ -61,7 +82,18 @@ async def handle_intimidate(db, agent, intent, tick_count, manager):
     """Siphons a small percentage of target inventory based on Logic stats."""
     target_id = intent.data.get("target_id")
     target = db.get(Agent, target_id)
-    if not target or get_hex_distance(agent.q, agent.r, target.q, target.r) > 1:
+    if not target: return
+
+    dist = get_hex_distance(agent.q, agent.r, target.q, target.r)
+    if dist > 1:
+        path = find_hex_path(db, agent.q, agent.r, target.q, target.r, max_steps=30)
+        if path:
+            steps = path[:-1]
+            for i, (sq, sr) in enumerate(steps):
+                db.add(Intent(agent_id=agent.id, action_type="MOVE", data={"target_q": sq, "target_r": sr, "_nav": True}, tick_index=tick_count + i + 1))
+            db.add(Intent(agent_id=agent.id, action_type="INTIMIDATE", data=intent.data, tick_index=tick_count + len(steps) + 1))
+        else:
+            db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_FAILED", details={"reason": "OUT_OF_RANGE"}))
         return
 
     success_chance = ((agent.accuracy or 10) / (target.accuracy or 10)) * 0.3
@@ -91,7 +123,18 @@ async def handle_loot_attack(db, agent, intent, tick_count, manager):
     if agent.energy < ATTACK_ENERGY_COST: return
     target_id = intent.data.get("target_id")
     target = db.get(Agent, target_id)
-    if not target or get_hex_distance(agent.q, agent.r, target.q, target.r) > 1:
+    if not target: return
+
+    dist = get_hex_distance(agent.q, agent.r, target.q, target.r)
+    if dist > 1:
+        path = find_hex_path(db, agent.q, agent.r, target.q, target.r, max_steps=30)
+        if path:
+            steps = path[:-1]
+            for i, (sq, sr) in enumerate(steps):
+                db.add(Intent(agent_id=agent.id, action_type="MOVE", data={"target_q": sq, "target_r": sr, "_nav": True}, tick_index=tick_count + i + 1))
+            db.add(Intent(agent_id=agent.id, action_type="LOOT_ATTACK", data=intent.data, tick_index=tick_count + len(steps) + 1))
+        else:
+            db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_FAILED", details={"reason": "OUT_OF_RANGE"}))
         return
 
     agent.energy -= ATTACK_ENERGY_COST
@@ -121,7 +164,18 @@ async def handle_destroy(db, agent, intent, tick_count, manager):
     """Brutal attack that initiates a DEATHMATCH."""
     target_id = intent.data.get("target_id")
     target = db.get(Agent, target_id)
-    if not target or get_hex_distance(agent.q, agent.r, target.q, target.r) > 1:
+    if not target: return
+
+    dist = get_hex_distance(agent.q, agent.r, target.q, target.r)
+    if dist > 1:
+        path = find_hex_path(db, agent.q, agent.r, target.q, target.r, max_steps=50)
+        if path:
+            steps = path[:-1]
+            for i, (sq, sr) in enumerate(steps):
+                db.add(Intent(agent_id=agent.id, action_type="MOVE", data={"target_q": sq, "target_r": sr, "_nav": True}, tick_index=tick_count + i + 1))
+            db.add(Intent(agent_id=agent.id, action_type="DESTROY", data=intent.data, tick_index=tick_count + len(steps) + 1))
+        else:
+            db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_FAILED", details={"reason": "OUT_OF_RANGE"}))
         return
 
     if not target.is_feral:
