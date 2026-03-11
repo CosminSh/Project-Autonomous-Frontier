@@ -492,7 +492,12 @@ def get_agent_visual_signature(agent: Agent) -> dict:
                 
         elif p_type == "Actuator":
             act = "TOOL"
-            if "drill" in name_str: act = "DRILL"
+            if "drill" in name_str:
+                if "iron" in name_str: act = "IRON_DRILL"
+                elif "copper" in name_str: act = "COPPER_DRILL"
+                elif "gold" in name_str: act = "GOLD_DRILL"
+                elif "cobalt" in name_str: act = "COBALT_DRILL"
+                else: act = "DRILL"
             elif "railgun" in name_str: act = "RAILGUN"
             elif "laser" in name_str: act = "LASER"
             elif "repeater" in name_str or "auto" in name_str: act = "AUTO_GUN"

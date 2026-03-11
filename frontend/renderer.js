@@ -491,10 +491,16 @@ export class GameRenderer {
             mesh = new THREE.Group();
             mesh.userData.sigHash = JSON.stringify(sig);
 
-            const rarityColors = { 'SCRAP': 0x64748b, 'STANDARD': 0x38bdf8, 'REFINED': 0x3b82f6, 'PRIME': 0xfacc15, 'RELIC': 0xf97316 };
-            const rarityEmissives = { 'SCRAP': 0x334155, 'STANDARD': 0x0ea5e9, 'REFINED': 0x2563eb, 'PRIME': 0xeab308, 'RELIC': 0xea580c };
+            const rarityColors = {
+                'SCRAP': 0x475569, 'STANDARD': 0x334155, 'REFINED': 0x1e293b,
+                'PRIME': 0x451a03, 'RELIC': 0x2d1b69
+            };
+            const rarityEmissives = {
+                'SCRAP': 0x334155, 'STANDARD': 0x0ea5e9, 'REFINED': 0x3b82f6,
+                'PRIME': 0xfacc15, 'RELIC': 0xf97316
+            };
 
-            const color = agentData.is_feral ? 0xff4422 : (rarityColors[sig.rarity] || 0x38bdf8);
+            const color = agentData.is_feral ? 0x7f1d1d : (rarityColors[sig.rarity] || 0x334155);
             const emissive = agentData.is_feral ? 0xff0000 : (rarityEmissives[sig.rarity] || 0x0ea5e9);
 
             // Create Grunge/Weathered Material
@@ -577,12 +583,17 @@ export class GameRenderer {
                 const side = idx % 2 === 0 ? 1 : -1;
                 const offset = actuators.length > 1 ? 0.3 * side : 0;
 
-                if (act === 'DRILL') {
+                if (act.includes('DRILL')) {
+                    let drillColor = 0x94a3b8;
+                    if (act.includes('COPPER')) drillColor = 0xb45309;
+                    if (act.includes('GOLD')) drillColor = 0xfacc15;
+                    if (act.includes('COBALT')) drillColor = 0x0ea5e9;
+
                     const drillGeom = new THREE.ConeGeometry(0.15, 0.5, 8);
-                    const drillMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, flatShading: true });
+                    const drillMat = new THREE.MeshStandardMaterial({ color: drillColor, metalness: 0.9, flatShading: true });
                     const drill = new THREE.Mesh(drillGeom, drillMat);
                     drill.position.set(offset, 0, 0.7);
-                    drill.rotation.x = -Math.PI / 2;
+                    drill.rotation.x = Math.PI / 2;
                     mesh.add(drill);
 
                     if (!mesh.userData.tools) mesh.userData.tools = [];
