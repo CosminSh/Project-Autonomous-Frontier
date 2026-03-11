@@ -466,28 +466,54 @@ def ensure_agent_has_starter_gear(db: Session, agent: Agent):
 
 
 def get_agent_visual_signature(agent: Agent) -> dict:
-    """Computes a visual signature based on equipped gear for frontend rendering."""
-    signature = {"chassis": "BASIC", "actuator": None, "rarity": "STANDARD"}
+    """Computes a detailed visual signature based on all equipped gear for modular 3D rendering."""
+    signature = {
+        "chassis": "BASIC", 
+        "actuator": None, 
+        "engine": None,
+        "sensor": None,
+        "power": None,
+        "rarity": "STANDARD"
+    }
     highest_rarity_score = 0
     rarity_map = {"SCRAP": 1, "STANDARD": 2, "REFINED": 3, "PRIME": 4, "RELIC": 5}
 
     for part in agent.parts:
         name_str = (part.name or "").lower()
-        if part.part_type == "Frame":
-            if "striker" in name_str:
-                signature["chassis"] = "STRIKER"
-            elif "industrial" in name_str or "hull" in name_str:
-                signature["chassis"] = "INDUSTRIAL"
-            elif "heavy" in name_str or "titan" in name_str or "bastion" in name_str:
-                signature["chassis"] = "HEAVY"
-            elif "aegis" in name_str or "shield" in name_str:
-                signature["chassis"] = "SHIELDED"
+        p_type = part.part_type
+
+        if p_type == "Frame":
+            if "striker" in name_str: signature["chassis"] = "STRIKER"
+            elif "industrial" in name_str or "hull" in name_str: signature["chassis"] = "INDUSTRIAL"
+            elif "heavy" in name_str or "titan" in name_str or "bastion" in name_str: signature["chassis"] = "HEAVY"
+            elif "shield" in name_str or "aegis" in name_str: signature["chassis"] = "SHIELDED"
+            elif "hybrid" in name_str: signature["chassis"] = "HYBRID"
+            else: signature["chassis"] = "BASIC"
                 
-        if part.part_type == "Actuator":
-            if "drill" in name_str:
-                signature["actuator"] = "DRILL"
-            elif "blaster" in name_str or "laser" in name_str or "railgun" in name_str or "rifle" in name_str or "cannon" in name_str or "repeater" in name_str:
-                signature["actuator"] = "WEAPON"
+        elif p_type == "Actuator":
+            if "drill" in name_str: signature["actuator"] = "DRILL"
+            elif "railgun" in name_str: signature["actuator"] = "RAILGUN"
+            elif "laser" in name_str: signature["actuator"] = "LASER"
+            elif "repeater" in name_str or "auto" in name_str: signature["actuator"] = "AUTO_GUN"
+            elif "cannon" in name_str: signature["actuator"] = "CANNON"
+            else: signature["actuator"] = "TOOL"
+
+        elif p_type == "Engine":
+            if "thruster" in name_str: signature["engine"] = "THRUSTER"
+            elif "turbo" in name_str: signature["engine"] = "TURBO"
+            elif "cargo" in name_str or "torque" in name_str: signature["engine"] = "CARGO"
+            else: signature["engine"] = "STANDARD"
+
+        elif p_type == "Sensor":
+            if "scanner" in name_str: signature["sensor"] = "SCANNER"
+            elif "array" in name_str: signature["sensor"] = "ARRAY"
+            elif "survey" in name_str: signature["sensor"] = "SURVEYOR"
+            else: signature["sensor"] = "UNIT"
+
+        elif p_type == "Power":
+            if "solar" in name_str: signature["power"] = "SOLAR"
+            elif "fuel" in name_str: signature["power"] = "FUEL_CELL"
+            elif "battery" in name_str or "capacitor" in name_str: signature["power"] = "BATTERY"
                 
         p_rarity = part.rarity or "STANDARD"
         score = rarity_map.get(p_rarity, 2)

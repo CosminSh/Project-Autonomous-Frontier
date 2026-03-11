@@ -149,10 +149,16 @@ export class GameRenderer {
                 mesh.rotation.y += 0.02;
             }
         }
-        for (let mesh of this.loots.values()) {
+        // 5. Animate Agent Parts
+        const time = Date.now() * 0.005;
+        for (let mesh of this.agents.values()) {
             if (mesh.visible) {
-                mesh.rotation.x += 0.01;
-                mesh.rotation.y += 0.02;
+                if (mesh.userData.dish) {
+                    mesh.userData.dish.rotation.y = Math.sin(time * 0.5) * 0.5;
+                }
+                if (mesh.userData.tool) {
+                    mesh.userData.tool.rotation.y += 0.1;
+                }
             }
         }
 
@@ -222,6 +228,18 @@ export class GameRenderer {
         const geo = icoGeo.toNonIndexed();
 
         const posAttr = geo.attributes.position;
+        for (let i = 0; i < posAttr.count; i++) {
+            const x = posAttr.getX(i);
+            const y = posAttr.getY(i);
+            const z = posAttr.getZ(i);
+            const vec = new THREE.Vector3(x, y, z).normalize();
+            // Add some "crater" noise
+            const noise = (Math.sin(x * 0.2) * Math.cos(z * 0.2) * 2) + (Math.random() - 0.5) * 1.5;
+            const dist = PLANET_RADIUS + noise;
+            posAttr.setXYZ(i, vec.x * dist, vec.y * dist, vec.z * dist);
+        }
+        geo.computeVertexNormals();
+
         const faceCount = posAttr.count / 3;
         const colorArray = new Float32Array(posAttr.count * 3);
         for (let i = 0; i < posAttr.count; i++) {
@@ -350,10 +368,17 @@ export class GameRenderer {
             const label = this.createStationLabel(labelText);
             const centroid = this.faceCentroids[faceIndex];
             if (centroid) {
-                const labelPos = centroid.clone().normalize().multiplyScalar(51.5);
+                const labelPos = centroid.clone().normalize().multiplyScalar(54.5);
                 label.position.copy(labelPos);
                 this.scene.add(label);
                 this.poiLabels.set(faceIndex, { label, faceIndex });
+
+                // Add 3D Station Structure
+                const stationMesh = this.createStationMesh(station_type || 'OUTPOST');
+                const stationPos = centroid.clone().normalize().multiplyScalar(50.1);
+                stationMesh.position.copy(stationPos);
+                stationMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), centroid.clone().normalize());
+                this.scene.add(stationMesh);
             }
         }
 
@@ -379,6 +404,49 @@ export class GameRenderer {
         }
     }
 
+    createStationMesh(type) {
+        const group = new THREE.Group();
+        const mat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.2 });
+        const glowMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0ea5e9, emissiveIntensity: 1 });
+
+        switch (type) {
+            case 'STATION_HUB':
+                // Large multi-deck dome
+                const dome = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat);
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(4, 0.2, 8, 32), glowMat);
+                ring.rotation.x = Math.PI / 2;
+                group.add(dome, ring);
+                break;
+            case 'SMELTER':
+                // Industrial towers with glowing furnaces
+                const base = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 2), mat);
+                const stack1 = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 3), mat);
+                stack1.position.set(0.5, 1.5, 0.5);
+                const furnace = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0xf97316, emissive: 0xf97316 }));
+                furnace.position.y = 0.5;
+                group.add(base, stack1, furnace);
+                break;
+            case 'CRAFTER':
+                // High-tech fabrication bay
+                const bay = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.5, 2.5), mat);
+                const scanner = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.1, 8, 16), glowMat);
+                scanner.position.y = 1.5;
+                group.add(bay, scanner);
+                break;
+            case 'MARKET':
+                // Circular trade hub
+                const platform = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.2, 0.4, 6), mat);
+                const obelisk = new THREE.Mesh(new THREE.OctahedronGeometry(1), glowMat);
+                obelisk.position.y = 2;
+                group.add(platform, obelisk);
+                break;
+            default:
+                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 1.5, 4), mat);
+                group.add(post);
+        }
+        return group;
+    }
+
     findNearestFace(targetPos) {
         if (!this.faceCentroids) return -1;
         let bestIndex = 0;
@@ -397,21 +465,17 @@ export class GameRenderer {
         let mesh = this.agents.get(agentData.id);
         const q = agentData.q ?? agentData.location?.q ?? 0;
         const r = agentData.r ?? agentData.location?.r ?? 0;
-        const visual = agentData.visual_signature || { chassis: 'BASIC', rarity: 'STANDARD' };
+        // Detailed signature from backend
+        const sig = agentData.visual_signature || { chassis: 'BASIC', rarity: 'STANDARD' };
 
         if (!mesh) {
-            let geometry;
-            switch (visual.chassis) {
-                case 'SHIELDED': geometry = new THREE.CylinderGeometry(0.5, 0.5, 0.8, 6); break;
-                case 'HEAVY': geometry = new THREE.BoxGeometry(0.7, 0.7, 0.7); break;
-                default: geometry = new THREE.ConeGeometry(0.5, 1, 4);
-            }
+            mesh = new THREE.Group();
 
             const rarityColors = { 'SCRAP': 0x64748b, 'STANDARD': 0x38bdf8, 'REFINED': 0x3b82f6, 'PRIME': 0xfacc15, 'RELIC': 0xf97316 };
             const rarityEmissives = { 'SCRAP': 0x334155, 'STANDARD': 0x0ea5e9, 'REFINED': 0x2563eb, 'PRIME': 0xeab308, 'RELIC': 0xea580c };
 
-            const color = agentData.is_feral ? 0xff4422 : (rarityColors[visual.rarity] || 0x38bdf8);
-            const emissive = agentData.is_feral ? 0xff0000 : (rarityEmissives[visual.rarity] || 0x0ea5e9);
+            const color = agentData.is_feral ? 0xff4422 : (rarityColors[sig.rarity] || 0x38bdf8);
+            const emissive = agentData.is_feral ? 0xff0000 : (rarityEmissives[sig.rarity] || 0x0ea5e9);
 
             const material = new THREE.MeshStandardMaterial({
                 color: color,
@@ -421,27 +485,80 @@ export class GameRenderer {
                 roughness: 0.2
             });
 
-            mesh = new THREE.Mesh(geometry, material);
+            // 1. Build Chassis
+            let chassisMesh;
+            switch (sig.chassis) {
+                case 'STRIKER':
+                    chassisMesh = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.2, 3), material);
+                    chassisMesh.rotation.x = Math.PI / 2;
+                    break;
+                case 'HEAVY':
+                    chassisMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 1.2), material);
+                    break;
+                case 'INDUSTRIAL':
+                    chassisMesh = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.8, 1.5), material);
+                    break;
+                case 'SHIELDED':
+                    chassisMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.0, 6), material);
+                    break;
+                case 'HYBRID':
+                    chassisMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.7), material);
+                    break;
+                default:
+                    chassisMesh = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1, 4), material);
+                    chassisMesh.rotation.x = Math.PI / 2;
+            }
+            mesh.add(chassisMesh);
 
-            if (visual.actuator === 'DRILL') {
-                const drillGeom = new THREE.ConeGeometry(0.15, 0.4, 8);
-                const drillMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9 });
+            // 2. Add Engines
+            if (sig.engine) {
+                const engGeom = new THREE.CylinderGeometry(0.2, 0.1, 0.4, 8);
+                const engMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, emissive: 0x38bdf8, emissiveIntensity: 2 });
+                const eng = new THREE.Mesh(engGeom, engMat);
+                eng.position.z = -0.6;
+                eng.rotation.x = Math.PI / 2;
+                mesh.add(eng);
+
+                if (sig.engine === 'TURBO' || sig.engine === 'THRUSTER') {
+                    const eng2 = eng.clone();
+                    eng.position.x = -0.2;
+                    eng2.position.x = 0.2;
+                    mesh.add(eng2);
+                }
+            }
+
+            // 3. Add Actuators
+            if (sig.actuator === 'DRILL') {
+                const drillGeom = new THREE.ConeGeometry(0.2, 0.6, 8);
+                const drillMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, flatShading: true });
                 const drill = new THREE.Mesh(drillGeom, drillMat);
-                drill.position.y = -0.6;
-                drill.rotation.x = Math.PI;
+                drill.position.z = 0.8;
+                drill.rotation.x = -Math.PI / 2;
                 mesh.add(drill);
-            } else if (visual.actuator === 'WEAPON') {
-                const gunGeom = new THREE.CylinderGeometry(0.08, 0.08, 0.6, 8);
+                mesh.userData.tool = drill; // For animation
+            } else if (sig.actuator) {
+                const gunGeom = new THREE.CylinderGeometry(0.05, 0.05, 0.8, 8);
                 const gunMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9 });
                 const gun = new THREE.Mesh(gunGeom, gunMat);
-                gun.position.set(0.3, 0.2, 0);
-                gun.rotation.z = Math.PI / 2;
+                gun.position.set(0.4, 0, 0.4);
+                gun.rotation.x = Math.PI / 2;
                 mesh.add(gun);
+                if (sig.actuator === 'RAILGUN' || sig.actuator === 'CANNON') gun.scale.set(2, 1, 2);
+            }
+
+            // 4. Add Sensors
+            if (sig.sensor === 'SCANNER' || sig.sensor === 'ARRAY') {
+                const dishGeom = new THREE.SphereGeometry(0.3, 8, 4, 0, Math.PI * 2, 0, Math.PI / 3);
+                const dish = new THREE.Mesh(dishGeom, material);
+                dish.position.y = 0.4;
+                dish.rotation.x = -Math.PI / 4;
+                mesh.add(dish);
+                mesh.userData.dish = dish;
             }
 
             const labelColor = agentData.is_feral ? '#ff4422' : '#38bdf8';
             const label = this.createLabel(agentData.name, labelColor);
-            label.position.y = 1.2;
+            label.position.y = 1.5;
             mesh.add(label);
             mesh.userData.label = label;
 
