@@ -394,22 +394,51 @@ export class GameRenderer {
 
         if (resource) {
             let resColor = 0xffffff;
-            let scale = 0.8;
-            if (resource === 'IRON_ORE' || resource === 'ORE') resColor = 0x94a3b8;
-            else if (resource === 'COBALT_ORE') resColor = 0x38bdf8;
-            else if (resource === 'GOLD_ORE') { resColor = 0xfbbf24; scale = 1.0; }
+            let isGas = false;
+            let scale = 1.0;
 
-            const geom = new THREE.TetrahedronGeometry(scale, 0);
-            const mat = new THREE.MeshStandardMaterial({ color: resColor, roughness: 0.2, metalness: 0.8, flatShading: true });
-            const crystalMesh = new THREE.Mesh(geom, mat);
+            if (resource.includes('IRON') || resource === 'ORE') resColor = 0x8b5e3c; // Rust/Iron
+            else if (resource.includes('COPPER')) resColor = 0xb45309; // Amber/Copper
+            else if (resource.includes('GOLD')) { resColor = 0xfacc15; scale = 1.2; }
+            else if (resource.includes('COBALT')) resColor = 0x0ea5e9;
+            else if (resource.includes('HE3') || resource.includes('GAS')) { resColor = 0x3b82f6; isGas = true; }
+
+            let geom, mat, mesh;
+
+            if (isGas) {
+                // Keep flaming crystal for gas
+                geom = new THREE.TetrahedronGeometry(0.8, 0);
+                mat = new THREE.MeshStandardMaterial({ color: resColor, roughness: 0.2, metalness: 0.8, emissive: resColor, emissiveIntensity: 0.5, flatShading: true });
+                mesh = new THREE.Mesh(geom, mat);
+            } else {
+                // Boulders for ores
+                geom = new THREE.DodecahedronGeometry(scale, 1);
+                const pos = geom.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const noise = Math.random() * 0.4 - 0.2;
+                    pos.setX(i, pos.getX(i) + noise);
+                    pos.setY(i, pos.getY(i) + noise);
+                    pos.setZ(i, pos.getZ(i) + noise);
+                }
+                geom.computeVertexNormals();
+
+                mat = new THREE.MeshStandardMaterial({ color: resColor, roughness: 0.9, metalness: 0.2, flatShading: true });
+                mesh = new THREE.Mesh(geom, mat);
+            }
 
             const centroid = this.faceCentroids[faceIndex];
             if (centroid) {
-                crystalMesh.position.copy(centroid.clone().normalize().multiplyScalar(50.2));
-                crystalMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), centroid.clone().normalize());
-                crystalMesh.rotateY(Math.random() * Math.PI);
-                crystalMesh.scale.set(0.6, 1.2, 0.6);
-                this.scene.add(crystalMesh);
+                if (isGas) {
+                    mesh.position.copy(centroid.clone().normalize().multiplyScalar(50.2));
+                    mesh.scale.set(0.6, 1.2, 0.6);
+                } else {
+                    mesh.position.copy(centroid.clone().normalize().multiplyScalar(49.9));
+                    mesh.scale.set(1.0, 0.5 + Math.random() * 0.4, 1.0); // Flatten slightly
+                }
+
+                mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), centroid.clone().normalize());
+                mesh.rotateY(Math.random() * Math.PI);
+                this.scene.add(mesh);
             }
         }
     }
