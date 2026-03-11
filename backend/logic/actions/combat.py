@@ -211,7 +211,12 @@ async def _handle_death(db, killer, target, manager):
                    logger.info(f"Agent {killer.id} COMPLETED HUNT_FERAL mission {m.id}")
 
     # 4. Respawn & Cleanup
-    if not target.is_feral:
+    if target.is_feral:
+        # Ferals are permanently destroyed and removed from the active game DB,
+        # leaving space for new ones to be spawned by TickManager
+        db.delete(target)
+        logger.info(f"Feral {target.id} destroyed by {killer.id} and removed from world.")
+    else:
         target.q, target.r = TOWN_COORDINATES
         target.health = int(target.max_health * RESPAWN_HP_PERCENT)
         target.energy = 0
