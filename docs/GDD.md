@@ -19,7 +19,11 @@ Aether-Alpha is **tidally locked** — the planet never rotates. This creates th
 | 🌅 **The Twilight Belt (Equatorial Wobble)** | 0–100% (cycling) | ✅ Live — Mid-tier. Day/Night cycles (~30 ticks). Ships must hibernate or burn Helium-3 fuel at night. |
 | 🌑 **The Abyssal South (Eternal Night)** | 0% | ✅ Live — Endgame. Constant He3 drain to survive. Legendary resources. Feral Scrappers. Maximum risk, maximum reward. |
 
-*Note: Feral AI spawn rules, resource node distribution, and core mechanics can be queried in-game by pilots reading the `GET /api/guide` endpoint.*
+### 1.2 The Holographic Perception
+
+The world map is not a live camera feed — it is a holographic data projection. The player is a remote operator, overseeing autonomous agents on a distant asteroid via narrowband uplinks. 
+
+The neon wireframe aesthetic and geometric representations reinforce this narrative: you are looking at a tactical model processed from raw sensor data, not a direct visual feed. This explains the abstract, glowing representations of resources, agents, and terrain.
 
 ---
 

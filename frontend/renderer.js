@@ -105,15 +105,11 @@ export class GameRenderer {
         this.controls.minDistance = 2.0;
         this.controls.maxDistance = 1000;
 
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+        // Lighting - Reduced for Holographic emissive look
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.2);
         this.scene.add(ambientLight);
 
-        const sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
-        sunLight.position.set(200, 100, 0);
-        this.scene.add(sunLight);
-
-        const hemiLight = new THREE.HemisphereLight(0x0ea5e9, 0x020205, 0.3);
+        const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x020205, 0.5);
         this.scene.add(hemiLight);
 
         // Atmosphere & Environment
@@ -214,6 +210,11 @@ export class GameRenderer {
                     mesh.userData.tools.forEach(t => t.rotation.y += 0.1);
                 }
             }
+        }
+
+        if (this.scanWireframe) {
+            const pulse = 0.4 + Math.sin(Date.now() * 0.002) * 0.2;
+            this.scanWireframe.material.opacity = pulse;
         }
 
         if (this.renderer && this.scene && this.camera) {
@@ -343,57 +344,49 @@ export class GameRenderer {
         const posAttr = geo.attributes.position;
         const faceCount = posAttr.count / 3;
         const colorArray = new Float32Array(posAttr.count * 3);
-        const rockMat = new THREE.MeshStandardMaterial({ color: 0x050510, roughness: 0.9, flatShading: true });
-
-        for (let i = 0; i < posAttr.count; i++) {
-            colorArray[i * 3] = 0.02;
-            colorArray[i * 3 + 1] = 0.02;
-            colorArray[i * 3 + 2] = 0.04;
-        }
-        geo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
-
-        // Add random rocks on the surface to make it rugged
-        for (let r = 0; r < 200; r++) {
-            const rockGeom = new THREE.DodecahedronGeometry(0.5 + Math.random() * 1.5, 0);
-            const rock = new THREE.Mesh(rockGeom, rockMat);
-
-            const lat = (Math.random() - 0.5) * Math.PI;
-            const lon = Math.random() * Math.PI * 2;
-            const dist = PLANET_RADIUS - 0.5; // Slightly embedded
-
-            rock.position.set(
-                dist * Math.cos(lat) * Math.cos(lon),
-                dist * Math.sin(lat),
-                dist * Math.cos(lat) * Math.sin(lon)
-            );
-            rock.rotation.set(Math.random(), Math.random(), Math.random());
-            rock.scale.set(1, 0.4 + Math.random() * 0.6, 1);
-            this.scene.add(rock);
-        }
-
-
-        const mat = new THREE.MeshStandardMaterial({
+        const mat = new THREE.MeshBasicMaterial({
             vertexColors: true,
-            flatShading: true,
-            metalness: 0.1,
-            roughness: 0.9,
-            emissive: 0x050510,
-            emissiveIntensity: 0.5
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
         });
 
         this.planetMesh = new THREE.Mesh(geo, mat);
         this.scene.add(this.planetMesh);
 
-        // Neon Accents on Edges
+        // Primary Neon Wireframe
         const edgeGeo = new THREE.EdgesGeometry(geo, 1);
-        const edgeMat = new THREE.LineBasicMaterial({ 
-            color: 0x0ea5e9, 
-            transparent: true, 
-            opacity: 0.25,
-            blending: THREE.AdditiveBlending 
+        const edgeMat = new THREE.LineBasicMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending
         });
         const wireframe = new THREE.LineSegments(edgeGeo, edgeMat);
         this.planetMesh.add(wireframe);
+
+        // Secondary Pulsing Glow Wireframe
+        const scanMat = new THREE.LineBasicMaterial({
+            color: 0x0ea5e9,
+            transparent: true,
+            opacity: 0.4,
+            blending: THREE.AdditiveBlending
+        });
+        this.scanWireframe = new THREE.LineSegments(edgeGeo, scanMat);
+        this.scanWireframe.scale.setScalar(1.005);
+        this.planetMesh.add(this.scanWireframe);
+
+        // Atmospheric Outer Glow
+        const glowGeo = new THREE.SphereGeometry(PLANET_RADIUS * 1.05, 32, 32);
+        const glowMat = new THREE.MeshBasicMaterial({
+            color: 0x0369a1,
+            transparent: true,
+            opacity: 0.1,
+            side: THREE.BackSide,
+            blending: THREE.AdditiveBlending
+        });
+        const atmosphere = new THREE.Mesh(glowGeo, glowMat);
+        this.scene.add(atmosphere);
 
         this.faceCentroids = [];
         for (let f = 0; f < faceCount; f++) {
@@ -467,11 +460,10 @@ export class GameRenderer {
         const { q, r, terrain, resource, is_station, station_type } = hexData;
         let color = new THREE.Color(0x1a1a2e);
 
-        if (terrain === 'OBSTACLE') color = new THREE.Color(0x334155);
-        if (terrain === 'STATION' || is_station) color = new THREE.Color(0x2d1b69);
+        if (terrain === 'OBSTACLE') color = new THREE.Color(0x0c2d4d);
+        if (terrain === 'STATION' || is_station) color = new THREE.Color(0x164e63);
         if (terrain === 'NEBULA') color = new THREE.Color(0x1e1b4b);
-        if (terrain === 'ASTEROID') color = new THREE.Color(0x27272a);
-        if (terrain === 'VOID') color = new THREE.Color(0x0d0d14);
+        if (terrain === 'ASTEROID' || terrain === 'VOID') color = new THREE.Color(0x020814);
 
         if (resource) {
             if (resource === 'IRON_ORE' || resource === 'ORE') color = new THREE.Color(0x8b5e3c);
@@ -506,7 +498,7 @@ export class GameRenderer {
 
                 // Add 3D Station Structure
                 const stationMesh = this.createStationMesh(station_type || 'OUTPOST');
-                const stationPos = centroid.clone().normalize().multiplyScalar(50.1);
+                const stationPos = centroid.clone().normalize().multiplyScalar(50.2);
                 stationMesh.position.copy(stationPos);
                 stationMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), centroid.clone().normalize());
                 this.scene.add(stationMesh);
@@ -568,40 +560,47 @@ export class GameRenderer {
 
     createStationMesh(type) {
         const group = new THREE.Group();
-        const mat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.2 });
-        const glowMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0ea5e9, emissiveIntensity: 1 });
+        const mat = new THREE.MeshBasicMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+        const glowMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 1.0, blending: THREE.AdditiveBlending });
 
         switch (type) {
             case 'STATION_HUB':
-                // Large multi-deck dome
                 const dome = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat);
-                const ring = new THREE.Mesh(new THREE.TorusGeometry(4, 0.2, 8, 32), glowMat);
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(4, 0.1, 8, 64), glowMat);
                 ring.rotation.x = Math.PI / 2;
-                group.add(dome, ring);
+                const ring2 = new THREE.Mesh(new THREE.TorusGeometry(5, 0.05, 8, 64), glowMat);
+                ring2.rotation.x = Math.PI / 2;
+                group.add(dome, ring, ring2);
                 break;
             case 'SMELTER':
-                // Industrial towers with glowing furnaces
-                const base = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 2), mat);
-                const stack1 = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 3), mat);
-                stack1.position.set(0.5, 1.5, 0.5);
-                const furnace = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0xf97316, emissive: 0xf97316 }));
-                furnace.position.y = 0.5;
-                group.add(base, stack1, furnace);
+                const base = new THREE.Mesh(new THREE.BoxGeometry(2, 0.2, 2), mat);
+                const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 2.5, 6), mat);
+                tower.position.y = 1.25;
+                const sRing = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.05, 8, 32), glowMat);
+                sRing.rotation.x = Math.PI / 2;
+                sRing.position.y = 2.0;
+                group.add(base, tower, sRing);
                 break;
             case 'CRAFTER':
-                // High-tech fabrication bay
-                const bay = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.5, 2.5), mat);
-                const scanner = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.1, 8, 16), glowMat);
-                scanner.position.y = 1.5;
-                group.add(bay, scanner);
+                const bay = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.2, 2.5), mat);
+                const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(1.2), glowMat);
+                crystal.position.y = 1.5;
+                group.add(bay, crystal);
                 break;
             case 'MARKET':
-                // Circular trade hub
-                const platform = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.2, 0.4, 6), mat);
-                const obelisk = new THREE.Mesh(new THREE.OctahedronGeometry(1), glowMat);
-                obelisk.position.y = 2;
-                group.add(platform, obelisk);
+                const platform = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.2, 0.2, 6), mat);
+                const mRing = new THREE.Mesh(new THREE.TorusGeometry(2.5, 0.08, 8, 48), glowMat);
+                mRing.rotation.x = Math.PI / 2;
+                mRing.position.y = 0.5;
+                const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8, 0), glowMat);
+                core.position.y = 2;
+                group.add(platform, mRing, core);
                 break;
+            default:
+                const outpost = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.2, 1, 4), mat);
+                const oRing = new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.04, 8, 32), glowMat);
+                oRing.rotation.x = Math.PI / 2;
+                group.add(outpost, oRing);
         }
         return group;
     }
@@ -657,14 +656,12 @@ export class GameRenderer {
             const roughness = 0.7 + (Math.random() * 0.2);
             const metalness = 0.4 + (Math.random() * 0.2);
 
-            const material = new THREE.MeshStandardMaterial({
-                color: 0xffffff,
-                emissive: emissive,
-                emissiveIntensity: 0.15,
-                metalness: 0.15,
-                roughness: 0.9,
-                vertexColors: true,
-                flatShading: true
+            const material = new THREE.MeshBasicMaterial({
+                color: emissive,
+                transparent: true,
+                opacity: 0.7,
+                blending: THREE.AdditiveBlending,
+                wireframe: false
             });
 
             // 1. Build Chassis
@@ -682,23 +679,12 @@ export class GameRenderer {
             const geo = chassisGeo.toNonIndexed();
             const pos = geo.attributes.position;
             const cols = new Float32Array(pos.count * 3);
-            const baseCol = new THREE.Color(color);
-            const rustCol = new THREE.Color(0x3e1d10);
-            const grimeCol = new THREE.Color(0x1a1a1a);
+            const baseCol = new THREE.Color(emissive);
 
             for (let i = 0; i < pos.count; i++) {
-                const noise = Math.random();
-                let mixed;
-                if (noise > 0.82) {
-                    mixed = baseCol.clone().lerp(rustCol, 0.7 + Math.random() * 0.3);
-                } else if (noise > 0.55) {
-                    mixed = baseCol.clone().lerp(grimeCol, 0.5);
-                } else {
-                    mixed = baseCol.clone().multiplyScalar(0.7 + Math.random() * 0.3);
-                }
-                cols[i * 3] = mixed.r;
-                cols[i * 3 + 1] = mixed.g;
-                cols[i * 3 + 2] = mixed.b;
+                cols[i * 3] = baseCol.r * (0.8 + Math.random() * 0.2);
+                cols[i * 3 + 1] = baseCol.g * (0.8 + Math.random() * 0.2);
+                cols[i * 3 + 2] = baseCol.b * (0.8 + Math.random() * 0.2);
             }
             geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
 
@@ -848,35 +834,30 @@ export class GameRenderer {
             }
 
             if (resData.type === 'HE3_FUEL') {
-                geom = new THREE.SphereGeometry(scale * 0.5, 8, 8);
-                mat = new THREE.MeshStandardMaterial({
+                geom = new THREE.IcosahedronGeometry(scale * 0.6, 1);
+                mat = new THREE.MeshBasicMaterial({
                     color: resColor,
-                    emissive: emissive,
-                    emissiveIntensity: 0.8,
                     transparent: true,
-                    opacity: 0.7
+                    opacity: 0.8,
+                    blending: THREE.AdditiveBlending
                 });
                 mesh = new THREE.Mesh(geom, mat);
+                const wire = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.2 }));
+                mesh.add(wire);
             } else {
-                // Ore Boulders
-                if (resData.type === 'IRON_ORE' || resData.type === 'ORE') resColor = 0x8b5e3c; // Rust
-                else if (resData.type === 'COPPER_ORE') resColor = 0xb45309; // Amber
-                else if (resData.type === 'GOLD_ORE') { resColor = 0xfacc15; scale = 1.2; }
-                else if (resData.type === 'COBALT_ORE') resColor = 0x0ea5e9;
-
-                geom = new THREE.DodecahedronGeometry(scale, 1);
-                const pos = geom.attributes.position;
-                for (let i = 0; i < pos.count; i++) {
-                    const noise = Math.random() * 0.4 - 0.2;
-                    pos.setX(i, pos.getX(i) + noise);
-                    pos.setY(i, pos.getY(i) + noise);
-                    pos.setZ(i, pos.getZ(i) + noise);
-                }
-                geom.computeVertexNormals();
-
-                mat = new THREE.MeshStandardMaterial({ color: resColor, roughness: 0.9, metalness: 0.2, flatShading: true });
+                // Holographic Crystals for ores
+                geom = new THREE.OctahedronGeometry(scale);
+                mat = new THREE.MeshBasicMaterial({ 
+                    color: resColor, 
+                    transparent: true, 
+                    opacity: 0.6, 
+                    blending: THREE.AdditiveBlending 
+                });
                 mesh = new THREE.Mesh(geom, mat);
-                mesh.scale.set(1.0, 0.5 + Math.random() * 0.4, 1.0); // Flatten slightly
+                const edgeGeo = new THREE.EdgesGeometry(geom);
+                const edgeMat = new THREE.LineBasicMaterial({ color: resColor, transparent: true, opacity: 0.8 });
+                const wire = new THREE.LineSegments(edgeGeo, edgeMat);
+                mesh.add(wire);
             }
 
             const isGas = resData.type === 'HE3_FUEL';
@@ -903,16 +884,18 @@ export class GameRenderer {
         let mesh = this.loots.get(id);
 
         if (!mesh) {
-            const geom = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-            const mat = new THREE.MeshStandardMaterial({
-                color: 0x10b981, // Emerald green
-                emissive: 0x059669,
-                emissiveIntensity: 0.6,
-                roughness: 0.3,
-                metalness: 0.5
+            const geom = new THREE.OctahedronGeometry(0.5);
+            const mat = new THREE.MeshBasicMaterial({
+                color: 0x10b981,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
             });
 
             mesh = new THREE.Mesh(geom, mat);
+            const edgeGeo = new THREE.EdgesGeometry(geom);
+            const wireframe = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+            mesh.add(wireframe);
 
             const { x, y, z } = this.qToSphere(lootData.q, lootData.r, 0.5);
             mesh.position.set(x, y, z);
