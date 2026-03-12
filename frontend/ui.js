@@ -1194,16 +1194,15 @@ Intent payload format:
         const width = canvas.width;
         const height = canvas.height;
 
-        // Clear canvas
-        ctx.clearRect(0, 0, width, height);
-        ctx.fillStyle = '#0f172a'; // slate-900
+        // 1. Deep Navy Background
+        ctx.fillStyle = '#020814';
         ctx.fillRect(0, 0, width, height);
 
         const p = this.game.lastPerception;
         const agent = this.game.lastAgentData;
         if (!agent) {
-            ctx.fillStyle = '#64748b';
-            ctx.font = '10px font-mono';
+            ctx.fillStyle = '#1e293b';
+            ctx.font = '10px Orbitron';
             ctx.textAlign = 'center';
             ctx.fillText('NO SIGNAL', width / 2, height / 2);
             return;
@@ -1216,12 +1215,11 @@ Intent payload format:
         const centerY = height / 2;
         const scale = 20; // hex radius
 
-        // Helpers to convert axial to pixel
         const getX = (q, r) => centerX + scale * Math.sqrt(3) * (q + r / 2);
         const getY = (q, r) => centerY + scale * 3 / 2 * r;
 
-        // Draw grids or just items
-        const drawHex = (cx, cy, radius, color, isFill = false) => {
+        // Draw Hex Shape Helper
+        const drawHex = (cx, cy, radius, color, isFill = false, opacity = 1) => {
             ctx.beginPath();
             for (let i = 0; i < 6; i++) {
                 const angle = 2 * Math.PI / 6 * (i + 0.5);
@@ -1232,8 +1230,10 @@ Intent payload format:
             }
             ctx.closePath();
             if (isFill) {
+                ctx.globalAlpha = opacity;
                 ctx.fillStyle = color;
                 ctx.fill();
+                ctx.globalAlpha = 1.0;
             } else {
                 ctx.strokeStyle = color;
                 ctx.stroke();
@@ -1242,85 +1242,160 @@ Intent payload format:
 
         const drawLabel = (cx, cy, text, color) => {
             ctx.fillStyle = color;
-            ctx.font = '8px Orbitron, sans-serif';
+            ctx.font = 'bold 8px Orbitron, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(text, cx, cy + 12);
+            ctx.fillText(text, cx, cy + 14);
         };
 
-        ctx.lineWidth = 1;
+        // 2. Subtle Neon Grid
+        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.05)';
+        for (let q = -5; q <= 5; q++) {
+            for (let r = -5; r <= 5; r++) {
+                const cx = getX(q, r);
+                const cy = getY(q, r);
+                if (cx > 0 && cx < width && cy > 0 && cy < height) {
+                    drawHex(cx, cy, scale, 'rgba(56, 189, 248, 0.05)', false);
+                }
+            }
+        }
+
+        // Range Circle
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, scale * 3, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
 
         if (p) {
-            // Draw Range Radius (approximate)
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, scale * 3, 0, 2 * Math.PI);
-            ctx.strokeStyle = 'rgba(56, 189, 248, 0.1)';
-            ctx.stroke();
-
-            // Resources
+            // 3. Resources (Holographic Crystals)
             if (p.discovery && p.discovery.resources) {
                 p.discovery.resources.forEach(r => {
                     const cx = getX(r.q - agent.q, r.r - agent.r);
                     const cy = getY(r.q - agent.q, r.r - agent.r);
-                    drawHex(cx, cy, scale * 0.6, 'rgba(16, 185, 129, 0.5)', true); // emerald
-                    drawHex(cx, cy, scale * 0.6, '#10b981', false);
-                    drawLabel(cx, cy, r.type.split('_')[0], '#34d399');
+                    let resColor = '#94a3b8';
+                    if (r.type.includes('COBALT')) resColor = '#38bdf8';
+                    if (r.type.includes('GOLD')) resColor = '#facc15';
+                    if (r.type.includes('HE3')) resColor = '#a855f7';
+
+                    // Diamond/Crystal shape
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy - 6);
+                    ctx.lineTo(cx + 4, cy);
+                    ctx.lineTo(cx, cy + 6);
+                    ctx.lineTo(cx - 4, cy);
+                    ctx.closePath();
+                    ctx.fillStyle = resColor;
+                    ctx.globalAlpha = 0.4;
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0;
+                    ctx.strokeStyle = resColor;
+                    ctx.stroke();
+
+                    drawLabel(cx, cy, r.type.split('_')[0], resColor);
                 });
             }
 
-            // Stations
+            // 4. Stations (Emerald Data-Nodes)
             if (p.discovery && p.discovery.stations) {
                 p.discovery.stations.forEach(s => {
                     const cx = getX(s.q - agent.q, s.r - agent.r);
                     const cy = getY(s.q - agent.q, s.r - agent.r);
-                    drawHex(cx, cy, scale * 0.8, 'rgba(234, 179, 8, 0.5)', true); // yellow
-                    drawHex(cx, cy, scale * 0.8, '#eab308', false);
-                    drawLabel(cx, cy, s.id_type, '#facc15');
+                    const stnColor = '#10b981';
+
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+                    ctx.fillStyle = stnColor;
+                    ctx.globalAlpha = 0.3;
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0;
+                    ctx.strokeStyle = stnColor;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.lineWidth = 1;
+
+                    // Inner core
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(cx - 1, cy - 1, 2, 2);
+
+                    drawLabel(cx, cy, s.id_type, stnColor);
                 });
             }
 
-            // Loot
+            // 5. Loot (Pulsing Diamond)
             if (p.loot) {
                 p.loot.forEach(l => {
                     if (l.q !== undefined && l.r !== undefined) {
                         const cx = getX(l.q - agent.q, l.r - agent.r);
                         const cy = getY(l.q - agent.q, l.r - agent.r);
-
-                        // Draw triangle for loot
+                        const lootColor = '#10b981';
+                        
                         ctx.beginPath();
-                        ctx.moveTo(cx, cy - 5);
-                        ctx.lineTo(cx + 5, cy + 4);
-                        ctx.lineTo(cx - 5, cy + 4);
+                        ctx.moveTo(cx, cy - 6);
+                        ctx.lineTo(cx + 6, cy);
+                        ctx.lineTo(cx, cy + 6);
+                        ctx.lineTo(cx - 6, cy);
                         ctx.closePath();
-                        ctx.fillStyle = 'rgba(168, 85, 247, 0.8)'; // purple
+                        ctx.fillStyle = lootColor;
                         ctx.fill();
 
-                        drawLabel(cx, cy, l.item.split('_')[0], '#c084fc');
+                        drawLabel(cx, cy, 'LOOT', lootColor);
                     }
                 });
             }
 
-            // Other Agents
+            // 6. Other Agents (Tactical Markers)
             if (p.nearby_agents) {
                 p.nearby_agents.forEach(a => {
                     const cx = getX(a.q - agent.q, a.r - agent.r);
                     const cy = getY(a.q - agent.q, a.r - agent.r);
+                    const isFeral = a.name.includes('FERAL') || a.is_feral;
+                    const agentColor = isFeral ? '#ef4444' : '#38bdf8';
 
-                    // Draw red square for agents
-                    ctx.fillStyle = 'rgba(244, 63, 94, 0.8)'; // rose
-                    ctx.fillRect(cx - 4, cy - 4, 8, 8);
+                    ctx.fillStyle = agentColor;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+                    ctx.fill();
 
-                    drawLabel(cx, cy + 4, a.name.substring(0, 6), '#fb7185');
+                    // Threat Ring for Ferals
+                    if (isFeral) {
+                        ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+
+                    drawLabel(cx, cy, a.name.substring(0, 6), agentColor);
                 });
             }
         }
 
-        // Draw Self (Center)
-        drawHex(centerX, centerY, scale * 0.5, 'rgba(56, 189, 248, 0.8)', true); // sky
+        // 7. Self Player Marker (Pulsing Cyan)
+        const pulse = 0.5 + Math.sin(Date.now() * 0.005) * 0.5;
+        ctx.strokeStyle = `rgba(56, 189, 248, ${0.2 + pulse * 0.8})`;
+        ctx.lineWidth = 2;
+        drawHex(centerX, centerY, scale * 0.6, '#38bdf8', false);
+        ctx.lineWidth = 1;
+        
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.fillStyle = '#bae6fd';
-        ctx.font = 'bold 9px Base';
+        ctx.font = 'bold 9px Orbitron';
         ctx.textAlign = 'center';
-        ctx.fillText('YOU', centerX, centerY - 8);
+        ctx.fillText('YOU', centerX, centerY - 12);
+
+        // 8. Scanline Overlay Effect
+        ctx.globalAlpha = 0.05;
+        ctx.fillStyle = '#000';
+        for (let i = 0; i < height; i += 2) {
+            ctx.fillRect(0, i, width, 1);
+        }
+        ctx.globalAlpha = 1.0;
     }
 }
 
