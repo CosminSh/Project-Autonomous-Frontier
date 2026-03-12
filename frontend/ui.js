@@ -664,24 +664,36 @@ export class UIManager {
 
             if (equipmentInvEl) {
                 if (equippable.length === 0) equipmentInvEl.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-2">No specialized equipment detected.</div>`;
-                else equipmentInvEl.innerHTML = equippable.map(i => `
-                    <div class="bg-indigo-500/5 p-3 rounded-xl border border-indigo-500/20 flex justify-between items-center group hover:bg-indigo-500/10 transition-all">
-                        <div class="flex flex-col">
-                            <span class="text-[9px] font-bold text-indigo-300 uppercase leading-none mb-1">${i.type.replace('PART_', '').replace(/_/g, ' ')}</span>
-                            <div class="flex items-center gap-2">
-                                <span class="text-[7px] text-slate-500 uppercase tracking-widest">${(i.data || {}).rarity || 'STANDARD'}</span>
-                                <span class="text-[7px] bg-indigo-500/10 px-1 py-0.5 rounded text-indigo-400 font-bold">${agent.discovery?.part_definitions?.[i.type.replace('PART_', '')]?.type || 'PART'} SLOT</span>
+                else equipmentInvEl.innerHTML = equippable.map(i => {
+                    const partId = i.type.replace('PART_', '');
+                    const partDef = agent.discovery?.part_definitions?.[partId] || {};
+                    const stats = partDef.stats || {};
+                    const statsHtml = Object.entries(stats).map(([s, v]) => `
+                        <div class="text-[7px] text-slate-400">${s.replace('_', ' ')}: <span class="text-indigo-300 font-bold">${v}</span></div>
+                    `).join('');
+
+                    return `
+                        <div class="bg-indigo-500/5 p-3 rounded-xl border border-indigo-500/20 flex flex-col group hover:bg-indigo-500/10 transition-all">
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] font-bold text-indigo-300 uppercase leading-none mb-1">${i.type.replace('PART_', '').replace(/_/g, ' ')}</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[7px] text-slate-500 uppercase tracking-widest">${(i.data || {}).rarity || 'STANDARD'}</span>
+                                        <span class="text-[7px] bg-indigo-500/10 px-1 py-0.5 rounded text-indigo-400 font-bold">${partDef.type || 'PART'} SLOT</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="flex flex-col items-end">
+                                        <span class="text-indigo-400 text-[10px] font-mono">x${i.quantity}</span>
+                                        <span class="text-[7px] text-slate-600">${i.weight ? (i.weight * i.quantity).toFixed(1) + 'kg' : ''}</span>
+                                    </div>
+                                    <button onclick="game.api.submitIntent('EQUIP', {item_type: '${i.type}'})" class="bg-indigo-500 hover:bg-indigo-400 text-slate-950 px-3 py-1 rounded text-[8px] font-bold uppercase transition-all shadow-lg shadow-indigo-500/10 active:scale-95">EQUIP</button>
+                                </div>
                             </div>
+                            ${statsHtml ? `<div class="grid grid-cols-2 gap-x-2 border-t border-indigo-500/10 pt-2 mt-1">${statsHtml}</div>` : ''}
                         </div>
-                        <div class="flex items-center space-x-3">
-                            <div class="flex flex-col items-end">
-                                <span class="text-indigo-400 text-[10px] font-mono">x${i.quantity}</span>
-                                <span class="text-[7px] text-slate-600">${i.weight ? (i.weight * i.quantity).toFixed(1) + 'kg' : ''}</span>
-                            </div>
-                            <button onclick="game.api.submitIntent('EQUIP', {item_type: '${i.type}'})" class="bg-indigo-500 hover:bg-indigo-400 text-slate-950 px-3 py-1 rounded text-[8px] font-bold uppercase transition-all shadow-lg shadow-indigo-500/10 active:scale-95">EQUIP</button>
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
             }
 
             if (consumableInvEl) {
@@ -967,9 +979,23 @@ export class UIManager {
                     <div class="text-[8px] text-slate-400 mb-2 uppercase tracking-widest font-bold">Materials:</div>
                     <div class="space-y-1 mb-3">${materials}</div>
                     <div class="text-[8px] text-slate-400 mb-1 uppercase tracking-widest font-bold">Projected Stats:</div>
-                    <div class="grid grid-cols-2 gap-1 mb-4">
+                    <div class="grid grid-cols-2 gap-1 mb-2">
                         ${Object.entries(r.stats || {}).map(([s, v]) => `<div class="text-[8px] text-slate-300">${s}: <span class="text-emerald-400">${v}</span></div>`).join('')}
                     </div>
+                    ${(() => {
+                        const slots = discovery.frame_slot_limits?.[r.id];
+                        if (r.type === 'Frame' && slots) {
+                            return `
+                                <div class="text-[8px] text-slate-400 mb-1 uppercase tracking-widest font-bold">Hardware Capacity:</div>
+                                <div class="grid grid-cols-2 gap-1 mb-4 bg-slate-950/30 p-2 rounded-lg border border-slate-800/50">
+                                    ${Object.entries(slots).filter(([k]) => k !== 'Frame').map(([k, v]) => `
+                                        <div class="text-[7px] text-slate-500 font-mono">${k}: <span class="text-sky-400 font-bold">${v}</span></div>
+                                    `).join('')}
+                                </div>
+                            `;
+                        }
+                        return '<div class="mb-4"></div>';
+                    })()}
                     <button onclick="game.api.submitIndustryIntent('CRAFT', {item_type: '${r.id}'})" class="w-full ${craftable ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-sky-600 hover:bg-sky-500'} text-white px-3 py-1.5 rounded text-[9px] font-bold orbitron transition-all">INITIATE ASSEMBLY</button>
                 </div>
             `;
