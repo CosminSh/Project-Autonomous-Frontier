@@ -525,7 +525,10 @@ export class UIManager {
         if (invList && agent.inventory) {
             invList.innerHTML = agent.inventory.map(i => `
                 <div class="flex justify-between items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800">
-                    <span class="text-[10px] uppercase text-slate-300">${i.type.replace('_', ' ')}</span>
+                    <div class="flex flex-col">
+                        <span class="text-[10px] uppercase text-slate-300">${i.type.replace('_', ' ')}</span>
+                        <span class="text-[8px] text-slate-500">${i.weight ? i.weight.toFixed(1) + 'kg/u' : ''}</span>
+                    </div>
                     <span class="text-sky-400 text-[10px]">${i.quantity}</span>
                 </div>
             `).join('');
@@ -597,8 +600,9 @@ export class UIManager {
                                     <button onclick="game.api.submitIntent('UNEQUIP', {part_id: ${p.id}})" class="bg-rose-500 hover:bg-rose-400 text-white px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all">UNEQUIP</button>
                                 </div>
                             </div>
-                            <div class="grid grid-cols-2 gap-1 text-[8px] text-slate-400">
+                             <div class="grid grid-cols-2 gap-1 text-[8px] text-slate-400">
                                 ${Object.entries(p.stats || {}).map(([s, v]) => `<div>${s.replace('_', ' ')}: <span class="text-slate-200">${v}</span></div>`).join('')}
+                                <div>weight: <span class="text-slate-200">${p.weight || 0}kg</span></div>
                             </div>
                             <div class="absolute inset-y-0 right-0 w-1 bg-sky-500"></div>
                         </div>
@@ -649,7 +653,10 @@ export class UIManager {
                 if (resources.length === 0) detailedInvEl.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-2">Resource bin empty.</div>`;
                 else detailedInvEl.innerHTML = resources.map(i => `
                     <div class="flex justify-between items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800">
-                        <span class="text-[9px] uppercase font-bold text-slate-400">${i.type.replace('_', ' ')}</span>
+                        <div class="flex flex-col">
+                            <span class="text-[9px] uppercase font-bold text-slate-400">${i.type.replace('_', ' ')}</span>
+                            <span class="text-[7px] text-slate-600">${i.weight ? (i.weight * i.quantity).toFixed(1) + 'kg total' : ''}</span>
+                        </div>
                         <span class="text-amber-500 text-[9px] font-mono">${i.quantity} units</span>
                     </div>
                 `).join('');
@@ -667,7 +674,10 @@ export class UIManager {
                             </div>
                         </div>
                         <div class="flex items-center space-x-3">
-                            <span class="text-indigo-400 text-[10px] font-mono">x${i.quantity}</span>
+                            <div class="flex flex-col items-end">
+                                <span class="text-indigo-400 text-[10px] font-mono">x${i.quantity}</span>
+                                <span class="text-[7px] text-slate-600">${i.weight ? (i.weight * i.quantity).toFixed(1) + 'kg' : ''}</span>
+                            </div>
                             <button onclick="game.api.submitIntent('EQUIP', {item_type: '${i.type}'})" class="bg-indigo-500 hover:bg-indigo-400 text-slate-950 px-3 py-1 rounded text-[8px] font-bold uppercase transition-all shadow-lg shadow-indigo-500/10 active:scale-95">EQUIP</button>
                         </div>
                     </div>

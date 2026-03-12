@@ -30,6 +30,7 @@ class Agent(Base):
     # State / Status
     is_bot = Column(Boolean, default=False)
     is_feral = Column(Boolean, default=False)
+    is_pitfighter = Column(Boolean, default=False)
     is_aggressive = Column(Boolean, default=False) # Will attack on sight if feral
     
     # Location

@@ -27,7 +27,7 @@ def generate_leaderboards(db: Session):
     try:
         xp_agents = db.execute(
             select(Agent.id, Agent.name, Agent.experience)
-            .where(Agent.is_feral == False)
+            .where((Agent.is_feral == False) & (Agent.is_pitfighter == False))
             .order_by(Agent.experience.desc())
             .limit(100)
         ).all()
@@ -50,7 +50,7 @@ def generate_leaderboards(db: Session):
         credit_agents = db.execute(
             select(Agent.id, Agent.name, func.sum(InventoryItem.quantity).label('total_credits'))
             .join(InventoryItem, Agent.id == InventoryItem.agent_id)
-            .where((InventoryItem.item_type == "CREDITS") & (Agent.is_feral == False))
+            .where((InventoryItem.item_type == "CREDITS") & (Agent.is_feral == False) & (Agent.is_pitfighter == False))
             .group_by(Agent.id, Agent.name)
             .order_by(func.sum(InventoryItem.quantity).desc())
             .limit(100)
@@ -74,7 +74,7 @@ def generate_leaderboards(db: Session):
         elo_agents = db.execute(
             select(Agent.id, Agent.name, ArenaProfile.elo, ArenaProfile.wins, ArenaProfile.losses)
             .join(ArenaProfile, Agent.id == ArenaProfile.agent_id)
-            .where(ArenaProfile.elo > 1200)
+            .where((ArenaProfile.elo > 1200) & (Agent.is_pitfighter == True))
             .order_by(ArenaProfile.elo.desc())
             .limit(100)
         ).all()

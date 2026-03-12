@@ -128,8 +128,8 @@ def seed_world():
     db.commit()
 
     logger.info("Wiping bots and resetting players...")
-    # Delete all bots and ferals
-    bots = db.execute(select(Agent).where(Agent.is_bot == True)).scalars().all()
+    # Delete all bots and ferals (but keep Pit Fighters)
+    bots = db.execute(select(Agent).where(Agent.is_bot == True, Agent.is_pitfighter == False)).scalars().all()
     for bot in bots:
         db.execute(text(f"DELETE FROM chassis_parts WHERE agent_id = {bot.id}"))
         db.execute(text(f"DELETE FROM inventory_items WHERE agent_id = {bot.id}"))

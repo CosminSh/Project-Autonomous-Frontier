@@ -346,12 +346,21 @@ def find_hex_path(db: Session, sq: int, sr: int, gq: int, gr: int, max_steps: in
 # Agent Stats & Gear
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Build a quick lookup for equipped parts weight based on their name
+PART_NAME_TO_WEIGHT = {v["name"]: ITEM_WEIGHTS.get(f"PART_{k}", 10.0) for k, v in PART_DEFINITIONS.items()}
+
 def get_agent_mass(agent: Agent) -> float:
-    """Calculates total mass of agent's inventory."""
-    return sum(
+    """Calculates total mass of agent's inventory and equipped gear."""
+    inv_mass = sum(
         ITEM_WEIGHTS.get(item.item_type, 1.0) * item.quantity
         for item in agent.inventory
     )
+    # Map p.name back to accurate weight, or fallback to 10.0
+    gear_mass = sum(
+        PART_NAME_TO_WEIGHT.get(p.name, 10.0)
+        for p in agent.parts
+    )
+    return inv_mass + gear_mass
 
 
 def recalculate_agent_stats(db: Session, agent: Agent):
@@ -571,6 +580,7 @@ def get_discovery_packet(station_cache: list, agent: Agent) -> dict:
     discovery["smelting_recipes"] = SMELTING_RECIPES
     discovery["frame_slot_limits"] = FRAME_SLOT_LIMITS
     discovery["part_definitions"] = PART_DEFINITIONS
+    discovery["item_weights"] = ITEM_WEIGHTS
     return discovery
 
 

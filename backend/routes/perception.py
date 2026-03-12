@@ -45,7 +45,8 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
     visible_agents = db.execute(select(Agent).where(
         get_wrap_filter(Agent.q, agent.q, sensor_range, 100),
         # r-wrapping is special (poles), so we'll just query a slightly larger range and filter in Python
-        Agent.r >= agent.r - sensor_range, Agent.r <= agent.r + sensor_range
+        Agent.r >= agent.r - sensor_range, Agent.r <= agent.r + sensor_range,
+        Agent.is_pitfighter == False
     )).scalars().all()
     
     # 2. Nearby Local Features (Scan WorldHex)

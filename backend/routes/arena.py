@@ -27,6 +27,7 @@ def get_or_create_pit_fighter(main_agent: Agent, db: Session) -> Agent:
             name=fighter_name,
             owner=main_agent.user_email,
             is_bot=True,
+            is_pitfighter=True,
             health=0,
             max_health=0,
             damage=0,

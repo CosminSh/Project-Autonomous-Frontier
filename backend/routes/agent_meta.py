@@ -82,7 +82,8 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         if key in aggregated_inv:
             aggregated_inv[key]["quantity"] += i.quantity
         else:
-            aggregated_inv[key] = {"type": i.item_type, "quantity": i.quantity, "data": i.data}
+            w = ITEM_WEIGHTS.get(i.item_type, 1.0)
+            aggregated_inv[key] = {"type": i.item_type, "quantity": i.quantity, "data": i.data, "weight": w}
             
     # Aggregate storage (vault)
     aggregated_storage = {}
@@ -91,7 +92,8 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         if key in aggregated_storage:
             aggregated_storage[key]["quantity"] += i.quantity
         else:
-            aggregated_storage[key] = {"type": i.item_type, "quantity": i.quantity, "data": i.data}
+            w = ITEM_WEIGHTS.get(i.item_type, 1.0)
+            aggregated_storage[key] = {"type": i.item_type, "quantity": i.quantity, "data": i.data, "weight": w}
             
     return {
         "id": agent.id, "name": agent.name, "q": agent.q, "r": agent.r,
@@ -106,7 +108,7 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         "inventory": list(aggregated_inv.values()),
         "storage": list(aggregated_storage.values()),
         "discovery": get_discovery_packet(STATION_CACHE, agent),
-        "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity} for p in agent.parts],
+        "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity, "weight": ITEM_WEIGHTS.get(f"PART_{next((k for k, v in PART_DEFINITIONS.items() if v['name'] == p.name), '')}", 10.0)} for p in agent.parts],
         "visual_signature": get_agent_visual_signature(agent),
         "solar_intensity": int(get_solar_intensity(agent.q, agent.r, tick) * 100)
     }
@@ -149,13 +151,14 @@ async def get_agent_inventory(agent: Agent = Depends(verify_api_key)):
         if key in aggregated:
             aggregated[key]["quantity"] += i.quantity
         else:
-            aggregated[key] = {"type": i.item_type, "quantity": i.quantity, "data": i.data}
+            w = ITEM_WEIGHTS.get(i.item_type, 1.0)
+            aggregated[key] = {"type": i.item_type, "quantity": i.quantity, "data": i.data, "weight": w}
     return list(aggregated.values())
 
 @router.get("/api/gear")
 async def get_agent_gear(agent: Agent = Depends(verify_api_key)):
     """Returns the agent's equipped chassis parts."""
-    return [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity} for p in agent.parts]
+    return [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity, "weight": ITEM_WEIGHTS.get(f"PART_{next((k for k, v in PART_DEFINITIONS.items() if v['name'] == p.name), '')}", 10.0)} for p in agent.parts]
 
 @router.get("/api/rescue_quote")
 async def get_rescue_quote(agent: Agent = Depends(verify_api_key)):

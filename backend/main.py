@@ -51,6 +51,7 @@ async def lifespan(app: FastAPI):
         ("agents", "experience", "INTEGER DEFAULT 0"),
         ("agents", "level", "INTEGER DEFAULT 1"),
         ("agents", "speed", "INTEGER DEFAULT 10"),
+        ("agents", "is_pitfighter", "BOOLEAN DEFAULT FALSE"),
         ("agents", "is_aggressive", "BOOLEAN DEFAULT FALSE"),
         ("agents", "wear_and_tear", "FLOAT DEFAULT 0.0"),
         ("agents", "overclock_ticks", "INTEGER DEFAULT 0"),
@@ -81,6 +82,14 @@ async def lifespan(app: FastAPI):
                     logger.error(f"CRITICAL MIGRATION ERROR on {table}.{col}: {e}")
                     # In a real production environment, we might want to raise here
                     # raise e 
+        
+        # Tag existing pitfighters if they aren't tagged yet
+        try:
+            conn.execute(text("UPDATE agents SET is_pitfighter = TRUE WHERE name LIKE '%-PitFighter'"))
+            conn.commit()
+            logger.info("Migration: Tagged existing Pit Fighters.")
+        except Exception:
+            pass # Table or column might not exist yet if migrations failed
 
     with SessionLocal() as db:
         hex_count = db.execute(select(func.count(WorldHex.id))).scalar()

@@ -27,8 +27,8 @@ async def get_global_stats(db: Session = Depends(get_db)):
     stats_out = {
         "tick": state.tick_index if state else 0,
         "phase": state.phase if state else "PERCEPTION",
-        "active_agents": db.query(Agent).filter(Agent.energy > 0).count(),
-        "total_agents": db.query(Agent).count(),
+        "active_agents": db.query(Agent).filter(Agent.energy > 0, Agent.is_pitfighter == False).count(),
+        "total_agents": db.query(Agent).filter(Agent.is_pitfighter == False).count(),
         "market_listings": db.query(AuctionOrder).count(),
         "actions_processed": state.actions_processed if state and state.actions_processed else 0
     }
@@ -158,7 +158,7 @@ async def get_world_poi():
 @router.get("/api/world/heat")
 async def get_world_heat(db: Session = Depends(get_db)):
     """Returns coordinates of all PLAYER agents with heat >= 5."""
-    hot_agents = db.execute(select(Agent).where(Agent.is_feral == False, Agent.heat >= 5)).scalars().all()
+    hot_agents = db.execute(select(Agent).where(Agent.is_feral == False, Agent.is_pitfighter == False, Agent.heat >= 5)).scalars().all()
     return [{"id": a.id, "name": a.name, "q": a.q, "r": a.r, "heat": a.heat} for a in hot_agents]
 
 
