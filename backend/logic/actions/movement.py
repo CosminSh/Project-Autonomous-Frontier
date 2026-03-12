@@ -81,7 +81,10 @@ async def handle_move(db, agent, intent, tick_count, manager):
     # --- Single-step move ---
     current_mass = get_agent_mass(agent)
     max_mass = agent.max_mass or BASE_CAPACITY
-    energy_cost = MOVE_ENERGY_COST
+    
+    # Base cost + sum of specialized part drain (Turbo Engines, etc.)
+    drain = sum(p.stats.get("energy_cost", 0) for p in agent.parts if p.stats)
+    energy_cost = MOVE_ENERGY_COST + drain
 
     if current_mass > max_mass:
         energy_cost *= (current_mass / max_mass)

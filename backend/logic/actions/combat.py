@@ -13,10 +13,14 @@ logger = logging.getLogger("heartbeat.actions.combat")
 async def handle_attack(db, agent, intent, tick_count, manager):
     """Handles agent-to-agent combat, including evasion, damage, and death/looting."""
     target_id = intent.data.get("target_id")
-    if agent.energy < ATTACK_ENERGY_COST:
+    # Base cost + sum of specialized part drain (Lasers, etc.)
+    drain = sum(p.stats.get("energy_cost", 0) for p in agent.parts if p.stats)
+    total_cost = ATTACK_ENERGY_COST + drain
+
+    if agent.energy < total_cost:
         db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={
             "reason": "INSUFFICIENT_ENERGY", 
-            "help": "Combat requires 15 Energy at min. Recharging at stations is 2x faster!"
+            "help": f"Combat requires {total_cost} Energy with your current gear."
         }))
         return
 
@@ -57,7 +61,7 @@ async def handle_attack(db, agent, intent, tick_count, manager):
         db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "SAFE_ZONE_PROTECTION"}))
         return
 
-    agent.energy -= ATTACK_ENERGY_COST
+    agent.energy -= total_cost
     if is_pvp: agent.heat = (agent.heat or 0) + 1
     target.last_attacked_tick = tick_count
 
@@ -131,6 +135,14 @@ async def handle_loot_attack(db, agent, intent, tick_count, manager):
     target = db.get(Agent, target_id)
     if not target: return
 
+    # Base cost + sum of specialized part drain
+    drain = sum(p.stats.get("energy_cost", 0) for p in agent.parts if p.stats)
+    total_cost = ATTACK_ENERGY_COST + drain
+
+    if agent.energy < total_cost:
+        db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "INSUFFICIENT_ENERGY"}))
+        return
+
     dist = get_hex_distance(agent.q, agent.r, target.q, target.r)
     if dist > 1:
         path = find_hex_path(db, agent.q, agent.r, target.q, target.r, max_steps=30)
@@ -143,7 +155,7 @@ async def handle_loot_attack(db, agent, intent, tick_count, manager):
             db.add(AuditLog(agent_id=agent.id, event_type="PIRACY_FAILED", details={"reason": "OUT_OF_RANGE"}))
         return
 
-    agent.energy -= ATTACK_ENERGY_COST
+    agent.energy -= total_cost
     agent.heat = (agent.heat or 0) + 3
     target.last_attacked_tick = tick_count
     

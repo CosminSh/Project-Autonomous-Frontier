@@ -224,7 +224,7 @@ PART_DEFINITIONS = {
     },
     "BASIC_FRAME": {
         "type": "Frame", 
-        "stats": {"max_health": 100, "armor": 5, "capacity": 100}, 
+        "stats": {"max_health": 100, "armor": 10, "capacity": 100}, 
         "name": "Standard Chassis",
         "weight": 35.0,
         "description": "The reliable workhorse of the frontier. Balanced stats."
@@ -238,7 +238,7 @@ PART_DEFINITIONS = {
     },
     "HEAVY_FRAME": {
         "type": "Frame", 
-        "stats": {"max_health": 300, "armor": 25, "capacity": 50, "speed": -10}, 
+        "stats": {"max_health": 300, "armor": 45, "capacity": 50, "speed": -5}, 
         "name": "Bastion Heavy Frame",
         "weight": 120.0,
         "description": "Reinforced plating and extra power slots. Extremely slow."
@@ -293,10 +293,10 @@ PART_DEFINITIONS = {
 
     # ACTUATORS - WEAPONS (RPS)
     "IRON_AUTO_RIFLE": {"type": "Actuator", "stats": {"damage": 15, "accuracy": 10, "speed": 5}, "name": "Standard Auto-Rifle", "weight": 10.0, "description": "Balanced weapon."},
-    "COPPER_RAILGUN": {"type": "Actuator", "stats": {"damage": 50, "accuracy": -10, "speed": -10}, "name": "Copper Railgun", "weight": 18.0, "description": "High damage shots."},
+    "COPPER_RAILGUN": {"type": "Actuator", "stats": {"damage": 50, "accuracy": -15, "speed": -10}, "name": "Copper Railgun", "weight": 18.0, "description": "High damage shots."},
     "PULSE_REPEATER": {"type": "Actuator", "stats": {"damage": 12, "accuracy": 30, "speed": 10}, "name": "Pulse Repeater", "weight": 6.0, "description": "Rapid fire (Striker)."},
     "GOLD_LASER_CANNON": {"type": "Actuator", "stats": {"damage": 80, "accuracy": 25, "energy_cost": 5}, "name": "Precision Laser", "weight": 12.0, "description": "Extreme damage."},
-    "HEAVY_CANNON": {"type": "Actuator", "stats": {"damage": 120, "accuracy": -5, "speed": -15}, "name": "Siege Cannon", "weight": 35.0, "description": "Devastating damage."},
+    "HEAVY_CANNON": {"type": "Actuator", "stats": {"damage": 120, "accuracy": -15, "speed": -15}, "name": "Siege Cannon", "weight": 35.0, "description": "Devastating damage."},
     "JUNK_CANNON": {"type": "Actuator", "stats": {"damage": 45, "accuracy": -15}, "name": "Junk Cannon", "weight": 12.0, "description": "High damage, high wear. Arena special."},
     "SCRAP_BATON": {"type": "Actuator", "stats": {"damage": 25, "accuracy": 20}, "name": "Scrap Baton", "weight": 5.0, "description": "Melee stun rod for close encounters."},
 
@@ -311,10 +311,10 @@ PART_DEFINITIONS = {
     # ENGINES
     "IRON_THRUSTER": {"type": "Engine", "stats": {"speed": 15}, "name": "Iron Thruster", "weight": 15.0, "description": "Simple propulsion unit."},
     "COPPER_OVERDRIVE": {"type": "Engine", "stats": {"speed": 35, "accuracy": -5}, "name": "Overdrive Manifold", "weight": 12.0, "description": "Extreme speed."},
-    "ENGINE_UNIT": {"type": "Engine", "stats": {"speed": 10, "capacity": 20}, "name": "Fusion Engine", "weight": 10.0, "description": "Balanced speed and power."},
-    "ENGINE_CARGO": {"type": "Engine", "stats": {"capacity": 200, "speed": -5}, "name": "Hauler Engine", "weight": 25.0, "description": "Massive torque."},
-    "ENGINE_TURBO": {"type": "Engine", "stats": {"speed": 60, "energy_cost": 2}, "name": "Turbo Interceptor", "weight": 12.0, "description": "Unmatched speed."},
-    "BRAWLER_ENGINE": {"type": "Engine", "stats": {"speed": 15}, "name": "Brawler Engine", "weight": 10.0, "description": "Cheap, reliable arena engine."},
+    "ENGINE_UNIT": {"type": "Engine", "stats": {"speed": 10, "capacity": 60}, "name": "Fusion Hauler Engine", "weight": 10.0, "description": "High-torque engine for cargo hauling."},
+    "ENGINE_CARGO": {"type": "Engine", "stats": {"capacity": 200, "speed": -5}, "name": "Hauler Goliath Engine", "weight": 25.0, "description": "Massive torque for heavy logistics."},
+    "ENGINE_TURBO": {"type": "Engine", "stats": {"speed": 60, "energy_cost": 4}, "name": "Turbo Interceptor", "weight": 12.0, "description": "Unmatched speed, high drain."},
+    "BRAWLER_ENGINE": {"type": "Engine", "stats": {"speed": 5, "capacity": 25}, "name": "Brawler Hauler Engine", "weight": 10.0, "description": "Compact engine with decent lifting capacity."},
     "ULTRALIGHT_THRUSTER": {"type": "Engine", "stats": {"speed": 40, "energy_cost": 3}, "name": "Ultralight Thruster", "weight": 3.0, "description": "Elite lightweight propulsion."},
 
     # POWER
