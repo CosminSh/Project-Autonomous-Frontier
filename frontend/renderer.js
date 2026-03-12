@@ -240,42 +240,49 @@ export class GameRenderer {
         this.starfield = new THREE.Points(starGeom, starMat);
         this.scene.add(this.starfield);
 
-        // Subtle Galaxy Clouds / Nebulas
-        const nebulaCount = 25;
+        // Procedural Galaxy Clouds / Nebulas
+        const nebulaCount = 80;
         const canvas = document.createElement('canvas');
         canvas.width = 256;
         canvas.height = 256;
         const ctx = canvas.getContext('2d');
+        
+        // Complex gradient for more "dusty" feel
         const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
         grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
-        grad.addColorStop(0.2, 'rgba(255, 255, 255, 0.6)');
+        grad.addColorStop(0.3, 'rgba(255, 255, 255, 0.4)');
+        grad.addColorStop(0.7, 'rgba(255, 255, 255, 0.1)');
         grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, 256, 256);
+        
         const nebulaTex = new THREE.CanvasTexture(canvas);
 
         const nebulaColors = [
             0x1e1b4b, // Deep Indigo
             0x312e81, // Indigo
             0x2d1b69, // Dark Purple
-            0x111827  // Slate Black
+            0x0f172a, // Dark Slate
+            0x064e3b, // Deep Emerald/Teal (Iridescence)
+            0x4c1d95, // Bright Purple
+            0x1e293b  // Cool Gray
         ];
 
-        console.log(`[Renderer] Initializing ${nebulaCount} background nebulas...`);
+        console.log(`[Renderer] Deploying deep-space nebula field (${nebulaCount} clusters)...`);
         for (let i = 0; i < nebulaCount; i++) {
             const color = nebulaColors[Math.floor(Math.random() * nebulaColors.length)];
             const nebulaMat = new THREE.SpriteMaterial({
                 map: nebulaTex,
                 color: color,
                 transparent: true,
-                opacity: 0.25, 
+                opacity: 0.15 + (Math.random() * 0.2), 
                 blending: THREE.AdditiveBlending,
-                fog: false // Ensure they are not culled by space fog
+                fog: false
             });
             const nebula = new THREE.Sprite(nebulaMat);
             
-            // Random position at distance 500-700
-            const radius = 500 + Math.random() * 200;
+            // Distribute across a larger shell (400 to 900)
+            const radius = 400 + Math.random() * 500;
             const phi = Math.random() * Math.PI * 2;
             const theta = Math.random() * Math.PI;
             
@@ -285,8 +292,9 @@ export class GameRenderer {
                 radius * Math.sin(theta) * Math.sin(phi)
             );
             
-            const size = 400 + Math.random() * 800;
-            nebula.scale.set(size, size * (0.6 + Math.random() * 0.4), 1);
+            // Vary sizes significantly to fill gaps
+            const size = 300 + Math.random() * 1000;
+            nebula.scale.set(size, size * (0.4 + Math.random() * 0.8), 1);
             nebula.material.rotation = Math.random() * Math.PI;
             this.scene.add(nebula);
         }
