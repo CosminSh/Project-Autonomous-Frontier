@@ -149,6 +149,18 @@ async def handle_refine_gas(db, agent, intent, tick_count, manager):
         canister.item_type = "HE3_CANISTER"
         canister.data = {"fill_level": 0}
     
+    # Proximity check for REFINERY
+    from database import STATION_CACHE
+    if not STATION_CACHE:
+        from database import refresh_station_cache
+        refresh_station_cache()
+    
+    stations = [s for s in STATION_CACHE if s["station_type"] == "REFINERY"]
+    can_refine = any(get_hex_distance(agent.q, agent.r, s["q"], s["r"]) == 0 for s in stations)
+    if not can_refine:
+        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "NOT_AT_REFINERY", "q": agent.q, "r": agent.r, "available_refineries": stations}))
+        return
+
     current_fill = (canister.data or {}).get("fill_level", 0)
     new_fill = min(100, current_fill + gas_qty)
     consumed_gas = new_fill - current_fill
@@ -198,7 +210,7 @@ async def handle_craft(db, agent, intent, tick_count, manager):
     stations = [s for s in STATION_CACHE if s["station_type"] == "CRAFTER"]
     can_craft = any(get_hex_distance(agent.q, agent.r, s["q"], s["r"]) == 0 for s in stations)
     if not can_craft:
-        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "NOT_AT_CRAFTER", "q": agent.q, "r": agent.r}))
+        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "NOT_AT_CRAFTER", "q": agent.q, "r": agent.r, "available_crafters": stations}))
         return
 
     item_data = {"rarity": rarity, "stats": PART_DEFINITIONS.get(result_item, {}).get("stats", {})}
@@ -230,6 +242,17 @@ async def handle_repair(db, agent, intent, tick_count, manager):
         else:
             amt = hp_needed
     
+    # Proximity check for REPAIR or any Station
+    from database import STATION_CACHE
+    if not STATION_CACHE:
+        from database import refresh_station_cache
+        refresh_station_cache()
+    
+    can_repair = any(get_hex_distance(agent.q, agent.r, s["q"], s["r"]) == 0 for s in STATION_CACHE)
+    if not can_repair:
+        db.add(AuditLog(agent_id=agent.id, event_type="REPAIR_FAILED", details={"reason": "NOT_AT_STATION", "q": agent.q, "r": agent.r}))
+        return
+
     actual = min(amt, agent.max_health - agent.health)
     if actual <= 0: return
 
@@ -286,6 +309,18 @@ def calculate_maintenance_cost(agent):
 
 async def handle_core_service(db, agent, intent, tick_count, manager):
     """Resets Wear & Tear dynamically scaling costs based on equipped loadout at qualified stations."""
+    # Proximity check for REPAIR station or Hub
+    from database import STATION_CACHE
+    if not STATION_CACHE:
+        from database import refresh_station_cache
+        refresh_station_cache()
+        
+    repair_stations = [s for s in STATION_CACHE if s["station_type"] in ["REPAIR", "STATION_HUB"]]
+    at_repair = any(get_hex_distance(agent.q, agent.r, s["q"], s["r"]) == 0 for s in repair_stations)
+    if not at_repair:
+        db.add(AuditLog(agent_id=agent.id, event_type="CORE_SERVICE_FAILED", details={"reason": "NOT_AT_REPAIR_STATION", "q": agent.q, "r": agent.r, "available_stations": repair_stations}))
+        return
+
     required_costs = calculate_maintenance_cost(agent)
     
     # Check if agent has all required resources
