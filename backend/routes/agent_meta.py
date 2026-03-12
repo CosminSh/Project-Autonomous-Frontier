@@ -4,9 +4,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from database import get_db
 from models import Agent, InventoryItem, ChassisPart, AuditLog, GlobalState
-from game_helpers import get_agent_mass, get_agent_visual_signature, get_discovery_packet, get_solar_intensity, get_hex_distance
+from game_helpers import get_agent_mass, get_agent_visual_signature, get_discovery_packet, get_solar_intensity, get_hex_distance, PART_NAME_TO_WEIGHT
 from database import STATION_CACHE
 from routes.common import verify_api_key
+from config import ITEM_WEIGHTS, PART_DEFINITIONS
 from datetime import datetime
 import logging
 
@@ -108,7 +109,7 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         "inventory": list(aggregated_inv.values()),
         "storage": list(aggregated_storage.values()),
         "discovery": get_discovery_packet(STATION_CACHE, agent),
-        "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity, "weight": ITEM_WEIGHTS.get(f"PART_{next((k for k, v in PART_DEFINITIONS.items() if v['name'] == p.name), '')}", 10.0)} for p in agent.parts],
+        "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity, "weight": PART_NAME_TO_WEIGHT.get(p.name, 10.0)} for p in agent.parts],
         "visual_signature": get_agent_visual_signature(agent),
         "solar_intensity": int(get_solar_intensity(agent.q, agent.r, tick) * 100)
     }
@@ -158,7 +159,7 @@ async def get_agent_inventory(agent: Agent = Depends(verify_api_key)):
 @router.get("/api/gear")
 async def get_agent_gear(agent: Agent = Depends(verify_api_key)):
     """Returns the agent's equipped chassis parts."""
-    return [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity, "weight": ITEM_WEIGHTS.get(f"PART_{next((k for k, v in PART_DEFINITIONS.items() if v['name'] == p.name), '')}", 10.0)} for p in agent.parts]
+    return [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity, "weight": PART_NAME_TO_WEIGHT.get(p.name, 10.0)} for p in agent.parts]
 
 @router.get("/api/rescue_quote")
 async def get_rescue_quote(agent: Agent = Depends(verify_api_key)):

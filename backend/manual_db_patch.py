@@ -77,6 +77,13 @@ def patch_db():
                 else:
                     logger.warning(f"Could not add {table}.{col}: {e}")
 
+    # Sanity check: Ensure mass/capacity aren't NULL for existing rows
+    with engine.connect() as conn:
+        conn.execute(text("UPDATE agents SET max_mass = 100.0 WHERE max_mass IS NULL"))
+        conn.execute(text("UPDATE agents SET storage_capacity = 500.0 WHERE storage_capacity IS NULL"))
+        conn.commit()
+        logger.info("Sanity check: Validated agent mass/capacity constraints.")
+
     logger.info("Database patching complete.")
 
 if __name__ == "__main__":
