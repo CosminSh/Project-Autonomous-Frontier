@@ -31,17 +31,17 @@ def patch_db():
         ("agents", "experience", "INTEGER DEFAULT 0"),
         ("agents", "level", "INTEGER DEFAULT 1"),
         ("agents", "speed", "INTEGER DEFAULT 10"),
-        ("agents", "is_bot", "BOOLEAN DEFAULT 0"),
-        ("agents", "is_feral", "BOOLEAN DEFAULT 0"),
-        ("agents", "is_pitfighter", "BOOLEAN DEFAULT 0"),
-        ("agents", "is_aggressive", "BOOLEAN DEFAULT 0"),
+        ("agents", "is_bot", "BOOLEAN DEFAULT False"),
+        ("agents", "is_feral", "BOOLEAN DEFAULT False"),
+        ("agents", "is_pitfighter", "BOOLEAN DEFAULT False"),
+        ("agents", "is_aggressive", "BOOLEAN DEFAULT False"),
         ("agents", "heat", "INTEGER DEFAULT 0"),
         ("agents", "overclock_ticks", "INTEGER DEFAULT 0"),
         ("agents", "wear_and_tear", "FLOAT DEFAULT 0.0"),
         ("agents", "last_faction_change_tick", "INTEGER DEFAULT 0"),
         ("agents", "last_attacked_tick", "INTEGER DEFAULT 0"),
-        ("agents", "is_in_anarchy_zone", "BOOLEAN DEFAULT 0"),
-        ("agents", "last_daily_reward", "DATETIME"),
+        ("agents", "is_in_anarchy_zone", "BOOLEAN DEFAULT False"),
+        ("agents", "last_daily_reward", "TIMESTAMP"),
         ("agents", "unlocked_recipes", "JSON"),
         ("agents", "squad_id", "INTEGER"),
         ("agents", "pending_squad_invite", "INTEGER"),
@@ -52,28 +52,28 @@ def patch_db():
         
         ("bounties", "claimed_by", "INTEGER"),
         ("bounties", "claim_tick", "BIGINT"),
-        ("bounties", "created_at", "DATETIME"),
+        ("bounties", "created_at", "TIMESTAMP"),
         
-        ("auction_house", "created_at", "DATETIME"),
-        ("market_pickups", "created_at", "DATETIME"),
-        ("intents", "created_at", "DATETIME"),
-        ("daily_missions", "created_at", "DATETIME"),
-        ("corporations", "created_at", "DATETIME"),
+        ("auction_house", "created_at", "TIMESTAMP"),
+        ("market_pickups", "created_at", "TIMESTAMP"),
+        ("intents", "created_at", "TIMESTAMP"),
+        ("daily_missions", "created_at", "TIMESTAMP"),
+        ("corporations", "created_at", "TIMESTAMP"),
         ("api_key_revocations", "reason", "VARCHAR"),
-        ("api_key_revocations", "revoked_at", "DATETIME"),
+        ("api_key_revocations", "revoked_at", "TIMESTAMP"),
     ]
 
-    with engine.connect() as conn:
-        for table, col, col_type in required_cols:
+    for table, col, col_type in required_cols:
+        with engine.connect() as conn:
             try:
-                # Check if column exists first (SQLite specific but harmless elsewhere)
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
                 conn.commit()
                 logger.info(f"Fixed: Added {col} to {table}")
             except Exception as e:
+                # Most DBs allow rolling back after a failed ADD COLUMN if it already exists
                 err = str(e).lower()
                 if "already exists" in err or "duplicate column" in err:
-                    pass # logger.debug(f"Skipped: {table}.{col} already exists")
+                    pass 
                 else:
                     logger.warning(f"Could not add {table}.{col}: {e}")
 
