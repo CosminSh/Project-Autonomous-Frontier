@@ -65,6 +65,8 @@ CRAFTING_RECIPES = {
     "HAULER_CHASSIS_MK2": {"IRON_INGOT": 50, "COPPER_INGOT": 20},
     "GLADIATOR_FRAME": {"IRON_INGOT": 15, "FERAL_CORE": 1},
     "PIT_FRAME": {"IRON_INGOT": 10, "COPPER_INGOT": 5},
+    "COPPER_MESH_FRAME": {"COPPER_INGOT": 15},
+    
     
     # Tools & Drills (Mining Yield + Small Damage)
     "DRILL_UNIT": {"IRON_INGOT": 5, "COPPER_INGOT": 5},
@@ -86,6 +88,8 @@ CRAFTING_RECIPES = {
     "HEAVY_CANNON": {"COBALT_INGOT": 20},       # Elite Damage
     "JUNK_CANNON": {"IRON_INGOT": 10, "COPPER_INGOT": 5},
     "SCRAP_BATON": {"IRON_INGOT": 8},
+    "COPPER_BURST_RIFLE": {"COPPER_INGOT": 15},
+    
     
     # Power & Utility
     "SCRAP_SOLAR_PANEL": {"COPPER_INGOT": 2, "IRON_INGOT": 2},
@@ -95,6 +99,8 @@ CRAFTING_RECIPES = {
     "COPPER_CAPACITOR": {"COPPER_INGOT": 20},
     "SCRAP_SHIELD": {"IRON_INGOT": 10},
     "GEOLOGICAL_CORE": {"GOLD_INGOT": 15, "COBALT_INGOT": 5},
+    "COPPER_SOLAR_ARRAY": {"COPPER_INGOT": 10},
+    
     
     # Sensors (Visibility & Intel)
     "BASIC_SCANNER": {"IRON_INGOT": 10},
@@ -103,6 +109,8 @@ CRAFTING_RECIPES = {
     "ADVANCED_SCANNER": {"COPPER_INGOT": 15, "GOLD_INGOT": 10},
     "GEOLOGICAL_SURVEYOR": {"GOLD_INGOT": 10, "COBALT_INGOT": 5},
     "MINING_SIG_ENHANCER": {"GOLD_INGOT": 10, "COPPER_INGOT": 10},
+    "COPPER_SENSE_DISH": {"COPPER_INGOT": 8},
+    
 
     # Engines
     "IRON_THRUSTER": {"IRON_INGOT": 20},
@@ -112,6 +120,8 @@ CRAFTING_RECIPES = {
     "ENGINE_TURBO": {"COPPER_INGOT": 15, "GOLD_INGOT": 10},
     "BRAWLER_ENGINE": {"IRON_INGOT": 12},
     "ULTRALIGHT_THRUSTER": {"GOLD_INGOT": 20, "COBALT_INGOT": 10},
+    "COPPER_COIL_MOTOR": {"COPPER_INGOT": 12},
+    
     
     # Logistics
     "GAS_SIPHON": {"COPPER_INGOT": 10, "IRON_INGOT": 5},
@@ -207,7 +217,9 @@ FRAME_SLOT_LIMITS = {
     "INDUSTRIAL_HULL": {"Frame": 1, "Actuator": 4, "Engine": 1, "Sensor": 2, "Power": 2},
     "HAULER_CHASSIS_MK2": {"Frame": 1, "Actuator": 1, "Engine": 1, "Sensor": 1, "Power": 1},
     "GLADIATOR_FRAME": {"Frame": 1, "Actuator": 3, "Engine": 2, "Sensor": 1, "Power": 1},
-    "PIT_FRAME": {"Frame": 1, "Actuator": 2, "Engine": 1, "Sensor": 1, "Power": 1}
+    "PIT_FRAME": {"Frame": 1, "Actuator": 2, "Engine": 1, "Sensor": 1, "Power": 1},
+    "COPPER_MESH_FRAME": {"Frame": 1, "Actuator": 2, "Engine": 1, "Sensor": 1, "Power": 1}
+    
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -278,6 +290,14 @@ PART_DEFINITIONS = {
         "weight": 25.0,
         "description": "A lightweight arena frame for quick skirmishes."
     },
+    "COPPER_MESH_FRAME": {
+        "type": "Frame",
+        "stats": {"max_health": 90, "armor": 5, "capacity": 80},
+        "name": "Copper Mesh Chassis",
+        "weight": 30.0,
+        "description": "A lightweight copper-reinforced frame. Better than scrap, but fragile."
+    },
+    
 
     # ACTUATORS - DRILLS (Mining Yield + Combat Damage)
     "DRILL_UNIT": {"type": "Actuator", "stats": {"mining_yield": 15, "damage": 5}, "name": "Basic Iron Drill", "weight": 12.0, "description": "Standard mining tool."},
@@ -299,6 +319,8 @@ PART_DEFINITIONS = {
     "HEAVY_CANNON": {"type": "Actuator", "stats": {"damage": 120, "accuracy": -15, "speed": -15}, "name": "Siege Cannon", "weight": 35.0, "description": "Devastating damage."},
     "JUNK_CANNON": {"type": "Actuator", "stats": {"damage": 45, "accuracy": -15}, "name": "Junk Cannon", "weight": 12.0, "description": "High damage, high wear. Arena special."},
     "SCRAP_BATON": {"type": "Actuator", "stats": {"damage": 25, "accuracy": 20}, "name": "Scrap Baton", "weight": 5.0, "description": "Melee stun rod for close encounters."},
+    "COPPER_BURST_RIFLE": {"type": "Actuator", "stats": {"damage": 18, "accuracy": 5, "speed": 10}, "name": "Copper Burst Rifle", "weight": 8.0, "description": "Rapid-fire copper rifle. Low damage per shot."},
+    
 
     # SENSORS
     "BASIC_SCANNER": {"type": "Sensor", "stats": {"radar_radius": 5, "accuracy": 5}, "name": "Basic Scanner", "weight": 5.0, "description": "Increases detection range."},
@@ -307,6 +329,8 @@ PART_DEFINITIONS = {
     "ADVANCED_SCANNER": {"type": "Sensor", "stats": {"radar_radius": 18, "scan_depth": 2}, "name": "Deep-Space Array", "weight": 3.0, "description": "Long-range detection."},
     "GEOLOGICAL_SURVEYOR": {"type": "Sensor", "stats": {"radar_radius": 10, "mining_yield": 50}, "name": "Geological Surveyor", "weight": 8.0, "description": "Boosts mining efficiency."},
     "MINING_SIG_ENHANCER": {"type": "Sensor", "stats": {"mining_yield": 100, "radar_radius": 15}, "name": "Signal Enhancer", "weight": 8.0, "description": "Advanced mining intelligence."},
+    "COPPER_SENSE_DISH": {"type": "Sensor", "stats": {"radar_radius": 6, "accuracy": 3}, "name": "Copper Sensing Dish", "weight": 4.0, "description": "A basic sensor dish made of copper wiring."},
+    
 
     # ENGINES
     "IRON_THRUSTER": {"type": "Engine", "stats": {"speed": 15}, "name": "Iron Thruster", "weight": 15.0, "description": "Simple propulsion unit."},
@@ -316,6 +340,8 @@ PART_DEFINITIONS = {
     "ENGINE_TURBO": {"type": "Engine", "stats": {"speed": 60, "energy_cost": 4}, "name": "Turbo Interceptor", "weight": 12.0, "description": "Unmatched speed, high drain."},
     "BRAWLER_ENGINE": {"type": "Engine", "stats": {"speed": 5, "capacity": 25}, "name": "Brawler Hauler Engine", "weight": 10.0, "description": "Compact engine with decent lifting capacity."},
     "ULTRALIGHT_THRUSTER": {"type": "Engine", "stats": {"speed": 40, "energy_cost": 3}, "name": "Ultralight Thruster", "weight": 3.0, "description": "Elite lightweight propulsion."},
+    "COPPER_COIL_MOTOR": {"type": "Engine", "stats": {"speed": 20, "capacity": 30}, "name": "Copper Coil Motor", "weight": 8.0, "description": "Sturdy copper motor with decent torque."},
+    
 
     # POWER
     "SCRAP_SOLAR_PANEL": {"type": "Power", "stats": {"efficiency": 0.5}, "name": "Scrap Solar Panel", "weight": 12.0, "description": "Flimsy panels. Low power generation."},
@@ -324,7 +350,9 @@ PART_DEFINITIONS = {
     "BASIC_BATTERY": {"type": "Power", "stats": {"max_energy": 50}, "name": "Ion Battery", "weight": 15.0, "description": "Increases energy storage capacity."},
     "COPPER_CAPACITOR": {"type": "Power", "stats": {"max_energy": 150}, "name": "High-Cap Capacitor", "weight": 12.0, "description": "Major energy storage upgrade."},
     "SCRAP_SHIELD": {"type": "Power", "stats": {"armor": 20}, "name": "Scrap Shield", "weight": 5.0, "description": "Crude arena shielding. High wear."},
-    "GEOLOGICAL_CORE": {"type": "Power", "stats": {"efficiency": 1.5}, "name": "Geological Core", "weight": 12.0, "description": "Stable power for survey equipment."}
+    "GEOLOGICAL_CORE": {"type": "Power", "stats": {"efficiency": 1.5}, "name": "Geological Core", "weight": 12.0, "description": "Stable power for survey equipment."},
+    "COPPER_SOLAR_ARRAY": {"type": "Power", "stats": {"efficiency": 0.8}, "name": "Copper Solar Array", "weight": 8.0, "description": "Full copper solar collection array. Decent efficiency."},
+
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
