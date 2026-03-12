@@ -11,7 +11,7 @@ import re
 from bot_client import TFClient
 from dotenv import load_dotenv
 
-VERSION = "0.3.6"
+VERSION = "0.3.7"
 GITHUB_RAW_VERSION_URL = "https://raw.githubusercontent.com/CosminSh/Project-Autonomous-Frontier/main/agent_toolkit/console.py"
 DEFAULT_API_URL = "https://terminal-frontier.pixek.xyz"
 
@@ -100,9 +100,9 @@ class PilotConsole:
         self.stats_box = ttk.Label(sidebar, text="WAITING FOR UPLINK...", justify="left", style="Sidebar.TLabel")
         self.stats_box.pack(fill="x", pady=15)
 
-        ttk.Label(sidebar, text="MINING CAPABILITY", style="Header.TLabel", style_="Sidebar.TLabel").pack(anchor="w", pady=(10, 5))
-        self.mining_box = ttk.Label(sidebar, text="Scanning...", justify="left", style="Sidebar.TLabel")
-        self.mining_box.pack(fill="x")
+        ttk.Label(sidebar, text="MODULE CAPABILITIES", style="Header.TLabel", style_="Sidebar.TLabel").pack(anchor="w", pady=(10, 5))
+        self.capability_box = ttk.Label(sidebar, text="Scanning...", justify="left", style="Sidebar.TLabel")
+        self.capability_box.pack(fill="x")
 
         # RIGHT MAIN AREA
         right_main = ttk.Frame(main_layout)
@@ -634,17 +634,33 @@ class PilotConsole:
         self.stats_box.config(text="\n".join(stats))
 
         # Determine Capabilities
-        can_mine = []
-        drills = [p for p in agent.get('parts', []) if p['type'] == 'Actuator' and 'Drill' in p['name']]
-        for d in drills:
-            n = d['name']
-            if "Iron" in n: can_mine.append("IRON")
-            if "Advanced Iron" in n or "Copper" in n: can_mine.append("COPPER")
-            if "Advanced Copper" in n or "Gold" in n: can_mine.append("GOLD")
-            if "Advanced Gold" in n or "Cobalt" in n: can_mine.append("COBALT")
+        capabilities = []
+        part_names = [p['name'] for p in agent.get('parts', [])]
         
-        cm_text = ", ".join(sorted(list(set(can_mine)))) if can_mine else "NONE (Scout only)"
-        self.mining_box.config(text=cm_text, foreground=COLORS["emerald"] if can_mine else COLORS["amber"])
+        # Mining Tiers
+        drills = [name for name in part_names if 'Drill' in name]
+        can_mine = set()
+        for n in drills:
+            if "Iron" in n or "Basic" in n: can_mine.add("IRON")
+            if "Copper" in n or "Advanced Iron" in n: can_mine.add("COPPER")
+            if "Gold" in n or "Advanced Copper" in n: can_mine.add("GOLD")
+            if "Cobalt" in n or "Advanced Gold" in n or "Deep Core" in n: can_mine.add("COBALT")
+        
+        if can_mine:
+            capabilities.append(f"MINE: {', '.join(sorted(list(can_mine)))}")
+            
+        # Hauling
+        if any(p.get('stats', {}).get('capacity', 0) > 100 for p in agent.get('parts', [])):
+            capabilities.append("ROLE: HEAVY HAULER")
+        elif any('Hauler' in name or 'Cargo' in name for name in part_names):
+            capabilities.append("ROLE: HAULER")
+            
+        # Combat
+        if any(name for name in part_names if any(w in name for w in ['Rifle', 'Railgun', 'Cannon', 'Repeater', 'Laser'])):
+            capabilities.append("ROLE: COMBATANT")
+
+        cap_text = "\n".join(capabilities) if capabilities else "NONE (Scout only)"
+        self.capability_box.config(text=cap_text, foreground=COLORS["emerald"] if capabilities else COLORS["amber"])
 
         # Update Gear List
         self.gear_list.config(state="normal")

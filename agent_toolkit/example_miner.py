@@ -22,26 +22,10 @@ BASE_URL = os.getenv("TF_BASE_URL", "https://terminal-frontier.pixek.xyz")
 RECHARGE_THRESHOLD = 20
 # -----------------------
 
-ITEM_WEIGHTS = {
-    "IRON_ORE": 2.0, "COPPER_ORE": 2.0, "GOLD_ORE": 3.0, "COBALT_ORE": 4.0,
-    "IRON_INGOT": 5.0, "COPPER_INGOT": 5.0, "GOLD_INGOT": 7.0, "COBALT_INGOT": 10.0,
-    "HELIUM_GAS": 1.0, "EMPTY_CANISTER": 5.0, "HE3_CANISTER": 8.0,
-    "SCRAP_METAL": 1.0, "ELECTRONICS": 0.5, "CREDITS": 0.0
-}
-
-SMELTING_RECIPES = {
-    "IRON_ORE": "IRON_INGOT",
-    "COPPER_ORE": "COPPER_INGOT",
-    "GOLD_ORE": "GOLD_INGOT",
-    "COBALT_ORE": "COBALT_INGOT"
-}
-
 def calculate_mass(agent):
-    total = 0
-    for item in agent.get("inventory", []):
-        w = ITEM_WEIGHTS.get(item["type"], 10.0)
-        total += item["quantity"] * w
-    return total
+    """Returns agent mass from API, falling back to 0 if missing."""
+    return agent.get("mass", 0.0)
+
 
 def find_best_work(perception, can_mine, can_siphon):
     """Finds the closest work hex (Ore or Gas) based on equipped tools."""
