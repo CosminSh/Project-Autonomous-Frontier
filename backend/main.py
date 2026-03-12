@@ -346,8 +346,8 @@ if os.path.exists(frontend_path):
     @app.get("/api/metadata")
     async def get_metadata():
         return {
-            "version": "0.2.0",
-            "features": ["continuous_mining", "pilot_console_compat"]
+            "version": "0.2.1",
+            "features": ["continuous_mining", "pilot_console_compat", "enhanced_ui"]
         }
 
     @app.get("/")
@@ -363,7 +363,7 @@ else:
         return {
             "message": "Welcome to the Terminal Frontier API",
             "status": "online",
-            "version": "0.1.3",
+            "version": "0.1.4",
             "note": f"Frontend directory not found at {frontend_path}."
         }
 
