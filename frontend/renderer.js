@@ -76,18 +76,15 @@ export class GameRenderer {
 
     init() {
         // Skybox
+        this.scene.background = new THREE.Color(0x020205);
         const loader = new THREE.TextureLoader();
         loader.load('https://agent8-games.verse8.io/mcp-agent8-generated/static-assets/skybox-14100960-1754694699668.jpg', (texture) => {
             texture.mapping = THREE.EquirectangularReflectionMapping;
-            this.scene.background = texture;
+            // Background remains dark, but environment provides reflections
             this.scene.environment = texture;
-
-            if (!this.scene.backgroundRotation) {
-                this.scene.backgroundRotation = new THREE.Euler();
-            }
         });
 
-        this.scene.fog = new THREE.FogExp2(0x050507, 0.002);
+        this.scene.fog = new THREE.FogExp2(0x020205, 0.002);
 
         // Camera
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -98,6 +95,7 @@ export class GameRenderer {
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.setClearColor(0x020205, 1);
         document.getElementById('canvas-container').appendChild(this.renderer.domElement);
 
         // Controls
@@ -108,14 +106,14 @@ export class GameRenderer {
         this.controls.maxDistance = 500;
 
         // Lighting
-        const ambientLight = new THREE.AmbientLight(0x404040, 2);
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
         this.scene.add(ambientLight);
 
-        const sunLight = new THREE.DirectionalLight(0xffffff, 4);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
         sunLight.position.set(200, 100, 0);
         this.scene.add(sunLight);
 
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x080820, 0.2);
+        const hemiLight = new THREE.HemisphereLight(0x0ea5e9, 0x020205, 0.3);
         this.scene.add(hemiLight);
 
         // Atmosphere & Environment
@@ -286,12 +284,12 @@ export class GameRenderer {
         const posAttr = geo.attributes.position;
         const faceCount = posAttr.count / 3;
         const colorArray = new Float32Array(posAttr.count * 3);
-        const rockMat = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, roughness: 0.9, flatShading: true });
+        const rockMat = new THREE.MeshStandardMaterial({ color: 0x050510, roughness: 0.9, flatShading: true });
 
         for (let i = 0; i < posAttr.count; i++) {
-            colorArray[i * 3] = 0.04;
-            colorArray[i * 3 + 1] = 0.04;
-            colorArray[i * 3 + 2] = 0.07;
+            colorArray[i * 3] = 0.02;
+            colorArray[i * 3 + 1] = 0.02;
+            colorArray[i * 3 + 2] = 0.04;
         }
         geo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
 
@@ -318,15 +316,23 @@ export class GameRenderer {
         const mat = new THREE.MeshStandardMaterial({
             vertexColors: true,
             flatShading: true,
-            metalness: 0.15,
-            roughness: 0.85
+            metalness: 0.1,
+            roughness: 0.9,
+            emissive: 0x050510,
+            emissiveIntensity: 0.5
         });
 
         this.planetMesh = new THREE.Mesh(geo, mat);
         this.scene.add(this.planetMesh);
 
+        // Neon Accents on Edges
         const edgeGeo = new THREE.EdgesGeometry(geo, 1);
-        const edgeMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.15 });
+        const edgeMat = new THREE.LineBasicMaterial({ 
+            color: 0x0ea5e9, 
+            transparent: true, 
+            opacity: 0.25,
+            blending: THREE.AdditiveBlending 
+        });
         const wireframe = new THREE.LineSegments(edgeGeo, edgeMat);
         this.planetMesh.add(wireframe);
 
