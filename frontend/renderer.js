@@ -140,13 +140,16 @@ export class GameRenderer {
             const minAltitude = 51.5;
             if (this.camera.position.length() < minAltitude) {
                 this.camera.position.normalize().multiplyScalar(minAltitude);
-                if (this.controls) {
-                    // Update controls to reflect the position change if necessary
-                    // Note: We don't call this.controls.update() again to avoid recursion/jitter,
-                    // the next frame will handle the alignment.
-                }
             }
         }
+
+        // 0. Update Holographic Pulse Uniforms
+        const holographicTime = Date.now() * 0.001;
+        this.scene.traverse((obj) => {
+            if (obj.isMesh && obj.material && obj.material.userData && obj.material.userData.isHolographic) {
+                obj.material.uniforms.time.value = holographicTime;
+            }
+        });
 
         const stacks = new Map();
 
@@ -195,8 +198,26 @@ export class GameRenderer {
 
         // 4. Spin Resources (Only Gas) & Loot
         for (let mesh of this.resources.values()) {
-            if (mesh.visible && mesh.userData.isGas) {
-                mesh.rotation.y += 0.02;
+            if (mesh.visible) {
+                if (mesh.userData.isGas) mesh.rotation.y += 0.02;
+                
+                // Animate Pulsing Core
+                const pulse = 0.6 + Math.sin(Date.now() * 0.005) * 0.4;
+                mesh.traverse(child => {
+                    if (child.userData.isPulseCore) {
+                        child.scale.setScalar(pulse);
+                        child.material.opacity = pulse * 0.8;
+                    }
+                });
+
+                // Animate Data Stream
+                if (mesh.userData.stream) {
+                    mesh.userData.stream.children.forEach(p => {
+                        p.position.y += p.userData.riseSpeed;
+                        if (p.position.y > 2.5) p.position.y = 0;
+                        p.material.opacity = (2.5 - p.position.y) / 2.5;
+                    });
+                }
             }
         }
         // 5. Animate Agent Parts
@@ -213,8 +234,7 @@ export class GameRenderer {
         }
 
         if (this.scanWireframe) {
-            const pulse = 0.4 + Math.sin(Date.now() * 0.002) * 0.2;
-            this.scanWireframe.material.opacity = pulse;
+            this.scanWireframe.material.uniforms.time.value = holographicTime * 2.0;
         }
 
         if (this.renderer && this.scene && this.camera) {
@@ -339,11 +359,15 @@ export class GameRenderer {
         const SUBDIVISIONS = 10;
 
         const icoGeo = new THREE.IcosahedronGeometry(PLANET_RADIUS, SUBDIVISIONS);
-        const geo = icoGeo.toNonIndexed();
+        const geo = icoGeo.index ? icoGeo.toNonIndexed() : icoGeo;
 
         const posAttr = geo.attributes.position;
         const faceCount = posAttr.count / 3;
         const colorArray = new Float32Array(posAttr.count * 3);
+        
+        // Initialize color attribute to avoid TypeError in createHex
+        geo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+        
         const mat = new THREE.MeshBasicMaterial({
             vertexColors: true,
             transparent: true,
@@ -365,14 +389,34 @@ export class GameRenderer {
         const wireframe = new THREE.LineSegments(edgeGeo, edgeMat);
         this.planetMesh.add(wireframe);
 
-        // Secondary Pulsing Glow Wireframe
-        const scanMat = new THREE.LineBasicMaterial({
-            color: 0x0ea5e9,
+        // Secondary Pulsing Glow Wireframe (Scan Ripple)
+        const scanRippleMat = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0 },
+                color: { value: new THREE.Color(0x0ea5e9) }
+            },
+            vertexShader: `
+                varying vec3 vPosition;
+                void main() {
+                    vPosition = position;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float time;
+                uniform vec3 color;
+                varying vec3 vPosition;
+                void main() {
+                    float ripple = sin(vPosition.y * 0.5 - time * 2.0) * 0.5 + 0.5;
+                    ripple = pow(ripple, 8.0); // Sharpen the ripple
+                    gl_FragColor = vec4(color, ripple * 0.5);
+                }
+            `,
             transparent: true,
-            opacity: 0.4,
-            blending: THREE.AdditiveBlending
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
         });
-        this.scanWireframe = new THREE.LineSegments(edgeGeo, scanMat);
+        this.scanWireframe = new THREE.LineSegments(edgeGeo, scanRippleMat);
         this.scanWireframe.scale.setScalar(1.005);
         this.planetMesh.add(this.scanWireframe);
 
@@ -447,6 +491,84 @@ export class GameRenderer {
         sprite.scale.set(3, 0.75, 1);
         sprite.userData.isLabel = true;
         return sprite;
+    }
+
+    createHolographicMaterial(color, opacity = 0.7) {
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0 },
+                baseColor: { value: new THREE.Color(color) },
+                opacity: { value: opacity }
+            },
+            vertexShader: `
+                varying vec3 vNormal;
+                varying vec3 vPosition;
+                void main() {
+                    vNormal = normalize(normalMatrix * normal);
+                    vPosition = position;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float time;
+                uniform vec3 baseColor;
+                uniform float opacity;
+                varying vec3 vNormal;
+                varying vec3 vPosition;
+                void main() {
+                    // Fresnel effect
+                    float fresnel = pow(1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0))), 2.0);
+                    
+                    // Scanlines
+                    float scanline = sin(vPosition.y * 20.0 - time * 5.0) * 0.1 + 0.9;
+                    
+                    // Flicker
+                    float flicker = (sin(time * 50.0) * 0.02) + 0.98;
+                    
+                    vec3 finalColor = baseColor * (fresnel + 0.5) * scanline * flicker;
+                    gl_FragColor = vec4(finalColor, opacity * (fresnel + 0.3));
+                }
+            `,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide
+        });
+        material.userData.isHolographic = true;
+        return material;
+    }
+
+    createTrail(color) {
+        const trailCount = 20;
+        const geom = new THREE.BufferGeometry();
+        const posAttr = new THREE.BufferAttribute(new Float32Array(trailCount * 3), 3);
+        geom.setAttribute('position', posAttr);
+        const mat = new THREE.PointsMaterial({
+            color: color,
+            size: 0.15,
+            transparent: true,
+            opacity: 0.5,
+            blending: THREE.AdditiveBlending,
+            sizeAttenuation: true
+        });
+        const points = new THREE.Points(geom, mat);
+        points.userData.history = [];
+        return points;
+    }
+
+    updateTrail(trail, currentPos) {
+        const history = trail.userData.history;
+        history.unshift(currentPos);
+        if (history.length > 20) history.pop();
+
+        const posAttr = trail.geometry.attributes.position;
+        for (let i = 0; i < 20; i++) {
+            if (history[i]) {
+                posAttr.setXYZ(i, history[i].x, history[i].y, history[i].z);
+            } else {
+                posAttr.setXYZ(i, currentPos.x, currentPos.y, currentPos.z);
+            }
+        }
+        posAttr.needsUpdate = true;
     }
 
     qToCoord(q, r) {
@@ -539,6 +661,27 @@ export class GameRenderer {
                 mesh = new THREE.Mesh(geom, mat);
             }
 
+            // Create Pulsing Core for Resources
+            const coreGeom = isGas ? new THREE.IcosahedronGeometry(0.4, 0) : new THREE.DodecahedronGeometry(scale * 0.4, 0);
+            const coreMat = new THREE.MeshBasicMaterial({ color: resColor, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+            const pulseCore = new THREE.Mesh(coreGeom, coreMat);
+            pulseCore.userData.isPulseCore = true;
+            mesh.add(pulseCore);
+
+            // Add Vertical Data Stream (rising particles)
+            const streamGroup = new THREE.Group();
+            for (let i = 0; i < 3; i++) {
+                const particle = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.1, 0.1, 0.1),
+                    new THREE.MeshBasicMaterial({ color: resColor, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending })
+                );
+                particle.position.y = Math.random() * 2;
+                particle.userData.riseSpeed = 0.01 + Math.random() * 0.02;
+                streamGroup.add(particle);
+            }
+            mesh.add(streamGroup);
+            mesh.userData.stream = streamGroup;
+
             const centroid = this.faceCentroids[faceIndex];
             if (centroid) {
                 if (isGas) {
@@ -602,6 +745,26 @@ export class GameRenderer {
                 oRing.rotation.x = Math.PI / 2;
                 group.add(outpost, oRing);
         }
+
+        // Add active scanning field (wireframe sphere)
+        const scanFieldGeo = new THREE.SphereGeometry(15, 32, 32);
+        const scanFieldMat = new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.03,
+            wireframe: true,
+            blending: THREE.AdditiveBlending
+        });
+        const scanField = new THREE.Mesh(scanFieldGeo, scanFieldMat);
+        group.add(scanField);
+
+        // Apply holographic textures to children
+        group.traverse(child => {
+            if (child.isMesh && child.material === mat) {
+                child.material = this.createHolographicMaterial(0x0ea5e9, 0.4);
+            }
+        });
+
         return group;
     }
 
@@ -620,6 +783,7 @@ export class GameRenderer {
     }
 
     updateAgentMesh(agentData) {
+        // console.debug('[Renderer] updateAgentMesh v0.2.3', agentData.id);
         let mesh = this.agents.get(agentData.id);
         const q = agentData.q ?? agentData.location?.q ?? 0;
         const r = agentData.r ?? agentData.location?.r ?? 0;
@@ -627,6 +791,18 @@ export class GameRenderer {
         if (agentData.name === 'Wabbs' || agentData.id === parseInt(localStorage.getItem('sv_agent_id'))) {
             console.log('Visual Signature for player:', sig);
         }
+
+        const rarityColors = {
+            'SCRAP': 0x475569, 'STANDARD': 0x334155, 'REFINED': 0x1e293b,
+            'PRIME': 0x451a03, 'RELIC': 0x2d1b69
+        };
+        const rarityEmissives = {
+            'SCRAP': 0x334155, 'STANDARD': 0x0ea5e9, 'REFINED': 0x3b82f6,
+            'PRIME': 0xfacc15, 'RELIC': 0xf97316
+        };
+
+        const color = agentData.is_feral ? 0x7f1d1d : (rarityColors[sig.rarity] || 0x334155);
+        const emissive = agentData.is_feral ? 0xff0000 : (rarityEmissives[sig.rarity] || 0x0ea5e9);
 
         // If signature changed, rebuild the mesh
         if (mesh && mesh.userData.sigHash !== JSON.stringify(sig)) {
@@ -639,30 +815,10 @@ export class GameRenderer {
             mesh = new THREE.Group();
             mesh.userData.sigHash = JSON.stringify(sig);
 
-            const rarityColors = {
-                'SCRAP': 0x475569, 'STANDARD': 0x334155, 'REFINED': 0x1e293b,
-                'PRIME': 0x451a03, 'RELIC': 0x2d1b69
-            };
-            const rarityEmissives = {
-                'SCRAP': 0x334155, 'STANDARD': 0x0ea5e9, 'REFINED': 0x3b82f6,
-                'PRIME': 0xfacc15, 'RELIC': 0xf97316
-            };
-
-            const color = agentData.is_feral ? 0x7f1d1d : (rarityColors[sig.rarity] || 0x334155);
-            const emissive = agentData.is_feral ? 0xff0000 : (rarityEmissives[sig.rarity] || 0x0ea5e9);
-
-            // Create Grunge/Weathered Material
-            const wear = agentData.wear_and_tear || 0;
-            const roughness = 0.7 + (Math.random() * 0.2);
             const metalness = 0.4 + (Math.random() * 0.2);
 
-            const material = new THREE.MeshBasicMaterial({
-                color: emissive,
-                transparent: true,
-                opacity: 0.7,
-                blending: THREE.AdditiveBlending,
-                wireframe: false
-            });
+            // Create Holographic Material
+            const material = this.createHolographicMaterial(emissive, 0.6);
 
             // 1. Build Chassis
             let chassisGeo;
@@ -794,15 +950,40 @@ export class GameRenderer {
         const { x, y, z } = this.qToSphere(q, r, 1.5);
         const targetPos = new THREE.Vector3(x, y, z);
 
+        // ── Heading & Rotation Logic ──
+        if (mesh.position.distanceToSquared(targetPos) > 0.001) {
+            const direction = new THREE.Vector3().subVectors(targetPos, mesh.position);
+            const up = mesh.position.clone().normalize();
+            
+            // Project direction onto the tangent plane
+            const tangentDir = direction.clone().sub(up.clone().multiplyScalar(direction.dot(up))).normalize();
+            
+            if (tangentDir.lengthSq() > 0.001) {
+                const matrix = new THREE.Matrix4();
+                matrix.lookAt(new THREE.Vector3(0,0,0), tangentDir, up);
+                const lookQuat = new THREE.Quaternion().setFromRotationMatrix(matrix);
+                mesh.quaternion.slerp(lookQuat, 0.2);
+            }
+
+            // Update Trail
+            if (!mesh.userData.trail) {
+                mesh.userData.trail = this.createTrail(emissive);
+                this.scene.add(mesh.userData.trail);
+            }
+            this.updateTrail(mesh.userData.trail, mesh.position.clone());
+        }
+
         if (mesh.position.lengthSq() < 1 || mesh.position.distanceTo(targetPos) > 10) {
             mesh.position.copy(targetPos);
         } else {
-            mesh.position.lerp(targetPos, 0.1);
+            mesh.position.lerp(targetPos, 0.15);
         }
 
-        const up = targetPos.clone().normalize();
-        const targetQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
-        mesh.quaternion.slerp(targetQuat, 0.15);
+        // Periodic bobbing/vibration
+        const bob = Math.sin(Date.now() * 0.003) * 0.05;
+        if (mesh.userData.chassis) {
+            mesh.userData.chassis.position.y = bob;
+        }
 
         if (sig.rarity === 'PRIME' || sig.rarity === 'RELIC') {
             const pulse = 0.5 + Math.sin(Date.now() * 0.005) * 0.3;
