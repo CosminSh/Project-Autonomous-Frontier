@@ -240,6 +240,52 @@ export class GameRenderer {
         this.starfield = new THREE.Points(starGeom, starMat);
         this.scene.add(this.starfield);
 
+        // Subtle Galaxy Clouds / Nebulas
+        const nebulaCount = 20;
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 128, 128);
+        const nebulaTex = new THREE.CanvasTexture(canvas);
+
+        const nebulaColors = [
+            0x0f172a, // Dark Slate
+            0x1e1b4b, // Deep Indigo
+            0x312e81, // Indigo
+            0x2d1b69  // Dark Purple
+        ];
+
+        for (let i = 0; i < nebulaCount; i++) {
+            const color = nebulaColors[Math.floor(Math.random() * nebulaColors.length)];
+            const nebulaMat = new THREE.SpriteMaterial({
+                map: nebulaTex,
+                color: color,
+                transparent: true,
+                opacity: 0.1, 
+                blending: THREE.AdditiveBlending
+            });
+            const nebula = new THREE.Sprite(nebulaMat);
+            const radius = 600 + Math.random() * 200;
+            const phi = Math.random() * Math.PI * 2;
+            const theta = Math.random() * Math.PI;
+            
+            nebula.position.set(
+                radius * Math.sin(theta) * Math.cos(phi),
+                radius * Math.cos(theta),
+                radius * Math.sin(theta) * Math.sin(phi)
+            );
+            
+            const size = 300 + Math.random() * 600;
+            nebula.scale.set(size, size * (0.5 + Math.random() * 0.5), 1);
+            nebula.rotation = Math.random() * Math.PI;
+            this.scene.add(nebula);
+        }
+
         const debrisGeom = new THREE.BufferGeometry();
         const debrisCount = 300;
         const debrisPos = new Float32Array(debrisCount * 3);
