@@ -346,7 +346,7 @@ if os.path.exists(frontend_path):
     @app.get("/api/metadata")
     async def get_metadata():
         return {
-            "version": "0.2.1",
+            "version": "0.2.2",
             "features": ["continuous_mining", "pilot_console_compat", "enhanced_ui"]
         }
 
