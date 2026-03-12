@@ -51,6 +51,11 @@ async def lifespan(app: FastAPI):
         ("agents", "experience", "INTEGER DEFAULT 0"),
         ("agents", "level", "INTEGER DEFAULT 1"),
         ("agents", "speed", "INTEGER DEFAULT 10"),
+        ("agents", "accuracy", "INTEGER DEFAULT 15"),
+        ("agents", "overclock", "INTEGER DEFAULT 10"),
+        ("agents", "max_mass", "FLOAT DEFAULT 100.0"),
+        ("agents", "storage_capacity", "FLOAT DEFAULT 500.0"),
+        ("agents", "last_daily_reward", "DATETIME"),
         ("agents", "is_pitfighter", "BOOLEAN DEFAULT FALSE"),
         ("agents", "is_aggressive", "BOOLEAN DEFAULT FALSE"),
         ("agents", "wear_and_tear", "FLOAT DEFAULT 0.0"),
@@ -65,7 +70,14 @@ async def lifespan(app: FastAPI):
         ("global_state", "actions_processed", "INTEGER DEFAULT 0"),
         ("bounties", "claimed_by", "INTEGER REFERENCES agents(id)"),
         ("bounties", "claim_tick", "BIGINT"),
-        ("api_key_revocations", "reason", "VARCHAR"), # Just a dummy check to trigger table creation since create_all is called
+        ("bounties", "created_at", "DATETIME"),
+        ("auction_house", "created_at", "DATETIME"),
+        ("market_pickups", "created_at", "DATETIME"),
+        ("intents", "created_at", "DATETIME"),
+        ("daily_missions", "created_at", "DATETIME"),
+        ("corporations", "created_at", "DATETIME"),
+        ("api_key_revocations", "reason", "VARCHAR"),
+        ("api_key_revocations", "revoked_at", "DATETIME"),
     ]
     
     with engine.connect() as conn:
