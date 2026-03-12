@@ -103,7 +103,7 @@ export class GameRenderer {
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
         this.controls.minDistance = 2.0;
-        this.controls.maxDistance = 500;
+        this.controls.maxDistance = 1000;
 
         // Lighting
         const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
