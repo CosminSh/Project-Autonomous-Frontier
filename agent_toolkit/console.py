@@ -573,8 +573,14 @@ class PilotConsole:
             dest = find_station("STATION_HUB") or find_station("MARKET")
             if is_at("STATION_HUB") or is_at("MARKET") or (self_data["q"] == 0 and self_data["r"] == 0):
                 # REPAIR if needed
-                if health_p < 90:
-                    self.log("INDUSTRIAL: Repairing hull integrity...")
+                if health_p < 95:
+                    self.log("INDUSTRIAL: Restoring hull integrity...")
+                    self.client.submit_intent("REPAIR", {"amount": "MAX"})
+                    return "RETREATING"
+                
+                # RESET WEAR if needed
+                if agent.get("wear_and_tear", 0) > 40:
+                    self.log("INDUSTRIAL: Performing core service maintenance...")
                     self.client.submit_intent("RESET_WEAR")
                     return "RETREATING"
                 

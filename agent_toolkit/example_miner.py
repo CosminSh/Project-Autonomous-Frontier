@@ -100,6 +100,13 @@ def main():
             logging.info(f"[Tick {current_tick}] {state} | Energy: {energy}% | Load: {load_pct:.1f}% | Pos: ({agent.get('q',0)},{agent.get('r',0)})")
 
             # 3. Decision Tree
+            # --- CRITICAL HEALTH CHECK ---
+            health_p = (agent.get("health", 100) / agent.get("max_health", 100)) * 100
+            if health_p < 50 and state not in ["RETREATING", "DEPOSITING"]:
+                logging.warning(f"CRITICAL: Hull Integrity at {health_p:.1f}%. Retreating!")
+                state = "FIND_HUB"
+                continue
+
             if energy < RECHARGE_THRESHOLD and state != "CHARGING":
                 client.submit_intent("STOP")
                 state = "CHARGING"
@@ -236,6 +243,14 @@ def main():
                     client.submit_intent("STORAGE_DEPOSIT", {"item_type": item, "quantity": "MAX"})
                 else:
                     logging.info("Cycle complete.")
+                    
+                    # Ensure full repairs before next cycle
+                    health_p = (agent.get("health", 100) / agent.get("max_health", 100)) * 100
+                    if health_p < 95:
+                        logging.info("Restoring hull integrity...")
+                        client.submit_intent("REPAIR", {"amount": "MAX"})
+                        return # Stay in DEPOSITING until next tick to finish repairs
+                        
                     state = "IDLE"
 
         except Exception as e:
