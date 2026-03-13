@@ -228,6 +228,17 @@
     <div id="canvas-container"></div>
     <div id="toast-container" class="fixed top-6 right-6 z-[100] space-y-3 pointer-events-none"></div>
 
+    <!-- Agent Status Overlay (World Screen) -->
+    <div id="agent-status-overlay" class="fixed top-24 left-1/2 -translate-x-1/2 z-50 glass px-4 py-2 rounded-full border border-sky-500/30 opacity-0 transition-opacity pointer-events-none">
+        <div class="flex items-center space-x-3">
+            <span class="relative flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+            </span>
+            <span id="agent-status-text" class="orbitron text-[10px] font-bold text-sky-400 tracking-widest uppercase">Initializing...</span>
+        </div>
+    </div>
+
     <main class="ui-layer p-3 lg:p-6">
         <!-- Header -->
         <header
@@ -311,38 +322,16 @@
         <!-- DASHBOARD LAYER -->
         <div id="dashboard-layer"
             class="flex-grow flex flex-col md:flex-row justify-between items-center md:items-end pb-8 space-y-6 md:space-y-0">
-            <!-- Global Stats (Always Visible) -->
-            <div id="world-info-container" class="space-y-4 w-full md:w-auto md:ml-4 px-4 md:px-0">
-                <div id="global-stats" class="glass rounded-2xl p-4 border-l-4 border-l-emerald-500 interactive">
-                    <h3
-                        class="orbitron text-[8px] md:text-[10px] text-emerald-500 font-bold mb-3 tracking-widest uppercase">
-                        World Metrics</h3>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <div class="text-[7px] md:text-[8px] text-slate-500 uppercase">Active Agents</div>
-                            <div id="stat-agents" class="text-sm md:text-lg font-bold text-slate-200">--</div>
-                        </div>
-                        <div>
-                            <div class="text-[7px] md:text-[8px] text-slate-400 uppercase">Market Listings</div>
-                            <div id="stat-market" class="text-sm md:text-lg font-bold text-sky-400">--</div>
-                        </div>
-                        <div class="col-span-2 border-t border-slate-800 pt-3">
-                            <div class="text-[7px] md:text-[8px] text-emerald-500/60 uppercase font-black tracking-[0.2em]">Global Activity</div>
-                            <div id="stat-actions" class="text-xs md:text-sm font-mono text-emerald-400">--</div>
-                            <div class="text-[6px] text-slate-600 uppercase mt-0.5">Total processed intents since epoch</div>
-                        </div>
+            <!-- World Screen Telemetry (Telemetric Feed) -->
+            <div id="world-telemetry-container" class="space-y-4 w-full md:w-auto md:ml-4 px-4 md:px-0">
+                <div class="glass rounded-2xl p-4 border-l-4 border-l-emerald-500 interactive w-full md:w-64 h-48 flex flex-col">
+                    <div class="flex justify-between items-center mb-1">
+                        <h3 class="orbitron text-[8px] text-emerald-500 font-bold tracking-widest uppercase">📡 Action Telemetry</h3>
+                        <span class="text-[7px] text-slate-500 font-mono animate-pulse">LIVE</span>
                     </div>
-                </div>
-
-                <!-- Live Feed (New) -->
-                <div id="live-feed-container"
-                    class="glass rounded-2xl p-4 border-l-4 border-l-sky-500 interactive w-full md:w-64 h-32 md:h-40 flex flex-col">
-                    <h3 class="orbitron text-[8px] text-sky-500 font-bold tracking-widest uppercase">Global Network Feed
-                    </h3>
-                    <p class="text-[7px] text-slate-400 mb-2 italic">Real-time planetary activity & events</p>
-                    <div id="live-feed"
-                        class="flex-grow overflow-y-auto text-[8px] md:text-[9px] space-y-1 font-mono text-slate-400">
-                        <div class="text-slate-600 italic">Initializing neural link...</div>
+                    <p class="text-[7px] text-slate-400 mb-2 italic">Direct bot uplink active</p>
+                    <div id="world-telemetry-feed" class="flex-grow overflow-y-auto text-[9px] space-y-2 font-mono text-slate-400 custom-scrollbar">
+                        <div class="text-slate-600 italic">Establishing neural link...</div>
                     </div>
                 </div>
             </div>
@@ -369,6 +358,31 @@
                     </button>
                     <p class="mt-4 text-[8px] md:text-[9px] text-slate-500 italic max-w-xs mx-auto">Skip Google Auth for
                         local testing or immediate server exploration.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- World Metrics Bar (Bottom) -->
+        <div id="world-metrics-bar" class="fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/5 py-1.5 px-6 pointer-events-auto interactive flex flex-wrap justify-center md:justify-around items-center gap-x-8 gap-y-2 lg:gap-x-12">
+            <div class="flex flex-col items-center">
+                <span class="text-[7px] text-slate-500 uppercase tracking-widest font-bold">Active Agents</span>
+                <span id="stat-agents" class="orbitron text-[10px] text-slate-300 font-bold tracking-wider">--</span>
+            </div>
+            
+            <div class="hidden md:block w-px h-6 bg-white/5"></div>
+            
+            <div class="flex flex-col items-center">
+                <span class="text-[7px] text-sky-500/80 uppercase tracking-widest font-bold">Market Depth</span>
+                <span id="stat-market" class="orbitron text-[10px] text-sky-400 font-bold tracking-wider">--</span>
+            </div>
+
+            <div class="hidden md:block w-px h-6 bg-white/5"></div>
+
+            <div class="flex flex-col items-center">
+                <span class="text-[7px] text-emerald-500/80 uppercase tracking-widest font-bold">Global Activity</span>
+                <div class="flex items-center space-x-1.5">
+                    <span id="stat-actions" class="orbitron text-[10px] text-emerald-400 font-bold tracking-wider">--</span>
+                    <span class="text-[6px] text-slate-600 font-mono uppercase">INTENTS</span>
                 </div>
             </div>
         </div>
@@ -1437,8 +1451,8 @@
         }
     }
     </script>
-    <script type="module" src="storage.js?v=0.5.1"></script>
-    <script type="module" src="app.js?v=0.5.1"></script>
+    <script type="module" src="storage.js?v=0.5.2"></script>
+    <script type="module" src="app.js?v=0.5.2"></script>
 </body>
 
 </html>

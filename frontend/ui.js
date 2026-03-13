@@ -186,27 +186,7 @@ export class UIManager {
     }
 
     updateLiveFeed(logs) {
-        if (!logs) return;
-        const feedEl = document.getElementById('live-feed');
-        if (!feedEl) return;
-
-        feedEl.innerHTML = '';
-        logs.forEach(log => {
-            const entry = document.createElement('div');
-            const time = new Date(log.time).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-            let color = 'text-slate-400';
-            let icon = '>>';
-
-            if (log.event === 'COMBAT_HIT') { color = 'text-red-400'; icon = '!!'; }
-            if (log.event === 'MINING') { color = 'text-emerald-400'; icon = '&&'; }
-            if (log.event === 'RESPAWNED') { color = 'text-orange-400'; icon = 'XX'; }
-            if (log.event.startsWith('MARKET')) { color = 'text-sky-400'; icon = '$$'; }
-
-            entry.className = `flex space-x-2 ${color}`;
-            entry.innerHTML = `<span class="text-slate-600">[${time}]</span><span class="font-bold">${icon}</span><span>${log.event}: ${JSON.stringify(log.details)}</span>`;
-            feedEl.appendChild(entry);
-        });
+        // Redacted: Global feed replaced by Action Telemetry on world screen
     }
 
     updatePrivateLogs(logs, pendingIntent, chatMessages = []) {
@@ -300,9 +280,18 @@ export class UIManager {
         if (hasNew) {
             // Insert new entries after the pending-intent card (at top of log feed)
             const afterPending = this._pendingIntentEl?.nextSibling || null;
-            logEl.insertBefore(fragment, afterPending);
+            logEl.insertBefore(fragment.cloneNode(true), afterPending);
             // Auto-scroll to top to show newest entries
             logEl.scrollTop = 0;
+
+            // --- SYNC TO WORLD SCREEN FEED ---
+            const worldFeed = document.getElementById('world-telemetry-feed');
+            if (worldFeed) {
+                // For world screen, we keep it simpler but show newest at top
+                if (worldFeed.children.length > 50) worldFeed.lastElementChild.remove();
+                worldFeed.prepend(fragment);
+                worldFeed.scrollTop = 0;
+            }
         }
     }
 
@@ -583,6 +572,25 @@ export class UIManager {
                     <span class="text-sky-400 text-[10px]">${i.quantity}</span>
                 </div>
             `).join('');
+        }
+
+        // --- AGENT STATUS OVERLAY ---
+        const overlay = document.getElementById('agent-status-overlay');
+        const statusText = document.getElementById('agent-status-text');
+        if (overlay && statusText) {
+            let status = "IDLE / STANDBY";
+            const pi = agent.pending_intent;
+            if (pi) {
+                if (pi.action === 'MOVE') status = `HEADING TO ${pi.data.q}, ${pi.data.r}`;
+                else if (pi.action === 'MINE') status = "MINING RESOURCES";
+                else if (pi.action === 'SALVAGE') status = "SALVAGING DEBRIS";
+                else if (pi.action === 'PERCEIVE') status = "SCANNING SECTOR";
+                else status = `${pi.action} IN PROGRESS`;
+            }
+            
+            statusText.innerText = status;
+            overlay.classList.remove('opacity-0');
+            overlay.classList.add('opacity-100');
         }
 
         // --- GARAGE CATEGORIZATION ---
