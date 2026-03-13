@@ -70,41 +70,51 @@ def _axial_dist(q1, r1, q2, r2) -> int:
     return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
 
 def get_hex_distance(q1, r1, q2, r2) -> int:
-    """Calculates shortest distance on a spherical/wrapped hex grid."""
-    # Ensure we use consolidated pole coordinates for the real points
+    """Calculates shortest distance on a spherical/wrapped hex grid with consolidated poles."""
+    # Ensure we use consolidated pole coordinates
     q1, r1 = wrap_coords(q1, r1)
     q2, r2 = wrap_coords(q2, r2)
+    
+    if q1 == q2 and r1 == r2:
+        return 0
 
-    # To find shortest distance on a sphere/torus, we check the target and its "images"
-    # across the seams and poles.
+    # 1. Pole Shortcut Dists: Any longitude change at the pole is effectively 'free'.
+    # North Pole = (0,0), South Pole = (0,100)
+    shortcut_dists = []
     
-    # Image 1: Direct
-    dists = [_axial_dist(q1, r1, q2, r2)]
+    # Distances to North Pole (r=0,1 consolidated)
+    if r1 == 0: shortcut_dists.append(max(0, r2 - 1))
+    elif r2 == 0: shortcut_dists.append(max(0, r1 - 1))
     
-    # Image 2 & 3: Longitude wrap
-    dists.append(_axial_dist(q1, r1, q2 + WORLD_WIDTH, r2))
-    dists.append(_axial_dist(q1, r1, q2 - WORLD_WIDTH, r2))
+    # Distances to South Pole (r=99,100 consolidated)
+    if r1 == 100: shortcut_dists.append(max(0, (100 - r2) - 1))
+    elif r2 == 100: shortcut_dists.append(max(0, (100 - r1) - 1))
     
-    # Image 4: North Pole Reflection (q+50, -r)
+    # Path via North Pole: (Point1 -> NP) + (NP -> Point2)
+    shortcut_dists.append(max(0, r1 - 1) + max(0, r2 - 1))
+    
+    # Path via South Pole: (Point1 -> SP) + (SP -> Point2)
+    shortcut_dists.append(max(0, 100 - r1 - 1) + max(0, 100 - r2 - 1))
+
+    # 2. Standard Axial Images (wrapped and reflected)
+    standard_dists = []
+    standard_dists.append(_axial_dist(q1, r1, q2, r2))
+    standard_dists.append(_axial_dist(q1, r1, q2 + WORLD_WIDTH, r2))
+    standard_dists.append(_axial_dist(q1, r1, q2 - WORLD_WIDTH, r2))
+    
+    # North Pole Reflection (Across the pole)
     pq_n = (q2 + (WORLD_WIDTH // 2))
-    dists.append(_axial_dist(q1, r1, pq_n, -r2))
-    dists.append(_axial_dist(q1, r1, pq_n - WORLD_WIDTH, -r2))
-    dists.append(_axial_dist(q1, r1, pq_n + WORLD_WIDTH, -r2))
+    standard_dists.append(_axial_dist(q1, r1, pq_n, -r2))
+    standard_dists.append(_axial_dist(q1, r1, pq_n - WORLD_WIDTH, -r2))
+    standard_dists.append(_axial_dist(q1, r1, pq_n + WORLD_WIDTH, -r2))
     
-    # Image 5: South Pole Reflection (q+50, 200 - r)
+    # South Pole Reflection
     pq_s = (q2 + (WORLD_WIDTH // 2))
-    dists.append(_axial_dist(q1, r1, pq_s, 200 - r2))
-    dists.append(_axial_dist(q1, r1, pq_s - WORLD_WIDTH, 200 - r2))
-    dists.append(_axial_dist(q1, r1, pq_s + WORLD_WIDTH, 200 - r2))
-    
-    # Image 6: Pole Shortcut (Latitude-only path through poles)
-    # On a sphere, the shortest path between two points can be over the north or south pole.
-    # Dist via North Pole = r1 + r2
-    # Dist via South Pole = (100-r1) + (100-r2)
-    dists.append(r1 + r2)
-    dists.append((100 - r1) + (100 - r2))
-    
-    return min(dists)
+    standard_dists.append(_axial_dist(q1, r1, pq_s, 200 - r2))
+    standard_dists.append(_axial_dist(q1, r1, pq_s - WORLD_WIDTH, 200 - r2))
+    standard_dists.append(_axial_dist(q1, r1, pq_s + WORLD_WIDTH, 200 - r2))
+
+    return int(min(shortcut_dists + standard_dists))
 
 
 def is_in_anarchy_zone(q, r) -> bool:
@@ -328,31 +338,64 @@ def get_solar_intensity(q, r, tick_count=0) -> float:
     return 0.0
 
 
+def get_hex_neighbors(q: int, r: int):
+    """Returns valid neighbors for a hex, handling pole consolidation."""
+    q, r = wrap_coords(q, r)
+    
+    # 1. North Pole Node
+    if r == 0:
+        # Every cell on ring r=2 is a neighbor of the consolidated North Pole
+        return [(i, 2) for i in range(WORLD_WIDTH)]
+    
+    # 2. South Pole Node
+    if r == 100:
+        # Every cell on ring r=98 is a neighbor of the consolidated South Pole
+        return [(i, 98) for i in range(WORLD_WIDTH)]
+        
+    # 3. Normal Axial Step
+    NEIGHBORS = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, -1), (-1, 1)]
+    results = set()
+    for dq, dr in NEIGHBORS:
+        results.add(wrap_coords(q + dq, r + dr))
+    
+    # Safety: ensure we don't return self as a neighbor
+    if (q, r) in results:
+        results.remove((q, r))
+        
+    return list(results)
+
+
 def find_hex_path(db: Session, sq: int, sr: int, gq: int, gr: int, max_steps: int = 50):
     """BFS pathfinding on the axial hex grid. Returns list of (q,r) steps or None."""
+    sq, sr = wrap_coords(sq, sr)
+    gq, gr = wrap_coords(gq, gr)
+    
     if sq == gq and sr == gr:
         return []
-    NEIGHBORS = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, -1), (-1, 1)]
+        
     obstacles = set(
         (h.q, h.r) for h in db.execute(
             select(WorldHex).where(WorldHex.terrain_type == "OBSTACLE")
         ).scalars().all()
     )
+    
     queue = deque([(sq, sr, [])])
     visited = {(sq, sr)}
-    bounds = get_world_bounds(db)
     
     while queue:
         q, r, path = queue.popleft()
+        
         if q == gq and r == gr:
             return path
+        
         if len(path) >= max_steps:
             continue
-        for dq, dr in NEIGHBORS:
-            nq, nr = wrap_coords(q + dq, r + dr)
+            
+        for nq, nr in get_hex_neighbors(q, r):
             if (nq, nr) not in visited and (nq, nr) not in obstacles:
                 visited.add((nq, nr))
                 queue.append((nq, nr, path + [(nq, nr)]))
+                
     return None
 
 
