@@ -92,11 +92,17 @@ def get_hex_distance(q1, r1, q2, r2) -> int:
     dists.append(_axial_dist(q1, r1, pq_n + WORLD_WIDTH, -r2))
     
     # Image 5: South Pole Reflection (q+50, 200 - r)
-    # Pole is at 100. Reflection of r2 over 100 is 100 + (100 - r2) = 200 - r2
     pq_s = (q2 + (WORLD_WIDTH // 2))
     dists.append(_axial_dist(q1, r1, pq_s, 200 - r2))
     dists.append(_axial_dist(q1, r1, pq_s - WORLD_WIDTH, 200 - r2))
     dists.append(_axial_dist(q1, r1, pq_s + WORLD_WIDTH, 200 - r2))
+    
+    # Image 6: Pole Shortcut (Latitude-only path through poles)
+    # On a sphere, the shortest path between two points can be over the north or south pole.
+    # Dist via North Pole = r1 + r2
+    # Dist via South Pole = (100-r1) + (100-r2)
+    dists.append(r1 + r2)
+    dists.append((100 - r1) + (100 - r2))
     
     return min(dists)
 
