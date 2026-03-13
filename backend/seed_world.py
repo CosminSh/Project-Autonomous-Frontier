@@ -137,9 +137,12 @@ def seed_world():
                 conn.commit()
                 logger.info(f"Migration: Added column {col} to {table}.")
             except Exception as e:
+                # IMPORTANT for Postgres: Reset the transaction if a migration step fails
+                # (usually because the column already exists)
+                conn.rollback()
                 err_str = str(e).lower()
                 if "duplicate column" in err_str or "already exists" in err_str:
-                    pass # Expected if migration already ran via main.py
+                    pass 
                 else:
                     logger.warning(f"Note: Migration for {table}.{col} skipped: {e}")
 
