@@ -1455,7 +1455,7 @@ Intent payload format:
 
     _getActionsForTarget(targetData) {
         const actions = [];
-        const { type, q, r, name, resource } = targetData;
+        const { type, q, r, name, resource, isStation, stationType } = targetData;
 
         // Everyone can move (or move nearby)
         actions.push({
@@ -1489,6 +1489,15 @@ Intent payload format:
             });
         }
 
+        if (isStation) {
+            actions.push({
+                type: 'HIGHLIGHT',
+                label: `Target Signal: ${stationType}`,
+                icon: '📡',
+                payload: { q, r, label: stationType }
+            });
+        }
+
         actions.push({
             type: 'INSPECT',
             label: `Inspect ${type === 'hex' ? 'Sector' : name || resource || 'Object'}`,
@@ -1514,10 +1523,21 @@ Intent payload format:
             item.onclick = (e) => {
                 e.stopPropagation();
                 this.hideContextMenu();
+                
                 if (action.type === 'INSPECT') {
-                    this.game.terminal.execute(`PERCEIVE ${action.payload.q} ${action.payload.r}`);
+                    // Correct terminal command execution
+                    this.game.terminal.execute(`PERCEIVE`);
+                    this.game.terminal.log(`Locating coordinates: [${action.payload.q}, ${action.payload.r}]`, 'info');
+                    
                     if (this.game.renderer) {
-                        this.game.renderer.spawnFloatingText("INSPECTING", {x:0, y:0, z:0}, '#38bdf8'); // Placeholder point
+                        const { x, y, z } = this.game.renderer.qToSphere(action.payload.q, action.payload.r, 1.0);
+                        this.game.renderer.spawnFloatingText("INSPECTING", {x, y, z}, '#38bdf8');
+                    }
+                } else if (action.type === 'HIGHLIGHT') {
+                    if (this.game.renderer) {
+                        const { x, y, z } = this.game.renderer.qToSphere(action.payload.q, action.payload.r, 2.0);
+                        this.game.renderer.spawnFloatingText(`${action.payload.label} ACQUIRED`, {x, y, z}, '#fbbf24');
+                        this.game.terminal.log(`Nav-Computer Locked: ${action.payload.label} at (${action.payload.q}, ${action.payload.r})`, 'success');
                     }
                 } else {
                     this.showActionConfirmation(action);

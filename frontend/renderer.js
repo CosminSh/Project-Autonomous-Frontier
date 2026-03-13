@@ -1321,7 +1321,14 @@ export class GameRenderer {
 
         const resourceMeshes = Array.from(this.resources.values());
         const agentMeshes = Array.from(this.agents.values());
-        const intersects = this.raycaster.intersectObjects([this.planetMesh, ...resourceMeshes, ...agentMeshes], true);
+        
+        // Targetable stations
+        const stationMeshes = [];
+        this.scene.traverse(obj => {
+            if (obj.userData && obj.userData.isStation) stationMeshes.push(obj);
+        });
+
+        const intersects = this.raycaster.intersectObjects([this.planetMesh, ...resourceMeshes, ...agentMeshes, ...stationMeshes], true);
 
         if (intersects.length > 0) {
             const hit = intersects[0];
@@ -1334,10 +1341,25 @@ export class GameRenderer {
                 return findAgent(obj.parent);
             };
 
+            const findStation = (obj) => {
+                if (!obj) return null;
+                if (obj.userData && obj.userData.isStation) return obj.userData;
+                return findStation(obj.parent);
+            };
+
             const agentData = findAgent(hit.object);
+            const stationData = findStation(hit.object);
 
             if (agentData) {
                 targetData = { type: 'agent', q: agentData.q, r: agentData.r, name: agentData.name, id: agentData.id };
+            } else if (stationData) {
+                targetData = { 
+                    type: 'station', 
+                    q: stationData.q, 
+                    r: stationData.r, 
+                    isStation: true, 
+                    stationType: stationData.stationType 
+                };
             } else if (resourceMeshes.includes(hit.object) || resourceMeshes.includes(hit.object.parent)) {
                 const resMesh = resourceMeshes.includes(hit.object) ? hit.object : hit.object.parent;
                 const resData = resMesh.userData;
@@ -1348,22 +1370,7 @@ export class GameRenderer {
                 targetData = { type: 'hex', q, r };
             }
 
-            // Debug Helper: Visual Hit Marker & Console log
-            if (this.isDebugVisible) {
-                console.log(`[Renderer-Debug] Raycast Hit:`, hit.point, `=> Found Coords: ${targetData.q}, ${targetData.r}`);
-                
-                if (!this.debugMarker) {
-                    this.debugMarker = new THREE.Mesh(
-                        new THREE.SphereGeometry(0.5, 16, 16),
-                        new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.8 })
-                    );
-                    this.scene.add(this.debugMarker);
-                }
-                this.debugMarker.position.copy(hit.point);
-            }
-
             if (targetData && targetData.q !== undefined && targetData.r !== undefined) {
-                console.log(`[Renderer] Map Context Menu for ${targetData.type} at ${targetData.q}, ${targetData.r}`);
                 if (window.game && window.game.ui) {
                     window.game.ui.showContextMenu(event.clientX, event.clientY, targetData);
                 }
