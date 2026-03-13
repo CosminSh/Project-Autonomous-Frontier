@@ -67,16 +67,14 @@ _CACHED_CRAFTING_RECIPES: list = _build_recipe_cache()
 
 def _axial_dist(q1, r1, q2, r2) -> int:
     """Core axial distance math."""
-    # Normalize poles: r=1 -> r=0, r=99 -> r=100
-    if r1 <= 1: q1, r1 = 0, 0
-    elif r1 >= 99: q1, r1 = 0, 100
-    if r2 <= 1: q2, r2 = 0, 0
-    elif r2 >= 99: q2, r2 = 0, 100
-    
     return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
 
 def get_hex_distance(q1, r1, q2, r2) -> int:
     """Calculates shortest distance on a spherical/wrapped hex grid."""
+    # Ensure we use consolidated pole coordinates for the real points
+    q1, r1 = wrap_coords(q1, r1)
+    q2, r2 = wrap_coords(q2, r2)
+
     # To find shortest distance on a sphere/torus, we check the target and its "images"
     # across the seams and poles.
     
