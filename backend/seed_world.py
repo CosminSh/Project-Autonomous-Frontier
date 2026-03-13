@@ -114,8 +114,36 @@ def _random_pos_at_dist(target_dist: int, spread: int = 3):
 def seed_world():
     logger.info("Initializing tables (if not exist)...")
     Base.metadata.create_all(engine)
-    db = SessionLocal()
+    
+    # Safe column migrations: ensure direct scripts stay in sync with main app schema
+    safe_migrations = [
+        ("agents", "health", "INTEGER DEFAULT 100"),
+        ("agents", "max_health", "INTEGER DEFAULT 100"),
+        ("agents", "energy", "INTEGER DEFAULT 100"),
+        ("world_hexes", "resource_quantity", "INTEGER DEFAULT 0"),
+        ("world_hexes", "expires_tick", "BIGINT"),
+        ("arena_profiles", "daily_opponents", "JSON"),
+        ("agents", "experience", "INTEGER DEFAULT 0"),
+        ("agents", "level", "INTEGER DEFAULT 1"),
+        ("agents", "mining_yield", "INTEGER DEFAULT 10"),
+        ("agents", "speed", "INTEGER DEFAULT 10"),
+        ("global_state", "actions_processed", "INTEGER DEFAULT 0"),
+    ]
+    
+    with engine.connect() as conn:
+        for table, col, col_type in safe_migrations:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+                conn.commit()
+                logger.info(f"Migration: Added column {col} to {table}.")
+            except Exception as e:
+                err_str = str(e).lower()
+                if "duplicate column" in err_str or "already exists" in err_str:
+                    pass # Expected if migration already ran via main.py
+                else:
+                    logger.warning(f"Note: Migration for {table}.{col} skipped: {e}")
 
+    db = SessionLocal()
     existing_hex_count = db.query(WorldHex).count()
 
     # ── Full re-seed: wipe old world, keep players ────────────────────────────
