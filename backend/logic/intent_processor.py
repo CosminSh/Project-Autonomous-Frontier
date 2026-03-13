@@ -75,12 +75,21 @@ class IntentProcessor:
             if logging.getLogger().isEnabledFor(logging.DEBUG):
                 logger.debug(f"Processing {intent.action_type} for Agent {agent.id}")
             
-            # Most handlers are async, some might be sync (like handle_stop)
-            import inspect
-            if inspect.iscoroutinefunction(handler):
-                await handler(db, agent, intent, tick_count, self.manager)
-            else:
-                handler(db, agent, intent, tick_count)
+            from database import with_db_retry
+            
+            @with_db_retry(max_retries=5)
+            def _dispatch():
+                # Most handlers are async, some might be sync (like handle_stop)
+                import inspect
+                if inspect.iscoroutinefunction(handler):
+                    return handler
+                else:
+                    handler(db, agent, intent, tick_count)
+                    return None
+
+            h = _dispatch()
+            if h:
+                await h(db, agent, intent, tick_count, self.manager)
                 
         except Exception as e:
             logger.error(f"Error processing {intent.action_type} for Agent {agent.id}: {e}", exc_info=True)

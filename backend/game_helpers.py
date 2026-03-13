@@ -67,6 +67,12 @@ _CACHED_CRAFTING_RECIPES: list = _build_recipe_cache()
 
 def _axial_dist(q1, r1, q2, r2) -> int:
     """Core axial distance math."""
+    # Normalize poles: r=1 -> r=0, r=99 -> r=100
+    if r1 <= 1: q1, r1 = 0, 0
+    elif r1 >= 99: q1, r1 = 0, 100
+    if r2 <= 1: q2, r2 = 0, 0
+    elif r2 >= 99: q2, r2 = 0, 100
+    
     return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
 
 def get_hex_distance(q1, r1, q2, r2) -> int:
@@ -117,6 +123,10 @@ def wrap_coords(q, r) -> tuple:
         r = MAP_MAX_R - (r - MAP_MAX_R)
         q = (q + (WORLD_WIDTH // 2)) % WORLD_WIDTH
         
+    # Polar Consolidation: r=1 -> r=0, r=99 -> r=100
+    if r <= 1: return 0, 0
+    if r >= 99: return 0, 100
+
     return q, r
 
 
@@ -129,13 +139,13 @@ def get_hex_terrain_data(q, r) -> dict:
     q, r = wrap_coords(q, r)
     dist = get_hex_distance(q, r, 0, 0)
 
-    # ── Static Stations (clustered at North Pole, within 3 steps) ──────────────
+    # ── Static Stations (clustered at North Pole, spread at r=2,3) ──────────────
     STATIONS = {
-        (0, 0): "STATION_HUB",   # Hub / Market
-        (2, 0): "SMELTER",
-        (0, 2): "CRAFTER",
-        (1, 2): "REPAIR",
-        (2, 1): "REFINERY",
+        (0, 0): "STATION_HUB",   # Hub / Market (Covers r=0,1)
+        (25, 2): "SMELTER",
+        (50, 2): "CRAFTER",
+        (75, 2): "REPAIR",
+        (0, 3): "REFINERY",
     }
     if (q, r) in STATIONS:
         return {

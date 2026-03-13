@@ -73,6 +73,7 @@ class ArenaProfile(Base):
     wins = Column(Integer, server_default="0")
     losses = Column(Integer, server_default="0")
     last_battle_time = Column(DateTime(timezone=True), nullable=True)
+    daily_opponents = Column(JSON, nullable=True) # List of agent IDs
 
     agent = relationship("Agent", back_populates="arena_profile")
 
@@ -131,6 +132,7 @@ class WorldHex(Base):
     resource_type = Column(String, nullable=True) # ORE, GAS, etc.
     resource_density = Column(Float, default=0.0)
     resource_quantity = Column(Integer, default=0) # Tracks remaining resources before depletion
+    expires_tick = Column(BigInteger, nullable=True, index=True)
     
     # Station attributes
     is_station = Column(Boolean, default=False)

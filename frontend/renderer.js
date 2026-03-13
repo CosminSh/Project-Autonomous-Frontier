@@ -68,6 +68,11 @@ export class GameRenderer {
         this.resources = new Map();
         this.loots = new Map();
         this.poiLabels = new Map();
+        
+        // Debug & Visual Helpers
+        this.debugGrid = new THREE.Group();
+        this.isDebugVisible = false;
+        this.debugMarker = null;
 
         // Selection
         this.selectedAgentId = null;
@@ -126,9 +131,20 @@ export class GameRenderer {
 
         // Click Handler (Raycasting)
         this.renderer.domElement.addEventListener('click', (e) => this.onWorldClick(e));
+        this.renderer.domElement.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.onWorldRightClick(e);
+        });
 
         // Center Camera Handler
         document.getElementById('center-camera-btn')?.addEventListener('click', () => this.centerOnAgent());
+
+        // Debug Key Listener (F2)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'F2') {
+                this.toggleDebugGrid();
+            }
+        });
     }
 
     animate() {
@@ -462,6 +478,79 @@ export class GameRenderer {
         };
     }
 
+    sphereToQ(vector) {
+        const radius = vector.length();
+        
+        // Inverse of qToSphere
+        // lon = atan2(z, x)
+        let lon = Math.atan2(vector.z, vector.x);
+        if (lon < 0) lon += Math.PI * 2;
+        
+        // lat = asin(y / r)
+        const lat = Math.asin(Math.max(-0.9999, Math.min(0.9999, vector.y / radius)));
+        
+        // lat = -asin(t)  =>  t = -sin(lat)
+        const t = -Math.sin(lat);
+        
+        // t = (r/100 * 2) - 1  => r = (t + 1) / 2 * 100
+        let r = ((t + 1) / 2) * 100;
+        let q = (lon / (2 * Math.PI)) * 100;
+        
+        // Clamp to valid range to prevent pole jump
+        r = Math.max(0, Math.min(100, Math.round(r)));
+        q = (Math.round(q) + 100) % 100;
+
+        // Pole Snapping: If at pole, q is irrelevant. Normalize to 0 for consistency.
+        if (r === 0 || r === 100) q = 0;
+
+        return { q, r };
+    }
+
+    toggleDebugGrid() {
+        if (this.debugGrid.children.length === 0) {
+            this.initDebugGrid();
+        }
+        this.isDebugVisible = !this.isDebugVisible;
+        this.debugGrid.visible = this.isDebugVisible;
+        console.log(`[Renderer] Debug Grid ${this.isDebugVisible ? 'ENABLED' : 'DISABLED'}`);
+        
+        // Show a temporary toast
+        if (window.game && window.game.ui) {
+            window.game.ui.showToast(`Debug Grid: ${this.isDebugVisible ? 'ON' : 'OFF'}`, 'info');
+        }
+    }
+
+    initDebugGrid() {
+        console.log('[Renderer] Initializing Debug Grid Labels...');
+        this.debugGrid.clear();
+        
+        // Add coordinate labels every 10 units
+        for (let q = 0; q < 100; q += 10) {
+            for (let r = 0; r <= 100; r += 10) {
+                // Pruning: Only show one label at the poles (q=0)
+                if ((r === 0 || r === 100) && q > 0) continue;
+
+                const label = this.createLabel(`${q},${r}`, '#fbbf24');
+                const { x, y, z } = this.qToSphere(q, r, 2);
+                label.position.set(x, y, z);
+                label.lookAt(new THREE.Vector3(0,0,0)); // Faces away from center
+                label.scale.set(3, 1, 1);
+                this.debugGrid.add(label);
+            }
+        }
+        
+        // Add major axis markers (Equator and Prime Meridian)
+        for (let q = 0; q < 100; q++) {
+            const { x, y, z } = this.qToSphere(q, 50, 0.5);
+            const dot = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+            dot.position.set(x, y, z);
+            this.debugGrid.add(dot);
+        }
+
+        this.scene.add(this.debugGrid);
+        this.debugGrid.visible = false;
+    }
+
 
     createStationLabel(text) {
         return this.createLabel(text, '#facc15');
@@ -591,6 +680,8 @@ export class GameRenderer {
             if (resource === 'IRON_ORE' || resource === 'ORE') color = new THREE.Color(0x8b5e3c);
             else if (resource === 'COBALT_ORE') color = new THREE.Color(0x1a6b7a);
             else if (resource === 'GOLD_ORE') color = new THREE.Color(0x7a6520);
+            else if (resource === 'TITANIUM_ORE') color = new THREE.Color(0x06b6d4); // Cyan
+            else if (resource === 'VOID_CRYSTAL') color = new THREE.Color(0xa855f7); // Purple
         }
 
         const { x, y, z } = this.qToSphere(q, r);
@@ -604,6 +695,9 @@ export class GameRenderer {
             colors.setXYZ(i + 1, color.r, color.g, color.b);
             colors.setXYZ(i + 2, color.r, color.g, color.b);
             colors.needsUpdate = true;
+
+            // Map this face to the logical hex that colored it
+            this.faceToHex.set(faceIndex, { q, r });
         }
 
         this.hexes.set(`${q},${r}`, { faceIndex, color });
@@ -1048,6 +1142,9 @@ export class GameRenderer {
             const offset = isGas ? 0.6 : -0.2; 
             const { x, y, z } = this.qToSphere(resData.q, resData.r, offset);
             mesh.position.set(x, y, z);
+            mesh.userData.q = resData.q;
+            mesh.userData.r = resData.r;
+            mesh.userData.resource = resData.type;
             mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), mesh.position.clone().normalize());
 
             // Randomize rotation for stationary rocks so they don't all look identical
@@ -1192,5 +1289,105 @@ export class GameRenderer {
                 }
             }
         }
+    }
+
+    onWorldRightClick(event) {
+        if (!this.renderer) return;
+
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+
+        const resourceMeshes = Array.from(this.resources.values());
+        const agentMeshes = Array.from(this.agents.values());
+        const intersects = this.raycaster.intersectObjects([this.planetMesh, ...resourceMeshes, ...agentMeshes], true);
+
+        if (intersects.length > 0) {
+            const hit = intersects[0];
+            let targetData = { type: 'hex', q: 0, r: 0 };
+
+            // Find which agent was hit (check object and its parents)
+            const findAgent = (obj) => {
+                if (!obj) return null;
+                if (obj.userData && obj.userData.id && (obj.userData.name || obj.userData.chassis)) return obj.userData;
+                return findAgent(obj.parent);
+            };
+
+            const agentData = findAgent(hit.object);
+
+            if (agentData) {
+                targetData = { type: 'agent', q: agentData.q, r: agentData.r, name: agentData.name, id: agentData.id };
+            } else if (resourceMeshes.includes(hit.object) || resourceMeshes.includes(hit.object.parent)) {
+                const resMesh = resourceMeshes.includes(hit.object) ? hit.object : hit.object.parent;
+                const resData = resMesh.userData;
+                targetData = { type: 'resource', q: resData.q, r: resData.r, resource: resData.type };
+            } else {
+                // Determine coordinates purely via math for precision
+                const { q, r } = this.sphereToQ(hit.point);
+                targetData = { type: 'hex', q, r };
+            }
+
+            // Debug Helper: Visual Hit Marker & Console log
+            if (this.isDebugVisible) {
+                console.log(`[Renderer-Debug] Raycast Hit:`, hit.point, `=> Found Coords: ${targetData.q}, ${targetData.r}`);
+                
+                if (!this.debugMarker) {
+                    this.debugMarker = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.5, 16, 16),
+                        new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.8 })
+                    );
+                    this.scene.add(this.debugMarker);
+                }
+                this.debugMarker.position.copy(hit.point);
+            }
+
+            if (targetData && targetData.q !== undefined && targetData.r !== undefined) {
+                console.log(`[Renderer] Map Context Menu for ${targetData.type} at ${targetData.q}, ${targetData.r}`);
+                if (window.game && window.game.ui) {
+                    window.game.ui.showContextMenu(event.clientX, event.clientY, targetData);
+                }
+            }
+        }
+    }
+
+    spawnFloatingText(text, position, color = '#ffffff') {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 256;
+        canvas.height = 128;
+
+        ctx.font = 'bold 32px "Orbitron", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = color;
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = 4;
+        ctx.fillText(text, 128, 64);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, blending: THREE.AdditiveBlending });
+        const sprite = new THREE.Sprite(spriteMat);
+        
+        sprite.position.copy(position);
+        sprite.scale.set(4, 2, 1);
+        this.scene.add(sprite);
+
+        const duration = 1500;
+        const start = Date.now();
+        const anim = () => {
+            const elapsed = Date.now() - start;
+            const t = elapsed / duration;
+            if (t >= 1) {
+                this.scene.remove(sprite);
+                return;
+            }
+            // Float up relative to planet center
+            const up = position.clone().normalize();
+            sprite.position.add(up.multiplyScalar(0.05));
+            sprite.material.opacity = 1 - t;
+            requestAnimationFrame(anim);
+        };
+        anim();
     }
 }

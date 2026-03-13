@@ -196,6 +196,39 @@ export class TerminalHandler {
         this.input.focus();
     }
 
+    /**
+     * Programmatically execute a command string (e.g. 'ARENA_REGISTER')
+     * without requiring user input.
+     */
+    async execute(cmdStr) {
+        if (!cmdStr) return;
+        this.log(`&gt; ${cmdStr}`, 'system');
+        
+        const parts = cmdStr.trim().split(/\s+/);
+        const actionType = parts[0].toUpperCase();
+        const args = parts.slice(1);
+        
+        try {
+            const data = this.parseIntent(actionType, args);
+            // If it's a meta-only command (LEADERBOARD, STATUS etc), 
+            // parseIntent already returned and we might need to handle it or it's handled in submit()
+            // Wait, parseIntent for meta commands returns early.
+            
+            // Re-use logic from submit() for network intents
+            const metaCommands = ['HELP', 'RECIPES', 'MISSIONS', 'GUIDE', 'MARKET', 'MARKET_PICKUPS', 'ROTATE_KEY', 'GEAR', 'STATUS', 'PERCEIVE', 'REQUEST_RESCUE', 'LEADERBOARD', 'ARENA_STATUS', 'ARENA_LOGS', 'ARENA_REGISTER'];
+            if (metaCommands.includes(actionType)) {
+                // For now, let's just make submit() more modular or re-implement here
+                // Meta logic is actually inside submit(). Let's refactor submit() slightly or just call it.
+                this.input.value = cmdStr;
+                await this.submit();
+            } else {
+                await this.game.api.submitIntent(actionType, data);
+            }
+        } catch (e) {
+            this.log(`ERROR: ${e.message}`, 'error');
+        }
+    }
+
     handleSuggestions(e) {
         if (this.suggestionsEl.classList.contains('hidden')) return;
 

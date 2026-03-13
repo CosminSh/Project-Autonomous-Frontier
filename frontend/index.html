@@ -114,6 +114,89 @@
         #g_id_onload {
             z-index: 100;
         }
+
+        /* Toast Animations */
+        @keyframes toast-in {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast {
+            animation: toast-in 0.3s ease-out forwards;
+        }
+
+        /* Pinned Actions Bar */
+        .pinned-action-bar {
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            border-bottom: 2px solid rgba(56, 189, 248, 0.4);
+        }
+        
+        .action-btn {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: #94a3b8;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        /* Map Context Menu */
+        #map-context-menu {
+            position: fixed;
+            z-index: 1000;
+            min-width: 160px;
+            pointer-events: auto;
+        }
+
+        .context-menu-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .context-menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .context-menu-item:hover {
+            background: rgba(56, 189, 248, 0.1);
+            color: #38bdf8;
+            padding-left: 18px;
+        }
+
+        .context-menu-item i {
+            margin-right: 8px;
+            font-style: normal;
+        }
+
+        /* Modal Transitions */
+        .modal-enter { opacity: 0; transform: scale(0.95); }
+        .modal-enter-active { opacity: 1; transform: scale(1); transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .modal-exit { opacity: 1; transform: scale(1); }
+        .modal-exit-active { opacity: 0; transform: scale(0.95); transition: all 0.15s ease-in; }
+        
+        .action-btn:hover {
+            background: rgba(56, 189, 248, 0.1);
+            color: #38bdf8;
+            border-color: rgba(56, 189, 248, 0.3);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        .action-btn:active {
+            transform: translateY(0);
+        }
     </style>
     <script>
         // Define callback BEFORE Google GSI script loads
@@ -143,6 +226,7 @@
 
 <body class="bg-slate-950">
     <div id="canvas-container"></div>
+    <div id="toast-container" class="fixed top-6 right-6 z-[100] space-y-3 pointer-events-none"></div>
 
     <main class="ui-layer p-3 lg:p-6">
         <!-- Header -->
@@ -1051,7 +1135,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <button onclick="game.terminal.execute('ARENA_REGISTER')"
+                                    <button onclick="window.game.terminal.execute('ARENA_REGISTER')"
                                         class="w-full py-2 bg-sky-600 hover:bg-sky-500 text-white rounded text-[9px] orbitron font-bold transition-all uppercase">Register
                                         for Scrap Pit</button>
                                 </div>
@@ -1102,7 +1186,7 @@
                             <div class="flex justify-between items-center mb-3">
                                 <h4 class="text-[10px] text-indigo-400 uppercase tracking-widest font-bold">📜 Combat
                                     Archives</h4>
-                                <button onclick="game.terminal.execute('ARENA_LOGS')"
+                                <button onclick="window.game.terminal.execute('ARENA_LOGS')"
                                     class="text-[8px] text-sky-500 hover:text-sky-400 uppercase font-bold tracking-widest">Refresh
                                     Logs</button>
                             </div>
@@ -1301,6 +1385,46 @@
         <div id="scanner-content" class="space-y-4">
             <!-- Populated via selection -->
             <p class="text-[10px] text-slate-500 italic">No signature selected.</p>
+        </div>
+    </div>
+    
+    <!-- Map Context Menu -->
+    <div id="map-context-menu" class="glass hidden rounded-xl shadow-2xl border border-sky-500/30 overflow-hidden">
+        <div id="context-menu-items">
+            <!-- Dynamic Actions -->
+        </div>
+    </div>
+
+    <!-- Action Confirmation Modal -->
+    <div id="action-confirmation-modal" class="fixed inset-0 z-[101] flex items-center justify-center hidden">
+        <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" id="conf-modal-overlay"></div>
+        <div class="glass w-full max-w-sm rounded-2xl border-t-4 border-t-amber-500 p-6 relative z-10 m-4 shadow-2xl">
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-10 h-10 bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/20">
+                    <span class="text-xl">⚠️</span>
+                </div>
+                <div>
+                    <h3 class="orbitron text-sm font-bold text-amber-500 uppercase tracking-widest">Confirm Directive</h3>
+                    <p class="text-[9px] text-slate-500 uppercase font-bold">Action Verification Required</p>
+                </div>
+            </div>
+            
+            <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-800 mb-6">
+                <p id="action-desc" class="text-xs text-slate-300 mb-3"></p>
+                <div class="flex justify-between items-center text-[10px] font-mono">
+                    <span class="text-slate-500">ENERGY COST:</span>
+                    <span id="action-energy" class="text-rose-400 font-bold">--</span>
+                </div>
+                <div class="flex justify-between items-center text-[10px] font-mono mt-1">
+                    <span class="text-slate-500">EST. DURATION:</span>
+                    <span id="action-duration" class="text-sky-400 font-bold">--</span>
+                </div>
+            </div>
+
+            <div class="flex space-x-3">
+                <button id="conf-cancel-btn" class="flex-1 py-2 rounded-lg border border-slate-700 text-slate-400 text-[10px] orbitron font-bold hover:bg-slate-800 transition-all uppercase">Abort</button>
+                <button id="conf-proceed-btn" class="flex-1 py-2 rounded-lg bg-amber-500 text-slate-950 text-[10px] orbitron font-bold hover:bg-amber-400 transition-all uppercase">Proceed</button>
+            </div>
         </div>
     </div>
 

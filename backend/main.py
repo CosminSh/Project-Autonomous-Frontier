@@ -64,14 +64,14 @@ async def lifespan(app: FastAPI):
         ("agents", "last_faction_change_tick", "INTEGER DEFAULT 0"),
         ("agents", "last_attacked_tick", "INTEGER DEFAULT 0"),
         ("agents", "is_in_anarchy_zone", "BOOLEAN DEFAULT FALSE"),
-        ("agents", "elo", "INTEGER DEFAULT 1200"),
-        ("agents", "arena_wins", "INTEGER DEFAULT 0"),
         ("agents", "arena_losses", "INTEGER DEFAULT 0"),
+        ("arena_profiles", "daily_opponents", "JSON"),
         ("agents", "mining_yield", "INTEGER DEFAULT 10"),
         ("agents", "experience", "INTEGER DEFAULT 0"),
         ("agents", "level", "INTEGER DEFAULT 1"),
         ("agents", "speed", "INTEGER DEFAULT 10"),
         ("world_hexes", "resource_quantity", "INTEGER DEFAULT 0"),
+        ("world_hexes", "expires_tick", "BIGINT"),
         ("global_state", "actions_processed", "INTEGER DEFAULT 0"),
         ("bounties", "claimed_by", "INTEGER REFERENCES agents(id)"),
         ("bounties", "claim_tick", "BIGINT"),
@@ -151,7 +151,9 @@ allowed_origins = [
     "https://auth.terminal-frontier.pixek.xyz",
     "http://localhost:3000",
     "http://localhost:5173",
-    "http://127.0.0.1:5173"
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000"
 ]
 
 app.add_middleware(
@@ -259,6 +261,20 @@ app.include_router(arena.router)
 
 if os.getenv("ENVIRONMENT") != "production":
     app.include_router(debug.router)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Auth Debug Endpoint
+# ─────────────────────────────────────────────────────────────────────────────
+@app.get("/api/debug/auth", tags=["System"])
+async def debug_auth(request: Request):
+    """Diagnose Origin and Auth headers for local dev friction."""
+    return {
+        "origin": request.headers.get("origin"),
+        "host": request.headers.get("host"),
+        "referer": request.headers.get("referer"),
+        "env": os.getenv("ENVIRONMENT", "development"),
+        "allowed_origins": allowed_origins if os.getenv("ENVIRONMENT") == "production" else "*"
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -148,3 +148,37 @@ def reset_arena_season(db: Session):
 
     db.commit()
     logger.info(f"Season Reset Complete. Destroyed {total_parts_destroyed} pieces of gear across {len(fighters)} Pit Fighters.")
+
+
+def generate_daily_matchups(db: Session):
+    """
+    For every active Pit Fighter, generate a list of 3 potential opponents
+    within their Elo range that they can challenge today.
+    """
+    logger.info("Generating daily Arena matchups...")
+    
+    from models import ArenaProfile
+    all_fighters = db.execute(
+        select(Agent)
+        .join(ArenaProfile)
+        .where(Agent.is_pitfighter == True)
+    ).scalars().all()
+
+    if len(all_fighters) < 2:
+        return
+
+    for agent in all_fighters:
+        # Filter potential targets: Pit fighters, not self
+        targets = [f for f in all_fighters if f.id != agent.id]
+        
+        # Sort by Elo proximity
+        targets.sort(key=lambda x: abs(x.arena_profile.elo - agent.arena_profile.elo))
+        
+        # Take the top 5 closest and pick 3 randomly to give some variety
+        pool = targets[:5]
+        selected = random.sample(pool, min(len(pool), 3))
+        
+        agent.arena_profile.daily_opponents = [s.id for s in selected]
+        
+    db.commit()
+    logger.info(f"Generated daily matchups for {len(all_fighters)} fighters.")

@@ -12,7 +12,9 @@ from config import (
 from logic.mission_logic import generate_daily_missions
 from logic.state_updates import update_global_agent_stats
 from logic.intent_processor import IntentProcessor
+from logic.arena_manager import generate_daily_matchups
 from game_helpers import get_hex_terrain_data
+from logic.world_events import spawn_random_anomaly, cleanup_expired_anomalies
 
 logger = logging.getLogger("heartbeat.tick_manager")
 
@@ -54,13 +56,24 @@ class TickManager:
             self._repopulate_ferals(db)
             if self.tick_count % 10 == 0:
                 self._repopulate_resources(db)
+            
+            # Anomaly System (Spawn every 400 ticks, Cleanup every 10)
+            cleanup_expired_anomalies(db, self.tick_count)
+            if self.tick_count % 400 == 0:
+                await spawn_random_anomaly(db, self.tick_count, self.manager)
+                
             db.commit()
         await asyncio.sleep(PHASE_STRATEGY_DURATION)
 
-        # 3. THE CRUNCH (Intents + Missions)
+        # 3. THE CRUNCH (Intents + Missions + Daily Matchups)
         await self._set_phase("CRUNCH")
         with SessionLocal() as db:
             generate_daily_missions(db)
+            
+            # Daily Arena Matchmaking (Every 2400 ticks ~ 24 hours)
+            if self.tick_count % 2400 == 0:
+                generate_daily_matchups(db)
+
             await self._process_player_intents(db)
             
             if self.tick_count % 100 == 0:

@@ -136,12 +136,19 @@ def seed_world():
         db.delete(bot)
     db.commit()
 
-    # Teleport all real players back to Hub (0, 0)
+    # Polar Consolidation: Only teleport players if they are in the rings being removed (r=1 or r=99)
+    # or at polar q != 0 (which will be deleted).
     real_players = db.execute(select(Agent).where(Agent.is_bot == False)).scalars().all()
     for player in real_players:
-        player.q = 0
-        player.r = 0
-        logger.info(f"Teleported player '{player.name}' to (0, 0)")
+        if player.r == 1:
+            player.q, player.r = 0, 0
+            logger.info(f"Teleported player '{player.name}' from r=1 to (0, 0)")
+        elif player.r == 99:
+            player.q, player.r = 0, 100
+            logger.info(f"Teleported player '{player.name}' from r=99 to (0, 100)")
+        elif (player.r == 0 or player.r == 100) and player.q != 0:
+            player.q = 0
+            logger.info(f"Snapped player '{player.name}' to pole q=0")
     db.commit()
 
     # ── Generate Sectors ──────────────────────────────────────────────────────
@@ -155,6 +162,13 @@ def seed_world():
     logger.info(f"Seeding Spherical World ({MAP_MAX_Q+1}x{MAP_MAX_R+1})...")
     for q in range(MAP_MIN_Q, MAP_MAX_Q + 1):
         for r in range(MAP_MIN_R, MAP_MAX_R + 1):
+            # Polar Consolidation: Skip redundant hexes in rings r=1 and r=99.
+            # Only seed q=0 for r=0 and r=100.
+            if r == 1 or r == 99:
+                continue
+            if (r == 0 or r == 100) and q != 0:
+                continue
+
             data = get_hex_terrain_data(q, r)
             sq, sr = q // 10, r // 10
             sector = db.query(Sector).filter_by(q=sq, r=sr).first()

@@ -54,6 +54,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
         cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -81,3 +82,29 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def with_db_retry(max_retries=3, initial_delay=0.1):
+    """Decorator to retry a function if it fails due to SQLite locking."""
+    import time
+    import functools
+    from sqlite3 import OperationalError as SQLiteOperationalError
+    from sqlalchemy.exc import OperationalError as SAOperationalError
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except (SAOperationalError, SQLiteOperationalError) as e:
+                    if "database is locked" in str(e).lower() and retries < max_retries - 1:
+                        retries += 1
+                        sleep_time = initial_delay * (2 ** retries) # Exponential backoff
+                        logger.warning(f"Database locked, retrying {retries}/{max_retries} in {sleep_time:.2f}s...")
+                        time.sleep(sleep_time)
+                        continue
+                    raise e
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator

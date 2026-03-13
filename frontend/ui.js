@@ -17,6 +17,46 @@ export class UIManager {
         // Append-only tracking for Action Telemetry so entries persist between polls
         this._seenLogKeys = new Set();
         this._pendingIntentEl = null;
+        this.toasts = [];
+    }
+
+    showToast(message, type = 'info', duration = 4000) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        const colors = {
+            info: 'border-l-sky-500 text-sky-400',
+            success: 'border-l-emerald-500 text-emerald-400',
+            warning: 'border-l-amber-500 text-amber-400',
+            error: 'border-l-rose-500 text-rose-400'
+        };
+
+        toast.className = `toast glass p-3 rounded-xl border-l-4 ${colors[type] || colors.info} flex items-center space-x-3 min-w-[200px] pointer-events-auto interactive shadow-2xl`;
+        
+        const icon = {
+            info: 'ℹ️',
+            success: '✅',
+            warning: '⚠️',
+            error: '🚫'
+        }[type] || '🔔';
+
+        toast.innerHTML = `
+            <span class="text-lg">${icon}</span>
+            <div class="flex flex-col">
+                <span class="text-[10px] orbitron font-bold tracking-widest uppercase opacity-70">${type}</span>
+                <span class="text-xs font-semibold">${message}</span>
+            </div>
+        `;
+
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.transform = 'translateX(120%)';
+            toast.style.opacity = '0';
+            toast.style.transition = 'all 0.4s ease-in';
+            setTimeout(() => toast.remove(), 400);
+        }, duration);
     }
 
     setUIMode(mode) {
@@ -204,6 +244,17 @@ export class UIManager {
 
             if (this._seenLogKeys.has(key)) return;  // already rendered
             this._seenLogKeys.add(key);
+
+            // Auto-Toast for failures or critical events
+            if (!isChat) {
+                if (item.event.endsWith('_FAILED')) {
+                    this.showToast(item.details.reason || item.event, 'error');
+                } else if (item.event === 'COMBAT_HIT' && item.details?.damage > 0) {
+                    // Only toast players if they are involved or it's high stakes
+                } else if (item.event === 'MARKET_MATCH' || item.event === 'INDUSTRIAL_CRAFT') {
+                    this.showToast(`${item.event}: Success`, 'success');
+                }
+            }
 
             const time = new Date(timeStr).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const entry = document.createElement('div');
@@ -1396,6 +1447,206 @@ Intent payload format:
             ctx.fillRect(0, i, width, 1);
         }
         ctx.globalAlpha = 1.0;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Map Context Menu & Confirmation Logic
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    _getActionsForTarget(targetData) {
+        const actions = [];
+        const { type, q, r, name, resource } = targetData;
+
+        // Everyone can move (or move nearby)
+        actions.push({
+            type: 'MOVE',
+            label: `Move to ${q}, ${r}`,
+            icon: '🚀',
+            payload: { target_q: q, target_r: r }
+        });
+
+        if (type === 'resource' && resource) {
+            actions.push({
+                type: 'MINE',
+                label: `Mine ${resource.replace(/_/g, ' ')}`,
+                icon: '⛏️',
+                payload: { ore_type: resource, q, r }
+            });
+        }
+
+        if (type === 'agent' && name) {
+            actions.push({
+                type: 'ATTACK',
+                label: `Attack ${name}`,
+                icon: '⚔️',
+                payload: { target_id: targetData.id, q, r }
+            });
+            actions.push({
+                type: 'LOOT',
+                label: `Loot ${name}`,
+                icon: '💰',
+                payload: { target_id: targetData.id, q, r }
+            });
+        }
+
+        actions.push({
+            type: 'INSPECT',
+            label: `Inspect ${type === 'hex' ? 'Sector' : name || resource || 'Object'}`,
+            icon: '🔍',
+            payload: { q, r, type, id: targetData.id }
+        });
+
+        return actions;
+    }
+
+    showContextMenu(x, y, targetData) {
+        const menu = document.getElementById('map-context-menu');
+        const container = document.getElementById('context-menu-items');
+        if (!menu || !container) return;
+
+        container.innerHTML = '';
+        const actions = this._getActionsForTarget(targetData);
+        
+        actions.forEach(action => {
+            const item = document.createElement('div');
+            item.className = 'context-menu-item';
+            item.innerHTML = `<i>${action.icon}</i> ${action.label}`;
+            item.onclick = (e) => {
+                e.stopPropagation();
+                this.hideContextMenu();
+                if (action.type === 'INSPECT') {
+                    this.game.terminal.execute(`PERCEIVE ${action.payload.q} ${action.payload.r}`);
+                    if (this.game.renderer) {
+                        this.game.renderer.spawnFloatingText("INSPECTING", {x:0, y:0, z:0}, '#38bdf8'); // Placeholder point
+                    }
+                } else {
+                    this.showActionConfirmation(action);
+                }
+            };
+            container.appendChild(item);
+        });
+
+        menu.style.left = `${x}px`;
+        menu.style.top = `${y}px`;
+        menu.classList.remove('hidden');
+
+        // Close menu on outside click
+        const closer = () => {
+            this.hideContextMenu();
+            document.removeEventListener('click', closer);
+        };
+        setTimeout(() => document.addEventListener('click', closer), 10);
+    }
+
+    hideContextMenu() {
+        const menu = document.getElementById('map-context-menu');
+        if (menu) menu.classList.add('hidden');
+    }
+
+    showActionConfirmation(action) {
+        const modal = document.getElementById('action-confirmation-modal');
+        const desc = document.getElementById('action-desc');
+        const energyEl = document.getElementById('action-energy');
+        const durationEl = document.getElementById('action-duration');
+        const proceedBtn = document.getElementById('conf-proceed-btn');
+        const cancelBtn = document.getElementById('conf-cancel-btn');
+        const overlay = document.getElementById('conf-modal-overlay');
+
+        if (!modal || !desc || !energyEl || !durationEl) return;
+
+        const { energy, duration, description } = this._calculateActionPreview(action);
+
+        desc.innerText = description;
+        energyEl.innerText = `${energy} EP`;
+        durationEl.innerText = `${duration} TICKS`;
+
+        modal.classList.remove('hidden');
+
+        const cleanup = () => {
+            modal.classList.add('hidden');
+            proceedBtn.onclick = null;
+            cancelBtn.onclick = null;
+            overlay.onclick = null;
+        };
+
+        proceedBtn.onclick = () => {
+            cleanup();
+            if (action.type === 'MOVE') {
+                this.game.api.submitIntent('MOVE', action.payload);
+            } else if (action.type === 'MINE') {
+                this.game.api.submitIntent('MINE', action.payload);
+            } else if (action.type === 'ATTACK') {
+                this.game.api.submitIntent('ATTACK', action.payload);
+            } else if (action.type === 'LOOT') {
+                this.game.api.submitIntent('LOOT', action.payload);
+            }
+        };
+
+        cancelBtn.onclick = cleanup;
+        overlay.onclick = cleanup;
+    }
+
+    _calculateActionPreview(action) {
+        const agent = this.game.agentData || this.game.lastAgentData;
+        let energy = 0;
+        let duration = 1;
+        let description = "";
+
+        if (!agent) return { energy: '??', duration: '??', description: "Awaiting agent telemetry..." };
+
+        if (action.type === 'MOVE') {
+            const dist = this._getHexDistance(agent.q, agent.r, action.payload.target_q, action.payload.target_r);
+            energy = dist * 5; // MOVE_ENERGY_COST
+            duration = dist;
+            description = `Relocating to [${action.payload.target_q}, ${action.payload.target_r}]. Distance: ${dist} units.`;
+        } else if (action.type === 'MINE') {
+            energy = 10; // MINE_ENERGY_COST
+            duration = 'LOOPING';
+            description = `Extracting resources from sector [${action.payload.q}, ${action.payload.r}]. Action will repeat until cargo is full or energy is depleted.`;
+        } else if (action.type === 'ATTACK') {
+            energy = 15; // ATTACK_ENERGY_COST
+            duration = 1;
+            description = `Initiating offensive maneuvers against target signature.`;
+        } else if (action.type === 'LOOT') {
+            energy = 15;
+            duration = 1;
+            description = `Attempting to scavenge remains of target signature.`;
+        }
+
+        return { energy, duration, description };
+    }
+
+    _getHexDistance(q1, r1, q2, r2) {
+        const WORLD_WIDTH = 100;
+
+        const axialDist = (aq1, ar1, aq2, ar2) => {
+            const dq = aq1 - aq2;
+            const dr = ar1 - ar2;
+            return (Math.abs(dq) + Math.abs(dq + dr) + Math.abs(dr)) / 2;
+        };
+
+        const dists = [];
+        
+        // 1. Direct axial distance
+        dists.push(axialDist(q1, r1, q2, r2));
+        
+        // 2. Longitude wraps (q +/- 100)
+        dists.push(axialDist(q1, r1, q2 + WORLD_WIDTH, r2));
+        dists.push(axialDist(q1, r1, q2 - WORLD_WIDTH, r2));
+        
+        // 3. North Pole Reflection (q + 50, -r)
+        const pq_n = q2 + 50;
+        dists.push(axialDist(q1, r1, pq_n, -r2));
+        dists.push(axialDist(q1, r1, pq_n - WORLD_WIDTH, -r2));
+        dists.push(axialDist(q1, r1, pq_n + WORLD_WIDTH, -r2));
+        
+        // 4. South Pole Reflection (q + 50, 200 - r)
+        const pq_s = q2 + 50;
+        dists.push(axialDist(q1, r1, pq_s, 200 - r2));
+        dists.push(axialDist(q1, r1, pq_s - WORLD_WIDTH, 200 - r2));
+        dists.push(axialDist(q1, r1, pq_s + WORLD_WIDTH, 200 - r2));
+
+        return Math.min(...dists);
     }
 }
 

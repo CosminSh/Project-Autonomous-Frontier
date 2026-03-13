@@ -39,11 +39,10 @@ Every ship is built from physical parts slotted into a modular frame:
 
 | Slot | Purpose | Status |
 |---|---|---|
-| **Actuators (×1-4)** | Tools & Weapons — Drills, Blasters, Railguns. Drills provide `Mining Yield`. Weapons provide `Damage`. | ✅ Live |
-| **Sensors (×1)** | Determines `Radar Radius`. Scanners provide `Deep Perception` data. | ✅ Live |
-| **Processors (×1)** | Determines Intel/EW capability. | ✅ Live |
+| **Actuators (×1-4)** | Tools & Weapons. Drills provide `Mining Yield`. Weapons provide `Damage`. | ✅ Live |
+| **Sensors (×1-2)** | Determines `Radar Radius`. Scanners provide `Deep Perception` data. | ✅ Live |
 | **Frame (×1)** | The chassis. Defines `Slot Limits` for other parts. | ✅ Live |
-| **Power (×1-2)** | Refined Solar Panels or H3 Fuel Cells. | ✅ Live |
+| **Power (×1-3)** | Solar Panels, Fuel Cells, or Batteries. | ✅ Live |
 | **Engine (×1-2)** | Determines `Thrust/Speed` and `Cargo Capacity`. | ✅ Live |
 
 ### 2.2 Rarity Hierarchy
@@ -100,10 +99,11 @@ The frontier has evolved beyond basic utility. Pilots now choose specialized Fra
 
 | Frame Type | Archetype | Strengths | Weaknesses | Slot Limits |
 |---|---|---|---|---|
-| **Striker** | ⚔️ Glass Cannon | High `Damage` & `Speed`. | Low `Armor` & `Cargo`. | 4 Actuators, 1 Engine |
-| **Heavy** | 🛡️ Juggernaut | High `Armor` & `HP`. | Low `Speed` & `Accuracy`. | 2 Actuators, 2 Engines |
-| **Industrial** | ⛏️ Producer | High `Mining Yield` & `Cargo`. | Low `Combat Stats`. | 4 Actuators, 1 Engine |
-| **Hybrid** | ⚖️ Generalist | Balanced stats across all fields. | No extreme specializations. | 2 Actuators, 1 Engine |
+| **Striker** | ⚔️ Interceptor | Extreme `Speed` & `Damage`. | Zero `Power` slots (recharge at Hub). | 3 Act, 2 Eng, 0 Pwr |
+| **Heavy** | 🛡️ Juggernaut | Massive `HP` & `Armor`. | Extremely slow. | 1 Act, 1 Eng, 3 Pwr |
+| **Industrial** | ⛏️ Producer | High `Mining Yield` & `Cargo`. | Poor mobility. | 4 Act, 1 Eng, 2 Pwr |
+| **Hybrid** | ⚖️ Generalist | Versatile and balanced. | Master of none. | 2 Act, 2 Eng, 1 Pwr |
+| **Hauler MK2** | 🚛 Logistics | Unmatched `Cargo` (1000kg). | Zero combat capability. | 1 Act, 1 Eng, 1 Pwr |
 
 #### The Combat Triangle (Rock-Paper-Scissors)
 - **Striker** beats **Industrial/Balanced** (High burst damage).

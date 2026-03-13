@@ -177,7 +177,9 @@ async def handle_craft(db, agent, intent, tick_count, manager):
     """Crafts items and gear parts if materials are available and recipe is unlocked."""
     result_item = intent.data.get("item_type")
     recipe = CRAFTING_RECIPES.get(result_item)
-    if not recipe: return
+    if not recipe:
+        db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INVALID_RECIPE", "item": result_item}))
+        return
 
     unlocked = agent.unlocked_recipes or []
     if result_item not in CORE_RECIPES and result_item not in unlocked:
@@ -254,7 +256,9 @@ async def handle_repair(db, agent, intent, tick_count, manager):
         return
 
     actual = min(amt, agent.max_health - agent.health)
-    if actual <= 0: return
+    if actual <= 0:
+        db.add(AuditLog(agent_id=agent.id, event_type="REPAIR_FAILED", details={"reason": "ALREADY_AT_MAX_HEALTH"}))
+        return
 
     cost_credits = actual * REPAIR_COST_PER_HP
     cost_ingots = int(actual * REPAIR_COST_IRON_INGOT_PER_HP)

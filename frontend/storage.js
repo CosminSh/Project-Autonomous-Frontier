@@ -12,12 +12,13 @@ class StorageUI {
     }
 
     async refreshStorage() {
-        if (!window.game || !window.game.apiKey || this.isRefreshing) return;
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey || this.isRefreshing) return;
         this.isRefreshing = true;
 
         try {
             const response = await fetch('/api/storage/info', {
-                headers: { 'X-API-KEY': window.game.apiKey }
+                headers: { 'X-API-KEY': apiKey }
             });
             const data = await response.json();
 
