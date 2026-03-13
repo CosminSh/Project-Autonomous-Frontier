@@ -1477,6 +1477,9 @@ export class GameRenderer {
         const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, blending: THREE.AdditiveBlending });
         const sprite = new THREE.Sprite(spriteMat);
         
+        if (!(position instanceof THREE.Vector3)) {
+            position = new THREE.Vector3(position.x, position.y, position.z);
+        }
         sprite.position.copy(position);
         sprite.scale.set(4, 2, 1);
         this.scene.add(sprite);
