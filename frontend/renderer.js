@@ -68,6 +68,8 @@ export class GameRenderer {
         this.resources = new Map();
         this.loots = new Map();
         this.poiLabels = new Map();
+        this.faceToHex = new Map();
+        this.agentPaths = new Map();
         
         // Debug & Visual Helpers
         this.debugGrid = new THREE.Group();
@@ -832,6 +834,23 @@ export class GameRenderer {
                 const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8, 0), glowMat);
                 core.position.y = 2;
                 group.add(platform, mRing, core);
+                break;
+            case 'REPAIR':
+                const cross1 = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.3, 0.8), mat);
+                const cross2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.3, 2.5), mat);
+                const gear = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.2, 8, 16), glowMat);
+                gear.position.y = 1;
+                gear.rotation.x = Math.PI / 2;
+                group.add(cross1, cross2, gear);
+                break;
+            case 'REFINERY':
+                const refBase = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.8, 0.5, 8), mat);
+                const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.0, 3, 8), mat);
+                stack.position.y = 1.5;
+                const topRing = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.1, 8, 32), glowMat);
+                topRing.rotation.x = Math.PI / 2;
+                topRing.position.y = 3.0;
+                group.add(refBase, stack, topRing);
                 break;
             default:
                 const outpost = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.2, 1, 4), mat);
