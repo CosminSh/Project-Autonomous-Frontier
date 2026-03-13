@@ -16,8 +16,33 @@ export class UIManager {
         this.cachedStorage = [];
         // Append-only tracking for Action Telemetry so entries persist between polls
         this._seenLogKeys = new Set();
+        this._seenLogKeys = new Set();
         this._pendingIntentEl = null;
         this.toasts = [];
+        this.telemetryMinimized = false;
+        
+        this.initTelemetryToggle();
+    }
+
+    initTelemetryToggle() {
+        // Toggle logic for mobile telemetry box
+        const btn = document.getElementById('toggle-telemetry-btn');
+        const box = document.getElementById('world-telemetry-box');
+        const icon = document.getElementById('telemetry-toggle-icon');
+        if (btn && box && icon) {
+            btn.addEventListener('click', () => {
+                this.telemetryMinimized = !this.telemetryMinimized;
+                if (this.telemetryMinimized) {
+                    box.classList.remove('h-32');
+                    box.classList.add('h-8');
+                    icon.style.transform = 'rotate(180deg)';
+                } else {
+                    box.classList.remove('h-8');
+                    box.classList.add('h-32');
+                    icon.style.transform = 'rotate(0deg)';
+                }
+            });
+        }
     }
 
     showToast(message, type = 'info', duration = 4000) {

@@ -382,6 +382,8 @@ export class TerminalHandler {
                 data.part_id = parseInt(args[0]);
                 if (isNaN(data.part_id)) throw new Error('Part ID must be an integer.');
                 break;
+            case 'PERCEIVE': case 'SCAN':
+                return { action: actionType, timestamp: Date.now() };
             default:
                 throw new Error(`Unknown command: ${actionType}`);
         }

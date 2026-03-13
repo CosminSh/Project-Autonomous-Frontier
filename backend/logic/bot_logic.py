@@ -1,10 +1,7 @@
 import random
 from sqlalchemy import select
 from models import Agent, WorldHex, Intent, InventoryItem, AuditLog
-from game_helpers import is_in_anarchy_zone
-
-def get_hex_distance(q1, r1, q2, r2):
-    return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) // 2
+from game_helpers import is_in_anarchy_zone, get_hex_distance, get_hex_neighbors, wrap_coords
 
 def process_bot_brain(db, agent: Agent, current_tick: int, stations: list):
     """
@@ -133,12 +130,7 @@ def process_bot_brain(db, agent: Agent, current_tick: int, stations: list):
             move_towards(db, agent, asteroid.q, asteroid.r, current_tick)
 
 def move_towards(db, agent, target_q, target_r, current_tick):
-    # Very simple hex move logic: pick neighbor that reduces distance
-    neighbors = [
-        (agent.q + 1, agent.r), (agent.q + 1, agent.r - 1), (agent.q, agent.r - 1),
-        (agent.q - 1, agent.r), (agent.q - 1, agent.r + 1), (agent.q, agent.r + 1)
-    ]
-    
+    neighbors = get_hex_neighbors(agent.q, agent.r)
     best_hex = min(neighbors, key=lambda n: get_hex_distance(n[0], n[1], target_q, target_r))
     
     db.add(Intent(
@@ -184,10 +176,7 @@ def process_feral_brain(db, agent: Agent, current_tick: int):
     target_dist_center = 10 if "Drifter" in agent.name else (25 if "Scrapper" in agent.name else (45 if "Raider" in agent.name else 70))
     leash_range = 8
     
-    neighbors = [
-        (agent.q + 1, agent.r), (agent.q + 1, agent.r - 1), (agent.q, agent.r - 1),
-        (agent.q - 1, agent.r), (agent.q - 1, agent.r + 1), (agent.q, agent.r + 1)
-    ]
+    neighbors = get_hex_neighbors(agent.q, agent.r)
     
     # Filter neighbors to keep them near their zone or generally moving back if drifted
     candidates = []
@@ -202,6 +191,10 @@ def process_feral_brain(db, agent: Agent, current_tick: int):
         candidates = [min(neighbors, key=lambda p: abs(get_hex_distance(0, 0, p[0], p[1]) - target_dist_center))]
     
     target_q, target_r = random.choice(candidates)
+    
+    # Ensure wrap
+    target_q, target_r = wrap_coords(target_q, target_r)
+
     db.add(Intent(
         agent_id=agent.id,
         tick_index=current_tick + 1,

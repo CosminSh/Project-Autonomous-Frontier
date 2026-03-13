@@ -18,6 +18,12 @@ To run a script like `seed_world.py`:
 docker exec -it project-autonomous-frontier_backend_1 python seed_world.py
 ```
 
+### Feral Recovery (Magnetic Pole Bug)
+If ferals converge at (0,0) due to distance calculation errors, run:
+```bash
+docker exec -it project-autonomous-frontier_backend_1 python scripts/fix_feral_positions.py
+```
+
 ### Database Integrity
 Before running a world reset:
 *   Ensure the script includes a **Migration Block** to handle the strict PostgreSQL transaction requirements.
@@ -28,3 +34,9 @@ Before running a world reset:
 2.  `docker-compose up -d --build` (to sync code changes).
 3.  `docker exec ... python seed_world.py` (to update world layout).
 4.  `docker-compose restart backend` (to refresh the station cache).
+
+## 📱 Mobile Interaction Model
+The map now uses a **Unified Interaction Model** (v0.5.3+).
+*   **One Tap**: Select hex/object (updates scanner).
+*   **Double Tap**: Open context menu.
+*   **Right Click**: Select + Open menu (PC shortcut).

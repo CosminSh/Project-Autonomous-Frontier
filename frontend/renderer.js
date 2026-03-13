@@ -78,6 +78,8 @@ export class GameRenderer {
 
         // Selection
         this.selectedAgentId = null;
+        this.selectedHex = null; // {q, r}
+        this.selectionRing = null;
         this.hasCenteredInitially = false;
     }
 
@@ -147,6 +149,37 @@ export class GameRenderer {
                 this.toggleDebugGrid();
             }
         });
+
+        // Initialize Selection Ring
+        this.initSelectionRing();
+    }
+
+    initSelectionRing() {
+        const hexPoints = [];
+        const size = 1.1; // Slightly larger than hex
+        for (let i = 0; i < 7; i++) { // 7 points to close the loop
+            const angle = (Math.PI / 3) * i + (Math.PI / 6);
+            hexPoints.push(new THREE.Vector3(size * Math.cos(angle), size * Math.sin(angle), 0));
+        }
+        
+        const geometry = new THREE.BufferGeometry().setFromPoints(hexPoints);
+        const material = new THREE.LineBasicMaterial({
+            color: 0x38bdf8,
+            linewidth: 2,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        this.selectionRing = new THREE.LineSegments(
+            new THREE.EdgesGeometry(new THREE.ShapeGeometry(new THREE.Shape(hexPoints.map(p => new THREE.Vector2(p.x, p.y))))),
+            material
+        );
+        this.selectionRing.visible = false;
+        this.scene.add(this.selectionRing);
+
+        // Add a pulsing effect in the animate loop instead of a separate requestAnimationFrame if possible,
+        // but for now, we'll just let it be. 
+        // Actually, let's just add it to the selectionRing userData for tracking.
     }
 
     animate() {
@@ -168,6 +201,12 @@ export class GameRenderer {
                 obj.material.uniforms.time.value = holographicTime;
             }
         });
+
+        // 0. Update Selection Ring Pulse
+        if (this.selectionRing && this.selectionRing.visible) {
+            const s = 1.0 + Math.sin(Date.now() * 0.005) * 0.05;
+            this.selectionRing.scale.set(s, s, 1);
+        }
 
         const stacks = new Map();
 
@@ -1289,24 +1328,103 @@ export class GameRenderer {
     }
 
     onWorldClick(event) {
+        if (!this.renderer) return;
+
         const rect = this.renderer.domElement.getBoundingClientRect();
         this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
         this.raycaster.setFromCamera(this.mouse, this.camera);
 
+        const resourceMeshes = Array.from(this.resources.values());
         const agentMeshes = Array.from(this.agents.values());
-        const intersects = this.raycaster.intersectObjects(agentMeshes);
+        const stationMeshes = [];
+        this.scene.traverse(obj => {
+            if (obj.userData && obj.userData.isStation) stationMeshes.push(obj);
+        });
+
+        const intersects = this.raycaster.intersectObjects([this.planetMesh, ...resourceMeshes, ...agentMeshes, ...stationMeshes], true);
 
         if (intersects.length > 0) {
-            const selectedMesh = intersects[0].object;
-            for (let [id, mesh] of this.agents.entries()) {
-                if (mesh === selectedMesh) {
-                    this.selectedAgentId = id;
-                    this.game.ui.updateScannerUI(id);
-                    return;
+            const hit = intersects[0];
+            const targetData = this.getTargetDataFromHit(hit);
+
+            if (targetData) {
+                const isSame = this.selectedHex && this.selectedHex.q === targetData.q && this.selectedHex.r === targetData.r;
+
+                if (isSame) {
+                    // Second click: Open Menu
+                    if (window.game && window.game.ui) {
+                        window.game.ui.showContextMenu(event.clientX, event.clientY, targetData);
+                    }
+                } else {
+                    // First click: Select
+                    this.selectTarget(targetData);
                 }
             }
+        }
+    }
+
+    getTargetDataFromHit(hit) {
+        const resourceMeshes = Array.from(this.resources.values());
+        
+        const findAgent = (obj) => {
+            if (!obj) return null;
+            if (obj.userData && obj.userData.id && (obj.userData.name || obj.userData.chassis)) return obj.userData;
+            return findAgent(obj.parent);
+        };
+
+        const findStation = (obj) => {
+            if (!obj) return null;
+            if (obj.userData && obj.userData.isStation) return obj.userData;
+            return findStation(obj.parent);
+        };
+
+        const agentData = findAgent(hit.object);
+        const stationData = findStation(hit.object);
+
+        if (agentData) {
+            return { type: 'agent', q: agentData.q, r: agentData.r, name: agentData.name, id: agentData.id };
+        } else if (stationData) {
+            return { 
+                type: 'station', 
+                q: stationData.q, 
+                r: stationData.r, 
+                isStation: true, 
+                stationType: stationData.stationType 
+            };
+        } else if (resourceMeshes.includes(hit.object) || resourceMeshes.includes(hit.object.parent)) {
+            const resMesh = resourceMeshes.includes(hit.object) ? hit.object : hit.object.parent;
+            const resData = resMesh.userData;
+            return { type: 'resource', q: resData.q, r: resData.r, resource: resData.type };
+        } else {
+            const { q, r } = this.sphereToQ(hit.point);
+            return { type: 'hex', q, r };
+        }
+    }
+
+    selectTarget(targetData) {
+        this.selectedHex = { q: targetData.q, r: targetData.r };
+        
+        if (targetData.type === 'agent') {
+            this.selectedAgentId = targetData.id;
+            this.game.ui.updateScannerUI(targetData.id);
+        }
+
+        // Move Selection Ring
+        if (this.selectionRing) {
+            const { x, y, z } = this.qToSphere(targetData.q, targetData.r, 0.05);
+            this.selectionRing.position.set(x, y, z);
+            this.selectionRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), this.selectionRing.position.clone().normalize());
+            this.selectionRing.visible = true;
+
+            // Update Ring Color based on type
+            let color = 0x38bdf8; // Blue (Hex/Default)
+            if (targetData.type === 'agent') color = 0xf43f5e; // Rose/Red
+            else if (targetData.type === 'station') color = 0xfacc15; // Amber/Gold
+            else if (targetData.type === 'resource') color = 0x10b981; // Emerald
+
+            this.selectionRing.material.color.setHex(color);
         }
     }
 
@@ -1321,8 +1439,6 @@ export class GameRenderer {
 
         const resourceMeshes = Array.from(this.resources.values());
         const agentMeshes = Array.from(this.agents.values());
-        
-        // Targetable stations
         const stationMeshes = [];
         this.scene.traverse(obj => {
             if (obj.userData && obj.userData.isStation) stationMeshes.push(obj);
@@ -1332,45 +1448,11 @@ export class GameRenderer {
 
         if (intersects.length > 0) {
             const hit = intersects[0];
-            let targetData = { type: 'hex', q: 0, r: 0 };
-
-            // Find which agent was hit (check object and its parents)
-            const findAgent = (obj) => {
-                if (!obj) return null;
-                if (obj.userData && obj.userData.id && (obj.userData.name || obj.userData.chassis)) return obj.userData;
-                return findAgent(obj.parent);
-            };
-
-            const findStation = (obj) => {
-                if (!obj) return null;
-                if (obj.userData && obj.userData.isStation) return obj.userData;
-                return findStation(obj.parent);
-            };
-
-            const agentData = findAgent(hit.object);
-            const stationData = findStation(hit.object);
-
-            if (agentData) {
-                targetData = { type: 'agent', q: agentData.q, r: agentData.r, name: agentData.name, id: agentData.id };
-            } else if (stationData) {
-                targetData = { 
-                    type: 'station', 
-                    q: stationData.q, 
-                    r: stationData.r, 
-                    isStation: true, 
-                    stationType: stationData.stationType 
-                };
-            } else if (resourceMeshes.includes(hit.object) || resourceMeshes.includes(hit.object.parent)) {
-                const resMesh = resourceMeshes.includes(hit.object) ? hit.object : hit.object.parent;
-                const resData = resMesh.userData;
-                targetData = { type: 'resource', q: resData.q, r: resData.r, resource: resData.type };
-            } else {
-                // Determine coordinates purely via math for precision
-                const { q, r } = this.sphereToQ(hit.point);
-                targetData = { type: 'hex', q, r };
-            }
-
-            if (targetData && targetData.q !== undefined && targetData.r !== undefined) {
+            const targetData = this.getTargetDataFromHit(hit);
+            
+            if (targetData) {
+                // Right click selects AND opens menu immediately
+                this.selectTarget(targetData);
                 if (window.game && window.game.ui) {
                     window.game.ui.showContextMenu(event.clientX, event.clientY, targetData);
                 }

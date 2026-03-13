@@ -127,6 +127,8 @@ def seed_world():
         ("agents", "level", "INTEGER DEFAULT 1"),
         ("agents", "mining_yield", "INTEGER DEFAULT 10"),
         ("agents", "speed", "INTEGER DEFAULT 10"),
+        ("agents", "is_pitfighter", "BOOLEAN DEFAULT FALSE"),
+        ("agents", "is_aggressive", "BOOLEAN DEFAULT FALSE"),
         ("global_state", "actions_processed", "INTEGER DEFAULT 0"),
     ]
     
