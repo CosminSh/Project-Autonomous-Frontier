@@ -228,16 +228,6 @@
     <div id="canvas-container"></div>
     <div id="toast-container" class="fixed top-6 right-6 z-[100] space-y-3 pointer-events-none"></div>
 
-    <!-- Agent Status Overlay (World Screen) -->
-    <div id="agent-status-overlay" class="fixed top-20 md:top-24 left-1/2 -translate-x-1/2 z-50 glass px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-sky-500/30 opacity-0 transition-opacity pointer-events-none">
-        <div class="flex items-center space-x-2 md:space-x-3">
-            <span class="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-sky-500"></span>
-            </span>
-            <span id="agent-status-text" class="orbitron text-[8px] md:text-[10px] font-bold text-sky-400 tracking-widest uppercase">Initializing...</span>
-        </div>
-    </div>
 
     <main class="ui-layer p-3 lg:p-6">
         <!-- Header -->
@@ -322,6 +312,17 @@
         <!-- DASHBOARD LAYER -->
         <div id="dashboard-layer"
             class="flex-grow flex flex-col md:flex-row justify-between items-center md:items-end pb-2 md:pb-8 space-y-6 md:space-y-0 relative">
+            
+            <!-- Agent Status Overlay (World Screen ONLY) -->
+            <div id="agent-status-overlay" class="absolute bottom-16 md:bottom-24 left-4 md:left-auto md:right-72 z-50 glass px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-sky-500/30 opacity-0 transition-opacity pointer-events-none">
+                <div class="flex items-center space-x-2 md:space-x-3">
+                    <span class="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-sky-500"></span>
+                    </span>
+                    <span id="agent-status-text" class="orbitron text-[8px] md:text-[10px] font-bold text-sky-400 tracking-widest uppercase">Initializing...</span>
+                </div>
+            </div>
             
             <!-- World Screen Telemetry (Telemetric Feed) - NOW PINNED ON MOBILE -->
             <div id="world-telemetry-container" class="fixed md:static bottom-14 md:bottom-auto right-3 md:right-auto md:ml-4 z-[60] md:z-auto transition-all duration-300">

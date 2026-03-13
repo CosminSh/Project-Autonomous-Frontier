@@ -748,7 +748,7 @@ export class GameRenderer {
             const label = this.createStationLabel(labelText);
             const centroid = this.faceCentroids[faceIndex];
             if (centroid) {
-                const labelPos = centroid.clone().normalize().multiplyScalar(54.5);
+                const labelPos = centroid.clone().normalize().multiplyScalar(56.5);
                 label.position.copy(labelPos);
                 this.scene.add(label);
                 this.poiLabels.set(faceIndex, { label, faceIndex });
