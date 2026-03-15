@@ -516,6 +516,7 @@ export class TerminalHandler {
     }
 
     async handleAction(actionType, args) {
+        if (actionType === 'HELP') {
             if (args.length > 0) {
                 const cmdName = args[0].toUpperCase();
 
