@@ -52,6 +52,7 @@ def run_migrations(engine: Engine):
         ("market_pickups", "created_at", "DATETIME"),
         ("intents", "created_at", "DATETIME"),
         ("daily_missions", "created_at", "DATETIME"),
+        ("daily_missions", "reward_xp", "INTEGER DEFAULT 100"),
         ("corporations", "created_at", "DATETIME"),
         ("corporations", "vault_capacity", "FLOAT DEFAULT 5000.0"),
         ("corporations", "credit_vault", "INTEGER DEFAULT 0"),
@@ -61,6 +62,7 @@ def run_migrations(engine: Engine):
         ("agents", "corp_role", "VARCHAR DEFAULT 'MEMBER'"),
         ("corporations", "join_policy", "VARCHAR DEFAULT 'OPEN'"),
         ("corporations", "motd", "TEXT"),
+        ("corporations", "upgrades", "JSON"),
     ]
     
     logger.info(f"Starting migrations on: {DATABASE_URL}")
