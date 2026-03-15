@@ -99,19 +99,19 @@ export class AuthManager {
     }
 
     setAuthenticated(isAuthenticated) {
-        const authPanel = document.getElementById('auth-panel');
+        const welcomeScreen = document.getElementById('welcome-screen');
         const privateLayer = document.getElementById('private-dashboard');
         const logoutBtn = document.getElementById('logout-btn');
         const modeSwitcher = document.getElementById('mode-switcher');
 
         if (isAuthenticated) {
-            authPanel.classList.add('hidden');
+            welcomeScreen?.classList.add('hidden');
             modeSwitcher.classList.remove('hidden');
             logoutBtn.classList.remove('hidden');
             this.game.setUIMode('management'); // Default to management view on login
             document.getElementById('agent-detail').style.opacity = '1';
         } else {
-            authPanel.classList.remove('hidden');
+            welcomeScreen?.classList.remove('hidden');
             modeSwitcher.classList.add('hidden');
             privateLayer.classList.add('hidden');
             logoutBtn.classList.add('hidden');

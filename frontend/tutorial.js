@@ -77,7 +77,10 @@ export class TutorialManager {
         this.game.renderer.handleWorldEvent(this.game.lastWorldData);
         
         // Hide regular UI elements
+        document.getElementById('welcome-screen')?.classList.add('hidden');
         document.getElementById('auth-panel')?.classList.add('hidden');
+        
+        console.log("Tutorial UI setup complete and active.");
     }
 
     stop() {
