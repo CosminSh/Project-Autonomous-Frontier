@@ -48,31 +48,14 @@ class StorageUI {
         this.isRefreshing = true;
 
         try {
+            let data;
             if (this.vaultTarget === 'CORPORATION') {
-                const response = await fetch('/api/corp/vault', {
-                    headers: { 'X-API-KEY': apiKey }
-                });
-                if (!response.ok) {
-                    const err = await response.json();
-                    if (err.detail && err.detail.includes("not in a corporation")) {
-                         this.items = [];
-                         this.capacity = 0;
-                         this.used = 0;
-                         this.render();
-                         return;
-                    }
-                    throw new Error("Failed to fetch corp vault");
-                }
-                const data = await response.json();
+                data = await window.game.api._fetch('/api/corp/vault');
                 this.items = data.storage.map(s => ({ type: s.item_type, quantity: s.quantity, data: s.data }));
                 this.capacity = data.vault_capacity;
                 this.used = this.items.reduce((sum, i) => sum + (i.quantity * (window.ITEM_WEIGHTS?.[i.type] || 1.0)), 0);
-                this.nextUpgradeRequirements = null;
             } else {
-                const response = await fetch('/api/storage/info', {
-                    headers: { 'X-API-KEY': apiKey }
-                });
-                const data = await response.json();
+                data = await window.game.api._fetch('/api/storage/info');
                 if (data.items !== undefined) {
                     this.items = data.items;
                     this.capacity = data.capacity;
@@ -83,6 +66,13 @@ class StorageUI {
             this.render();
         } catch (err) {
             console.error("Failed to refresh storage:", err);
+            // Handle specific "not in corp" error if needed, but GameAPI._fetch might handle generic errors
+            if (err.message && err.message.includes("not in a corporation")) {
+                 this.items = [];
+                 this.capacity = 0;
+                 this.used = 0;
+                 this.render();
+            }
         } finally {
             this.isRefreshing = false;
         }
@@ -184,43 +174,25 @@ class StorageUI {
 
     async deposit(itemType, qty) {
         try {
-            const response = await fetch('/api/storage/deposit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-API-KEY': window.game.apiKey },
-                body: JSON.stringify({ item_type: itemType, quantity: qty, target: this.vaultTarget })
-            });
-            const res = await response.json();
-            if (response.ok) {
-                this._toast(res.message || `Deposited ${qty}x ${itemType} to ${this.vaultTarget}.`, 'success');
-                this.refreshStorage();
-                window.game.pollState();
-            } else {
-                this._toast(res.detail || 'Deposit failed.', 'error');
-            }
+            const res = await window.game.api._post('/api/storage/deposit', { item_type: itemType, quantity: qty, target: this.vaultTarget });
+            this._toast(res.message || `Deposited ${qty}x ${itemType} to ${this.vaultTarget}.`, 'success');
+            this.refreshStorage();
+            window.game.pollState();
         } catch (err) {
             console.error(err);
-            this._toast('Network error during deposit.', 'error');
+            this._toast(err.message || 'Deposit failed.', 'error');
         }
     }
 
     async withdraw(itemType, qty) {
         try {
-            const response = await fetch('/api/storage/withdraw', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-API-KEY': window.game.apiKey },
-                body: JSON.stringify({ item_type: itemType, quantity: qty, target: this.vaultTarget })
-            });
-            const res = await response.json();
-            if (response.ok) {
-                this._toast(res.message || `Withdrew ${qty}x ${itemType} from ${this.vaultTarget}.`, 'success');
-                this.refreshStorage();
-                window.game.pollState();
-            } else {
-                this._toast(res.detail || 'Withdrawal failed.', 'error');
-            }
+            const res = await window.game.api._post('/api/storage/withdraw', { item_type: itemType, quantity: qty, target: this.vaultTarget });
+            this._toast(res.message || `Withdrew ${qty}x ${itemType} from ${this.vaultTarget}.`, 'success');
+            this.refreshStorage();
+            window.game.pollState();
         } catch (err) {
             console.error(err);
-            this._toast('Network error during withdrawal.', 'error');
+            this._toast(err.message || 'Withdrawal failed.', 'error');
         }
     }
 
@@ -241,21 +213,13 @@ class StorageUI {
         if (!confirm(`Upgrade vault capacity from ${this.capacity}kg to ${nextCap}kg?\n\nRequired:\n- ${reqStr}\n\nProceed?`)) return;
 
         try {
-            const response = await fetch('/api/storage/upgrade', {
-                method: 'POST',
-                headers: { 'X-API-KEY': window.game.apiKey }
-            });
-            const res = await response.json();
-            if (response.ok) {
-                this._toast(res.message || 'Vault upgraded!', 'success');
-                this.refreshStorage();
-                window.game.pollState();
-            } else {
-                this._toast(res.detail || 'Upgrade failed.', 'error');
-            }
+            const res = await window.game.api._post('/api/storage/upgrade');
+            this._toast(res.message || 'Vault upgraded!', 'success');
+            this.refreshStorage();
+            window.game.pollState();
         } catch (err) {
             console.error(err);
-            this._toast('Network error during upgrade.', 'error');
+            this._toast(err.message || 'Upgrade failed.', 'error');
         }
     }
 
