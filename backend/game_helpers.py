@@ -17,6 +17,7 @@ from config import (
     BASE_REGEN, CLUTTER_PENALTY,
     CRAFTING_RECIPES, SMELTING_RECIPES, CORE_RECIPES,
     FRAME_SLOT_LIMITS,
+    CORPORATE_UPGRADES,
     WORLD_WIDTH, WORLD_HEIGHT, MAP_MIN_Q, MAP_MAX_Q, MAP_MIN_R, MAP_MAX_R
 )
 
@@ -481,6 +482,25 @@ def recalculate_agent_stats(db: Session, agent: Agent):
                     elif stat_name == "radar_radius":
                         radar_radius += bonus
 
+    # ── Corporate Upgrade Bonuses ──
+    if agent.corporation and agent.corporation.upgrades:
+        upgrades = agent.corporation.upgrades
+        for category, level in upgrades.items():
+            if category in CORPORATE_UPGRADES and level > 0:
+                # Levels are 1-indexed in upgrades, 0-indexed in config list
+                upgrade_data = CORPORATE_UPGRADES[category]
+                lvl_idx = min(level - 1, len(upgrade_data["levels"]) - 1)
+                bonus = upgrade_data["levels"][lvl_idx].get("bonus")
+                
+                if category == "LOGISTICS":
+                    agent.max_mass += bonus
+                elif category == "EXTRACTION":
+                    agent.mining_yield += bonus
+                elif category == "SECURITY":
+                    if isinstance(bonus, dict):
+                        agent.armor += bonus.get("armor", 0)
+                        agent.max_health += bonus.get("health", 0)
+
     # Caps & Floor (Ensure no negative critical stats)
     agent.max_health = max(10, agent.max_health)
     agent.speed = max(1, agent.speed)
@@ -670,7 +690,18 @@ def add_experience(db: Session, agent: Agent, amount: int):
     """Adds experience to an agent and handles level ups."""
     if not hasattr(agent, "experience"):
         return
-    agent.experience = (agent.experience or 0) + amount
+        
+    # Apply Corporate XP Bonus if applicable
+    xp_to_add = amount
+    if agent.corporation and agent.corporation.upgrades:
+        link_lvl = agent.corporation.upgrades.get("NEURAL_LINK", 0)
+        if link_lvl > 0:
+            upgrade_data = CORPORATE_UPGRADES["NEURAL_LINK"]
+            lvl_idx = min(link_lvl - 1, len(upgrade_data["levels"]) - 1)
+            bonus_pct = upgrade_data["levels"][lvl_idx].get("bonus", 0)
+            xp_to_add = int(amount * (1.0 + bonus_pct))
+
+    agent.experience = (agent.experience or 0) + xp_to_add
     
     while True:
         level = agent.level or 1

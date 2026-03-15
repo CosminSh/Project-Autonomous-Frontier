@@ -15,13 +15,16 @@ from game_helpers import add_experience, recalculate_agent_stats, ITEM_WEIGHTS, 
 logger = logging.getLogger("heartbeat.actions.industry")
 
 def get_total_resource(agent, item_type):
-    """Returns total quantity of an item across inventory and vault."""
+    """Returns total quantity of an item across inventory, personal vault, and corporation vault."""
     inv_qty = sum(i.quantity for i in agent.inventory if i.item_type == item_type)
     vault_qty = sum(s.quantity for s in agent.storage if s.item_type == item_type)
-    return inv_qty + vault_qty
+    corp_qty = 0
+    if agent.corporation_id and agent.corporation:
+        corp_qty = sum(s.quantity for s in agent.corporation.storage if s.item_type == item_type)
+    return inv_qty + vault_qty + corp_qty
 
 def consume_resources(db, agent, item_type, total_needed):
-    """Consumes specified quantity of an item, prioritizing inventory then vault."""
+    """Consumes specified quantity of an item, prioritizing inventory then vault then corporation vault."""
     remaining = total_needed
     
     # 1. Consume from Inventory first
@@ -33,10 +36,20 @@ def consume_resources(db, agent, item_type, total_needed):
         remaining -= take
         if i.quantity <= 0: db.delete(i)
         
-    # 2. Consume from Vault if still needed
+    # 2. Consume from Personal Vault
     if remaining > 0:
         vault_items = [s for s in agent.storage if s.item_type == item_type]
         for s in vault_items:
+            if remaining <= 0: break
+            take = min(s.quantity, remaining)
+            s.quantity -= take
+            remaining -= take
+            if s.quantity <= 0: db.delete(s)
+            
+    # 3. Consume from Corporation Vault
+    if remaining > 0 and agent.corporation_id and agent.corporation:
+        corp_items = [s for s in agent.corporation.storage if s.item_type == item_type]
+        for s in corp_items:
             if remaining <= 0: break
             take = min(s.quantity, remaining)
             s.quantity -= take

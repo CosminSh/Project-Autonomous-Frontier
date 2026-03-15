@@ -133,7 +133,13 @@ CRAFTING_RECIPES = {
     
     # [S] Special Variants
     "RAILGUN_S": {"ANCIENT_CIRCUIT": 1, "FERAL_CORE": 2, "GOLD_INGOT": 20},
-    "SCANNER_S": {"VOID_CHIP": 1, "ELECTRONICS": 5, "COPPER_INGOT": 25}
+    "SCANNER_S": {"VOID_CHIP": 1, "ELECTRONICS": 5, "COPPER_INGOT": 25},
+
+    # [NEW] Multi-Profession Relics
+    "ULTRA_SCANNER": {"GOLD_INGOT": 20, "ELECTRONICS": 10, "VOID_CRYSTAL": 2},
+    "RELIC_DRILL": {"COBALT_INGOT": 15, "ARENA_REMAINS": 1, "QUANTUM_CHIP": 1},
+    "PLASMA_CORE": {"HE3_FUEL_CELL_UNIT": 5, "GOLD_INGOT": 10, "QUANTUM_CHIP": 2},
+    "OMEGA_CHASSIS": {"COBALT_INGOT": 50, "ARENA_REMAINS": 5, "FERAL_CORE": 10}
 }
 
 CORE_RECIPES = list(CRAFTING_RECIPES.keys())
@@ -205,6 +211,52 @@ def get_vault_upgrade_requirements(current_capacity: float) -> dict:
         }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Corporate Upgrades (Tech Tree)
+# ─────────────────────────────────────────────────────────────────────────────
+CORPORATE_UPGRADES = {
+    "LOGISTICS": {
+        "name": "Logistics Expansion",
+        "levels": [
+            {"cost": 2500, "bonus": 50, "description": "+50kg Cargo Capacity per member"},
+            {"cost": 7500, "bonus": 150, "description": "+150kg Cargo Capacity per member"},
+            {"cost": 20000, "bonus": 400, "description": "+400kg Cargo Capacity per member"}
+        ]
+    },
+    "EXTRACTION": {
+        "name": "Extraction Protocols",
+        "levels": [
+            {"cost": 3000, "bonus": 50, "description": "+50 Mining Yield per member"},
+            {"cost": 10000, "bonus": 150, "description": "+150 Mining Yield per member"},
+            {"cost": 25000, "bonus": 400, "description": "+400 Mining Yield per member"}
+        ]
+    },
+    "NEURAL_LINK": {
+        "name": "Neural Link Optimization",
+        "levels": [
+            {"cost": 5000, "bonus": 0.1, "description": "+10% XP Gain per member"},
+            {"cost": 15000, "bonus": 0.25, "description": "+25% XP Gain per member"},
+            {"cost": 40000, "bonus": 0.5, "description": "+50% XP Gain per member"}
+        ]
+    },
+    "SECURITY": {
+        "name": "Internal Security Dept",
+        "levels": [
+            {"cost": 4000, "bonus": {"armor": 5, "health": 25}, "description": "+5 Armor, +25 HP per member"},
+            {"cost": 12000, "bonus": {"armor": 15, "health": 75}, "description": "+15 Armor, +75 HP per member"},
+            {"cost": 30000, "bonus": {"armor": 40, "health": 200}, "description": "+40 Armor, +200 HP per member"}
+        ]
+    },
+    "MARKET": {
+        "name": "Market Influence",
+        "levels": [
+            {"cost": 6000, "bonus": 0.02, "description": "Reduce transaction tax by 2%"},
+            {"cost": 18000, "bonus": 0.05, "description": "Reduce transaction tax by 5%"},
+            {"cost": 50000, "bonus": 0.1, "description": "Reduce transaction tax by 10%"}
+        ]
+    }
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Frame-Specific Slot Limits
 # ─────────────────────────────────────────────────────────────────────────────
 FRAME_SLOT_LIMITS = {
@@ -218,8 +270,8 @@ FRAME_SLOT_LIMITS = {
     "HAULER_CHASSIS_MK2": {"Frame": 1, "Actuator": 1, "Engine": 1, "Sensor": 1, "Power": 1},
     "GLADIATOR_FRAME": {"Frame": 1, "Actuator": 3, "Engine": 2, "Sensor": 1, "Power": 1},
     "PIT_FRAME": {"Frame": 1, "Actuator": 2, "Engine": 1, "Sensor": 1, "Power": 1},
-    "COPPER_MESH_FRAME": {"Frame": 1, "Actuator": 2, "Engine": 1, "Sensor": 1, "Power": 1}
-    
+    "COPPER_MESH_FRAME": {"Frame": 1, "Actuator": 2, "Engine": 1, "Sensor": 1, "Power": 1},
+    "OMEGA_CHASSIS": {"Frame": 1, "Actuator": 5, "Engine": 3, "Sensor": 3, "Power": 5}
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -352,7 +404,12 @@ PART_DEFINITIONS = {
     "SCRAP_SHIELD": {"type": "Power", "stats": {"armor": 20}, "name": "Scrap Shield", "weight": 5.0, "description": "Crude arena shielding. High wear."},
     "GEOLOGICAL_CORE": {"type": "Power", "stats": {"efficiency": 1.5}, "name": "Geological Core", "weight": 12.0, "description": "Stable power for survey equipment."},
     "COPPER_SOLAR_ARRAY": {"type": "Power", "stats": {"efficiency": 0.8}, "name": "Copper Solar Array", "weight": 8.0, "description": "Full copper solar collection array. Decent efficiency."},
+    "PLASMA_CORE": {"type": "Power", "stats": {"efficiency": 15.0, "max_energy": 500}, "name": "Quantum Plasma Core", "weight": 2.0, "description": "Experimental power source. Infinite energy potential."},
 
+    # SPECIAL RELICS
+    "ULTRA_SCANNER": {"type": "Sensor", "stats": {"radar_radius": 35, "scan_depth": 3}, "name": "Void-Ultra Scanner", "weight": 1.0, "description": "Pierces the veil of the void."},
+    "RELIC_DRILL": {"type": "Actuator", "stats": {"mining_yield": 1200, "damage": 150}, "name": "Ancient Relic Drill", "weight": 5.0, "description": "Shatters even the hardest crusts."},
+    "OMEGA_CHASSIS": {"type": "Frame", "stats": {"max_health": 1000, "armor": 100, "capacity": 2000, "speed": 10}, "name": "Omega God-Frame", "weight": 250.0, "description": "The pinnacle of colonial engineering."},
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -366,7 +423,8 @@ ITEM_WEIGHTS = {
     "UPGRADE_MODULE": 2.0, "REPAIR_KIT": 5.0, "FIELD_REPAIR_KIT": 8.0, "CORE_VOUCHER": 0.5,
     "SCRAP_METAL": 1.0, "ELECTRONICS": 0.5,
     "SYNTHETIC_WEAVE": 1.0, "FERAL_CORE": 2.5,
-    "VOID_CHIP": 0.5, "ANCIENT_CIRCUIT": 0.8
+    "VOID_CHIP": 0.5, "ANCIENT_CIRCUIT": 0.8,
+    "VOID_CRYSTAL": 2.0, "QUANTUM_CHIP": 0.5, "ARENA_REMAINS": 10.0
 }
 # Populate part weights from their definitions
 for key, defn in PART_DEFINITIONS.items():

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- VERSION: 0.5.4_POLISHED -->
+<!-- VERSION: 0.5.5_POLISHED -->
 <html lang="en">
 
 <head>
@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=0.5.0">
+    <link rel="stylesheet" href="styles.css?v=0.5.5">
     <style>
         body {
             background-color: #050507;
@@ -426,6 +426,8 @@
                                 <span id="agent-id">#0000</span>
                                 <span class="mx-1">|</span>
                                 <span id="agent-coords" class="text-sky-400 font-bold">Q:0, R:0</span>
+                                <span class="mx-1 hidden" id="agent-corp-divider">|</span>
+                                <span id="agent-corp" class="text-emerald-400 font-bold"></span>
                             </p>
                         </div>
                         <div class="flex flex-col items-end space-y-1">
@@ -603,8 +605,9 @@
                         class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">⚙️
                         System</button>
                     <button id="tab-arena"
-                        class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">🏟️
-                        Arena</button>
+                        class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">🥊 Arena</button>
+                    <button id="tab-corporation"
+                        class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">🏢 Corp</button>
                 </nav>
                 <div class="p-3 md:p-4 flex-grow overflow-y-auto custom-scrollbar">
 
@@ -753,7 +756,15 @@
                         <!-- Vault sub-panel -->
                         <div id="inv-panel-vault" class="hidden">
                             <div class="flex justify-between items-center mb-4">
-                                <h3 class="orbitron text-sm text-sky-400">🏦 PERSONAL VAULT</h3>
+                                <div class="flex items-center space-x-4">
+                                    <h3 id="vault-title" class="orbitron text-sm text-sky-400">🏦 PERSONAL VAULT</h3>
+                                    <div class="flex bg-slate-900/80 p-0.5 rounded-lg border border-slate-800">
+                                        <button onclick="window.storageUI.switchVault('PERSONAL')" id="vault-btn-personal"
+                                            class="px-3 py-1 text-[8px] orbitron font-bold transition-all rounded-md bg-sky-500 text-slate-950">PERSONAL</button>
+                                        <button onclick="window.storageUI.switchVault('CORPORATION')" id="vault-btn-corp"
+                                            class="px-3 py-1 text-[8px] orbitron font-bold transition-all rounded-md text-slate-500 hover:text-slate-300">CORPORATION</button>
+                                    </div>
+                                </div>
                                 <div class="flex items-center space-x-3">
                                     <div class="text-right">
                                         <p class="text-[8px] text-slate-500 uppercase font-bold">Capacity</p>
@@ -905,9 +916,12 @@
                                 <div class="flex justify-between items-center mb-3">
                                     <h4 class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Market
                                         Manifest</h4>
-                                    <div class="flex space-x-4 text-[9px] text-slate-500">
-                                        <span>SELL: <span id="count-sell" class="text-sky-400">0</span></span>
-                                        <span>BUY: <span id="count-buy" class="text-amber-400">0</span></span>
+                                    <div class="flex items-center space-x-4">
+                                        <button onclick="game.ui.toggleMarketView()" class="text-[9px] orbitron font-bold border border-sky-500/30 text-sky-400 px-2 py-0.5 rounded hover:bg-sky-500/10 transition-all">VIEW ORDER BOOK</button>
+                                        <div class="flex space-x-4 text-[9px] text-slate-500">
+                                            <span>SELL: <span id="count-sell" class="text-sky-400">0</span></span>
+                                            <span>BUY: <span id="count-buy" class="text-amber-400">0</span></span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="overflow-x-auto">
@@ -1220,7 +1234,17 @@
                         </div>
 
                     </div>
-            </main>
+
+                    <!-- ════════════════════════════════════════════════
+                         TAB 6: CORPORATION MANAGEMENT
+                         Members | Vault | Hierarchy
+                    ════════════════════════════════════════════════ -->
+                    <div id="content-corporation" class="hidden flex flex-col gap-6">
+                        <div class="flex items-center justify-center p-12 text-slate-500 orbitron text-[10px] animate-pulse">
+                            Accessing Corporate Secure Channel...
+                        </div>
+                    </div>
+                </main>
         </div>
 
         <!-- LEADERBOARD LAYER -->

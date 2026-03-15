@@ -80,9 +80,16 @@ async def lifespan(app: FastAPI):
         ("market_pickups", "created_at", "DATETIME"),
         ("intents", "created_at", "DATETIME"),
         ("daily_missions", "created_at", "DATETIME"),
+        ("daily_missions", "reward_xp", "INTEGER DEFAULT 100"),
         ("corporations", "created_at", "DATETIME"),
-        ("api_key_revocations", "reason", "VARCHAR"),
+        ("corporations", "vault_capacity", "FLOAT DEFAULT 5000.0"),
+        ("corporations", "credit_vault", "INTEGER DEFAULT 0"),
+        ("corporations", "tax_rate", "FLOAT DEFAULT 0.0"),
         ("api_key_revocations", "revoked_at", "DATETIME"),
+        ("agents", "corp_role", "VARCHAR DEFAULT 'MEMBER'"),
+        ("corporations", "join_policy", "VARCHAR DEFAULT 'OPEN'"),
+        ("corporations", "motd", "TEXT"),
+        ("corporations", "upgrades", "JSON"),
     ]
     
     with engine.connect() as conn:

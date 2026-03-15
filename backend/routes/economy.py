@@ -32,6 +32,25 @@ async def get_market_prices(db: Session = Depends(get_db)):
         prices[o.item_type].append(o.price)
     
     return {k: sum(v)/len(v) for k, v in prices.items() if v}
+    
+@router.get("/market/depth")
+async def get_market_depth(item_type: str = Query(None), db: Session = Depends(get_db)):
+    """Returns aggregated volume at each price point for a specific item (Order Book view)."""
+    if not item_type:
+        raise HTTPException(status_code=400, detail="item_type is required for market depth.")
+        
+    orders = db.execute(select(AuctionOrder).where(AuctionOrder.item_type == item_type)).scalars().all()
+    
+    depth = {"BUY": {}, "SELL": {}}
+    for o in orders:
+        price_str = f"{o.price:.2f}"
+        depth[o.order_type][price_str] = depth[o.order_type].get(price_str, 0) + o.quantity
+        
+    return {
+        "item": item_type,
+        "buy_orders": sorted([{"price": float(p), "qty": q} for p, q in depth["BUY"].items()], key=lambda x: x["price"], reverse=True),
+        "sell_orders": sorted([{"price": float(p), "qty": q} for p, q in depth["SELL"].items()], key=lambda x: x["price"])
+    }
 
 @router.delete("/market/orders/{order_id}")
 async def cancel_market_order(order_id: int, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):

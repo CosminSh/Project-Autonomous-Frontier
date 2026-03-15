@@ -102,10 +102,11 @@ def main():
             # 3. Decision Tree
             # --- CRITICAL HEALTH CHECK ---
             health_p = (agent.get("health", 100) / agent.get("max_health", 100)) * 100
-            if health_p < 50 and state not in ["RETREATING", "DEPOSITING"]:
-                logging.warning(f"CRITICAL: Hull Integrity at {health_p:.1f}%. Retreating!")
-                state = "FIND_HUB"
-                continue
+            if health_p < 50 and state not in ["NAVIGATING_TO_HUB", "DEPOSITING", "CHARGING"]:
+                if state != "FIND_HUB":
+                    logging.warning(f"CRITICAL: Hull Integrity at {health_p:.1f}%. Retreating to Hub!")
+                    state = "FIND_HUB"
+                # DO NOT continue here; let the state machine below handle submitting the MOVE intent.
 
             if energy < RECHARGE_THRESHOLD and state != "CHARGING":
                 client.submit_intent("STOP")

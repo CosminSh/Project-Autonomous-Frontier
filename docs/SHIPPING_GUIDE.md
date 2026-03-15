@@ -29,6 +29,13 @@ Before running a world reset:
 *   Ensure the script includes a **Migration Block** to handle the strict PostgreSQL transaction requirements.
 *   Always use `conn.rollback()` if a column check fails, otherwise Postgres will block all subsequent queries in that session.
 
+### 🏢 Guilds & Upgrades Migration
+The system uses "Safe Startup Migrations" in `backend/main.py`. These run automatically whenever the backend starts.
+*   **Columns handled**: `daily_missions.reward_xp`, `corporations.upgrades`, `agents.corp_role`, etc.
+*   **Action Required**: Simply restart the backend service.
+*   **Verification**: Check logs for `Migration: Added column [X] to [Y].`
+*   **Alembic**: Not strictly required for these small updates as they are handled by the startup block.
+
 ## 🔄 Live Reset Workflow
 1.  **Git Pull** on the host.
 2.  `docker-compose up -d --build` (to sync code changes).

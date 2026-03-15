@@ -73,6 +73,22 @@ export class TerminalHandler {
             'LEADERBOARD': { cat: 'META', syntax: 'LEADERBOARD', example: 'LEADERBOARD', help: 'Shows the top 10 players by XP, Credits, and Arena Elo.' },
             'ROTATE_KEY': { cat: 'OTHER', syntax: 'ROTATE_KEY', example: 'ROTATE_KEY', help: 'Regenerate your API key (Invalidates old key)' },
             'LOGS': { cat: 'META', syntax: 'LOGS', example: 'LOGS', help: 'Show your agent\'s recent action audit trail (Failure reasons, etc.)' },
+
+            // ── CORPORATION ──
+            'CORP_CREATE': { cat: 'CORP', syntax: 'CORP_CREATE <name> <ticker> [tax]', example: 'CORP_CREATE "Deep Space Mining" DSM 0.1', help: 'Establish a new corporation (Costs 10,000 CR).' },
+            'CORP_JOIN': { cat: 'CORP', syntax: 'CORP_JOIN <ticker>', example: 'CORP_JOIN DSM', help: 'Join an OPEN corporation or one where you have an accepted invite.' },
+            'CORP_LEAVE': { cat: 'CORP', syntax: 'CORP_LEAVE', example: 'CORP_LEAVE', help: 'Depart your current corporation (Incurs reputation loss).' },
+            'CORP_MEMBERS': { cat: 'CORP', syntax: 'CORP_MEMBERS', example: 'CORP_MEMBERS', help: 'List all agents in your corporation.' },
+            'CORP_PROMOTE': { cat: 'CORP', syntax: 'CORP_PROMOTE <agent_id>', example: 'CORP_PROMOTE 42', help: 'Advance a member\'s rank (Officers+).' },
+            'CORP_DEMOTE': { cat: 'CORP', syntax: 'CORP_DEMOTE <agent_id>', example: 'CORP_DEMOTE 42', help: 'Reduce a member\'s rank (Officers+).' },
+            'CORP_MOTD': { cat: 'CORP', syntax: 'CORP_MOTD <message>', example: 'CORP_MOTD All miners report to G-4.', help: 'Update corporate Message of the Day (Officers+).' },
+            'CORP_VAULT': { cat: 'CORP', syntax: 'CORP_VAULT', example: 'CORP_VAULT', help: 'Show credits and item storage in the corporate vault.' },
+            'CORP_DEPOSIT': { cat: 'CORP', syntax: 'CORP_DEPOSIT <amount>', example: 'CORP_DEPOSIT 500', help: 'Transfer credits from your inventory to the vault.' },
+            'CORP_WITHDRAW': { cat: 'CORP', syntax: 'CORP_WITHDRAW <amount>', example: 'CORP_WITHDRAW 500', help: 'Retrieve credits from the vault (Officers+).' },
+            'CORP_INVITE': { cat: 'CORP', syntax: 'CORP_INVITE <agent_id>', example: 'CORP_INVITE 8', help: 'Send a recruitment invitation to an agent (Officers+).' },
+            'CORP_APPLY': { cat: 'CORP', syntax: 'CORP_APPLY <ticker>', example: 'CORP_APPLY DSM', help: 'Apply to join a corporation.' },
+            'CORP_UPGRADES': { cat: 'CORP', syntax: 'CORP_UPGRADES', example: 'CORP_UPGRADES', help: 'View corporate research & development status.' },
+            'CORP_UPGRADE_PURCHASE': { cat: 'CORP', syntax: 'CORP_UPGRADE_PURCHASE <category>', example: 'CORP_UPGRADE_PURCHASE LOGISTICS', help: 'Purchase corporate upgrade (Officers+).' },
         };
 
         this.setupListeners();
@@ -384,6 +400,39 @@ export class TerminalHandler {
                 break;
             case 'PERCEIVE': case 'SCAN':
                 return { action: actionType, timestamp: Date.now() };
+            case 'CORP_CREATE':
+                if (args.length < 2) throw new Error('Usage: CORP_CREATE <name> <ticker> [tax_rate]  — e.g. CORP_CREATE "My Corp" ABC 0.1');
+                data.name = args[0]; data.ticker = args[1].toUpperCase();
+                data.tax_rate = args[2] ? parseFloat(args[2]) : 0;
+                break;
+            case 'CORP_JOIN':
+                if (args.length < 1) throw new Error('Usage: CORP_JOIN <ticker>');
+                data.ticker = args[0].toUpperCase();
+                break;
+            case 'CORP_PROMOTE': case 'CORP_DEMOTE':
+                if (args.length < 1) throw new Error(`Usage: ${actionType} <agent_id>`);
+                data.agent_id = parseInt(args[0]);
+                break;
+            case 'CORP_MOTD':
+                if (args.length < 1) throw new Error('Usage: CORP_MOTD <message>');
+                data.motd = args.join(' ');
+                break;
+            case 'CORP_DEPOSIT': case 'CORP_WITHDRAW':
+                if (args.length < 1) throw new Error(`Usage: ${actionType} <amount>`);
+                data.amount = parseInt(args[0]);
+                break;
+            case 'CORP_INVITE':
+                if (args.length < 1) throw new Error('Usage: CORP_INVITE <agent_id>');
+                data.agent_id = parseInt(args[0]);
+                break;
+            case 'CORP_APPLY':
+                if (args.length < 1) throw new Error('Usage: CORP_APPLY <ticker>');
+                data.ticker = args[0].toUpperCase();
+                break;
+            case 'CORP_LEAVE':
+                break;
+            case 'CORP_MEMBERS': case 'CORP_VAULT':
+                return { action: actionType, timestamp: Date.now() };
             default:
                 throw new Error(`Unknown command: ${actionType}`);
         }
@@ -678,6 +727,13 @@ export class TerminalHandler {
                 const a = await resp.json();
                 this.log(`<b>═══ AGENT STATUS ═══</b>`, 'system');
                 this.log(`  Name:      <b>${a.name}</b>`, 'info');
+                if (a.corporation) {
+                    this.log(`  Corp:      <span style="color:#10b981">[${a.corporation.ticker}] ${a.corporation.name}</span>`, 'info');
+                    this.log(`  Rank:      <span style="color:#38bdf8">${a.corporation.role || 'MEMBER'}</span>`, 'info');
+                    if (a.corporation.motd) {
+                        this.log(`  MOTD:      <i style="color:#94a3b8">"${a.corporation.motd}"</i>`, 'info');
+                    }
+                }
                 this.log(`  Level:     ${a.level || 1} (${a.experience || 0} XP)`, 'info');
                 this.log(`  Pos:       (${a.q}, ${a.r})`, 'info');
                 this.log(`  Health:    ${a.health}/${a.max_health} HP`, a.health < a.max_health * 0.3 ? 'error' : 'info');
@@ -1081,6 +1137,85 @@ export class TerminalHandler {
             } catch (e) {
                 this.log(`✗ ${e.message}`, 'error');
             }
+            return;
+        }
+
+        // ── CORPORATION COMMANDS ──
+        if (actionType.startsWith('CORP_')) {
+            const cmdParts = actionType.split('_');
+            const subAction = cmdParts.slice(1).join('_').toLowerCase();
+            const data = this.parseIntent(actionType, args);
+
+            if (actionType === 'CORP_MEMBERS') {
+                const members = await this.game.api.fetchCorpMembers();
+                this.log(`<b>═══ CORPORATE ROSTER ═══</b>`, 'system');
+                if (members.length === 0) {
+                    this.log(`  No members found or not in a corporation.`, 'info');
+                } else {
+                    members.forEach(m => {
+                        this.log(`  [${m.agent_id.toString().padStart(4, '0')}] <b>${m.name}</b> — <span style="color:#38bdf8">${m.role}</span> | LVL ${m.level} | @ ${m.q},${m.r}`, 'info');
+                    });
+                }
+                return;
+            }
+
+            if (actionType === 'CORP_VAULT') {
+                const vault = await this.game.api.fetchCorpVault();
+                if (!vault) {
+                    this.log(`✗ Could not retrieve vault data.`, 'error');
+                    return;
+                }
+                this.log(`<b>═══ CORPORATE VAULT: ${vault.name} [${vault.ticker}] ═══</b>`, 'system');
+                this.log(`  MOTD:    <span style="color:#fbbf24">${vault.motd || 'None'}</span>`, 'info');
+                this.log(`  Credits: <span style="color:#10b981">$${vault.credit_balance.toLocaleString()}</span> / $${vault.vault_capacity.toLocaleString()}`, 'info');
+                this.log(`  Tax Rate: ${(vault.tax_rate * 100).toFixed(1)}%`, 'info');
+                this.log(`  Policy:   ${vault.join_policy}`, 'info');
+                if (vault.storage && vault.storage.length > 0) {
+                    this.log(`  <b>Inventory:</b>`, 'success');
+                    vault.storage.forEach(s => {
+                        this.log(`    - ${s.item_type.replace(/_/g, ' ')} x${s.quantity}`, 'info');
+                    });
+                }
+                return;
+            }
+
+            if (actionType === 'CORP_UPGRADES') {
+                const data = await this.game.api.getCorpUpgrades();
+                if (!data) {
+                    this.log(`✗ Could not retrieve research data.`, 'error');
+                    return;
+                }
+                const current = data.upgrades || {};
+                this.log(`<b>═══ CORPORATE R&D HUB ═══</b>`, 'system');
+                Object.entries(data.definitions).forEach(([key, d]) => {
+                    const level = current[key] || 0;
+                    const isMax = level >= d.levels.length;
+                    const status = isMax ? `<span style="color:#10b981">MAX</span>` : `LVL ${level}`;
+                    const nextCost = isMax ? '' : ` | Next: $${d.levels[level].cost.toLocaleString()}`;
+                    this.log(`  [${status}] <b>${d.name}</b>${nextCost}`, 'info');
+                    const desc = isMax ? 'Maximum development achieved.' : d.levels[level].description;
+                    this.log(`        <i>${desc}</i>`, 'info');
+                });
+                return;
+            }
+
+            if (actionType === 'CORP_UPGRADE_PURCHASE') {
+                if (args.length < 1) {
+                    this.log(`✗ Usage: CORP_UPGRADE_PURCHASE <category>`, 'error');
+                    return;
+                }
+                const category = args[0].toUpperCase();
+                const res = await this.game.api.purchaseCorpUpgrade(category);
+                if (res.status === 'success') {
+                    this.log(`✓ ${res.message}`, 'success');
+                } else {
+                    this.log(`✗ ${res.detail || 'Purchase failed'}`, 'error');
+                }
+                return;
+            }
+
+            // Mutation actions
+            await this.game.api.corpAction(subAction, data);
             return;
         }
 

@@ -109,6 +109,15 @@ async def handle_mine(db, agent, intent, tick_count, manager):
         db.add(new_item)
         agent.inventory.append(new_item)
 
+    # [NEW] Rare Material Discovery: VOID_CRYSTAL (0.5% chance)
+    if random.random() < 0.005 and res_tier >= 3:
+        crystal_item = next((i for i in agent.inventory if i.item_type == "VOID_CRYSTAL"), None)
+        if crystal_item: crystal_item.quantity += 1
+        else:
+            db.add(InventoryItem(agent_id=agent.id, item_type="VOID_CRYSTAL", quantity=1))
+        db.add(AuditLog(agent_id=agent.id, event_type="RARE_DISCOVERY", details={"item": "VOID_CRYSTAL"}))
+        logger.info(f"MINING: Agent {agent.id} found a VOID_CRYSTAL!")
+
     agent.energy -= MINE_ENERGY_COST
     
     # Durability Decay

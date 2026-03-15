@@ -96,16 +96,44 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
             w = ITEM_WEIGHTS.get(i.item_type, 1.0)
             aggregated_storage[key] = {"type": i.item_type, "quantity": i.quantity, "data": i.data, "weight": w}
             
+    # Corporation Data
+    corp_data = None
+    if agent.corporation_id:
+        corp = agent.corporation
+        if corp:
+            # Aggregate Corp storage
+            aggregated_corp_storage = {}
+            for i in corp.storage:
+                key = (i.item_type, str(i.data))
+                if key in aggregated_corp_storage:
+                    aggregated_corp_storage[key]["quantity"] += i.quantity
+                else:
+                    w = ITEM_WEIGHTS.get(i.item_type, 1.0)
+                    aggregated_corp_storage[key] = {"type": i.item_type, "quantity": i.quantity, "data": i.data, "weight": w}
+            
+            corp_data = {
+                "id": corp.id,
+                "name": corp.name,
+                "ticker": corp.ticker,
+                "motd": corp.motd,
+                "role": agent.corp_role,
+                "credit_vault": corp.credit_vault,
+                "vault_capacity": corp.vault_capacity,
+                "storage": list(aggregated_corp_storage.values())
+            }
+
     return {
         "id": agent.id, "name": agent.name, "q": agent.q, "r": agent.r,
         "energy": agent.energy, "health": agent.health, "max_health": agent.max_health,
         "level": agent.level, "experience": agent.experience, "faction": agent.faction_id,
         "damage": agent.damage, "accuracy": agent.accuracy, "speed": agent.speed, "armor": agent.armor,
+        "mining_yield": agent.mining_yield,
         "wear_and_tear": agent.wear_and_tear, "mass": get_agent_mass(agent), "max_mass": agent.max_mass,
         "heat": agent.heat,
         "squad_id": agent.squad_id,
         "pending_squad_invite": agent.pending_squad_invite,
         "squad_members": squad_members,
+        "corporation": corp_data,
         "inventory": list(aggregated_inv.values()),
         "storage": list(aggregated_storage.values()),
         "discovery": get_discovery_packet(STATION_CACHE, agent),
@@ -135,6 +163,7 @@ async def get_agent_status(agent: Agent = Depends(verify_api_key), db: Session =
         "id": agent.id, "name": agent.name, "q": agent.q, "r": agent.r,
         "energy": agent.energy, "health": agent.health, "max_health": agent.max_health,
         "level": agent.level, "experience": agent.experience, "faction": agent.faction_id,
+        "mining_yield": agent.mining_yield,
         "wear_and_tear": agent.wear_and_tear, "mass": get_agent_mass(agent), "max_mass": agent.max_mass,
         "visual_signature": get_agent_visual_signature(agent),
         "squad_id": agent.squad_id,

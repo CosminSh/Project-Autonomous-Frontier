@@ -62,6 +62,7 @@ High-rarity items roll random **Affixes** that modify base stats (e.g., *"Overcl
 | Craft gear via recipes at Crafter station | ✅ Live |
 | Recipe scroll system (LEARN_RECIPE action) | ✅ Live |
 | Upgrade gear up to +10 (UPGRADE_GEAR at Crafter, costs Iron Ingots + Upgrade Modules) | ✅ Live |
+| **Relic Gear (Multi-Profession Crafting)** | ✅ Live — High-tier gear requiring Mining, Combat, and Arena materials. |
 
 ### 2.4 Agent Identity
 
@@ -189,18 +190,16 @@ The economy is a multi-polar, interdependent system. Each archetype fills a real
 
 ## 5. The Economy
 
-### 5.1 The Market Order Book (Real-Time)
+### 5.1 Commodity Exchange & Order Book
 
-The market runs **outside** the tick cycle for order matching, but fulfillment follows a physical logistics model.
+The market has evolved from a simple listing board into a true **Commodity Exchange** for fungible assets (Ores, Ingots, Fuel).
 
-- **Order Book**: Agents can place BUY or SELL orders for fungible assets (ores, ingots, fuel) at specific prices.
-- **Escrow**: Placing a SELL order removes items from inventory into market escrow. Placing a BUY order locks the required credits.
-- **Matching**: Matching is automatic and real-time. When a match occurs:
-    - **Sellers**: Receive credits directly into their inventory immediately.
-    - **Buyers**: Purchased items are moved to a **Market Pickup** state.
-- **Fulfillment (Pickups)**: Agents must physically travel to a **MARKET** station to retrieve their purchased items using the `MARKET_CLAIM` command.
+- **Order Book (Market Depth)**: Agents can view aggregated BUY and SELL volume at each price point. This allows for rapid assessment of market liquidity and price trends.
+- **Bulk Matching**: The exchange engine supports multi-order matching. A single `BUY` intent can sweep multiple `SELL` orders from cheapest to most expensive until the requested quantity is satisfied.
+- **Escrow & Logistics**: Selling items locks them in market escrow. Buying locks credits. Purchased items must be physically claimed at a **MARKET** station using the `MARKET_CLAIM` command.
+- **Price-Time Priority**: Orders are matched based on the best price first, then by the time they were placed.
 
-**Status:** ✅ Live.
+**Status:** ✅ Live — Bulk matching and Market Depth visualization fully implemented.
 
 ### 5.2 Market Entropy
 
@@ -226,16 +225,17 @@ The frontier is a zero-sum game of logistics. To prevent "perma-camping" and enc
 
 **Status:** ✅ Live.
 
-### 5.5 Personal Storage (Vault)
+### 5.5 Shared & Personal Vaults
 
-Agents can securely store items at any **MARKET** station. This allows Fleet Managers to stockpile resources, spare parts, and fuel without encumbering their agents' active cargo capacity.
+Storage systems have been upgraded to support both individual and collective resource management.
 
-- **Access**: Immediate API interaction while positioned at a Market station.
-- **Cost**: Zero credits to deposit or withdraw.
-- **Starting Capacity**: 500.0 kg.
-- **Upgrading**: Storage capacity can be increased permanently by visiting a station and providing **Credits** and **Ingot** materials.
+- **Personal Vault**: Agents can securely store up to 500.0 kg of items at any **MARKET** station. Capacity can be upgraded permanently using Credits and Ingots.
+- **Corporation Vault**: Corporations now maintain a shared physical vault at the Hub. 
+    - **Resource Sharing**: Any member can deposit/withdraw items.
+    - **CEO Privileges**: Only the CEO can withdraw credits from the shared corporation balance.
+    - **Industry Integration**: Resource checks for Smelting, Crafting, and Repairs now prioritize assets in the following order: **Inventory > Personal Vault > Corporation Vault**.
 
-**Status:** ✅ Live.
+**Status:** ✅ Live — Shared inventories and credits fully operational.
 
 ### 5.6 Smelting & Industrial Bottlenecks
 
@@ -394,8 +394,7 @@ The Scramble is not just about resources — it's about information. Coordinatio
 | System | Mechanic | Status |
 |---|---|---|
 | **Proximity Chat** | Agents broadcast short messages to all agents within Sensor Radius during PERCEPTION phase | ✅ Live |
-| **Squads** | 3–5 agent tactical links. Shared loot rules, mutual telemetry visibility, private frequency | ✅ Live |
-| **Corporations (Guilds)** | Persistent orgs with shared vault, custom tax rates, and long-range communication | ✅ Live |
+| **Corporations (Guilds)** | Persistent orgs with shared vault, credit management, and long-range communication | ✅ Live |
 | **Anti-Spam Protocols** | Signal Shunting (block list), rate limiting (5 msgs/tick), admin flagging | ✅ Live |
 
 ---

@@ -1090,7 +1090,11 @@ export class GameRenderer {
             }
 
             const labelColor = agentData.is_feral ? '#ff4422' : '#38bdf8';
-            const label = this.createLabel(agentData.name, labelColor);
+            let displayName = agentData.name;
+            if (agentData.corp_ticker) {
+                displayName = `[${agentData.corp_ticker}] ${agentData.name}`;
+            }
+            const label = this.createLabel(displayName, labelColor);
             label.position.y = 1.5;
             mesh.add(label);
             mesh.userData.label = label;

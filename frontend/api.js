@@ -30,7 +30,35 @@ export class GameAPI {
         this._pollCycle = 0;
         this._polling = false;  // Concurrency guard
         this.wsRetries = 0;
+        this.wsRetries = 0;
         this.maxWsRetries = 5;
+    }
+
+    async _fetch(url, options = {}) {
+        const apiKey = localStorage.getItem('sv_api_key');
+        const headers = { ...options.headers };
+        if (apiKey) headers['X-API-KEY'] = apiKey;
+
+        try {
+            const resp = await fetch(url, { ...options, headers });
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({ detail: 'Network response was not ok' }));
+                throw new Error(err.detail || `HTTP error! status: ${resp.status}`);
+            }
+            return await resp.json();
+        } catch (error) {
+            console.error(`Fetch error on ${url}:`, error);
+            if (this.game.terminal) this.game.terminal.log(`✗ API Error: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
+    async _post(url, data = {}) {
+        return await this._fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
     }
 
     setupWebSocket() {
@@ -613,14 +641,77 @@ export class GameAPI {
             });
             const result = await resp.json();
             if (resp.ok) {
-                if (this.game.terminal) this.game.terminal.log(`✓ ${result.message}`, 'success');
+                if (this.game.terminal) this.game.terminal.log(`✓ ${result.message || 'Action successful'}`, 'success');
                 this.pollState();
+                // Refresh corp tab if it's active
+                if (document.getElementById('content-corporation') && !document.getElementById('content-corporation').classList.contains('hidden')) {
+                    this.game.ui.updateCorporationUI();
+                }
             } else {
-                alert(`Squad Error: ${result.detail || 'Access Denied'}`);
+                if (this.game.terminal) this.game.terminal.log(`✗ ${result.detail || 'Access Denied'}`, 'error');
+                else alert(`Error: ${result.detail || 'Access Denied'}`);
             }
+            return result;
         } catch (e) {
-            console.error("Squad action error:", e);
+            console.error("Action error:", e);
         }
+    }
+
+    async corpAction(action, data = {}) {
+        const endpoint = `/api/corp/${action}`;
+        return await this._squadAction(endpoint, data);
+    }
+
+    async fetchCorpMembers() {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return [];
+        try {
+            const res = await fetch('/api/corp/members', { headers: { 'X-API-KEY': apiKey } });
+            if (!res.ok) return [];
+            return await res.json();
+        } catch { return []; }
+    }
+
+    async fetchCorpVault() {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return null;
+        try {
+            const res = await fetch('/api/corp/vault', { headers: { 'X-API-KEY': apiKey } });
+            if (!res.ok) return null;
+            return await res.json();
+        } catch { return null; }
+    }
+
+    async fetchMyInvites() {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return [];
+        try {
+            const res = await fetch('/api/my_invites', { headers: { 'X-API-KEY': apiKey } });
+            if (!res.ok) return [];
+            return await res.json();
+        } catch { return []; }
+    }
+
+    async respondToInvite(inviteId, status) {
+        const res = await this._squadAction('/api/invite/respond', { invite_id: inviteId, status: status });
+        if (res && !res.detail) {
+            this.game.ui.updateCorporationUI();
+        }
+        return res;
+    }
+
+    async fetchCorpApplications() {
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return [];
+        try {
+            const res = await fetch('/api/corp/applications', { headers: { 'X-API-KEY': apiKey } });
+            if (!res.ok) return [];
+            return await res.json();
+        } catch { return []; }
+    }
+
+    async respondToApplication(inviteId, status) {
+        return await this._squadAction('/api/corp/application/respond', { invite_id: inviteId, status: status });
     }
 
     async fetchFullWorld() {
@@ -669,6 +760,25 @@ export class GameAPI {
         }
     }
 
+    async getCorpUpgrades() {
+        return await this._fetch("/api/corp/upgrades");
+    }
+
+    async purchaseCorpUpgrade(category) {
+        try {
+            const res = await this._post("/api/corp/upgrade/purchase", { category });
+            if (res.status === "success") {
+                if (this.game.ui) {
+                    await this.game.ui.updateCorporationUI();
+                }
+            }
+            return res;
+        } catch (e) {
+            // Error already logged by _fetch
+            return { status: "error", detail: e.message };
+        }
+    }
+
     async getAgentLogs() {
         try {
             const apiKey = localStorage.getItem('sv_api_key');
@@ -678,6 +788,17 @@ export class GameAPI {
             if (!res.ok) return [];
             return await res.json();
         } catch { return []; }
+    }
+
+    async getMarketDepth(itemType) {
+        try {
+            const res = await fetch(`/api/market/depth?item_type=${encodeURIComponent(itemType)}`);
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (e) {
+            console.error("Depth API error:", e);
+            return null;
+        }
     }
 }
 

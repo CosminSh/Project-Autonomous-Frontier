@@ -44,6 +44,15 @@ def resolve_battle(f1: Agent, f2: Agent, db: Session):
     db.add(AuditLog(agent_id=winner.id, event_type="ARENA_VICTORY", details={"message": log_w, "opponent_id": loser.id, "elo_delta": elo_change, "log": outcome["log"]}))
     db.add(AuditLog(agent_id=loser.id, event_type="ARENA_DEFEAT", details={"message": log_l, "opponent_id": winner.id, "elo_delta": -elo_change, "log": outcome["log"]}))
 
+    # [NEW] Rare Material Reward: ARENA_REMAINS (10% chance for winner)
+    if random.random() < 0.10:
+        remains_item = next((i for i in winner.inventory if i.item_type == "ARENA_REMAINS"), None)
+        if remains_item: remains_item.quantity += 1
+        else:
+            db.add(InventoryItem(agent_id=winner.id, item_type="ARENA_REMAINS", quantity=1))
+        db.add(AuditLog(agent_id=winner.id, event_type="RARE_DISCOVERY", details={"item": "ARENA_REMAINS", "source": "ARENA_WIN"}))
+        logger.info(f"ARENA: Winner {winner.name} found ARENA_REMAINS!")
+
     # Also log permanent gear durability loss (5% flat reduction per battle)
     w_parts = db.execute(select(ChassisPart).where(ChassisPart.agent_id == winner.id)).scalars().all()
     l_parts = db.execute(select(ChassisPart).where(ChassisPart.agent_id == loser.id)).scalars().all()

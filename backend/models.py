@@ -42,6 +42,7 @@ class Agent(Base):
     squad_id = Column(Integer, nullable=True, index=True)
     pending_squad_invite = Column(Integer, nullable=True) # ID of the squad inviting this agent
     corporation_id = Column(Integer, ForeignKey("corporations.id"), nullable=True, index=True)
+    corp_role = Column(String, server_default="MEMBER") # CEO, OFFICER, MEMBER, INITIATE
     heat = Column(Integer, server_default="0", index=True)
     overclock_ticks = Column(Integer, server_default="0")
     wear_and_tear = Column(Float, server_default="0.0")
@@ -217,6 +218,7 @@ class DailyMission(Base):
     mission_type = Column(String) # "TURN_IN", "HUNT_FERAL", "BUY_MARKET", etc.
     target_amount = Column(Integer)
     reward_credits = Column(Integer)
+    reward_xp = Column(Integer, server_default="100")
     item_type = Column(String, nullable=True) # E.g. "IRON_ORE" for turn in
     min_level = Column(Integer, default=1)
     max_level = Column(Integer, default=99)
@@ -254,10 +256,39 @@ class Corporation(Base):
     owner_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
     faction_id = Column(Integer, nullable=False)
     credit_vault = Column(Integer, default=0)
+    vault_capacity = Column(Float, default=5000.0) # Shared physical storage capacity
     tax_rate = Column(Float, default=0.0) # 0.0 to 1.0
+    join_policy = Column(String, default="OPEN") # OPEN, INVITE_ONLY, CLOSED
+    motd = Column(String, nullable=True)
+    upgrades = Column(JSON, nullable=True) # {"LOGISTICS": 1, ...}
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     members = relationship("Agent", foreign_keys="[Agent.corporation_id]", backref="corporation")
+    storage = relationship("CorpStorageItem", back_populates="corporation", cascade="all, delete-orphan")
+
+class CorpInvite(Base):
+    __tablename__ = "corp_invites"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    corporation_id = Column(Integer, ForeignKey("corporations.id"), index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), index=True)
+    invite_type = Column(String) # 'INVITE' (from corp to agent), 'APPLICATION' (from agent to corp)
+    status = Column(String, default="PENDING") # PENDING, ACCEPTED, REJECTED, CANCELLED
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    corporation = relationship("Corporation")
+    agent = relationship("Agent")
+
+class CorpStorageItem(Base):
+    __tablename__ = "corp_storage_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    corporation_id = Column(Integer, ForeignKey("corporations.id"), index=True)
+    item_type = Column(String)
+    quantity = Column(Integer, default=1)
+    data = Column(JSON, nullable=True)
+
+    corporation = relationship("Corporation", back_populates="storage")
 
 class APIKeyRevocation(Base):
     __tablename__ = "api_key_revocations"

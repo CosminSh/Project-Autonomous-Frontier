@@ -9,6 +9,37 @@ class StorageUI {
         this.used = 0;
         this.items = [];
         this.isRefreshing = false;
+        this.vaultTarget = 'PERSONAL'; // 'PERSONAL' or 'CORPORATION'
+    }
+
+    async switchVault(target) {
+        this.vaultTarget = target;
+        
+        // Update UI Tabs
+        const personalBtn = document.getElementById('vault-btn-personal');
+        const corpBtn = document.getElementById('vault-btn-corp');
+        const titleEl = document.getElementById('vault-title');
+        const upgradeBtn = document.getElementById('storage-upgrade-btn');
+
+        if (personalBtn && corpBtn) {
+            if (target === 'PERSONAL') {
+                personalBtn.classList.add('bg-sky-500', 'text-slate-950');
+                personalBtn.classList.remove('text-slate-500');
+                corpBtn.classList.remove('bg-sky-500', 'text-slate-950');
+                corpBtn.classList.add('text-slate-500');
+                if (titleEl) titleEl.innerText = ' PERSONAL VAULT';
+                if (upgradeBtn) upgradeBtn.classList.remove('hidden');
+            } else {
+                corpBtn.classList.add('bg-sky-500', 'text-slate-950');
+                corpBtn.classList.remove('text-slate-500');
+                personalBtn.classList.remove('bg-sky-500', 'text-slate-950');
+                personalBtn.classList.add('text-slate-500');
+                if (titleEl) titleEl.innerText = '🏢 CORP VAULT';
+                if (upgradeBtn) upgradeBtn.classList.add('hidden'); // Corp upgrades managed differently or not at all for now
+            }
+        }
+
+        await this.refreshStorage();
     }
 
     async refreshStorage() {
@@ -17,18 +48,39 @@ class StorageUI {
         this.isRefreshing = true;
 
         try {
-            const response = await fetch('/api/storage/info', {
-                headers: { 'X-API-KEY': apiKey }
-            });
-            const data = await response.json();
-
-            if (data.items !== undefined) {
-                this.items = data.items;
-                this.capacity = data.capacity;
-                this.used = data.used;
-                this.nextUpgradeRequirements = data.next_upgrade_requirements;
-                this.render();
+            if (this.vaultTarget === 'CORPORATION') {
+                const response = await fetch('/api/corp/vault', {
+                    headers: { 'X-API-KEY': apiKey }
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    if (err.detail && err.detail.includes("not in a corporation")) {
+                         this.items = [];
+                         this.capacity = 0;
+                         this.used = 0;
+                         this.render();
+                         return;
+                    }
+                    throw new Error("Failed to fetch corp vault");
+                }
+                const data = await response.json();
+                this.items = data.storage.map(s => ({ type: s.item_type, quantity: s.quantity, data: s.data }));
+                this.capacity = data.vault_capacity;
+                this.used = this.items.reduce((sum, i) => sum + (i.quantity * (window.ITEM_WEIGHTS?.[i.type] || 1.0)), 0);
+                this.nextUpgradeRequirements = null;
+            } else {
+                const response = await fetch('/api/storage/info', {
+                    headers: { 'X-API-KEY': apiKey }
+                });
+                const data = await response.json();
+                if (data.items !== undefined) {
+                    this.items = data.items;
+                    this.capacity = data.capacity;
+                    this.used = data.used;
+                    this.nextUpgradeRequirements = data.next_upgrade_requirements;
+                }
             }
+            this.render();
         } catch (err) {
             console.error("Failed to refresh storage:", err);
         } finally {
@@ -44,7 +96,8 @@ class StorageUI {
         const storageList = document.getElementById('storage-list');
         if (storageList) {
             if (this.items.length === 0) {
-                storageList.innerHTML = `<div class="text-[10px] text-slate-600 italic">No items in storage. Visit a Market to deposit.</div>`;
+                const msg = this.vaultTarget === 'CORPORATION' ? "Corporation vault is empty." : "No items in storage. Visit a Market to deposit.";
+                storageList.innerHTML = `<div class="text-[10px] text-slate-600 italic">${msg}</div>`;
             } else {
                 storageList.innerHTML = this.items.map(item => `
                     <div class="flex justify-between items-center p-2 bg-slate-900/40 border border-slate-800 rounded group hover:border-sky-500/30 transition-all">
@@ -66,11 +119,17 @@ class StorageUI {
         // ── Upgrade Section ──
         const upgradeBtn = document.getElementById('storage-upgrade-btn');
         const upgradeCostEl = document.getElementById('storage-upgrade-cost');
-        if (upgradeBtn && this.nextUpgradeRequirements) {
-            const reqStr = Object.entries(this.nextUpgradeRequirements)
-                .map(([res, qty]) => `${qty} ${res.replace('_', ' ')}`)
-                .join(', ');
-            if (upgradeCostEl) upgradeCostEl.innerText = `Next: +250kg (${reqStr})`;
+        if (upgradeBtn) {
+            if (this.nextUpgradeRequirements && this.vaultTarget === 'PERSONAL') {
+                const reqStr = Object.entries(this.nextUpgradeRequirements)
+                    .map(([res, qty]) => `${qty} ${res.replace('_', ' ')}`)
+                    .join(', ');
+                if (upgradeCostEl) upgradeCostEl.innerText = `Next: +250kg (${reqStr})`;
+                upgradeBtn.classList.remove('hidden');
+            } else {
+                if (upgradeCostEl) upgradeCostEl.innerText = '';
+                upgradeBtn.classList.add('hidden');
+            }
         }
 
         // ── Quick Deposit from current agent inventory ──
@@ -101,7 +160,7 @@ class StorageUI {
 
     /** Prompt for a quantity then deposit. */
     async depositPartial(itemType, maxQty) {
-        const qtyStr = prompt(`Deposit ${itemType.replace(/_/g, ' ')} — how many? (max ${maxQty})`, maxQty);
+        const qtyStr = prompt(`Deposit ${itemType.replace(/_/g, ' ')} to ${this.vaultTarget} — how many? (max ${maxQty})`, maxQty);
         if (qtyStr === null) return;
         const qty = parseInt(qtyStr);
         if (isNaN(qty) || qty <= 0 || qty > maxQty) {
@@ -113,7 +172,7 @@ class StorageUI {
 
     /** Prompt for a quantity then withdraw. */
     async withdrawPartial(itemType, maxQty) {
-        const qtyStr = prompt(`Withdraw ${itemType.replace(/_/g, ' ')} — how many? (max ${maxQty})`, maxQty);
+        const qtyStr = prompt(`Withdraw ${itemType.replace(/_/g, ' ')} from ${this.vaultTarget} — how many? (max ${maxQty})`, maxQty);
         if (qtyStr === null) return;
         const qty = parseInt(qtyStr);
         if (isNaN(qty) || qty <= 0 || qty > maxQty) {
@@ -128,11 +187,11 @@ class StorageUI {
             const response = await fetch('/api/storage/deposit', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-API-KEY': window.game.apiKey },
-                body: JSON.stringify({ item_type: itemType, quantity: qty })
+                body: JSON.stringify({ item_type: itemType, quantity: qty, target: this.vaultTarget })
             });
             const res = await response.json();
             if (response.ok) {
-                this._toast(res.message || `Deposited ${qty}x ${itemType}.`, 'success');
+                this._toast(res.message || `Deposited ${qty}x ${itemType} to ${this.vaultTarget}.`, 'success');
                 this.refreshStorage();
                 window.game.pollState();
             } else {
@@ -149,11 +208,11 @@ class StorageUI {
             const response = await fetch('/api/storage/withdraw', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-API-KEY': window.game.apiKey },
-                body: JSON.stringify({ item_type: itemType, quantity: qty })
+                body: JSON.stringify({ item_type: itemType, quantity: qty, target: this.vaultTarget })
             });
             const res = await response.json();
             if (response.ok) {
-                this._toast(res.message || `Withdrew ${qty}x ${itemType}.`, 'success');
+                this._toast(res.message || `Withdrew ${qty}x ${itemType} from ${this.vaultTarget}.`, 'success');
                 this.refreshStorage();
                 window.game.pollState();
             } else {

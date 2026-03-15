@@ -288,11 +288,19 @@ async def _handle_death(db, killer, target, manager):
                    logger.info(f"Agent {killer.id} COMPLETED HUNT_FERAL mission {m.id}")
 
     # 4. Respawn & Cleanup
-    if target.is_feral:
         # Ferals are permanently destroyed and removed from the active game DB,
         # leaving space for new ones to be spawned by TickManager
         db.delete(target)
         logger.info(f"Feral {target.id} destroyed by {killer.id} and removed from world.")
+
+        # [NEW] Rare Material Discovery: QUANTUM_CHIP (3% chance from ferals)
+        if random.random() < 0.03:
+            chip_item = next((i for i in killer.inventory if i.item_type == "QUANTUM_CHIP"), None)
+            if chip_item: chip_item.quantity += 1
+            else:
+                db.add(InventoryItem(agent_id=killer.id, item_type="QUANTUM_CHIP", quantity=1))
+            db.add(AuditLog(agent_id=killer.id, event_type="RARE_DISCOVERY", details={"item": "QUANTUM_CHIP", "source": "FERAL_KILL"}))
+            logger.info(f"COMBAT: Killer {killer.name} found a QUANTUM_CHIP!")
     else:
         target.q, target.r = TOWN_COORDINATES
         target.health = int(target.max_health * RESPAWN_HP_PERCENT)

@@ -12,15 +12,14 @@ export class UIManager {
         this.game = game;
         this.activeForgeFilter = 'All';
         this.canCraftOnly = false;
-        this.cachedInventory = [];
-        this.cachedStorage = [];
-        // Append-only tracking for Action Telemetry so entries persist between polls
-        this._seenLogKeys = new Set();
-        this._seenLogKeys = new Set();
-        this._pendingIntentEl = null;
         this.toasts = [];
         this.telemetryMinimized = false;
         
+        this.marketViewMode = 'LISTINGS'; 
+        this.marketDepthItem = 'IRON_ORE';
+        this.cachedInventory = [];
+        this.cachedStorage = [];
+
         this.initTelemetryToggle();
     }
 
@@ -125,7 +124,7 @@ export class UIManager {
     }
 
     switchTab(tabId) {
-        const tabs = ['terminal', 'inventory', 'station', 'system', 'arena'];
+        const tabs = ['terminal', 'inventory', 'station', 'system', 'arena', 'corporation'];
         tabs.forEach(t => {
             const btn = document.getElementById(`tab-${t}`);
             const content = document.getElementById(`content-${t}`);
@@ -144,6 +143,9 @@ export class UIManager {
         }
         if (tabId === 'arena') {
             this.game.api.fetchArenaStatus();
+        }
+        if (tabId === 'corporation') {
+            this.updateCorporationUI();
         }
     }
 
@@ -372,6 +374,90 @@ export class UIManager {
         });
         if (countSell) countSell.textContent = sells;
         if (countBuy) countBuy.textContent = buys;
+        
+        // If we are in depth mode, we need to handle that too
+        if (this.marketViewMode === 'DEPTH') {
+            this.refreshMarketDepth();
+        }
+    }
+
+    async refreshMarketDepth() {
+        const depth = await this.game.api.getMarketDepth(this.marketDepthItem);
+        if (!depth) return;
+        this.updateMarketDepthUI(depth);
+    }
+
+    updateMarketDepthUI(data) {
+        const body = document.getElementById('market-listings-body');
+        if (!body || this.marketViewMode !== 'DEPTH') return;
+
+        let html = `
+            <tr><td colspan="5" class="py-2 text-center bg-slate-900/50 border-y border-slate-800">
+                <div class="flex justify-center items-center space-x-4">
+                    <span class="text-[10px] orbitron font-bold text-sky-400">ORDER BOOK: ${data.item.replace('_', ' ')}</span>
+                    <button onclick="game.ui.toggleMarketView()" class="text-[8px] text-slate-500 hover:text-white underline">BACK TO LISTINGS</button>
+                </div>
+            </td></tr>
+            <tr class="text-[8px] text-slate-500 uppercase border-b border-slate-800">
+                <th class="py-2 font-normal">Side</th>
+                <th class="py-2 font-normal">Price</th>
+                <th class="py-2 font-normal">Quantity</th>
+                <th class="py-2 font-normal text-right">Action</th>
+            </tr>
+        `;
+
+        // Sell Orders (Asks) - Reddish/Sky
+        data.sell_orders.forEach(o => {
+            html += `
+                <tr class="group hover:bg-sky-500/5 transition-all">
+                    <td class="py-2"><span class="px-1.5 py-0.5 rounded text-[7px] font-black bg-sky-500/10 border border-sky-500/30 text-sky-400">ASK</span></td>
+                    <td class="py-2 font-bold text-sky-400">$${o.price.toFixed(2)}</td>
+                    <td class="py-2 font-mono text-slate-400">${o.qty}</td>
+                    <td class="py-2 text-right">
+                        <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded text-[8px] font-bold" onclick="game.ui.quickTrade('${data.item}', ${o.price}, 'SELL')">BUY</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        if (data.sell_orders.length === 0) {
+            html += `<tr><td colspan="4" class="py-2 text-center text-slate-600 italic text-[9px]">No sellers.</td></tr>`;
+        }
+
+        html += `<tr class="border-t-2 border-slate-800"><td colspan="4" class="py-1"></td></tr>`;
+
+        // Buy Orders (Bids) - Amber
+        data.buy_orders.forEach(o => {
+            html += `
+                <tr class="group hover:bg-amber-500/5 transition-all">
+                    <td class="py-2"><span class="px-1.5 py-0.5 rounded text-[7px] font-black bg-amber-500/10 border border-amber-500/30 text-amber-400">BID</span></td>
+                    <td class="py-2 font-bold text-amber-500">$${o.price.toFixed(2)}</td>
+                    <td class="py-2 font-mono text-slate-400">${o.qty}</td>
+                    <td class="py-2 text-right">
+                        <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded text-[8px] font-bold" onclick="game.ui.quickTrade('${data.item}', ${o.price}, 'BUY')">SELL</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        if (data.buy_orders.length === 0) {
+            html += `<tr><td colspan="4" class="py-2 text-center text-slate-600 italic text-[9px]">No buyers.</td></tr>`;
+        }
+
+        body.innerHTML = html;
+    }
+
+    toggleMarketView() {
+        this.marketViewMode = (this.marketViewMode === 'LISTINGS') ? 'DEPTH' : 'LISTINGS';
+        if (this.game.lastWorldData && this.game.lastWorldData.market) {
+            this.updateMarketUI(this.game.lastWorldData.market);
+        }
+    }
+
+    setMarketDepthItem(item) {
+        this.marketDepthItem = item;
+        this.marketViewMode = 'DEPTH';
+        this.refreshMarketDepth();
     }
 
     quickTrade(item, price, type) {
@@ -497,12 +583,29 @@ export class UIManager {
 
         const hpPct = (agent.health / agent.max_health) * 100;
         const faction = FACTION_NAMES[agent.faction_id] || "Independent / Feral";
+        
+        const corpText = agent.corp_ticker ? `<p class="text-[10px] text-emerald-400 font-bold mb-1">[${agent.corp_ticker}] ${agent.scan_data?.corp_role || 'MEMBER'}</p>` : '';
+
+        let scanHTML = '';
+        if (agent.scan_data) {
+            const sd = agent.scan_data;
+            scanHTML = `
+                <div class="grid grid-cols-2 gap-2 bg-slate-900/40 p-2 rounded-lg border border-slate-800/80">
+                    <div class="text-[8px] text-slate-500 uppercase">DMG: <span class="text-rose-400">${sd.damage}</span></div>
+                    <div class="text-[8px] text-slate-500 uppercase">SPD: <span class="text-sky-400">${sd.speed}</span></div>
+                    <div class="text-[8px] text-slate-500 uppercase">ACC: <span class="text-emerald-400">${sd.accuracy}</span></div>
+                    <div class="text-[8px] text-slate-500 uppercase">ARM: <span class="text-amber-400">${sd.armor}</span></div>
+                </div>
+            `;
+        }
 
         content.innerHTML = `
             <div>
-                <p class="text-[11px] font-bold text-white mb-1">${agent.name} <span class="text-slate-600 font-mono text-[9px]">#${agent.id}</span></p>
+                <p class="text-[11px] font-bold text-white mb-0.5">${agent.name} <span class="text-slate-600 font-mono text-[9px]">#${agent.id}</span></p>
+                ${corpText}
                 <p class="text-[9px] text-rose-400 uppercase tracking-tighter mb-2">${faction}</p>
-                <div class="w-full h-1 bg-slate-900 rounded-full overflow-hidden"><div class="h-full bg-emerald-500" style="width: ${hpPct}%"></div></div>
+                <div class="w-full h-1 bg-slate-900 rounded-full overflow-hidden mb-3"><div class="h-full bg-emerald-500" style="width: ${hpPct}%"></div></div>
+                ${scanHTML}
             </div>
         `;
     }
@@ -518,6 +621,18 @@ export class UIManager {
 
         const factions = { 1: 'Cybernetics', 2: 'Industrials', 3: 'Scavengers' };
         document.getElementById('agent-faction').innerText = factions[agent.faction] || 'No Faction';
+
+        const corpEl = document.getElementById('agent-corp');
+        const corpDivider = document.getElementById('agent-corp-divider');
+        if (corpEl) {
+            if (agent.corp_ticker) {
+                corpEl.innerText = `[${agent.corp_ticker}] ${agent.corp_role || 'MEMBER'}`;
+                corpDivider?.classList.remove('hidden');
+            } else {
+                corpEl.innerText = '';
+                corpDivider?.classList.add('hidden');
+            }
+        }
 
         if (document.getElementById('stat-dmg')) document.getElementById('stat-dmg').innerText = agent.damage;
         if (document.getElementById('stat-spd')) document.getElementById('stat-spd').innerText = agent.speed;
@@ -1700,6 +1815,245 @@ Intent payload format:
         dists.push(axialDist(q1, r1, pq_s + WORLD_WIDTH, 200 - r2));
 
         return Math.min(...dists);
+    }
+
+    async updateCorporationUI() {
+        const container = document.getElementById('content-corporation');
+        if (!container) return;
+
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return;
+
+        // Fetch current agent status for corp alignment
+        try {
+            const agentResp = await fetch('/api/my_agent', { headers: { 'X-API-KEY': apiKey } });
+            if (!agentResp.ok) return;
+            const agent = await agentResp.json();
+
+            if (agent.corp_name) {
+                // ── ALIGNED VIEW ──
+                const [members, vault, upgradesData] = await Promise.all([
+                    this.game.api.fetchCorpMembers(),
+                    this.game.api.fetchCorpVault(),
+                    this.game.api.getCorpUpgrades()
+                ]);
+
+                if (!vault) {
+                    container.innerHTML = `<div class="p-8 text-center text-rose-400 orbitron text-xs">Failed to synchronize with corporate mainframe.</div>`;
+                    return;
+                }
+
+                const canManage = agent.corp_role === 'CEO' || agent.corp_role === 'OFFICER';
+
+                let techHtml = '';
+                if (upgradesData && upgradesData.definitions) {
+                    const currentLevels = upgradesData.upgrades || {};
+                    const defs = upgradesData.definitions;
+                    
+                    techHtml = Object.entries(defs).map(([key, data]) => {
+                        const level = currentLevels[key] || 0;
+                        const isMax = level >= data.levels.length;
+                        const nextLevelData = isMax ? null : data.levels[level];
+                        
+                        return `
+                            <div class="bg-slate-950/50 p-2.5 rounded-xl border border-slate-900/50 flex justify-between items-center group hover:border-sky-500/30 transition-all">
+                                <div class="flex flex-col">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-[9px] font-black orbitron ${level > 0 ? 'text-sky-400' : 'text-slate-500'} uppercase tracking-tight">${data.name}</span>
+                                        <span class="text-[7px] bg-slate-900 border border-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-mono uppercase">LVL ${level}</span>
+                                    </div>
+                                    <p class="text-[8px] text-slate-600 mt-1 font-medium italic">${isMax ? 'Maximum development achieved.' : nextLevelData.description}</p>
+                                </div>
+                                ${!isMax ? `
+                                    <button onclick="game.api.purchaseCorpUpgrade('${key}')" class="px-3 py-1.5 ${canManage && vault.credit_balance >= nextLevelData.cost ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-900/20' : 'bg-slate-900 text-slate-600 cursor-not-allowed border border-slate-800'} text-[8px] orbitron font-bold rounded-lg transition-all" ${!canManage || vault.credit_balance < nextLevelData.cost ? 'disabled' : ''}>
+                                        $${nextLevelData.cost.toLocaleString()}
+                                    </button>
+                                ` : `
+                                    <div class="flex items-center space-x-1">
+                                        <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                                        <span class="text-[7px] text-emerald-500 font-black orbitron tracking-widest uppercase">SYSTM ACTIVE</span>
+                                    </div>
+                                `}
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                let membersHtml = members.map(m => `
+                    <div class="flex justify-between items-center p-3 bg-slate-900/50 rounded-xl border border-slate-800">
+                        <div class="flex flex-col">
+                            <span class="text-[10px] font-bold text-sky-400 orbitron">${m.name} [ID:${m.agent_id}]</span>
+                            <span class="text-[8px] text-slate-500 uppercase tracking-tighter">${m.role} | LVL ${m.level}</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[8px] font-mono text-slate-600 mr-2">@ ${m.q},${m.r}</span>
+                            ${canManage && m.agent_id !== agent.id ? `
+                                <button onclick="game.api.corpAction('promote', {agent_id: ${m.agent_id}})" class="p-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 rounded transition-all" title="Promote">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
+                                </button>
+                                <button onclick="game.api.corpAction('demote', {agent_id: ${m.agent_id}})" class="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded transition-all" title="Demote">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('');
+
+                container.innerHTML = `
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-1 overflow-y-auto custom-scrollbar md:h-full">
+                        <!-- Left: Hub Info & Research -->
+                        <div class="space-y-6">
+                            <div class="glass p-5 rounded-2xl border-l-4 border-l-emerald-500 shadow-xl">
+                                <h3 class="orbitron text-sm font-black text-emerald-500 uppercase tracking-widest mb-1">${vault.name} [${vault.ticker}]</h3>
+                                <p class="text-[10px] text-slate-500 mb-4 font-bold uppercase tracking-widest">Corporate Operations Center</p>
+                                
+                                <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800 mb-4">
+                                    <label class="text-[8px] text-slate-600 uppercase font-black tracking-widest block mb-1.5">Directives</label>
+                                    <p class="text-xs text-sky-400 font-medium italic">"${vault.motd || 'No announcements today.'}"</p>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-900 shadow-inner">
+                                        <span class="text-[7px] text-slate-600 uppercase font-bold tracking-widest block mb-1">Corporate Vault</span>
+                                        <span class="text-xs font-mono text-emerald-400 font-bold">$${vault.credit_balance.toLocaleString()}</span>
+                                    </div>
+                                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-900 shadow-inner">
+                                        <span class="text-[7px] text-slate-600 uppercase font-bold tracking-widest block mb-1">Net Taxation</span>
+                                        <span class="text-xs font-mono text-amber-500 font-bold">${(vault.tax_rate * 100).toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Research & Development -->
+                            <div class="glass p-5 rounded-2xl border-l-4 border-l-sky-500 shadow-xl">
+                                <h4 class="text-[10px] text-sky-400 uppercase font-black tracking-widest mb-4">Research & Development Branch</h4>
+                                <div class="space-y-2">
+                                    ${techHtml}
+                                </div>
+                                <p class="text-[8px] text-slate-600 mt-4 italic text-center">Technological advancements provide passive benefits to all corporate members.</p>
+                            </div>
+
+                            <!-- Vault Actions -->
+                            <div class="glass p-5 rounded-2xl border border-slate-800">
+                                <h4 class="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-4">Personal Vault Interface</h4>
+                                <div class="space-y-3">
+                                    <div class="flex space-x-2">
+                                        <input type="number" id="corp-vault-amt" placeholder="Amount" class="flex-grow bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-sky-500 transition-colors">
+                                        <button onclick="const a = parseInt(document.getElementById('corp-vault-amt').value); if(a) game.api.corpAction('deposit', {amount: a})" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-[10px] orbitron font-bold rounded-lg transition-all uppercase whitespace-nowrap">Deposit</button>
+                                        ${agent.corp_role !== 'INITIATE' ? `
+                                            <button onclick="const a = parseInt(document.getElementById('corp-vault-amt').value); if(a) game.api.corpAction('withdraw', {amount: a})" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-[10px] orbitron font-bold rounded-lg transition-all uppercase whitespace-nowrap">Withdraw</button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+
+                            ${canManage ? `
+                                 <div class="glass p-5 rounded-2xl border border-slate-800 space-y-4">
+                                    <h4 class="text-[10px] text-sky-400 uppercase font-black tracking-widest">Administrative Override</h4>
+                                    <div>
+                                        <label class="text-[8px] text-slate-600 uppercase font-bold block mb-1.5">Update Directives (MOTD)</label>
+                                        <div class="flex space-x-2">
+                                            <input type="text" id="corp-new-motd" placeholder="Enter new instruction..." class="flex-grow bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-sky-500 transition-colors">
+                                            <button onclick="game.api.corpAction('motd', {motd: document.getElementById('corp-new-motd').value})" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-[10px] orbitron font-bold rounded-lg transition-all">POST</button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="text-[8px] text-slate-600 uppercase font-bold block mb-1.5">Issue Recruitment License</label>
+                                        <div class="flex space-x-2">
+                                            <input type="number" id="corp-invite-id" placeholder="Agent ID" class="w-32 bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-sky-500 transition-colors">
+                                            <button onclick="game.api.corpAction('invite', {agent_id: parseInt(document.getElementById('corp-invite-id').value)})" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-[10px] orbitron font-bold rounded-lg transition-all">INVITE</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Right: Member Roster -->
+                        <div class="glass p-5 rounded-2xl border-r-4 border-r-sky-500 flex flex-col h-fit lg:min-h-[600px] shadow-xl">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="orbitron text-xs font-black text-sky-400 uppercase tracking-widest">Corporate Roster</h3>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[8px] text-slate-500 uppercase font-bold">${members.length} MEMBERS</span>
+                                    <button onclick="game.ui.updateCorporationUI()" class="p-1 hover:text-sky-400 transition-colors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2a8.001 8.001 0 00-14.56-3.381M20 20v-5h-.581m0 0a8.003 8.003 0 01-14.557-3.382" /></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="space-y-3 pr-2">
+                                ${membersHtml}
+                            </div>
+                            <div class="mt-8 pt-4 border-t border-slate-800">
+                                <button onclick="if(confirm('Resigning from corporate duties will strip your [${vault.ticker}] tag and clear your rank. Proceed?')) game.api.corpAction('leave')" class="w-full py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[9px] orbitron font-bold rounded-lg transition-all uppercase tracking-widest">RECHART CONTRACT (LEAVE)</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // ── UNALIGNED VIEW ──
+                const invites = await this.game.api.fetchMyInvites();
+                
+                let invitesHtml = invites.length > 0 ? invites.map(i => `
+                    <div class="p-4 bg-slate-900/50 rounded-xl border border-slate-800 flex justify-between items-center">
+                        <div>
+                            <h4 class="text-xs font-bold text-sky-400 orbitron">${i.corp_name} [${i.corp_ticker}]</h4>
+                            <p class="text-[9px] text-slate-500 mt-0.5 uppercase tracking-tighter">Invited by CEO ${i.inviter_name}</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="game.api.respondToInvite(${i.id}, 'ACCEPTED')" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-[9px] orbitron font-bold rounded-lg transition-all uppercase">Join</button>
+                            <button onclick="game.api.respondToInvite(${i.id}, 'DECLINED')" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[9px] orbitron font-bold rounded-lg transition-all uppercase">Skip</button>
+                        </div>
+                    </div>
+                `).join('') : `<div class="p-8 text-center text-slate-600 italic text-[10px]">No pending recruitment invitations.</div>`;
+
+                container.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 p-1">
+                        <!-- Left: Recruitment -->
+                        <div class="space-y-6">
+                            <div class="glass p-6 rounded-2xl border-l-4 border-l-sky-500 shadow-xl">
+                                <h3 class="orbitron text-sm font-black text-sky-400 uppercase tracking-widest mb-4">Recruitment Terminal</h3>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="text-[9px] text-slate-500 uppercase font-black tracking-widest block mb-2">Join OPEN Corporation</label>
+                                        <div class="flex space-x-2">
+                                            <input type="text" id="corp-join-ticker" placeholder="TICKER" maxlength="5" class="w-24 bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-lg px-3 py-2.5 outline-none focus:border-sky-500 uppercase transition-colors">
+                                            <button onclick="game.api.corpAction('join', {ticker: document.getElementById('corp-join-ticker').value.toUpperCase()})" class="flex-grow py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-[10px] orbitron font-bold rounded-lg transition-all uppercase tracking-widest shadow-lg shadow-sky-500/10">Submit Application</button>
+                                        </div>
+                                    </div>
+                                    <div class="pt-6 border-t border-slate-900">
+                                        <label class="text-[10px] text-slate-400 uppercase font-black tracking-widest block mb-3">Pending Invitations</label>
+                                        <div class="space-y-3">
+                                            ${invitesHtml}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Foundation -->
+                        <div class="glass p-6 rounded-2xl border-r-4 border-r-amber-500 shadow-xl">
+                            <h3 class="orbitron text-sm font-black text-amber-500 uppercase tracking-widest mb-2">Charter New Entity</h3>
+                            <p class="text-[10px] text-slate-500 mb-6 font-medium italic">Establishing a planetary corporation costs <span class="text-emerald-400 font-bold tracking-widest">$10,000 CR</span>.</p>
+                            
+                            <div class="space-y-5">
+                                <div>
+                                    <label class="text-[9px] text-slate-500 uppercase font-black tracking-widest block mb-1.5">Entity Name</label>
+                                    <input type="text" id="new-corp-name" placeholder="E.g. Lunar Reclamation" class="w-full bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-lg px-3 py-3 outline-none focus:border-amber-500 transition-colors">
+                                </div>
+                                <div>
+                                    <label class="text-[9px] text-slate-500 uppercase font-black tracking-widest block mb-1.5">Ticker Identifier (3-5 Letters)</label>
+                                    <input type="text" id="new-corp-ticker" placeholder="E.g. LUNAR" maxlength="5" class="w-full bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-lg px-3 py-3 outline-none focus:border-amber-500 uppercase transition-colors">
+                                </div>
+                                <div class="pt-4">
+                                    <button onclick="const n=document.getElementById('new-corp-name').value; const t=document.getElementById('new-corp-ticker').value; if(n && t) game.api.corpAction('create', {name: n, ticker: t.toUpperCase()})" class="w-full py-4 bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs orbitron font-black rounded-xl transition-all uppercase tracking-[0.2em] shadow-lg shadow-amber-500/20">Establish Charter</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (e) {
+            console.error("Corp UI update error:", e);
+        }
     }
 }
 

@@ -2,9 +2,9 @@ import logging
 import random
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import select, func
-from models import DailyMission, AgentMission, WorldHex, AuditLog
+from models import DailyMission, AgentMission, WorldHex, AuditLog, InventoryItem
 from database import STATION_CACHE
-from game_helpers import get_hex_distance
+from game_helpers import get_hex_distance, add_experience
 
 logger = logging.getLogger("heartbeat.mission_logic")
 
@@ -78,16 +78,19 @@ async def handle_turn_in(db, agent, intent, tick_count, manager):
         am.progress = required_qty
         am.is_completed = True
 
-    # Reward
+    # Reward Credits
     cr = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
     if cr:
         cr.quantity += mission.reward_credits
     else:
-        from models import InventoryItem
         db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=mission.reward_credits))
 
+    # Reward XP
+    xp_reward = getattr(mission, "reward_xp", 100) or 100
+    add_experience(db, agent, xp_reward)
+
     from models import AuditLog
-    db.add(AuditLog(agent_id=agent.id, event_type="MISSION_COMPLETED", details={"mission_id": mission_id, "reward": mission.reward_credits}))
+    db.add(AuditLog(agent_id=agent.id, event_type="MISSION_COMPLETED", details={"mission_id": mission_id, "credits": mission.reward_credits, "xp": xp_reward}))
     
     if manager:
         await manager.broadcast({

@@ -88,7 +88,20 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
         if a.id == agent.id: continue
         sig = get_agent_visual_signature(a)
         dist = get_hex_distance(agent.q, agent.r, a.q, a.r)
-        data = {"id": a.id, "name": a.name, "q": a.q, "r": a.r, "distance": dist, "faction": a.faction_id, "is_feral": a.is_feral, "visual_signature": sig}
+        
+        corp_ticker = a.corporation.ticker if a.corporation else None
+        
+        data = {
+            "id": a.id, 
+            "name": a.name, 
+            "corp_ticker": corp_ticker,
+            "q": a.q, 
+            "r": a.r, 
+            "distance": dist, 
+            "faction": a.faction_id, 
+            "is_feral": a.is_feral, 
+            "visual_signature": sig
+        }
         
         if has_scanner:
             inventory = [{"type": i.item_type, "qty": i.quantity} for i in a.inventory]
@@ -96,7 +109,8 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
                 "health": a.health, "max_health": a.max_health,
                 "energy": a.energy, "damage": a.damage, "accuracy": a.accuracy,
                 "speed": a.speed, "armor": a.armor,
-                "inventory": inventory
+                "inventory": inventory,
+                "corp_role": a.corp_role
             }
         agents_out.append(data)
 
@@ -105,9 +119,15 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
         "phase": state.phase if state else "PERCEPTION"
     }
     self_info = {
-        "name": agent.name, "q": agent.q, "r": agent.r,
-        "energy": agent.energy, "health": agent.health,
-        "level": agent.level, "faction": agent.faction_id
+        "name": agent.name, 
+        "corp_ticker": agent.corporation.ticker if agent.corporation else None,
+        "corp_role": agent.corp_role,
+        "q": agent.q, 
+        "r": agent.r,
+        "energy": agent.energy, 
+        "health": agent.health,
+        "level": agent.level, 
+        "faction": agent.faction_id
     }
     # Calculate pending moves by counting future MOVE intents
     pending_moves = 0
