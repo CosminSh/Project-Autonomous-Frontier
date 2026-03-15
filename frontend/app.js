@@ -3,6 +3,7 @@ import { AuthManager } from './auth.js?v=0.5.8';
 import { GameRenderer } from './renderer.js?v=0.5.8';
 import { UIManager } from './ui.js?v=0.5.8';
 import { TerminalHandler } from './terminal.js?v=0.5.8';
+import { TutorialManager } from './tutorial.js?v=0.5.8';
 
 /**
  * app.js — Main Bootstrapper
@@ -18,6 +19,7 @@ class GameClient {
         this.renderer = new GameRenderer(this);
         this.ui = new UIManager(this);
         this.terminal = new TerminalHandler(this);
+        this.tutorial = new TutorialManager(this);
 
         // 2. Shared State
         this.tradeSide = 'SELL';
@@ -42,6 +44,7 @@ class GameClient {
         // Auth UI
         document.getElementById('logout-btn')?.addEventListener('click', () => this.auth.logout());
         document.getElementById('copy-api-btn')?.addEventListener('click', () => this.auth.copyApiKey());
+        document.getElementById('start-tutorial-btn')?.addEventListener('click', () => this.tutorial.start());
 
         // Faction & Rename
         document.getElementById('realign-faction-btn')?.addEventListener('click', () => this.api.submitFactionRealignment());

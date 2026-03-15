@@ -14,6 +14,11 @@ When pushing updates to `renderer.js`, `ui.js`, or other frontend modules, ensur
 1.  **Update index.html**: Bump the version in the meta comment and the CSS link.
 2.  **Update app.js**: Update the version strings in the `import` statements at the top of the file.
     *   *Note*: Modules are imported with `?v=X.X.X`. If you don't bump these, the browser will likely serve a cached, broken version of the logic.
+3.  **Mandatory Hard Refresh**: Users often need to press `Ctrl + F5` (or `Cmd + Shift + R`) to clear their browser's local script cache even after a version bump.
+
+> [!IMPORTANT]
+> **Current Version: 0.5.6**
+> If you see `app.js?v=0.5.2` in the browser console while `ui.js` is `v=0.5.5`, the UI will CRASH. Ensure `app.js` is bumped together with all modules.
 
 ## 🐳 Backend Operations (Docker)
 All database scripts and seeding commands **MUST** be run inside the running backend container on the cloud server.

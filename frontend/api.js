@@ -37,6 +37,11 @@ export class GameAPI {
     async _fetch(url, options = {}) {
         const apiKey = localStorage.getItem('sv_api_key');
         const headers = { ...options.headers };
+
+        if (this.game.inTutorialMode) {
+            return this.game.tutorial.mockApiResponse(url, options.method || 'GET', options.body ? JSON.parse(options.body) : null);
+        }
+
         if (apiKey) headers['X-API-KEY'] = apiKey;
 
         try {
@@ -105,7 +110,7 @@ export class GameAPI {
 
     async pollState() {
         // ── Concurrency guard: skip if previous poll is still in-flight ──
-        if (this._polling) return;
+        if (this._polling || this.game.inTutorialMode) return;
         this._polling = true;
 
         try {
@@ -405,6 +410,14 @@ export class GameAPI {
     }
 
     async submitIntent(actionType, data) {
+        if (this.game.inTutorialMode) {
+            const resp = this.game.tutorial.mockApiResponse('/api/intent', 'POST', { action: actionType, data });
+            if (this.game.terminal) {
+                this.game.terminal.log(`✓ [TUTORIAL] ${actionType} ACCEPTED`, 'success');
+            }
+            return;
+        }
+
         const apiKey = localStorage.getItem('sv_api_key');
         if (!apiKey) {
             alert("No API Key found. Login first.");

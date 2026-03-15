@@ -485,6 +485,11 @@ export class TerminalHandler {
     async submit() {
         const raw = this.input.value.trim();
         if (!raw) return;
+
+        if (this.game.inTutorialMode) {
+            this.game.tutorial.handleAction('command', raw);
+        }
+
         this.input.value = '';
         this.suggestionsEl.classList.add('hidden');
         this.log(`&gt; ${raw}`, 'system');
