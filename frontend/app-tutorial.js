@@ -1,21 +1,20 @@
-import { GameAPI } from './api.js?v=0.5.13';
-import { AuthManager } from './auth.js?v=0.5.13';
-import { GameRenderer } from './renderer.js?v=0.5.13';
-import { UIManager } from './ui.js?v=0.5.13';
-import { TerminalHandler } from './terminal.js?v=0.5.13';
-import { TutorialManager } from './tutorial.js?v=0.5.13';
+import { GameAPI } from './api.js?v=0.6.0';
+import { GameRenderer } from './renderer.js?v=0.6.0';
+import { UIManager } from './ui.js?v=0.6.0';
+import { TerminalHandler } from './terminal.js?v=0.6.0';
+import { TutorialManager } from './tutorial.js?v=0.6.0';
 
 /**
- * app.js — Main Bootstrapper
- * Orchestrates modular systems and maintains shared state.
+ * app-tutorial.js — Standalone Tutorial Bootstrapper
+ * Forces sandbox mode and isolates the renderer.
  */
-class GameClient {
+class TutorialClient {
     constructor() {
         window.game = this;
+        this.inTutorialMode = true; // Hardcoded for this entry point
 
         // 1. Initialize Sub-Systems
         this.api = new GameAPI(this);
-        this.auth = new AuthManager(this);
         this.renderer = new GameRenderer(this);
         this.ui = new UIManager(this);
         this.terminal = new TerminalHandler(this);
@@ -26,40 +25,20 @@ class GameClient {
         this.lastWorldData = null;
         this.lastPerception = null;
         this.isInitialized = false;
-        this._loadingHidden = false; // Flag for hiding loading panel once
+        this._loadingHidden = false;
 
         // 3. Start Systems
         this.renderer.init();
         this.renderer.animate();
-        this.api.setupWebSocket();
         this.setupListeners();
         this.isInitialized = true;
 
-        // 4. Startup flow based on auth state
-        const apiKey = localStorage.getItem('sv_api_key');
-        if (apiKey) {
-            console.log('[BOOT] Returning user detected. Loading live world.');
-            this.auth.checkAuth();
-            this.api.startPolling();
-        } else {
-            console.log('[BOOT] Guest detected. Showing login corner.');
-            const loginCorner = document.getElementById('login-corner');
-            if (loginCorner) loginCorner.style.display = 'block';
-            this.hideLoading();
-        }
-
-        this.auth.processPendingAuth();
+        // 4. Force Tutorial Start
+        console.log('[BOOT] Standing up Tutorial Sandbox...');
+        this.tutorial.start();
     }
 
     setupListeners() {
-        // Auth UI
-        document.getElementById('logout-btn')?.addEventListener('click', () => this.auth.logout());
-        document.getElementById('copy-api-btn')?.addEventListener('click', () => this.auth.copyApiKey());
-
-        // Faction & Rename
-        document.getElementById('realign-faction-btn')?.addEventListener('click', () => this.api.submitFactionRealignment());
-        document.getElementById('rename-trigger')?.addEventListener('click', () => this.ui.handleRename());
-
         // Mode Switcher
         document.getElementById('btn-mode-world')?.addEventListener('click', () => this.ui.setUIMode('world'));
         document.getElementById('btn-mode-agent')?.addEventListener('click', () => this.ui.setUIMode('management'));
@@ -70,11 +49,9 @@ class GameClient {
             const el = document.getElementById(`tab-${tab}`);
             if (el) el.addEventListener('click', () => this.ui.switchTab(tab));
         });
-        // Default to Command Center tab
         this.ui.switchTab('terminal');
 
         // Industry Actions
-        const camDistance = 15; // Closer default view
         const actions = ['SMELT', 'CRAFT', 'RESTORE_HP', 'RESET_WEAR'];
         actions.forEach(action => {
             document.getElementById(`btn-${action.toLowerCase()}`)?.addEventListener('click', () => this.api.submitIndustryIntent(action));
@@ -97,19 +74,13 @@ class GameClient {
         });
     }
 
-    // Proxy Methods for backward compatibility or cross-module ease
-    pollState() { return this.api.pollState(); }
-    handleLogin(response) { return this.auth.handleLogin(response); }
-    handleGuestLogin() { return this.auth.handleGuestLogin(); }
-    logout() { return this.auth.logout(); }
-    claimDaily() { return this.api.claimDaily(); }
-    acceptSquad() { return this.api.acceptSquad(); }
-    declineSquad() { return this.api.declineSquad(); }
-    inviteSquad() { return this.api.inviteSquad(); }
-    leaveSquad() { return this.api.leaveSquad(); }
-    setAuthenticated(status) { return this.auth.setAuthenticated(status); }
-    setUIMode(mode) { return this.ui.setUIMode(mode); }
-    toggleDirectiveModal(show) { return this.ui.toggleDirectiveModal(show); }
+    // Auth Mocking (Tutorial doesn't login)
+    handleLogin() { console.warn("Login disabled in tutorial."); }
+    handleGuestLogin() { console.warn("Guest login disabled in tutorial."); }
+    logout() { this.tutorial.stop(); } // Skip/Logout in tutorial goes back to index
+
+    // Proxy Methods
+    pollState() { /* No polling in tutorial */ }
     updateGlobalUI(stats) { return this.ui.updateGlobalUI(stats); }
     updateTickUI(tick, phase) { return this.ui.updateTickUI(tick, phase); }
     updateLiveFeed(logs) { return this.ui.updateLiveFeed(logs); }
@@ -121,36 +92,25 @@ class GameClient {
     updatePrivateLogs(logs, pending, chat) { return this.ui.updatePrivateLogs(logs, pending, chat); }
     updateMyOrdersUI(orders) { return this.ui.updateMyOrdersUI(orders); }
     hideLoading() {
-        if (this._loadingHidden) return;
         const screen = document.getElementById('loading-screen');
-        if (screen) {
-            console.log("--- SYNC COMPLETE: HIDING LOADING PANEL ---");
-            screen.style.display = 'none';
-            this._loadingHidden = true;
-        }
+        if (screen) screen.style.display = 'none';
+        this._loadingHidden = true;
     }
 
-    handleWorldEvent(data) {
-        this.hideLoading();
-        return this.renderer.handleWorldEvent(data);
-    }
+    handleWorldEvent(data) { return this.renderer.handleWorldEvent(data); }
     updateAgentMesh(data) { return this.renderer.updateAgentMesh(data); }
     updateResourceMesh(data) { return this.renderer.updateResourceMesh(data); }
     updateLootMesh(data) { return this.renderer.updateLootMesh(data); }
     createHex(data) { return this.renderer.createHex(data); }
     centerOnAgent() { return this.renderer.centerOnAgent(); }
 
-    // Internal state access helpers
-    get apiKey() { return localStorage.getItem('sv_api_key'); }
-    get agentData() { return this.lastWorldData?.agents?.find(a => a.id === parseInt(localStorage.getItem('sv_agent_id'))); }
+    get apiKey() { return 'TUTORIAL_MODE'; }
+    get agentData() { return this.lastWorldData?.agents?.find(a => a.id === this.tutorial.mockAgentId); }
     get hexes() { return this.renderer.hexes; }
     get agents() { return this.renderer.agents; }
     get planetMesh() { return this.renderer.planetMesh; }
-    get hasCenteredInitially() { return this.renderer.hasCenteredInitially; }
-    set hasCenteredInitially(v) { this.renderer.hasCenteredInitially = v; }
 }
 
-// Global initialization
 window.addEventListener('DOMContentLoaded', () => {
-    new GameClient();
+    new TutorialClient();
 });

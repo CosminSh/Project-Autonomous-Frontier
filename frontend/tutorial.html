@@ -198,30 +198,7 @@
             transform: translateY(0);
         }
     </style>
-    <script>
-        // Define callback BEFORE Google GSI script loads
-        window.handleCredentialResponse = (response) => {
-            console.log("--- GOOGLE AUTH CALLBACK TRIGGERED ---");
-            if (window.game && window.game.isInitialized) {
-                window.game.handleLogin(response);
-            } else {
-                console.warn("Game client not ready. Queueing auth response.");
-                window.pendingAuth = response;
-            }
-        };
-        window.logout = () => {
-            if (window.game) window.game.logout();
-        };
-        window.guestLogin = () => {
-            if (window.game && window.game.isInitialized) {
-                window.game.handleGuestLogin();
-            } else {
-                console.warn("Game client not ready. Queueing guest login.");
-                window.pendingGuestLogin = true;
-            }
-        };
     </script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body class="bg-slate-950">
@@ -353,39 +330,6 @@
                 </div>
             </div>
 
-            <!-- Login Corner Panel (shown to guests only, hidden for auth users) -->
-            <div id="login-corner" class="fixed bottom-6 right-6 z-[105] pointer-events-auto" style="display:none">
-                <div class="glass p-4 rounded-2xl border border-white/10 w-64 flex flex-col items-center shadow-2xl backdrop-blur-md bg-slate-950/70 space-y-3">
-                    <span class="orbitron text-[8px] text-sky-400 tracking-[0.35em] uppercase font-black opacity-70">Uplink Required</span>
-                    <div class="flex justify-center w-full transform scale-90">
-                        <div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_black" data-text="signin_with" data-shape="pill" data-logo_alignment="left"></div>
-                    </div>
-                    <div class="flex items-center justify-center space-x-3 w-full">
-                        <span class="h-px bg-white/10 flex-grow"></span>
-                        <span class="text-[7px] orbitron text-slate-600 uppercase font-black tracking-widest">or</span>
-                        <span class="h-px bg-white/10 flex-grow"></span>
-                    </div>
-                    <button onclick="window.guestLogin()" class="w-full py-2 px-4 bg-white/5 hover:bg-white/10 text-slate-300 text-[8px] orbitron rounded-xl border border-white/10 transition-all hover:border-sky-500/50 uppercase font-bold tracking-[0.2em]">
-                        Guest Bypass
-                    </button>
-                    <div class="flex items-center justify-center space-x-3 w-full">
-                        <span class="h-px bg-white/10 flex-grow"></span>
-                        <span class="text-[7px] orbitron text-slate-600 uppercase font-black tracking-widest">or</span>
-                        <span class="h-px bg-white/10 flex-grow"></span>
-                    </div>
-                    <a href="/tutorial.html" class="w-full py-2 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[8px] orbitron rounded-xl border border-emerald-500/30 transition-all hover:border-emerald-500/60 uppercase font-bold tracking-[0.2em] text-center">
-                        Start Training
-                    </a>
-                </div>
-            </div>
-
-            <!-- Google Auth Setup (always present, hidden) -->
-            <div id="auth-panel" style="display:none">
-                <div id="g_id_onload"
-                    data-client_id="419308259695-sj14gj8q7ml5o9uao2j59pgkp1vvthh0.apps.googleusercontent.com"
-                    data-callback="handleCredentialResponse" data-auto_prompt="false">
-                </div>
-            </div>
 
         </div>
 
@@ -1503,7 +1447,7 @@
     }
     </script>
     <script type="module" src="storage.js?v=0.6.0"></script>
-    <script type="module" src="app.js?v=0.6.0"></script>
+    <script type="module" src="app-tutorial.js?v=0.6.0"></script>
 
 </body>
 

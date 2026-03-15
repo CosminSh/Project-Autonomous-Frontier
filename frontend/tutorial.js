@@ -71,22 +71,30 @@ export class TutorialManager {
         this.currentStepIndex = 0;
         this.game.inTutorialMode = true;
         
-        // Clean slate for sandbox
+        // 1. Monkey-patch GameAPI to redirect all requests to our mock router
+        if (this.game.api) {
+            this.game.api._fetch = (url, options) => {
+                return Promise.resolve(this.mockApiResponse(url, options?.method || 'GET', options?.body ? JSON.parse(options.body) : null));
+            };
+            this.game.api._post = (url, data) => {
+                return Promise.resolve(this.mockApiResponse(url, 'POST', data));
+            };
+            // Disable WebSocket as well
+            this.game.api.setupWebSocket = () => { console.log("[TUTORIAL] WebSocket disabled."); };
+        }
+
+        // 2. Clean slate for sandbox
         if (this.game.renderer) {
             this.game.renderer.clearWorld();
         }
 
         localStorage.setItem('sv_agent_id', this.mockAgentId);
         localStorage.setItem('sv_api_key', 'TUTORIAL_MODE');
-        console.log("Tutorial state set in localStorage.");
         
         this.setupUI();
-        console.log("Tutorial UI initialized.");
-        
         this.showStep();
-        console.log("First step shown.");
         
-        // Mock initial state
+        // 3. Mock initial state
         const mockState = this.getMockWorldState();
         this.game.lastWorldData = mockState;
         this.game.updateTickUI(mockState.tick, mockState.phase);
@@ -94,21 +102,15 @@ export class TutorialManager {
         const mockAgent = this.getMockAgent();
         this.game.updatePrivateUI(mockAgent);
         
-        // Render the sandbox world immediately
         if (this.game.renderer) {
             this.game.renderer.updateWorld(mockState);
         }
         
-        // Hide loading - tutorial is the landing experience
         this.game.hideLoading();
-        // Login corner stays visible so users can log in at any time
         
-        // Ensure mode switcher is visible for the tutorial so they can toggle views
         const modeSwitcher = document.getElementById('mode-switcher');
         if (modeSwitcher) modeSwitcher.classList.remove('hidden');
         document.getElementById('agent-detail').style.opacity = '1';
-        
-        // Start in management mode for Step 1
         this.game.setUIMode('management');
         
         console.log("Tutorial UI setup complete and active.");
@@ -117,49 +119,12 @@ export class TutorialManager {
     stop() {
         this.isActive = false;
         this.game.inTutorialMode = false;
-        
-        // Clear mock auth if still set
-        if (localStorage.getItem('sv_agent_id') === this.mockAgentId.toString()) {
-            localStorage.removeItem('sv_agent_id');
-            localStorage.removeItem('sv_api_key');
-        }
-
-        if (this.uiContainer) {
-            this.uiContainer.remove();
-            this.uiContainer = null;
-        }
-
-        // If they click 'Skip', we set a flag so it doesn't auto-start again in this session
         localStorage.setItem('tutorial_skipped', 'true');
-
-        // Force refresh back to landing state
-        window.location.reload();
+        window.location.href = '/index.html';
     }
 
-    /**
-     * Stop quietly (no page reload) — used when user authenticates mid-tutorial
-     */
     stopSilently() {
-        this.isActive = false;
-        this.game.inTutorialMode = false;
-        this.game._loadingHidden = false; // Let loading screen re-appear for real sync
-        
-        if (localStorage.getItem('sv_agent_id') === this.mockAgentId.toString()) {
-            localStorage.removeItem('sv_agent_id');
-            localStorage.removeItem('sv_api_key');
-        }
-
-        if (this.uiContainer) {
-            this.uiContainer.remove();
-            this.uiContainer = null;
-        }
-
-        // Clear tutorial world and load real game
-        this.game.renderer.clearWorld();
-        const loadingScreen = document.getElementById('loading-screen');
-        if (loadingScreen) loadingScreen.style.display = '';
-        this.game.api.startPolling();
-        console.log('[TUTORIAL] Silently stopped, transitioning to live world.');
+        this.stop();
     }
 
     setupUI() {

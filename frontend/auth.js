@@ -105,10 +105,6 @@ export class AuthManager {
         const modeSwitcher = document.getElementById('mode-switcher');
 
         if (isAuthenticated) {
-            // Stop tutorial if it was running
-            if (this.game.tutorial?.isActive) {
-                this.game.tutorial.stopSilently();
-            }
             if (loginCorner) loginCorner.style.display = 'none';
             modeSwitcher.classList.remove('hidden');
             logoutBtn.classList.remove('hidden');
@@ -121,10 +117,6 @@ export class AuthManager {
             logoutBtn.classList.add('hidden');
             document.getElementById('agent-detail').style.opacity = '0';
             localStorage.removeItem('sv_api_key');
-            // Re-start tutorial for logged-out guests
-            if (!this.game.tutorial?.isActive) {
-                this.game.tutorial?.start();
-            }
         }
     }
 
