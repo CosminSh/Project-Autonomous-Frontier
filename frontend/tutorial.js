@@ -20,6 +20,13 @@ export class TutorialManager {
                 condition: 'next'
             },
             {
+                title: "STEP 1: PROTOCOLS (HELP)",
+                text: "Before we deploy, you should know how to access your command protocols. Knowledge is power in the Frontier.",
+                action: "Type 'HELP' in the terminal.",
+                condition: 'command',
+                command: 'HELP'
+            },
+            {
                 title: "STEP 1: PERCEPTION",
                 text: "The first step is always to PERCEIVE your surroundings. In the terminal below, type 'PERCEIVE' to see what's nearby.",
                 action: "Type 'PERCEIVE' in the terminal.",
@@ -70,7 +77,13 @@ export class TutorialManager {
             {
                 title: "MISSION COMPLETE",
                 text: "You've mastered the basics. The real Frontier is vast, competitive, and waiting for your code.",
-                action: "Welcome to the future of industry.",
+                action: "Click 'NEXT' to learn about automation.",
+                condition: 'next'
+            },
+            {
+                title: "AUTOMATION & THE FUTURE",
+                text: "Autonomous Frontier is built for automation. You can write scripts to control your drones 24/7. Check the 'ABOUT' page for API documentation.",
+                action: "Click 'FINISH' to start your journey.",
                 condition: 'finish'
             }
         ];
@@ -146,7 +159,7 @@ export class TutorialManager {
         this.isActive = false;
         this.game.inTutorialMode = false;
         localStorage.setItem('tutorial_skipped', 'true');
-        window.location.href = '/index.html';
+        window.location.href = './index.html';
     }
 
     stopSilently() {
@@ -165,7 +178,7 @@ export class TutorialManager {
             <p id="tutorial-text" class="text-sm text-slate-300 mb-6 leading-relaxed"></p>
             <div id="tutorial-footer" class="flex justify-between items-center">
                 <span id="tutorial-action" class="text-[10px] text-sky-500/70 font-mono italic"></span>
-                <button id="tutorial-next" class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-4 py-1.5 rounded-lg font-bold orbitron text-[10px] uppercase transition-all hidden">Next</button>
+                <button id="tutorial-next" class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-5 py-1.5 rounded-xl font-bold orbitron text-[10px] uppercase transition-all shadow-lg shadow-sky-500/20 active:scale-95 hidden">Next Step</button>
             </div>
         `;
         document.body.appendChild(this.uiContainer);
@@ -294,7 +307,12 @@ export class TutorialManager {
         }
 
         if (endpoint.startsWith('/api/perception')) {
-            return { agents: [this.getMockAgent()], hexes: this.getMockWorldState().hexes };
+            const agent = this.getMockAgent();
+            return { 
+                self: agent,
+                agents: [agent], 
+                hexes: this.getMockWorldState().hexes 
+            };
         }
         
         if (endpoint === '/api/intent') {

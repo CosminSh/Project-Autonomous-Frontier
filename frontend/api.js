@@ -119,47 +119,42 @@ export class GameAPI {
 
             // ── CRITICAL TIER (every 10s): state + agent ──
             const criticalResults = await Promise.allSettled([
-                fetch('/state'),
-                apiKey ? fetch(`${window.location.origin}/api/my_agent`, { headers }) : Promise.resolve(null),
+                this._fetch('/state'),
+                apiKey ? this._fetch('/api/my_agent') : Promise.resolve(null),
             ]);
 
             // ── SECONDARY TIER (every 30s): stats, logs, orders, bounties, perception, missions ──
             let secondaryResults = null;
             if (isSecondary) {
                 secondaryResults = await Promise.allSettled([
-                    fetch('/api/global_stats'),
-                    apiKey ? fetch(`${window.location.origin}/api/agent_logs`, { headers }) : Promise.resolve(null),
-                    apiKey ? fetch(`${window.location.origin}/api/market/my_orders`, { headers }) : Promise.resolve(null),
-                    fetch('/api/bounties'),
-                    apiKey ? fetch(`${window.location.origin}/api/perception`, { headers }) : Promise.resolve(null),
-                    apiKey ? fetch(`${window.location.origin}/api/missions`, { headers }) : Promise.resolve(null),
-                    apiKey ? fetch(`${window.location.origin}/api/arena/status`, { headers }) : Promise.resolve(null),
+                    this._fetch('/api/global_stats'),
+                    apiKey ? this._fetch('/api/agent_logs') : Promise.resolve(null),
+                    apiKey ? this._fetch('/api/market/my_orders') : Promise.resolve(null),
+                    this._fetch('/api/bounties'),
+                    apiKey ? this._fetch('/api/perception') : Promise.resolve(null),
+                    apiKey ? this._fetch('/api/missions') : Promise.resolve(null),
+                    apiKey ? this._fetch('/api/arena/status') : Promise.resolve(null),
                 ]);
             }
 
             // ── SLOW TIER (every 60s): chat ──
             let chatResult = null;
             if (isSlow && apiKey) {
-                const [cr] = await Promise.allSettled([
-                    fetch(`${window.location.origin}/api/chat`, { headers })
-                ]);
-                chatResult = cr;
+                chatResult = await this._fetch('/api/chat').then(v => ({status: 'fulfilled', value: v})).catch(e => ({status: 'rejected', reason: e}));
             }
 
-            // Helper: safely get JSON from a settled result
-            const safeJson = async (settled) => {
+            // Helper: safely get result
+            const safeResult = (settled) => {
                 if (!settled || settled.status === 'rejected' || !settled.value) return null;
-                const resp = settled.value;
-                if (!resp.ok) { if (resp.status !== 429) console.warn(`API error ${resp.status} on ${resp.url}`); return null; }
-                try { return await resp.json(); } catch { return null; }
+                return settled.value;
             };
 
             // ── Parse Critical ──
-            const data = await safeJson(criticalResults[0]);
-            const agentData = await safeJson(criticalResults[1]);
+            const data = safeResult(criticalResults[0]);
+            const agentData = safeResult(criticalResults[1]);
 
-            // Check for auth expiry
-            if (criticalResults[1].value && criticalResults[1].value.status === 401) {
+            // Check for auth expiry handled in _fetch usually, but here we just check result
+            if (!agentData && apiKey && criticalResults[1].reason?.message?.includes('401')) {
                 console.warn("Session expired or API key invalid.");
                 this.game.setAuthenticated(false);
                 return;
@@ -168,16 +163,16 @@ export class GameAPI {
             // ── Parse Secondary (only when polled) ──
             let stats = null, privateLogs = null, myOrders = null, bounties = null, perceptionData = null, missions = null, arenaData = null;
             if (secondaryResults) {
-                stats = await safeJson(secondaryResults[0]);
-                privateLogs = await safeJson(secondaryResults[1]);
-                myOrders = await safeJson(secondaryResults[2]);
-                bounties = await safeJson(secondaryResults[3]);
-                perceptionData = await safeJson(secondaryResults[4]);
-                missions = await safeJson(secondaryResults[5]);
-                arenaData = await safeJson(secondaryResults[6]);
+                stats = safeResult(secondaryResults[0]);
+                privateLogs = safeResult(secondaryResults[1]);
+                myOrders = safeResult(secondaryResults[2]);
+                bounties = safeResult(secondaryResults[3]);
+                perceptionData = safeResult(secondaryResults[4]);
+                missions = safeResult(secondaryResults[5]);
+                arenaData = safeResult(secondaryResults[6]);
             }
 
-            const chatMessages = await safeJson(chatResult);
+            const chatMessages = chatResult ? safeResult(chatResult) : null;
 
             // ── Persist to sessionStorage cache ──
             if (data) cacheSet(CACHE_KEYS.world, data);
@@ -414,25 +409,15 @@ export class GameAPI {
         }
 
         try {
-            const resp = await fetch(`${window.location.origin}/api/intent`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
-                body: JSON.stringify({ action_type: actionType, data })
-            });
-
-            if (resp.ok) {
-                const result = await resp.json();
-                if (this.game.terminal) {
-                    this.game.terminal.log(`✓ ACCEPTED — Scheduled for Tick #${result.tick}`, 'success');
-                }
-            } else {
-                const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
-                const detail = typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail;
-                if (this.game.terminal) {
-                    this.game.terminal.log(`✗ REJECTED — ${detail || 'Server error'}`, 'error');
-                }
+            const result = await this._post('/api/intent', { action_type: actionType, data });
+            if (this.game.terminal) {
+                this.game.terminal.log(`✓ ACCEPTED — Scheduled for Tick #${result.tick}`, 'success');
             }
         } catch (e) {
+            const detail = e.message || 'Server error';
+            if (this.game.terminal) {
+                this.game.terminal.log(`✗ REJECTED — ${detail}`, 'error');
+            }
             console.error("Intent error:", e);
         }
     }
@@ -452,18 +437,13 @@ export class GameAPI {
         const apiKey = localStorage.getItem('sv_api_key');
         if (!apiKey) return;
         try {
-            const resp = await fetch(`${window.location.origin}/api/market/orders/${orderId}`, {
-                method: 'DELETE',
-                headers: { 'X-API-KEY': apiKey }
-            });
-            if (resp.ok) {
-                if (this.game.terminal) this.game.terminal.log(`✓ Market order #${orderId} cancelled. Refunds issued.`, 'success');
-                this.pollState();
-            } else {
-                const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
-                alert(`Cancel Failed: ${err.detail}`);
-            }
-        } catch (e) { console.error("Cancel order error:", e); }
+            await this._fetch(`/api/market/orders/${orderId}`, { method: 'DELETE' });
+            if (this.game.terminal) this.game.terminal.log(`✓ Market order #${orderId} cancelled. Refunds issued.`, 'success');
+            this.pollState();
+        } catch (e) { 
+            console.error("Cancel order error:", e);
+            alert(`Cancel Failed: ${e.message}`);
+        }
     }
 
     async adjustMarketOrder(orderId, currentPrice) {
@@ -583,39 +563,28 @@ export class GameAPI {
     }
 
     async claimDaily() {
-        const apiKey = localStorage.getItem('sv_api_key');
-        if (!apiKey) return;
-
         try {
-            const resp = await fetch(`${window.location.origin}/api/claim_daily`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey }
-            });
-
+            const data = await this._post('/api/claim_daily');
             const btn = document.getElementById('btn-claim-daily');
-            if (resp.ok) {
-                const data = await resp.json();
-                if (this.game.terminal) {
-                    this.game.terminal.log(`✓ Daily claimed! Acquired: ${data.items?.join(', ') || 'provisions'}`, 'success');
-                }
-                if (btn) {
-                    btn.disabled = true;
-                    btn.innerText = "CLAIMED TODAY";
-                    btn.classList.add("opacity-50", "cursor-not-allowed");
-                }
-                this.pollState();
-            } else {
-                const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
-                if (this.game.terminal) {
-                    this.game.terminal.log(`✗ Claim Failed: ${err.detail || 'Unknown error'}`, 'error');
-                }
-                if (btn && err.detail && err.detail.includes("24 hours")) {
-                    btn.disabled = true;
-                    btn.innerText = "ON COOLDOWN";
-                }
+            if (this.game.terminal) {
+                this.game.terminal.log(`✓ Daily claimed! Acquired: ${data.items?.join(', ') || 'provisions'}`, 'success');
             }
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "CLAIMED TODAY";
+                btn.classList.add("opacity-50", "cursor-not-allowed");
+            }
+            this.pollState();
         } catch (e) {
             console.error("Claim error:", e);
+            const btn = document.getElementById('btn-claim-daily');
+            if (this.game.terminal) {
+                this.game.terminal.log(`✗ Claim Failed: ${e.message}`, 'error');
+            }
+            if (btn && e.message.includes("24 hours")) {
+                btn.disabled = true;
+                btn.innerText = "ON COOLDOWN";
+            }
         }
     }
 
@@ -633,25 +602,13 @@ export class GameAPI {
     async leaveSquad() { await this._squadAction('/api/squad/leave'); }
 
     async _squadAction(endpoint, data = {}) {
-        const apiKey = localStorage.getItem('sv_api_key');
-        if (!apiKey) return;
         try {
-            const resp = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
-                body: Object.keys(data).length ? JSON.stringify(data) : undefined
-            });
-            const result = await resp.json();
-            if (resp.ok) {
-                if (this.game.terminal) this.game.terminal.log(`✓ ${result.message || 'Action successful'}`, 'success');
-                this.pollState();
-                // Refresh corp tab if it's active
-                if (document.getElementById('content-corporation') && !document.getElementById('content-corporation').classList.contains('hidden')) {
-                    this.game.ui.updateCorporationUI();
-                }
-            } else {
-                if (this.game.terminal) this.game.terminal.log(`✗ ${result.detail || 'Access Denied'}`, 'error');
-                else alert(`Error: ${result.detail || 'Access Denied'}`);
+            const result = await this._post(endpoint, data);
+            if (this.game.terminal) this.game.terminal.log(`✓ ${result.message || 'Action successful'}`, 'success');
+            this.pollState();
+            // Refresh corp tab if it's active
+            if (document.getElementById('content-corporation') && !document.getElementById('content-corporation').classList.contains('hidden')) {
+                this.game.ui.updateCorporationUI();
             }
             return result;
         } catch (e) {

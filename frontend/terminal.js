@@ -360,8 +360,18 @@ export class TerminalHandler {
                 if (isNaN(data.order_id)) throw new Error('Order ID must be an integer.');
                 break;
             case 'SMELT':
-                if (args.length < 2) throw new Error('Usage: SMELT <ore_type> <qty>  — e.g. SMELT IRON_ORE 5');
-                data.ore_type = args[0].toUpperCase(); data.quantity = parseInt(args[1]);
+                if (args.length < 1) throw new Error('Usage: SMELT <ore_type> [quantity|MAX]');
+                data.ore_type = args[0].toUpperCase();
+                let qty = 10;
+                if (args.length > 1) {
+                    if (args[1].toUpperCase() === 'MAX') {
+                        // Max quantity allowed by server is 500
+                        qty = 500;
+                    } else {
+                        qty = parseInt(args[1]);
+                    }
+                }
+                data.quantity = qty;
                 if (isNaN(data.quantity)) throw new Error('Quantity must be an integer.');
                 break;
             case 'CRAFT':
@@ -486,10 +496,6 @@ export class TerminalHandler {
         const raw = this.input.value.trim();
         if (!raw) return;
 
-        if (this.game.inTutorialMode) {
-            this.game.tutorial.handleAction('command', raw);
-        }
-
         this.input.value = '';
         this.suggestionsEl.classList.add('hidden');
         this.log(`&gt; ${raw}`, 'system');
@@ -498,8 +504,18 @@ export class TerminalHandler {
         const actionType = parts[0].toUpperCase();
         const args = parts.slice(1);
 
-        // ── META: HELP ──
-        if (actionType === 'HELP') {
+        try {
+            await this.handleAction(actionType, args);
+        } catch (e) {
+            this.log(`✗ ERROR: ${e.message}`, 'error');
+        }
+
+        if (this.game.inTutorialMode) {
+            this.game.tutorial.handleAction('command', raw);
+        }
+    }
+
+    async handleAction(actionType, args) {
             if (args.length > 0) {
                 const cmdName = args[0].toUpperCase();
 
