@@ -19,7 +19,7 @@ export class TerminalHandler {
         // FULL COMMAND REGISTRY
         // ═══════════════════════════════════════════════════════
         this.commands = {
-            'MOVE': { cat: 'NAV', syntax: 'MOVE <q> <r> | <KEYWORD>', example: 'MOVE SMELTER', help: 'Move to coordinates or nearest station of type (SMELTER, CRAFTER, MARKET, HUB).' },
+            'MOVE': { cat: 'NAV', syntax: 'MOVE <q> <r> | <KEYWORD>', example: 'MOVE SMELTER', help: 'Move to coordinates or nearest station (SMELTER, CRAFTER, MARKET, HUB, REPAIR, REFINERY).' },
             'SCAN': { cat: 'NAV', syntax: 'SCAN', example: 'SCAN', help: 'Re-sync sensor telemetry and refresh tactical overlay.' },
             'MINE': { cat: 'RESOURCE', syntax: 'MINE [resource] [q] [r]', example: 'MINE COPPER_ORE 2 3', help: 'Extract resources. Optional: auto-move to coordinates first.' },
             'SALVAGE': { cat: 'RESOURCE', syntax: 'SALVAGE <drop_id>', example: 'SALVAGE 42', help: 'Collect a world loot drop' },
@@ -271,7 +271,7 @@ export class TerminalHandler {
             case 'MOVE':
                 if (args.length === 0) throw new Error('Usage: MOVE <q> <r> | <STATION_TYPE>');
                 
-                const keywords = ['SMELTER', 'CRAFTER', 'MARKET', 'HUB', 'REFINERY'];
+                const keywords = ['SMELTER', 'CRAFTER', 'MARKET', 'HUB', 'REFINERY', 'REPAIR'];
                 const inputKW = args[0].toUpperCase();
                 
                 if (keywords.includes(inputKW)) {
@@ -281,7 +281,7 @@ export class TerminalHandler {
                     const a = await resp.json();
                     
                     const stations = (a.discovery?.stations || []).filter(s => 
-                        s.station_type === inputKW || (inputKW === 'HUB' && s.station_type === 'STATION_HUB')
+                        s.type === inputKW || (inputKW === 'HUB' && s.type === 'STATION_HUB')
                     );
                     
                     if (stations.length === 0) throw new Error(`No discovered ${inputKW} found in your tactical banks.`);
