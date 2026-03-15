@@ -1511,6 +1511,8 @@ export class GameRenderer {
             this.selectionRing = null;
         }
 
+        this.clearTutorialHighlight();
+
         this.hasCenteredInitially = false;
     }
 
@@ -1554,5 +1556,44 @@ export class GameRenderer {
             requestAnimationFrame(anim);
         };
         anim();
+    }
+
+
+    setTutorialHighlight(q, r) {
+        this.clearTutorialHighlight();
+        
+        const pos = this.grid.hexToWorld(q, r);
+        const ringGeo = new THREE.TorusGeometry(1.2, 0.05, 16, 32);
+        const ringMat = new THREE.MeshBasicMaterial({ 
+            color: 0xffff00, 
+            transparent: true, 
+            opacity: 0.8,
+            side: THREE.DoubleSide
+        });
+        
+        this.tutorialHighlight = new THREE.Mesh(ringGeo, ringMat);
+        this.tutorialHighlight.position.copy(pos);
+        this.tutorialHighlight.lookAt(new THREE.Vector3(0,0,0)); 
+        this.tutorialHighlight.rotateX(Math.PI / 2);
+        
+        this.scene.add(this.tutorialHighlight);
+        
+        // Pulsate animation
+        const start = Date.now();
+        const anim = () => {
+            if (!this.tutorialHighlight) return;
+            const t = (Date.now() - start) / 1000;
+            const s = 1 + Math.sin(t * 6) * 0.2;
+            this.tutorialHighlight.scale.set(s, s, s);
+            requestAnimationFrame(anim);
+        };
+        anim();
+    }
+
+    clearTutorialHighlight() {
+        if (this.tutorialHighlight) {
+            this.scene.remove(this.tutorialHighlight);
+            this.tutorialHighlight = null;
+        }
     }
 }

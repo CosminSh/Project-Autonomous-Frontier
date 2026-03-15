@@ -90,10 +90,9 @@ export class TutorialManager {
         this.game.lastWorldData = this.getMockWorldState();
         this.game.updatePrivateUI(this.getMockAgent());
         
-        // Hide loading and login corner - tutorial is the landing experience
+        // Hide loading - tutorial is the landing experience
         this.game.hideLoading();
-        const loginCorner = document.getElementById('login-corner');
-        if (loginCorner) loginCorner.style.display = 'none';
+        // Login corner stays visible so users can log in at any time
         
         // Ensure mode switcher is visible for the tutorial so they can toggle views
         const modeSwitcher = document.getElementById('mode-switcher');
@@ -120,6 +119,10 @@ export class TutorialManager {
             this.uiContainer.remove();
             this.uiContainer = null;
         }
+
+        // If they click 'Skip', we set a flag so it doesn't auto-start again in this session
+        localStorage.setItem('tutorial_skipped', 'true');
+
         // Force refresh back to landing state
         window.location.reload();
     }
@@ -183,6 +186,19 @@ export class TutorialManager {
             if (step.condition === 'finish') nextBtn.innerText = "START PLAYING";
         } else {
             nextBtn.classList.add('hidden');
+        }
+
+        // Visual Guidance (Visual Highlights)
+        if (this.game.renderer) {
+            if (this.currentStepIndex === 2) {
+                // Step 2: Move to (10, 5)
+                this.game.renderer.setTutorialHighlight(10, 5);
+            } else if (this.currentStepIndex === 5) {
+                // Step 5: Move to Smelter at (25, 2)
+                this.game.renderer.setTutorialHighlight(25, 2);
+            } else {
+                this.game.renderer.clearTutorialHighlight();
+            }
         }
 
         if (step.condition === 'wait') {

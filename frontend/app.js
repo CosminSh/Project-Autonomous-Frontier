@@ -1,9 +1,9 @@
-import { GameAPI } from './api.js?v=0.5.11';
-import { AuthManager } from './auth.js?v=0.5.11';
-import { GameRenderer } from './renderer.js?v=0.5.11';
-import { UIManager } from './ui.js?v=0.5.11';
-import { TerminalHandler } from './terminal.js?v=0.5.11';
-import { TutorialManager } from './tutorial.js?v=0.5.11';
+import { GameAPI } from './api.js?v=0.5.12';
+import { AuthManager } from './auth.js?v=0.5.12';
+import { GameRenderer } from './renderer.js?v=0.5.12';
+import { UIManager } from './ui.js?v=0.5.12';
+import { TerminalHandler } from './terminal.js?v=0.5.12';
+import { TutorialManager } from './tutorial.js?v=0.5.12';
 
 /**
  * app.js — Main Bootstrapper
@@ -42,8 +42,14 @@ class GameClient {
             console.log('[BOOT] Returning user detected. Loading live world.');
             this.auth.checkAuth();
             this.api.startPolling();
+        } else if (localStorage.getItem('tutorial_skipped') === 'true') {
+            // Guest who skipped tutorial: just show login corner
+            console.log('[BOOT] Guest (skipped tutorial) detected.');
+            const loginCorner = document.getElementById('login-corner');
+            if (loginCorner) loginCorner.style.display = 'block';
+            this.hideLoading();
         } else {
-            // Guest: auto-start tutorial, show login corner
+            // New Guest: auto-start tutorial
             console.log('[BOOT] Guest detected. Auto-starting tutorial.');
             const loginCorner = document.getElementById('login-corner');
             if (loginCorner) loginCorner.style.display = 'block';
