@@ -14,6 +14,53 @@ async def handle_mine(db, agent, intent, tick_count, manager):
         db.add(AuditLog(agent_id=agent.id, event_type="MINING_STOPPED", details={"reason": "UNDER_ATTACK"}))
         return
 
+    # ── Auto-Navigate check ──
+    target_q = intent.data.get("target_q")
+    target_r = intent.data.get("target_r")
+    
+    if target_q is not None and target_r is not None:
+        from game_helpers import get_hex_distance, find_hex_path
+        from models import Intent
+        
+        dist = get_hex_distance(agent.q, agent.r, target_q, target_r)
+        if dist > 0:
+            path = find_hex_path(db, agent.q, agent.r, target_q, target_r, max_steps=50)
+            if not path:
+                db.add(AuditLog(agent_id=agent.id, event_type="MINING_FAILED", details={"reason": "OUT_OF_RANGE", "note": "Target coordinates unreachable."}))
+                return
+            
+            # Clear future intents to avoid conflicts during travel
+            db.execute(Intent.__table__.delete().where(
+                Intent.agent_id == agent.id,
+                Intent.tick_index > tick_count,
+                Intent.action_type.in_(["MOVE", "MINE", "SMELT", "REFINE_GAS", "CRAFT", "RESTORE_HP", "ARENA_REGISTER"])
+            ))
+            
+            # Queue the movement steps
+            for i, (sq, sr) in enumerate(path):
+                db.add(Intent(
+                    agent_id=agent.id,
+                    action_type="MOVE",
+                    data={"target_q": sq, "target_r": sr, "_nav": True},
+                    tick_index=tick_count + i + 1
+                ))
+            
+            # Queue the original MINE intent at the destination tick
+            dest_tick = tick_count + len(path) + 1
+            db.add(Intent(
+                agent_id=agent.id,
+                action_type="MINE",
+                data=intent.data,
+                tick_index=dest_tick
+            ))
+            
+            db.add(AuditLog(agent_id=agent.id, event_type="NAVIGATE_TO_MINING", details={
+                "steps": len(path), 
+                "destination": {"q": target_q, "r": target_r}
+            }))
+            logger.info(f"MINE: Agent {agent.id} auto-navigating to ({target_q},{target_r})")
+            return
+
     # 2. Check Energy
     if agent.energy < MINE_ENERGY_COST:
         db.add(AuditLog(agent_id=agent.id, event_type="MINING_STOPPED", details={

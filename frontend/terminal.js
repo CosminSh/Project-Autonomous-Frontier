@@ -19,9 +19,9 @@ export class TerminalHandler {
         // FULL COMMAND REGISTRY
         // ═══════════════════════════════════════════════════════
         this.commands = {
-            'MOVE': { cat: 'NAV', syntax: 'MOVE <q> <r>', example: 'MOVE 1 -1', help: 'Move to adjacent hex' },
+            'MOVE': { cat: 'NAV', syntax: 'MOVE <q> <r> | <KEYWORD>', example: 'MOVE SMELTER', help: 'Move to coordinates or nearest station of type (SMELTER, CRAFTER, MARKET, HUB).' },
             'SCAN': { cat: 'NAV', syntax: 'SCAN', example: 'SCAN', help: 'Re-sync sensor telemetry and refresh tactical overlay.' },
-            'MINE': { cat: 'RESOURCE', syntax: 'MINE', example: 'MINE', help: 'Extract resources. Looping task: repeats until full, empty, broken, or attacked.' },
+            'MINE': { cat: 'RESOURCE', syntax: 'MINE [resource] [q] [r]', example: 'MINE COPPER_ORE 2 3', help: 'Extract resources. Optional: auto-move to coordinates first.' },
             'SALVAGE': { cat: 'RESOURCE', syntax: 'SALVAGE <drop_id>', example: 'SALVAGE 42', help: 'Collect a world loot drop' },
             'ATTACK': { cat: 'COMBAT', syntax: 'ATTACK <target_id>', example: 'ATTACK 7', help: 'Standard combat engagement' },
             'INTIMIDATE': { cat: 'COMBAT', syntax: 'INTIMIDATE <target_id>', example: 'INTIMIDATE 7', help: 'Piracy: intimidation check, success siphons 5% inventory' },
@@ -225,7 +225,7 @@ export class TerminalHandler {
         const args = parts.slice(1);
         
         try {
-            const data = this.parseIntent(actionType, args);
+            const data = await this.parseIntent(actionType, args);
             // If it's a meta-only command (LEADERBOARD, STATUS etc), 
             // parseIntent already returned and we might need to handle it or it's handled in submit()
             // Wait, parseIntent for meta commands returns early.
@@ -265,13 +265,42 @@ export class TerminalHandler {
         }
     }
 
-    parseIntent(actionType, args) {
+    async parseIntent(actionType, args) {
         const data = {};
         switch (actionType) {
             case 'MOVE':
-                if (args.length < 2) throw new Error('Usage: MOVE <q> <r>  — e.g. MOVE 1 -1');
-                data.target_q = parseInt(args[0]); data.target_r = parseInt(args[1]);
-                if (isNaN(data.target_q) || isNaN(data.target_r)) throw new Error('Coordinates must be integers.');
+                if (args.length === 0) throw new Error('Usage: MOVE <q> <r> | <STATION_TYPE>');
+                
+                const keywords = ['SMELTER', 'CRAFTER', 'MARKET', 'HUB', 'REFINERY'];
+                const inputKW = args[0].toUpperCase();
+                
+                if (keywords.includes(inputKW)) {
+                    // Resolve nearest station from discovery
+                    const apiKey = localStorage.getItem('sv_api_key');
+                    const resp = await fetch('/api/my_agent', { headers: { 'X-API-KEY': apiKey } });
+                    const a = await resp.json();
+                    
+                    const stations = (a.discovery?.stations || []).filter(s => 
+                        s.station_type === inputKW || (inputKW === 'HUB' && s.station_type === 'STATION_HUB')
+                    );
+                    
+                    if (stations.length === 0) throw new Error(`No discovered ${inputKW} found in your tactical banks.`);
+                    
+                    // Simple distance sort
+                    stations.sort((s1, s2) => {
+                        const d1 = Math.abs(a.q - s1.q) + Math.abs(a.r - s1.r);
+                        const d2 = Math.abs(a.q - s2.q) + Math.abs(a.r - s2.r);
+                        return d1 - d2;
+                    });
+                    
+                    data.target_q = stations[0].q;
+                    data.target_r = stations[0].r;
+                    this.log(`Routing to nearest ${inputKW} at (${data.target_q}, ${data.target_r})...`, 'info');
+                } else {
+                    if (args.length < 2) throw new Error('Usage: MOVE <q> <r>  — e.g. MOVE 1 -1');
+                    data.target_q = parseInt(args[0]); data.target_r = parseInt(args[1]);
+                    if (isNaN(data.target_q) || isNaN(data.target_r)) throw new Error('Coordinates must be integers or a valid station keyword.');
+                }
                 break;
             case 'ATTACK': case 'INTIMIDATE': case 'LOOT': case 'DESTROY':
                 if (args.length < 1) throw new Error(`Usage: ${actionType} <target_id|name|FERAL>`);
@@ -340,9 +369,13 @@ export class TerminalHandler {
                 data.item_type = args.join('_').toUpperCase();
                 break;
             case 'RESTORE_HP':
-                if (args.length < 1) throw new Error('Usage: RESTORE_HP <amount>  — e.g. RESTORE_HP 20');
-                data.amount = parseInt(args[0]);
-                if (isNaN(data.amount)) throw new Error('Amount must be an integer.');
+                if (args.length < 1) throw new Error('Usage: RESTORE_HP <amount|MAX>  — e.g. RESTORE_HP MAX');
+                if (args[0].toUpperCase() === 'MAX') {
+                    data.amount = 'MAX';
+                } else {
+                    data.amount = parseInt(args[0]);
+                    if (isNaN(data.amount)) throw new Error('Amount must be an integer or MAX.');
+                }
                 break;
             case 'REFINE_GAS':
                 if (args.length < 1) throw new Error('Usage: REFINE_GAS <qty>  — e.g. REFINE_GAS 3');
@@ -381,7 +414,17 @@ export class TerminalHandler {
                 break;
             case 'CONFIRM_RESCUE':
                 return { action: 'RESCUE', ...data };
-            case 'MINE': case 'RESET_WEAR': case 'STOP': case 'DROP_LOAD':
+            case 'MINE':
+                if (args.length > 0) {
+                    data.item_type = args[0].toUpperCase();
+                    if (args.length >= 3) {
+                        data.target_q = parseInt(args[1]);
+                        data.target_r = parseInt(args[2]);
+                        if (isNaN(data.target_q) || isNaN(data.target_r)) throw new Error('Coordinates must be integers.');
+                    }
+                }
+                break;
+            case 'RESET_WEAR': case 'STOP': case 'DROP_LOAD':
                 break;
             case 'FIELD_TRADE':
                 if (args.length < 3) throw new Error('Usage: FIELD_TRADE <target_id> <price> <items...>');
@@ -1144,7 +1187,7 @@ export class TerminalHandler {
         if (actionType.startsWith('CORP_')) {
             const cmdParts = actionType.split('_');
             const subAction = cmdParts.slice(1).join('_').toLowerCase();
-            const data = this.parseIntent(actionType, args);
+            const data = await this.parseIntent(actionType, args);
 
             if (actionType === 'CORP_MEMBERS') {
                 const members = await this.game.api.fetchCorpMembers();
@@ -1251,7 +1294,7 @@ export class TerminalHandler {
         }
 
         try {
-            const data = this.parseIntent(actionType, args);
+            const data = await this.parseIntent(actionType, args);
             this.log(`Transmitting: <span style="color:#38bdf8">${actionType}</span>...`, 'info');
 
             const apiKey = localStorage.getItem('sv_api_key');
