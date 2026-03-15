@@ -19,6 +19,7 @@ export class UIManager {
         this.marketDepthItem = 'IRON_ORE';
         this.cachedInventory = [];
         this.cachedStorage = [];
+        this._seenLogKeys = new Set();
 
         this.initTelemetryToggle();
     }
