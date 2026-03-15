@@ -117,13 +117,16 @@ class GameClient {
     updateForgeUI(discovery) { return this.ui.updateForgeUI(discovery); }
     updatePrivateLogs(logs, pending, chat) { return this.ui.updatePrivateLogs(logs, pending, chat); }
     updateMyOrdersUI(orders) { return this.ui.updateMyOrdersUI(orders); }
-    handleWorldEvent(data) {
-        // Hide loading screen on first data
+    hideLoading() {
         const screen = document.getElementById('loading-screen');
         if (screen && !screen.classList.contains('hidden')) {
-            console.log("--- WORLD DATA RECEIVED: HIDING LOADING SCREEN ---");
+            console.log("--- INITIAL DATA SYNC COMPLETE: HIDING PANEL ---");
             screen.classList.add('hidden');
         }
+    }
+
+    handleWorldEvent(data) {
+        this.hideLoading();
         return this.renderer.handleWorldEvent(data);
     }
     updateAgentMesh(data) { return this.renderer.updateAgentMesh(data); }

@@ -204,6 +204,7 @@ export class GameAPI {
                 this.game.updateTickUI(data.tick, data.phase);
                 this.game.updateLiveFeed(data.logs);
                 this.game.updateMarketUI(data.market);
+                this.game.hideLoading(); // Redundant but safe: hide when poll succeeds
             }
             if (bounties) this.game.updateBountyBoard(bounties);
 
