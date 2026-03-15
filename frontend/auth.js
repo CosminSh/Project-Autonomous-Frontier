@@ -106,12 +106,14 @@ export class AuthManager {
 
         if (isAuthenticated) {
             welcomeScreen?.classList.add('hidden');
+            if (welcomeScreen) welcomeScreen.style.display = 'none'; // Robust fallback
             modeSwitcher.classList.remove('hidden');
             logoutBtn.classList.remove('hidden');
             this.game.setUIMode('world'); // Default to world view on login as requested
             document.getElementById('agent-detail').style.opacity = '1';
         } else {
             welcomeScreen?.classList.remove('hidden');
+            if (welcomeScreen) welcomeScreen.style.display = 'flex';
             modeSwitcher.classList.add('hidden');
             privateLayer.classList.add('hidden');
             logoutBtn.classList.add('hidden');

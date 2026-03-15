@@ -70,6 +70,12 @@ export class TutorialManager {
         this.isActive = true;
         this.currentStepIndex = 0;
         this.game.inTutorialMode = true;
+        
+        // Clean slate for sandbox
+        if (this.game.renderer) {
+            this.game.renderer.clearWorld();
+        }
+
         localStorage.setItem('sv_agent_id', this.mockAgentId);
         localStorage.setItem('sv_api_key', 'TUTORIAL_MODE');
         console.log("Tutorial state set in localStorage.");
@@ -83,10 +89,14 @@ export class TutorialManager {
         // Mock initial state
         this.game.lastWorldData = this.getMockWorldState();
         this.game.updatePrivateUI(this.getMockAgent());
-        this.game.renderer.handleWorldEvent(this.game.lastWorldData);
         
-        // Hide regular UI elements
-        document.getElementById('welcome-screen')?.classList.add('hidden');
+        // Hide regular UI elements & Loading
+        this.game.hideLoading();
+        const welcome = document.getElementById('welcome-screen');
+        if (welcome) {
+            welcome.classList.add('hidden');
+            welcome.style.display = 'none';
+        }
         document.getElementById('auth-panel')?.classList.add('hidden');
         
         console.log("Tutorial UI setup complete and active.");

@@ -1464,6 +1464,56 @@ export class GameRenderer {
         }
     }
 
+    handleLootRemoval(data) {
+        const mesh = this.loot.get(data.id);
+        if (mesh) {
+            this.scene.remove(mesh);
+            this.loot.delete(data.id);
+        }
+    }
+
+    /**
+     * Clear all dynamic world objects (agents, structures, resources, loot)
+     * Useful for switching to sandbox/tutorial mode.
+     */
+    clearWorld() {
+        console.log("--- CLEARING RENDERER WORLD ---");
+        
+        // Clear Agents
+        this.agents.forEach(mesh => {
+            if (mesh.userData.trail) this.scene.remove(mesh.userData.trail);
+            this.scene.remove(mesh);
+        });
+        this.agents.clear();
+
+        // Clear Hexes (Structures)
+        this.hexes.forEach(mesh => this.scene.remove(mesh));
+        this.hexes.clear();
+
+        // Clear Resources
+        this.resources.forEach(mesh => this.scene.remove(mesh));
+        this.resources.clear();
+
+        // Clear Loot
+        this.loots.forEach(mesh => this.scene.remove(mesh));
+        this.loots.clear();
+
+        // Clear POI Labels
+        this.poiLabels.forEach(mesh => this.scene.remove(mesh));
+        this.poiLabels.clear();
+
+        // Clear Agent Paths
+        this.agentPaths.forEach(mesh => this.scene.remove(mesh));
+        this.agentPaths.clear();
+
+        if (this.selectionRing) {
+            this.scene.remove(this.selectionRing);
+            this.selectionRing = null;
+        }
+
+        this.hasCenteredInitially = false;
+    }
+
     spawnFloatingText(text, position, color = '#ffffff') {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
