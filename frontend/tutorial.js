@@ -21,43 +21,56 @@ export class TutorialManager {
             },
             {
                 title: "STEP 1: PERCEPTION",
-                text: "To act, you need the terminal. Ensure you are in 'MANAGEMENT' mode (top buttons). Sync your tactical banks by typing 'SCAN' in the terminal or clicking 'SCAN' below.",
-                action: "Type 'SCAN' or click the quick button.",
+                text: "The first step is always to PERCEIVE your surroundings. In the terminal below, type 'PERCEIVE' to see what's nearby.",
+                action: "Type 'PERCEIVE' in the terminal.",
                 condition: 'command',
-                command: 'SCAN'
+                command: 'PERCEIVE'
             },
             {
-                title: "STEP 2: STRATEGY (MOVEMENT)",
-                text: "The frontier is vast. Switch to 'WORLD' mode (top buttons) to view the map. Coordinates (10, 5) look promising.",
-                action: "Click on the hex at (10,5) to move.",
+                title: "STEP 2: STRATEGY (MINING)",
+                text: "Your sensors detected Iron Ore at coordinates (10, 5). Let's extract it. Strategic actions are sent as intense commands.",
+                action: "Type 'MINE IRON_ORE 10 5' in the terminal.",
+                condition: 'command',
+                command: 'MINE IRON_ORE 10 5'
+            },
+            {
+                title: "STEP 3: VISUALIZATION",
+                text: "Your hardware has received the command! Switch to 'WORLD' mode (top buttons) to see your agent in the 3D environment.",
+                action: "Click 'WORLD' in the top bar.",
+                condition: 'ui_mode',
+                mode: 'world'
+            },
+            {
+                title: "STEP 4: THE CRUNCH (TICKS)",
+                text: "The Frontier doesn't run in real-time. Every minute, the server 'crunches' all player intents simultaneously. This is called a TICK.",
+                action: "Click 'NEXT' to continue.",
+                condition: 'next'
+            },
+            {
+                title: "STEP 5: NAVIGATION",
+                text: "Raw ore is bulky. We need a SMELTER. You can move there by clicking on a Smelter in the map or using a command.",
+                action: "Type 'MOVE SMELTER' or click a Smelter on the map.",
                 condition: 'move',
-                target: {q: 10, r: 5}
+                target: {q: 25, r: 2} // Assuming smelter is at 25, 2
             },
             {
-                title: "STEP 3: STRATEGY (MINING)",
-                text: "You've reached an asteroid field. Time to extract some Iron Ore. Switch back to 'MANAGEMENT' mode and type 'MINE IRON_ORE' to start extraction.",
-                action: "Type 'MINE IRON_ORE' to start extraction.",
-                condition: 'command',
-                command: 'MINE'
-            },
-            {
-                title: "STEP 4: CRUNCH",
-                text: "The server 'crunches' intents every minute. In this simulation, we've accelerated time so you can see the result immediately.",
-                action: "Wait for the mining to complete (simulated).",
+                title: "STEP 6: TRANSIT",
+                text: "Your agent is now in transit. In the live game, this might take several ticks depending on your engine speed.",
+                action: "Wait for deployment (simulated).",
                 condition: 'wait',
-                duration: 3000
+                duration: 4000
             },
             {
-                title: "STEP 5: INDUSTRY",
-                text: "Raw ore is bulky. Refine it at a SMELTER to increase its value. Switch to 'WORLD' mode to find one, or just type 'MOVE SMELTER' in the terminal.",
-                action: "Type 'MOVE SMELTER'.",
+                title: "STEP 7: INDUSTRY",
+                text: "You've reached the SMELTER. Time to maximize your profit by refining that ore into Iron Bars.",
+                action: "Type 'SMELT IRON_ORE MAX' in the terminal.",
                 condition: 'command',
-                command: 'MOVE SMELTER'
+                command: 'SMELT IRON_ORE MAX'
             },
             {
-                title: "BEYOND THE TERMINAL",
-                text: "Manual control is useful, but the Frontier is won with code. Most veterans use Python scripts to automate their fleets.",
-                action: "The real power is in the API. Welcome to the future of industry.",
+                title: "MISSION COMPLETE",
+                text: "You've mastered the basics. The real Frontier is vast, competitive, and waiting for your code.",
+                action: "Welcome to the future of industry.",
                 condition: 'finish'
             }
         ];
@@ -194,11 +207,17 @@ export class TutorialManager {
         const step = this.steps[this.currentStepIndex];
         
         if (step.condition === 'command' && type === 'command') {
-            if (data.toUpperCase().startsWith(step.command)) {
+            const input = data.toUpperCase().trim();
+            const target = step.command.toUpperCase().trim();
+            if (input === target || input.startsWith(target)) {
                 this.nextStep();
             }
         } else if (step.condition === 'move' && type === 'move') {
             if (data.q === step.target.q && data.r === step.target.r) {
+                this.nextStep();
+            }
+        } else if (step.condition === 'ui_mode' && type === 'ui_mode') {
+            if (data === step.mode) {
                 this.nextStep();
             }
         }
@@ -279,9 +298,22 @@ export class TutorialManager {
                 this.handleAction('command', 'MINE');
                 return {status: 'success', message: 'Mining started', tick_index: this.mockTick};
             }
-            if (actionType === 'SCAN') {
-                this.handleAction('command', 'SCAN');
-                return {status: 'success', message: 'Scan complete', tick_index: this.mockTick};
+            if (actionType === 'SCAN' || actionType === 'PERCEIVE') {
+                this.handleAction('command', actionType);
+                const mockState = this.getMockWorldState();
+                return {
+                    status: 'success', 
+                    message: actionType === 'PERCEIVE' ? 'Nearby: IRON_ORE at (10, 5), SMELTER at (25, 2)' : 'Scan complete', 
+                    tick_index: this.mockTick,
+                    data: {
+                        hexes: mockState.hexes,
+                        agents: mockState.agents
+                    }
+                };
+            }
+            if (actionType === 'SMELT') {
+                this.handleAction('command', 'SMELT');
+                return {status: 'success', message: 'Smelting started', tick_index: this.mockTick};
             }
             return {status: 'success', tick_index: this.mockTick};
         }

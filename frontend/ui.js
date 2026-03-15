@@ -122,6 +122,10 @@ export class UIManager {
             if (btnLeaderboard) btnLeaderboard.classList.add('bg-sky-500', 'text-slate-950');
             this.game.api.fetchLeaderboards();
         }
+
+        if (this.game.inTutorialMode && this.game.tutorial) {
+            this.game.tutorial.handleAction('ui_mode', mode);
+        }
     }
 
     switchTab(tabId) {
