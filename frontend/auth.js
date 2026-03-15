@@ -108,7 +108,7 @@ export class AuthManager {
             welcomeScreen?.classList.add('hidden');
             modeSwitcher.classList.remove('hidden');
             logoutBtn.classList.remove('hidden');
-            this.game.setUIMode('management'); // Default to management view on login
+            this.game.setUIMode('world'); // Default to world view on login as requested
             document.getElementById('agent-detail').style.opacity = '1';
         } else {
             welcomeScreen?.classList.remove('hidden');

@@ -72,8 +72,13 @@ export class TutorialManager {
         this.game.inTutorialMode = true;
         localStorage.setItem('sv_agent_id', this.mockAgentId);
         localStorage.setItem('sv_api_key', 'TUTORIAL_MODE');
+        console.log("Tutorial state set in localStorage.");
+        
         this.setupUI();
+        console.log("Tutorial UI initialized.");
+        
         this.showStep();
+        console.log("First step shown.");
         
         // Mock initial state
         this.game.lastWorldData = this.getMockWorldState();
