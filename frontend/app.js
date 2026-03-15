@@ -44,14 +44,14 @@ class GameClient {
         // Auth UI
         document.getElementById('logout-btn')?.addEventListener('click', () => this.auth.logout());
         document.getElementById('copy-api-btn')?.addEventListener('click', () => this.auth.copyApiKey());
-        document.getElementById('start-tutorial-btn')?.addEventListener('click', () => { console.log("Tutorial Btn Clicked"); this.tutorial.start(); });
-        const mainBtn = document.getElementById('main-start-tutorial-btn');
-        if (mainBtn) {
-            console.log("Main Tutorial Button Found and Wired");
-            mainBtn.addEventListener('click', () => { console.log("Main Tutorial Btn Clicked"); this.tutorial.start(); });
-        } else {
-            console.warn("Main Tutorial Button NOT found in DOM!");
-        }
+        
+        // Tutorial wiring
+        const tutorialStart = () => {
+            console.log("Tutorial start triggered");
+            this.tutorial.start();
+        };
+        document.getElementById('start-tutorial-btn')?.addEventListener('click', tutorialStart);
+        document.getElementById('main-start-tutorial-btn')?.addEventListener('click', tutorialStart);
 
         // Faction & Rename
         document.getElementById('realign-faction-btn')?.addEventListener('click', () => this.api.submitFactionRealignment());

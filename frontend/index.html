@@ -345,41 +345,43 @@
                 </div>
             </div>
 
-            <!-- Welcome Screen for Unauthenticated Users -->
-            <div id="welcome-screen" class="fixed inset-0 z-[100] flex flex-col items-center justify-center pointer-events-auto bg-[#050507]/80 backdrop-blur-md transition-all duration-500">
-                <div class="max-w-xl w-full px-6 flex flex-col items-center text-center">
-                    <div class="mb-4">
-                        <span class="orbitron text-sky-500 text-[10px] font-bold tracking-[0.5em] uppercase">Deep Space Industry Simulation</span>
-                    </div>
-                    <h1 class="orbitron text-4xl md:text-6xl text-white font-black mb-2 tracking-tighter">TERMINAL <span class="text-sky-500">FRONTIER</span></h1>
-                    <p class="text-slate-400 font-mono text-[10px] md:text-xs mb-12 uppercase tracking-[0.2em] opacity-60">System Version 0.5.8 // Protocol Active</p>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mb-8">
-                        <button id="main-start-tutorial-btn" class="group relative overflow-hidden bg-sky-500 hover:bg-sky-400 p-6 rounded-2xl transition-all duration-300 transform hover:scale-[1.02] shadow-[0_0_30px_rgba(14,165,233,0.3)]">
-                            <div class="flex flex-col items-center">
-                                <span class="orbitron text-slate-950 font-black text-lg mb-1">TRAINING MODE</span>
-                                <span class="text-slate-900/60 text-[9px] font-bold tracking-tight uppercase">Enter the Sandbox Sandbox</span>
-                            </div>
-                        </button>
+            <!-- Auth / Onboarding Layer (Transparently centered) -->
+            <div id="welcome-screen" class="fixed inset-0 z-[100] flex flex-col items-center justify-center pointer-events-none">
+                <div class="max-w-lg w-full px-6 flex flex-col items-center pointer-events-auto">
+                    <!-- Huge Training Mode Button -->
+                    <button id="main-start-tutorial-btn" class="group w-full relative overflow-hidden bg-sky-500 hover:bg-sky-400 p-10 rounded-3xl transition-all duration-300 transform hover:scale-[1.05] shadow-[0_0_60px_rgba(14,165,233,0.5)] mb-12 border-4 border-white/30">
+                        <div class="flex flex-col items-center text-center">
+                            <span class="orbitron text-slate-950 font-black text-3xl mb-1 tracking-widest uppercase italic">Training Mode</span>
+                            <span class="text-slate-900/80 text-[11px] font-bold tracking-[0.3em] uppercase">Simulate the Frontier • Master the Cycle</span>
+                        </div>
+                    </button>
+
+                    <!-- Compact Auth Block -->
+                    <div class="glass p-8 rounded-3xl border border-white/20 w-full flex flex-col items-center shadow-2xl backdrop-blur-sm bg-slate-950/40">
+                        <h2 class="orbitron text-[9px] text-sky-400 mb-8 tracking-[0.5em] uppercase font-black opacity-80">Network Authentication</h2>
                         
-                        <div class="bg-slate-900/50 border border-white/5 p-6 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden">
-                             <!-- Google Sign In Button Container -->
-                             <div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_black" data-text="signin_with" data-shape="pill" data-logo_alignment="left"></div>
-                             <span class="mt-3 text-[9px] text-slate-500 orbitron uppercase tracking-widest font-bold">Standard Uplink</span>
+                        <div class="grid grid-cols-1 gap-6 w-full">
+                            <!-- Google Sign In -->
+                            <div class="flex justify-center w-full">
+                                <div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_black" data-text="signin_with" data-shape="pill" data-logo_alignment="left"></div>
+                            </div>
+                            
+                            <div class="flex items-center justify-center space-x-6">
+                                <span class="h-px bg-white/10 flex-grow"></span>
+                                <span class="text-[9px] orbitron text-slate-500 uppercase font-black tracking-widest">or</span>
+                                <span class="h-px bg-white/10 flex-grow"></span>
+                            </div>
+
+                            <button onclick="window.guestLogin()" class="w-full py-4 px-6 bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] orbitron rounded-2xl border border-white/10 transition-all hover:border-sky-500/50 uppercase font-bold tracking-[0.2em]">
+                                Guest Bypass
+                            </button>
                         </div>
                     </div>
-                    
-                    <div class="flex items-center space-x-6">
-                        <button onclick="window.guestLogin()" class="text-slate-500 hover:text-sky-400 text-[10px] orbitron font-bold uppercase tracking-widest transition-colors mb-2">Guest Bypass</button>
-                    </div>
-                    
-                    <div class="mt-32 w-full max-w-[200px] h-px bg-gradient-to-r from-transparent via-sky-500/20 to-transparent"></div>
                 </div>
             </div>
 
-            <!-- Auth Panel (Now simplified) -->
             <div id="auth-panel" class="hidden">
-                 <!-- Keep the Google setup but hide the visual panel if we use the welcome screen -->
+                 <!-- Keep the Google setup -->
                  <div id="g_id_onload"
                     data-client_id="419308259695-sj14gj8q7ml5o9uao2j59pgkp1vvthh0.apps.googleusercontent.com"
                     data-callback="handleCredentialResponse" data-auto_prompt="false">

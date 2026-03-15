@@ -9,6 +9,8 @@ export class TutorialManager {
         this.currentStepIndex = 0;
         this.mockAgentId = 9999;
         this.mockTick = 500;
+        window.tutorialManager = this; // Debug hook
+        console.log("TutorialManager instantiated and attached to window.");
         
         this.steps = [
             {
@@ -64,10 +66,12 @@ export class TutorialManager {
     }
 
     start() {
-        console.log("--- STARTING TUTORIAL ---");
+        console.log("--- STARTING TUTORIAL SEQUENCE ---");
         this.isActive = true;
         this.currentStepIndex = 0;
         this.game.inTutorialMode = true;
+        localStorage.setItem('sv_agent_id', this.mockAgentId);
+        localStorage.setItem('sv_api_key', 'TUTORIAL_MODE');
         this.setupUI();
         this.showStep();
         
@@ -86,6 +90,13 @@ export class TutorialManager {
     stop() {
         this.isActive = false;
         this.game.inTutorialMode = false;
+        
+        // Only clear if it's the mock ID to avoid logging out a real user who clicked skip
+        if (localStorage.getItem('sv_agent_id') === this.mockAgentId.toString()) {
+            localStorage.removeItem('sv_agent_id');
+            localStorage.removeItem('sv_api_key');
+        }
+
         if (this.uiContainer) {
             this.uiContainer.remove();
         }
@@ -186,6 +197,13 @@ export class TutorialManager {
             mass: 10,
             max_mass: 100,
             wear_and_tear: 0,
+            heat: 0,
+            damage: 5,
+            speed: 5,
+            accuracy: 80,
+            armor: 0,
+            mining_yield: 10,
+            faction: 1,
             inventory: [],
             discovery: {
                 stations: [
@@ -204,19 +222,20 @@ export class TutorialManager {
         }
         
         if (endpoint === '/api/intent') {
+            const actionType = body.action_type || '';
             // Simulate action success
-            if (body.action === 'MOVE') {
+            if (actionType === 'MOVE') {
                 const agent = this.getMockAgent();
-                agent.q = body.data.q;
-                agent.r = body.data.r;
-                this.handleAction('move', body.data);
+                agent.q = body.data.target_q || body.data.q;
+                agent.r = body.data.target_r || body.data.r;
+                this.handleAction('move', {q: agent.q, r: agent.r});
                 return {status: 'success', message: 'Move queued'};
             }
-            if (body.action === 'MINE') {
+            if (actionType === 'MINE') {
                 this.handleAction('command', 'MINE');
                 return {status: 'success', message: 'Mining started'};
             }
-            if (body.action === 'SCAN') {
+            if (actionType === 'SCAN') {
                 this.handleAction('command', 'SCAN');
                 return {status: 'success', message: 'Scan complete'};
             }
