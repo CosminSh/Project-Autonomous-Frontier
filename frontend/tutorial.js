@@ -87,8 +87,17 @@ export class TutorialManager {
         console.log("First step shown.");
         
         // Mock initial state
-        this.game.lastWorldData = this.getMockWorldState();
-        this.game.updatePrivateUI(this.getMockAgent());
+        const mockState = this.getMockWorldState();
+        this.game.lastWorldData = mockState;
+        this.game.updateTickUI(mockState.tick, mockState.phase);
+        
+        const mockAgent = this.getMockAgent();
+        this.game.updatePrivateUI(mockAgent);
+        
+        // Render the sandbox world immediately
+        if (this.game.renderer) {
+            this.game.renderer.updateWorld(mockState);
+        }
         
         // Hide loading - tutorial is the landing experience
         this.game.hideLoading();
@@ -279,8 +288,16 @@ export class TutorialManager {
     mockApiResponse(endpoint, method, body) {
         console.log(`[TUTORIAL MOCK] ${method} ${endpoint}`, body);
         
-        if (endpoint === '/api/my_agent') {
+        if (endpoint.startsWith('/api/my_agent')) {
             return this.getMockAgent();
+        }
+
+        if (endpoint === '/state' || endpoint.startsWith('/api/world')) {
+            return this.getMockWorldState();
+        }
+
+        if (endpoint.startsWith('/api/perception')) {
+            return { agents: [this.getMockAgent()], hexes: this.getMockWorldState().hexes };
         }
         
         if (endpoint === '/api/intent') {
@@ -291,18 +308,19 @@ export class TutorialManager {
                 agent.q = body.data.target_q || body.data.q;
                 agent.r = body.data.target_r || body.data.r;
                 this.handleAction('move', {q: agent.q, r: agent.r});
-                return {status: 'success', message: 'Move queued'};
+                return {status: 'success', message: 'Move queued', tick_index: this.mockTick};
             }
             if (actionType === 'MINE') {
                 this.handleAction('command', 'MINE');
-                return {status: 'success', message: 'Mining started'};
+                return {status: 'success', message: 'Mining started', tick_index: this.mockTick};
             }
             if (actionType === 'SCAN') {
                 this.handleAction('command', 'SCAN');
-                return {status: 'success', message: 'Scan complete'};
+                return {status: 'success', message: 'Scan complete', tick_index: this.mockTick};
             }
+            return {status: 'success', tick_index: this.mockTick};
         }
         
-        return {status: 'success'};
+        return {status: 'success', tick_index: this.mockTick};
     }
 }

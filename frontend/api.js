@@ -67,6 +67,7 @@ export class GameAPI {
     }
 
     setupWebSocket() {
+        if (this.game.inTutorialMode) return;
         if (this.wsRetries >= this.maxWsRetries) return;
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

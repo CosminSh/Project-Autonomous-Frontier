@@ -1,9 +1,9 @@
-import { GameAPI } from './api.js?v=0.5.12';
-import { AuthManager } from './auth.js?v=0.5.12';
-import { GameRenderer } from './renderer.js?v=0.5.12';
-import { UIManager } from './ui.js?v=0.5.12';
-import { TerminalHandler } from './terminal.js?v=0.5.12';
-import { TutorialManager } from './tutorial.js?v=0.5.12';
+import { GameAPI } from './api.js?v=0.5.13';
+import { AuthManager } from './auth.js?v=0.5.13';
+import { GameRenderer } from './renderer.js?v=0.5.13';
+import { UIManager } from './ui.js?v=0.5.13';
+import { TerminalHandler } from './terminal.js?v=0.5.13';
+import { TutorialManager } from './tutorial.js?v=0.5.13';
 
 /**
  * app.js — Main Bootstrapper

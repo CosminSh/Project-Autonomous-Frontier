@@ -656,8 +656,7 @@ export class TerminalHandler {
         // ── META: GUIDE ──
         if (actionType === 'GUIDE') {
             try {
-                const resp = await fetch('/api/guide');
-                const guide = await resp.json();
+                const guide = await this.game.api._fetch('/api/guide');
                 this.log(`<b>═══ ${guide.title.toUpperCase()} ═══</b>`, 'system');
                 this.log(`<i>${guide.philosophy}</i>`, 'info');
                 this.log('', 'info');
@@ -674,8 +673,7 @@ export class TerminalHandler {
                 const filter = args.length > 0 ? args[0].toUpperCase().replace(/-/g, '_') : null;
                 if (filter) url += `?item_type=${encodeURIComponent(filter)}`;
 
-                const resp = await fetch(url);
-                const market = await resp.json();
+                const market = await this.game.api._fetch(url);
 
                 this.log(`<b>═══ GALACTIC MARKET ═══</b>`, 'system');
                 if (!market || market.length === 0) {
@@ -696,9 +694,7 @@ export class TerminalHandler {
 
         if (actionType === 'MARKET_PICKUPS') {
             try {
-                const apiKey = localStorage.getItem('sv_api_key');
-                const resp = await fetch('/api/market/pickups', { headers: { 'X-API-KEY': apiKey } });
-                const pickups = await resp.json();
+                const pickups = await this.game.api._fetch('/api/market/pickups');
 
                 this.log(`<b>═══ MARKET PICKUPS ═══</b>`, 'system');
                 if (!pickups || pickups.length === 0) {
@@ -717,12 +713,7 @@ export class TerminalHandler {
         if (actionType === 'ROTATE_KEY') {
             try {
                 if (!confirm("This will PERMANENTLY rotate your API key. Proceed?")) return;
-                const apiKey = localStorage.getItem('sv_api_key');
-                const resp = await fetch('/auth/rotate_key', {
-                    method: 'POST',
-                    headers: { 'X-API-KEY': apiKey }
-                });
-                const res = await resp.json();
+                const res = await this.game.api._post('/auth/rotate_key');
                 if (res.status === 'success') {
                     const newKey = res.new_api_key;
                     localStorage.setItem('sv_api_key', newKey);
@@ -743,10 +734,7 @@ export class TerminalHandler {
         // ── META: GEAR ──
         if (actionType === 'GEAR') {
             try {
-                const apiKey = localStorage.getItem('sv_api_key');
-                const resp = await fetch('/api/gear', { headers: { 'X-API-KEY': apiKey } });
-                if (!resp.ok) throw new Error(`Uplink Error: ${resp.status}`);
-                const gear = await resp.json();
+                const gear = await this.game.api._fetch('/api/gear');
 
                 this.log(`<b>═══ EQUIPPED GEAR ═══</b>`, 'system');
                 if (!gear || gear.length === 0) {
@@ -767,12 +755,7 @@ export class TerminalHandler {
         // ── META: STATUS ──
         if (actionType === 'STATUS') {
             try {
-                const apiKey = localStorage.getItem('sv_api_key');
-                const resp = await fetch('/api/my_agent', { headers: { 'X-API-KEY': apiKey } });
-                if (!resp.ok) {
-                    throw new Error(`Uplink Error: ${resp.status}`);
-                }
-                const a = await resp.json();
+                const a = await this.game.api._fetch('/api/my_agent');
                 this.log(`<b>═══ AGENT STATUS ═══</b>`, 'system');
                 this.log(`  Name:      <b>${a.name}</b>`, 'info');
                 if (a.corporation) {
@@ -1275,19 +1258,9 @@ export class TerminalHandler {
             }
             const channel = actionType === 'SAY' || actionType === 'PROX' ? 'PROX' : actionType;
             try {
-                const apiKey = localStorage.getItem('sv_api_key');
-                const resp = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
-                    body: JSON.stringify({ channel: channel, message: args.join(' ') })
-                });
-                const result = await resp.json();
-                if (resp.ok) {
-                    this.log(`✓ Message sent via ${actionType}`, 'success');
-                    if (window.game) window.game.pollState();
-                } else {
-                    this.log(`✗ ${result.detail || 'Server error'}`, 'error');
-                }
+                const result = await this.game.api._post('/api/chat', { channel: channel, message: args.join(' ') });
+                this.log(`✓ Message sent via ${actionType}`, 'success');
+                if (window.game) window.game.pollState();
             } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
             return;
         }
@@ -1302,19 +1275,11 @@ export class TerminalHandler {
             const data = await this.parseIntent(actionType, args);
             this.log(`Transmitting: <span style="color:#38bdf8">${actionType}</span>...`, 'info');
 
-            const apiKey = localStorage.getItem('sv_api_key');
-            const resp = await fetch('/api/intent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
-                body: JSON.stringify({ action_type: actionType, data })
-            });
-
-            if (resp.ok) {
-                const result = await resp.json();
+            try {
+                const result = await this.game.api._post('/api/intent', { action_type: actionType, data });
                 this.log(`✓ ACCEPTED — Tick #${result.tick_index || result.tick}`, 'success');
-            } else {
-                const err = await resp.json().catch(() => ({ detail: 'Unknown server error' }));
-                const errorDetail = typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail;
+            } catch (e) {
+                const errorDetail = typeof e.message === 'object' ? JSON.stringify(e.message) : e.message;
                 this.log(`✗ REJECTED — ${errorDetail || 'Server error'}`, 'error');
             }
         } catch (e) {
