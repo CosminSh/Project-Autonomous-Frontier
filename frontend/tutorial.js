@@ -111,8 +111,21 @@ export class TutorialManager {
         const mockState = this.getMockWorldState();
         this.game.lastWorldData = mockState;
         this.game.updateTickUI(mockState.tick, mockState.phase);
-        
+
+        // Setup mock ticker (10s intervals)
+        this.mockTick = mockState.tick;
+        this.tickInterval = setInterval(() => {
+            this.mockTick++;
+            if (this.game.updateTickUI) {
+                this.game.updateTickUI(this.mockTick, 'PERCEPTION');
+            }
+        }, 10000);
+
         const mockAgent = this.getMockAgent();
+        this.game.renderer.handleWorldEvent({
+            type: 'agent_update',
+            agents: [mockAgent]
+        });
         this.game.updatePrivateUI(mockAgent);
         
         if (this.game.renderer) {

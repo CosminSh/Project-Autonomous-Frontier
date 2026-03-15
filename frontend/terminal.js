@@ -277,8 +277,8 @@ export class TerminalHandler {
                 if (keywords.includes(inputKW)) {
                     // Resolve nearest station from discovery
                     const apiKey = localStorage.getItem('sv_api_key');
-                    const resp = await fetch('/api/my_agent', { headers: { 'X-API-KEY': apiKey } });
-                    const a = await resp.json();
+                    const resp = await this.game.api._fetch('/api/my_agent');
+                    const a = await resp;
                     
                     const stations = (a.discovery?.stations || []).filter(s => 
                         s.type === inputKW || (inputKW === 'HUB' && s.type === 'STATION_HUB')
@@ -508,8 +508,7 @@ export class TerminalHandler {
                     const itemName = args[1].toUpperCase();
                     try {
                         const apiKey = localStorage.getItem('sv_api_key');
-                        fetch('/api/my_agent', { headers: { 'X-API-KEY': apiKey } })
-                            .then(r => r.json())
+                        this.game.api._fetch('/api/my_agent')
                             .then(a => {
                                 const db = a.discovery?.crafting_recipes || [];
                                 const recipe = db.find(r => r.id === itemName);
@@ -575,9 +574,7 @@ export class TerminalHandler {
         if (actionType === 'RECIPES') {
             try {
                 const apiKey = localStorage.getItem('sv_api_key');
-                const resp = await fetch('/api/my_agent', { headers: { 'X-API-KEY': apiKey } });
-                if (!resp.ok) throw new Error('Not authenticated.');
-                const a = await resp.json();
+                const a = await this.game.api._fetch('/api/my_agent');
 
                 if (!a.discovery || !a.discovery.crafting_recipes) {
                     this.log('Crafting database offline.', 'error');
@@ -633,9 +630,7 @@ export class TerminalHandler {
         if (actionType === 'MISSIONS') {
             try {
                 const apiKey = localStorage.getItem('sv_api_key');
-                const resp = await fetch('/api/missions', { headers: { 'X-API-KEY': apiKey } });
-                if (!resp.ok) throw new Error('Not authenticated.');
-                const missions = await resp.json();
+                const missions = await this.game.api._fetch('/api/missions');
 
                 this.log(`<b>═══ DAILY MISSIONS ═══</b>`, 'system');
                 if (!missions || missions.length === 0) {
@@ -784,9 +779,7 @@ export class TerminalHandler {
         if (actionType === 'PERCEIVE') {
             try {
                 const apiKey = localStorage.getItem('sv_api_key');
-                const resp = await fetch('/api/perception', { headers: { 'X-API-KEY': apiKey } });
-                if (!resp.ok) throw new Error(`Sensor Uplink Failure: ${resp.status}`);
-                const p = await resp.json();
+                const p = await this.game.api._fetch('/api/perception');
                 this.log(`<b>═══ TACTICAL PERCEIVE ═══</b>`, 'system');
                 this.log(`  Agent:     <b>${p.self.name}</b> at (${p.self.q}, ${p.self.r})`, 'info');
 
