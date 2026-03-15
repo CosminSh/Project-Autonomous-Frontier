@@ -306,6 +306,15 @@ export class TutorialManager {
             return this.getMockWorldState();
         }
 
+        if (endpoint === '/api/storage/info') {
+            return {
+                items: [],
+                capacity: 500,
+                used: 0,
+                next_upgrade_requirements: { IRON_ORE: 50 }
+            };
+        }
+
         if (endpoint.startsWith('/api/perception')) {
             const agent = this.getMockAgent();
             return { 

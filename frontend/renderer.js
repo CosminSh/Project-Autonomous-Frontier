@@ -1562,7 +1562,7 @@ export class GameRenderer {
     setTutorialHighlight(q, r) {
         this.clearTutorialHighlight();
         
-        const pos = this.grid.hexToWorld(q, r);
+        const pos = this.qToSphere(q, r, 0.5);
         const ringGeo = new THREE.TorusGeometry(1.2, 0.05, 16, 32);
         const ringMat = new THREE.MeshBasicMaterial({ 
             color: 0xffff00, 

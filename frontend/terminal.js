@@ -797,7 +797,10 @@ export class TerminalHandler {
                 const apiKey = localStorage.getItem('sv_api_key');
                 const p = await this.game.api._fetch('/api/perception');
                 this.log(`<b>═══ TACTICAL PERCEIVE ═══</b>`, 'system');
-                this.log(`  Agent:     <b>${p.self.name}</b> at (${p.self.q}, ${p.self.r})`, 'info');
+                const agentName = p.self?.name || 'TUTORIAL_DRONE';
+                const aq = p.self?.q ?? 0;
+                const ar = p.self?.r ?? 0;
+                this.log(`  Agent:     <b>${agentName}</b> at (${aq}, ${ar})`, 'info');
 
                 // Agents & Ferals
                 if (p.agents && p.agents.length > 0) {

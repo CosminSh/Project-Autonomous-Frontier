@@ -43,6 +43,14 @@ class StorageUI {
     }
 
     async refreshStorage() {
+        if (!window.game || !window.game.api) return;
+        
+        // If in tutorial mode, ensure we use patched API
+        if (window.game.inTutorialMode && window.game.api._fetch.toString().includes('native code')) {
+            console.log("[StorageUI] Waiting for tutorial sandbox patch...");
+            return;
+        }
+
         const apiKey = localStorage.getItem('sv_api_key');
         if (!apiKey || this.isRefreshing) return;
         this.isRefreshing = true;
