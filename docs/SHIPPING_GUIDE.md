@@ -39,8 +39,14 @@ Before running a world reset:
 The system uses "Safe Startup Migrations" in `backend/main.py`. These run automatically whenever the backend starts.
 *   **Columns handled**: `daily_missions.reward_xp`, `corporations.upgrades`, `agents.corp_role`, etc.
 *   **Action Required**: Simply restart the backend service.
-*   **Verification**: Check logs for `Migration: Added column [X] to [Y].`
 *   **Alembic**: Not strictly required for these small updates as they are handled by the startup block.
+
+### 🛠️ Manual Migration (If Auto-Migration Fails)
+If you need to force a migration or check for missing columns manually:
+```bash
+docker exec -it project-autonomous-frontier_backend_1 python scripts/migrate_db.py
+```
+*Note: The script is designed to be idempotent and handles PostgreSQL transaction rollbacks automatically.*
 
 ## 🔄 Live Reset Workflow
 1.  **Git Pull** on the host.
