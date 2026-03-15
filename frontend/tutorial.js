@@ -21,21 +21,21 @@ export class TutorialManager {
             },
             {
                 title: "STEP 1: PERCEPTION",
-                text: "Your sensors provide a holographic view of the world. Before acting, you must sync your local tactical banks with the network.",
-                action: "Type 'SCAN' in the terminal or click 'SCAN' below.",
+                text: "To act, you need the terminal. Ensure you are in 'MANAGEMENT' mode (top buttons). Sync your tactical banks by typing 'SCAN' in the terminal or clicking 'SCAN' below.",
+                action: "Type 'SCAN' or click the quick button.",
                 condition: 'command',
                 command: 'SCAN'
             },
             {
                 title: "STEP 2: STRATEGY (MOVEMENT)",
-                text: "The frontier is vast. You need to move your drone to a resource-rich area. Coordinates (10, 5) look promising.",
-                action: "Type 'MOVE 10 5' or click on the hex at (10,5).",
+                text: "The frontier is vast. Switch to 'WORLD' mode (top buttons) to view the map. Coordinates (10, 5) look promising.",
+                action: "Click on the hex at (10,5) to move.",
                 condition: 'move',
                 target: {q: 10, r: 5}
             },
             {
                 title: "STEP 3: STRATEGY (MINING)",
-                text: "You've reached an asteroid field. Time to extract some Iron Ore. This will build your initial wealth.",
+                text: "You've reached an asteroid field. Time to extract some Iron Ore. Switch back to 'MANAGEMENT' mode and type 'MINE IRON_ORE' to start extraction.",
                 action: "Type 'MINE IRON_ORE' to start extraction.",
                 condition: 'command',
                 command: 'MINE'
@@ -49,7 +49,7 @@ export class TutorialManager {
             },
             {
                 title: "STEP 5: INDUSTRY",
-                text: "Raw ore is bulky. Refine it at a SMELTER to increase its value and reduce mass.",
+                text: "Raw ore is bulky. Refine it at a SMELTER to increase its value. Switch to 'WORLD' mode to find one, or just type 'MOVE SMELTER' in the terminal.",
                 action: "Type 'MOVE SMELTER'.",
                 condition: 'command',
                 command: 'MOVE SMELTER'
@@ -92,7 +92,16 @@ export class TutorialManager {
         
         // Hide loading and login corner - tutorial is the landing experience
         this.game.hideLoading();
-        document.getElementById('login-corner'); // Already visible, handled by app.js
+        const loginCorner = document.getElementById('login-corner');
+        if (loginCorner) loginCorner.style.display = 'none';
+        
+        // Ensure mode switcher is visible for the tutorial so they can toggle views
+        const modeSwitcher = document.getElementById('mode-switcher');
+        if (modeSwitcher) modeSwitcher.classList.remove('hidden');
+        document.getElementById('agent-detail').style.opacity = '1';
+        
+        // Start in management mode for Step 1
+        this.game.setUIMode('management');
         
         console.log("Tutorial UI setup complete and active.");
     }
