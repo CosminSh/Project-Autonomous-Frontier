@@ -100,18 +100,21 @@ export class AuthManager {
 
     setAuthenticated(isAuthenticated) {
         const loginCorner = document.getElementById('login-corner');
+        const greetingOverlay = document.getElementById('guest-greeting-overlay');
         const privateLayer = document.getElementById('private-dashboard');
         const logoutBtn = document.getElementById('logout-btn');
         const modeSwitcher = document.getElementById('mode-switcher');
 
         if (isAuthenticated) {
             if (loginCorner) loginCorner.style.display = 'none';
+            if (greetingOverlay) greetingOverlay.style.display = 'none';
             modeSwitcher.classList.remove('hidden');
             logoutBtn.classList.remove('hidden');
             this.game.setUIMode('world');
             document.getElementById('agent-detail').style.opacity = '1';
         } else {
             if (loginCorner) loginCorner.style.display = 'block';
+            if (greetingOverlay) greetingOverlay.style.display = 'block';
             modeSwitcher.classList.add('hidden');
             privateLayer.classList.add('hidden');
             logoutBtn.classList.add('hidden');

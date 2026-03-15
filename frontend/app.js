@@ -3,7 +3,6 @@ import { AuthManager } from './auth.js?v=0.5.13';
 import { GameRenderer } from './renderer.js?v=0.5.13';
 import { UIManager } from './ui.js?v=0.5.13';
 import { TerminalHandler } from './terminal.js?v=0.5.13';
-import { TutorialManager } from './tutorial.js?v=0.5.13';
 
 /**
  * app.js — Main Bootstrapper
@@ -19,7 +18,6 @@ class GameClient {
         this.renderer = new GameRenderer(this);
         this.ui = new UIManager(this);
         this.terminal = new TerminalHandler(this);
-        this.tutorial = new TutorialManager(this);
 
         // 2. Shared State
         this.tradeSide = 'SELL';
@@ -42,9 +40,9 @@ class GameClient {
             this.auth.checkAuth();
             this.api.startPolling();
         } else {
-            console.log('[BOOT] Guest detected. Showing login corner.');
-            const loginCorner = document.getElementById('login-corner');
-            if (loginCorner) loginCorner.style.display = 'block';
+            console.log('[BOOT] Guest detected. Showing greeting overlay.');
+            const greeting = document.getElementById('guest-greeting-overlay');
+            if (greeting) greeting.style.display = 'block';
             this.hideLoading();
         }
 

@@ -345,37 +345,45 @@
                 </div>
             </div>
 
-            <!-- Loading Status Panel (Non-blocking) -->
-            <div id="loading-screen" class="fixed bottom-24 right-6 z-[110] flex flex-col items-center pointer-events-none transition-opacity duration-500">
-                <div class="glass p-3 rounded-xl border border-sky-500/20 flex items-center space-x-3 shadow-2xl bg-slate-950/60 backdrop-blur-md">
-                    <div class="w-4 h-4 border-2 border-sky-500/20 border-t-sky-500 rounded-full animate-spin"></div>
-                    <span class="orbitron text-sky-400 text-[9px] font-black tracking-[0.3em] animate-pulse">SYNCING DATA...</span>
+            <!-- Guest Greeting Overlay (Central) -->
+            <div id="guest-greeting-overlay" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[105] pointer-events-auto" style="display:none">
+                <div class="glass p-8 rounded-2xl border-2 border-sky-500/50 w-[450px] flex flex-col items-center shadow-3xl backdrop-blur-xl bg-slate-950/80 space-y-6">
+                    <div class="flex justify-between items-start w-full">
+                        <h2 class="orbitron text-sky-400 font-bold text-xl tracking-widest">WELCOME TO THE FRONTIER</h2>
+                        <button onclick="document.getElementById('guest-greeting-overlay').style.display='none'" class="text-[10px] text-slate-500 hover:text-rose-400 uppercase font-black tracking-widest">Skip</button>
+                    </div>
+                    
+                    <p class="text-sm text-slate-300 leading-relaxed text-center">
+                        You are a Drone Operator tasked with extracting value from deep space. 
+                    </p>
+
+                    <div class="w-full space-y-4">
+                        <a href="/tutorial.html" class="flex items-center justify-center w-full py-4 px-6 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs orbitron rounded-xl border border-emerald-500/40 transition-all hover:border-emerald-500/70 uppercase font-black tracking-[0.3em] shadow-lg shadow-emerald-500/10">
+                            Start Training
+                        </a>
+                        
+                        <div class="flex items-center justify-center space-x-4">
+                            <span class="h-px bg-white/10 flex-grow"></span>
+                            <span class="text-[8px] orbitron text-slate-600 uppercase font-black tracking-widest">Operator Auth Required</span>
+                            <span class="h-px bg-white/10 flex-grow"></span>
+                        </div>
+
+                        <div class="flex flex-col items-center space-y-3">
+                            <div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_black" data-text="signin_with" data-shape="pill" data-logo_alignment="left"></div>
+                            
+                            <button onclick="window.guestLogin()" class="text-[9px] orbitron text-slate-500 hover:text-sky-400 uppercase font-bold tracking-widest underline decoration-sky-500/30 underline-offset-4 transition-colors">
+                                Guest Bypass (Testing Only)
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Login Corner Panel (shown to guests only, hidden for auth users) -->
+            <!-- Login Corner Panel (Fallback/Mini) -->
             <div id="login-corner" class="fixed bottom-6 right-6 z-[105] pointer-events-auto" style="display:none">
-                <div class="glass p-4 rounded-2xl border border-white/10 w-64 flex flex-col items-center shadow-2xl backdrop-blur-md bg-slate-950/70 space-y-3">
-                    <span class="orbitron text-[8px] text-sky-400 tracking-[0.35em] uppercase font-black opacity-70">Uplink Required</span>
-                    <div class="flex justify-center w-full transform scale-90">
-                        <div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_black" data-text="signin_with" data-shape="pill" data-logo_alignment="left"></div>
-                    </div>
-                    <div class="flex items-center justify-center space-x-3 w-full">
-                        <span class="h-px bg-white/10 flex-grow"></span>
-                        <span class="text-[7px] orbitron text-slate-600 uppercase font-black tracking-widest">or</span>
-                        <span class="h-px bg-white/10 flex-grow"></span>
-                    </div>
-                    <button onclick="window.guestLogin()" class="w-full py-2 px-4 bg-white/5 hover:bg-white/10 text-slate-300 text-[8px] orbitron rounded-xl border border-white/10 transition-all hover:border-sky-500/50 uppercase font-bold tracking-[0.2em]">
-                        Guest Bypass
-                    </button>
-                    <div class="flex items-center justify-center space-x-3 w-full">
-                        <span class="h-px bg-white/10 flex-grow"></span>
-                        <span class="text-[7px] orbitron text-slate-600 uppercase font-black tracking-widest">or</span>
-                        <span class="h-px bg-white/10 flex-grow"></span>
-                    </div>
-                    <a href="/tutorial.html" class="w-full py-2 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[8px] orbitron rounded-xl border border-emerald-500/30 transition-all hover:border-emerald-500/60 uppercase font-bold tracking-[0.2em] text-center">
-                        Start Training
-                    </a>
+                <div class="glass p-3 rounded-xl border border-white/5 flex items-center space-x-3 shadow-xl backdrop-blur-md bg-slate-950/40 opacity-50 hover:opacity-100 transition-opacity">
+                    <div class="g_id_signin" data-type="icon" data-shape="circle" data-theme="outline"></div>
+                    <span class="orbitron text-[7px] text-slate-500 uppercase font-black">Auth Required</span>
                 </div>
             </div>
 

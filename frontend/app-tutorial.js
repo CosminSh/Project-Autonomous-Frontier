@@ -104,6 +104,10 @@ class TutorialClient {
     createHex(data) { return this.renderer.createHex(data); }
     centerOnAgent() { return this.renderer.centerOnAgent(); }
 
+    setUIMode(mode) { return this.ui.setUIMode(mode); }
+    switchTab(tab) { return this.ui.switchTab(tab); }
+    toggleDirectiveModal(show) { return this.ui.toggleDirectiveModal(show); }
+
     get apiKey() { return 'TUTORIAL_MODE'; }
     get agentData() { return this.lastWorldData?.agents?.find(a => a.id === this.tutorial.mockAgentId); }
     get hexes() { return this.renderer.hexes; }
