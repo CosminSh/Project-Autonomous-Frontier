@@ -99,6 +99,8 @@ async def lifespan(app: FastAPI):
                 conn.commit()
                 logger.info(f"Migration: Added column {col} to {table}.")
             except Exception as e:
+                # IMPORTANT for Postgres: Rollback the failed statement so the transaction can continue
+                conn.rollback()
                 err_str = str(e).lower()
                 if "duplicate column" in err_str or "already exists" in err_str:
                     logger.debug(f"Migration: Column {col} already exists in {table}.")

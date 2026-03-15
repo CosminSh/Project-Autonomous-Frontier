@@ -81,6 +81,8 @@ def run_migrations(engine: Engine):
                 conn.commit()
                 logger.info(f"SUCCESS: Added column '{col}' to table '{table}'.")
             except Exception as e:
+                # IMPORTANT for Postgres: Rollback the failed statement so the transaction can continue
+                conn.rollback()
                 err_str = str(e).lower()
                 # Common error strings for existing columns across different DB engines
                 if any(x in err_str for x in ["duplicate column", "already exists", "has no column", "duplicate"]):
