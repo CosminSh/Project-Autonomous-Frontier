@@ -90,14 +90,9 @@ export class TutorialManager {
         this.game.lastWorldData = this.getMockWorldState();
         this.game.updatePrivateUI(this.getMockAgent());
         
-        // Hide regular UI elements & Loading
+        // Hide loading and login corner - tutorial is the landing experience
         this.game.hideLoading();
-        const welcome = document.getElementById('welcome-screen');
-        if (welcome) {
-            welcome.classList.add('hidden');
-            welcome.style.display = 'none';
-        }
-        document.getElementById('auth-panel')?.classList.add('hidden');
+        document.getElementById('login-corner'); // Already visible, handled by app.js
         
         console.log("Tutorial UI setup complete and active.");
     }
@@ -106,7 +101,7 @@ export class TutorialManager {
         this.isActive = false;
         this.game.inTutorialMode = false;
         
-        // Only clear if it's the mock ID to avoid logging out a real user who clicked skip
+        // Clear mock auth if still set
         if (localStorage.getItem('sv_agent_id') === this.mockAgentId.toString()) {
             localStorage.removeItem('sv_agent_id');
             localStorage.removeItem('sv_api_key');
@@ -114,9 +109,36 @@ export class TutorialManager {
 
         if (this.uiContainer) {
             this.uiContainer.remove();
+            this.uiContainer = null;
         }
         // Force refresh back to landing state
         window.location.reload();
+    }
+
+    /**
+     * Stop quietly (no page reload) — used when user authenticates mid-tutorial
+     */
+    stopSilently() {
+        this.isActive = false;
+        this.game.inTutorialMode = false;
+        this.game._loadingHidden = false; // Let loading screen re-appear for real sync
+        
+        if (localStorage.getItem('sv_agent_id') === this.mockAgentId.toString()) {
+            localStorage.removeItem('sv_agent_id');
+            localStorage.removeItem('sv_api_key');
+        }
+
+        if (this.uiContainer) {
+            this.uiContainer.remove();
+            this.uiContainer = null;
+        }
+
+        // Clear tutorial world and load real game
+        this.game.renderer.clearWorld();
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) loadingScreen.style.display = '';
+        this.game.api.startPolling();
+        console.log('[TUTORIAL] Silently stopped, transitioning to live world.');
     }
 
     setupUI() {

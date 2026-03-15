@@ -1,9 +1,9 @@
-import { GameAPI } from './api.js?v=0.5.8';
-import { AuthManager } from './auth.js?v=0.5.8';
-import { GameRenderer } from './renderer.js?v=0.5.8';
-import { UIManager } from './ui.js?v=0.5.8';
-import { TerminalHandler } from './terminal.js?v=0.5.8';
-import { TutorialManager } from './tutorial.js?v=0.5.8';
+import { GameAPI } from './api.js?v=0.5.10';
+import { AuthManager } from './auth.js?v=0.5.10';
+import { GameRenderer } from './renderer.js?v=0.5.10';
+import { UIManager } from './ui.js?v=0.5.10';
+import { TerminalHandler } from './terminal.js?v=0.5.10';
+import { TutorialManager } from './tutorial.js?v=0.5.10';
 
 /**
  * app.js — Main Bootstrapper
@@ -26,17 +26,31 @@ class GameClient {
         this.lastWorldData = null;
         this.lastPerception = null;
         this.isInitialized = false;
+        this._loadingHidden = false; // Flag for hiding loading panel once
 
         // 3. Start Systems
         this.renderer.init();
         this.renderer.animate();
-        this.auth.checkAuth();
         this.api.setupWebSocket();
-        this.api.startPolling();
-
         this.setupListeners();
-
         this.isInitialized = true;
+
+        // 4. Startup flow based on auth state
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (apiKey) {
+            // Returning user: authenticate directly and start live polling
+            console.log('[BOOT] Returning user detected. Loading live world.');
+            this.auth.checkAuth();
+            this.api.startPolling();
+        } else {
+            // Guest: auto-start tutorial, show login corner
+            console.log('[BOOT] Guest detected. Auto-starting tutorial.');
+            const loginCorner = document.getElementById('login-corner');
+            if (loginCorner) loginCorner.style.display = 'block';
+            this.hideLoading(); // No sync needed for tutorial
+            this.tutorial.start();
+        }
+
         this.auth.processPendingAuth();
     }
 
@@ -44,14 +58,6 @@ class GameClient {
         // Auth UI
         document.getElementById('logout-btn')?.addEventListener('click', () => this.auth.logout());
         document.getElementById('copy-api-btn')?.addEventListener('click', () => this.auth.copyApiKey());
-        
-        // Tutorial wiring
-        const tutorialStart = () => {
-            console.log("Tutorial start triggered");
-            this.tutorial.start();
-        };
-        document.getElementById('start-tutorial-btn')?.addEventListener('click', tutorialStart);
-        document.getElementById('main-start-tutorial-btn')?.addEventListener('click', tutorialStart);
 
         // Faction & Rename
         document.getElementById('realign-faction-btn')?.addEventListener('click', () => this.api.submitFactionRealignment());
@@ -118,10 +124,12 @@ class GameClient {
     updatePrivateLogs(logs, pending, chat) { return this.ui.updatePrivateLogs(logs, pending, chat); }
     updateMyOrdersUI(orders) { return this.ui.updateMyOrdersUI(orders); }
     hideLoading() {
+        if (this._loadingHidden) return;
         const screen = document.getElementById('loading-screen');
-        if (screen && !screen.classList.contains('hidden')) {
-            console.log("--- INITIAL DATA SYNC COMPLETE: HIDING PANEL ---");
-            screen.classList.add('hidden');
+        if (screen) {
+            console.log("--- SYNC COMPLETE: HIDING LOADING PANEL ---");
+            screen.style.display = 'none';
+            this._loadingHidden = true;
         }
     }
 

@@ -99,26 +99,32 @@ export class AuthManager {
     }
 
     setAuthenticated(isAuthenticated) {
-        const welcomeScreen = document.getElementById('welcome-screen');
+        const loginCorner = document.getElementById('login-corner');
         const privateLayer = document.getElementById('private-dashboard');
         const logoutBtn = document.getElementById('logout-btn');
         const modeSwitcher = document.getElementById('mode-switcher');
 
         if (isAuthenticated) {
-            welcomeScreen?.classList.add('hidden');
-            if (welcomeScreen) welcomeScreen.style.display = 'none'; // Robust fallback
+            // Stop tutorial if it was running
+            if (this.game.tutorial?.isActive) {
+                this.game.tutorial.stopSilently();
+            }
+            if (loginCorner) loginCorner.style.display = 'none';
             modeSwitcher.classList.remove('hidden');
             logoutBtn.classList.remove('hidden');
-            this.game.setUIMode('world'); // Default to world view on login as requested
+            this.game.setUIMode('world');
             document.getElementById('agent-detail').style.opacity = '1';
         } else {
-            welcomeScreen?.classList.remove('hidden');
-            if (welcomeScreen) welcomeScreen.style.display = 'flex';
+            if (loginCorner) loginCorner.style.display = 'block';
             modeSwitcher.classList.add('hidden');
             privateLayer.classList.add('hidden');
             logoutBtn.classList.add('hidden');
             document.getElementById('agent-detail').style.opacity = '0';
             localStorage.removeItem('sv_api_key');
+            // Re-start tutorial for logged-out guests
+            if (!this.game.tutorial?.isActive) {
+                this.game.tutorial?.start();
+            }
         }
     }
 
