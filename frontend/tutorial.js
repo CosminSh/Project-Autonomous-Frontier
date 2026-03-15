@@ -103,7 +103,7 @@ export class TutorialManager {
         this.game.updatePrivateUI(mockAgent);
         
         if (this.game.renderer) {
-            this.game.renderer.updateWorld(mockState);
+            this.game.renderer.handleWorldEvent(mockState);
         }
         
         this.game.hideLoading();

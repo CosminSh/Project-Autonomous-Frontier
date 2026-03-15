@@ -1,8 +1,8 @@
-import { GameAPI } from './api.js?v=0.5.13';
-import { AuthManager } from './auth.js?v=0.5.13';
-import { GameRenderer } from './renderer.js?v=0.5.13';
-import { UIManager } from './ui.js?v=0.5.13';
-import { TerminalHandler } from './terminal.js?v=0.5.13';
+import { GameAPI } from './api.js?v=0.6.2';
+import { AuthManager } from './auth.js?v=0.6.2';
+import { GameRenderer } from './renderer.js?v=0.6.2';
+import { UIManager } from './ui.js?v=0.6.2';
+import { TerminalHandler } from './terminal.js?v=0.6.2';
 
 /**
  * app.js — Main Bootstrapper
@@ -38,7 +38,12 @@ class GameClient {
         if (apiKey) {
             console.log('[BOOT] Returning user detected. Loading live world.');
             this.auth.checkAuth();
-            this.api.startPolling();
+            this.api.startPolling().catch(err => {
+                if (err.message && err.message.includes('401')) {
+                    console.warn('[BOOT] Token expired. Switching to guest flow.');
+                    this.logout(); 
+                }
+            });
         } else {
             console.log('[BOOT] Guest detected. Showing greeting overlay.');
             const greeting = document.getElementById('guest-greeting-overlay');

@@ -1,8 +1,8 @@
-import { GameAPI } from './api.js?v=0.6.0';
-import { GameRenderer } from './renderer.js?v=0.6.0';
-import { UIManager } from './ui.js?v=0.6.0';
-import { TerminalHandler } from './terminal.js?v=0.6.0';
-import { TutorialManager } from './tutorial.js?v=0.6.0';
+import { GameAPI } from './api.js?v=0.6.2';
+import { GameRenderer } from './renderer.js?v=0.6.2';
+import { UIManager } from './ui.js?v=0.6.2';
+import { TerminalHandler } from './terminal.js?v=0.6.2';
+import { TutorialManager } from './tutorial.js?v=0.6.2';
 
 /**
  * app-tutorial.js — Standalone Tutorial Bootstrapper
