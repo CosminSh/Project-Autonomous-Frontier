@@ -1288,7 +1288,7 @@ export class GameRenderer {
         const mesh = this.agents.get(myAgentId);
 
         if (!mesh || !this.controls || !this.camera) {
-            console.warn("Cannot center: Agent mesh not found or camera not ready.");
+            // Silently fail or try again later?
             return;
         }
 

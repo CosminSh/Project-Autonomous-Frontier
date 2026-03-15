@@ -453,19 +453,13 @@ export class GameAPI {
         if (!newPrice || isNaN(newPrice) || Number(newPrice) <= 0) return;
 
         try {
-            const resp = await fetch(`${window.location.origin}/api/market/orders/${orderId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
-                body: JSON.stringify({ price: Number(newPrice) })
-            });
-            if (resp.ok) {
-                if (this.game.terminal) this.game.terminal.log(`✓ Market order #${orderId} price adjusted to $${newPrice}.`, 'success');
-                this.pollState();
-            } else {
-                const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
-                alert(`Adjust Failed: ${err.detail}`);
-            }
-        } catch (e) { console.error("Adjust order error:", e); }
+            await this._post(`/api/market/orders/${orderId}`, { price: Number(newPrice) });
+            if (this.game.terminal) this.game.terminal.log(`✓ Market order #${orderId} price adjusted to $${newPrice}.`, 'success');
+            this.pollState();
+        } catch (e) { 
+            console.error("Adjust order error:", e); 
+            if (this.game.terminal) this.game.terminal.log(`✗ Adjust Failed: ${e.message}`, 'error');
+        }
     }
 
     async submitIndustryIntent(type, dataOverride = null) {

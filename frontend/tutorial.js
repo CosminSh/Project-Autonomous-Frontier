@@ -9,6 +9,52 @@ export class TutorialManager {
         this.currentStepIndex = 0;
         this.mockAgentId = 9999;
         this.mockTick = 500;
+        
+        // Centralized State for persistence (MINE adds cargo, MOVE updates pose)
+        this.agentState = {
+            id: this.mockAgentId,
+            name: "RECRUIT-01",
+            q: 0,
+            r: 0,
+            health: 100,
+            max_health: 100,
+            energy: 100,
+            max_energy: 100,
+            experience: 0,
+            level: 1,
+            mass: 0,
+            max_mass: 100,
+            wear_and_tear: 0,
+            heat: 0,
+            damage: 5,
+            speed: 5,
+            accuracy: 80,
+            armor: 0,
+            mining_yield: 25,
+            faction: 1,
+            inventory: [],
+            discovery: {
+                stations: [
+                    {type: 'STATION_HUB', q: 0, r: 0, distance: 0},
+                    {type: 'SMELTER', q: 25, r: 2, distance: 30}
+                ],
+                resources: [
+                    {type: 'IRON_ORE', q: 10, r: 5, distance: 15}
+                ]
+            }
+        };
+
+        this.worldState = {
+            tick: this.mockTick,
+            phase: 'PERCEPTION',
+            agents: [this.agentState],
+            hexes: [
+                {q: 0, r: 0, terrain: 'STATION', station_type: 'STATION_HUB', is_station: true},
+                {q: 10, r: 5, terrain: 'ASTEROID', resource: 'IRON_ORE'},
+                {q: 25, r: 2, terrain: 'STATION', station_type: 'SMELTER', is_station: true}
+            ]
+        };
+
         window.tutorialManager = this; // Debug hook
         console.log("TutorialManager instantiated and attached to window.");
         
@@ -251,48 +297,12 @@ export class TutorialManager {
 
     // Mock Backend Data Helpers
     getMockWorldState() {
-        return {
-            tick: this.mockTick,
-            phase: 'PERCEPTION',
-            agents: [this.getMockAgent()],
-            hexes: [
-                {q: 0, r: 0, terrain: 'STATION', station_type: 'STATION_HUB', is_station: true},
-                {q: 10, r: 5, terrain: 'ASTEROID', resource: 'IRON_ORE'},
-                {q: 25, r: 2, terrain: 'STATION', station_type: 'SMELTER', is_station: true}
-            ]
-        };
+        this.worldState.tick = this.mockTick;
+        return this.worldState;
     }
 
     getMockAgent() {
-        return {
-            id: this.mockAgentId,
-            name: "RECRUIT-01",
-            q: 0,
-            r: 0,
-            health: 100,
-            max_health: 100,
-            energy: 100,
-            max_energy: 100,
-            experience: 0,
-            level: 1,
-            mass: 10,
-            max_mass: 100,
-            wear_and_tear: 0,
-            heat: 0,
-            damage: 5,
-            speed: 5,
-            accuracy: 80,
-            armor: 0,
-            mining_yield: 10,
-            faction: 1,
-            inventory: [],
-            discovery: {
-                stations: [
-                    {type: 'STATION_HUB', q: 0, r: 0, distance: 0},
-                    {type: 'SMELTER', q: 25, r: 2, distance: 30}
-                ]
-            }
-        };
+        return this.agentState;
     }
 
     mockApiResponse(endpoint, method, body) {
@@ -320,7 +330,9 @@ export class TutorialManager {
             return { 
                 self: agent,
                 agents: [agent], 
-                hexes: this.getMockWorldState().hexes 
+                hexes: this.worldState.hexes,
+                discovery: agent.discovery,
+                loot: []
             };
         }
         
@@ -328,36 +340,55 @@ export class TutorialManager {
             const actionType = body.action_type || '';
             // Simulate action success
             if (actionType === 'MOVE') {
-                const agent = this.getMockAgent();
-                agent.q = body.data.target_q || body.data.q;
-                agent.r = body.data.target_r || body.data.r;
-                this.handleAction('move', {q: agent.q, r: agent.r});
-                return {status: 'success', message: 'Move queued', tick_index: this.mockTick};
+                this.agentState.q = body.data.target_q ?? body.data.q ?? this.agentState.q;
+                this.agentState.r = body.data.target_r ?? body.data.r ?? this.agentState.r;
+                this.handleAction('move', {q: this.agentState.q, r: this.agentState.r});
+                
+                // Sync renderer
+                if (this.game.renderer) {
+                    this.game.renderer.handleWorldEvent({
+                        type: 'agent_update',
+                        agents: [this.agentState]
+                    });
+                }
+                return {status: 'success', message: 'Move queued', tick_index: this.mockTick, tick: this.mockTick};
             }
             if (actionType === 'MINE') {
                 this.handleAction('command', 'MINE');
-                return {status: 'success', message: 'Mining started', tick_index: this.mockTick};
+                // Persist cargo
+                const existing = this.agentState.inventory.find(i => i.type === 'IRON_ORE');
+                if (existing) {
+                    existing.qty += 25;
+                } else {
+                    this.agentState.inventory.push({ type: 'IRON_ORE', qty: 25 });
+                }
+                this.agentState.mass = this.agentState.inventory.reduce((sum, i) => sum + i.qty, 0);
+                
+                return {status: 'success', message: 'Mining started', tick_index: this.mockTick, tick: this.mockTick};
             }
             if (actionType === 'SCAN' || actionType === 'PERCEIVE') {
                 this.handleAction('command', actionType);
-                const mockState = this.getMockWorldState();
                 return {
                     status: 'success', 
                     message: actionType === 'PERCEIVE' ? 'Nearby: IRON_ORE at (10, 5), SMELTER at (25, 2)' : 'Scan complete', 
                     tick_index: this.mockTick,
+                    tick: this.mockTick,
                     data: {
-                        hexes: mockState.hexes,
-                        agents: mockState.agents
+                        hexes: this.worldState.hexes,
+                        agents: this.worldState.agents
                     }
                 };
             }
             if (actionType === 'SMELT') {
                 this.handleAction('command', 'SMELT');
-                return {status: 'success', message: 'Smelting started', tick_index: this.mockTick};
+                // Simple inventory drain for mock
+                this.agentState.inventory = this.agentState.inventory.filter(i => i.type !== 'IRON_ORE');
+                this.agentState.mass = 0;
+                return {status: 'success', message: 'Smelting started', tick_index: this.mockTick, tick: this.mockTick};
             }
-            return {status: 'success', tick_index: this.mockTick};
+            return {status: 'success', tick_index: this.mockTick, tick: this.mockTick};
         }
         
-        return {status: 'success', tick_index: this.mockTick};
+        return {status: 'success', tick_index: this.mockTick, tick: this.mockTick};
     }
 }
