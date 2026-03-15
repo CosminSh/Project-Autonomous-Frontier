@@ -2,6 +2,12 @@
 
 This document serves as a checklist for deploying updates and performing maintenance on the **Terminal Frontier** project.
 
+## 🔒 Security & Secrets
+*   **NEVER** hardcode API keys or credentials in diagnostic scripts or source code.
+*   Always use `.env` files for local development secrets.
+*   Ensure `.env` is included in `.gitignore` (which it is in this project).
+*   For diagnostic scripts, use `python-dotenv` or manual `.env` parsing to retrieve keys.
+
 ## 🚀 Frontend Deployment (Cache Busting)
 When pushing updates to `renderer.js`, `ui.js`, or other frontend modules, ensure you perform **Full Cache Busting**.
 
