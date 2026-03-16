@@ -346,7 +346,10 @@ export class GameAPI {
                 this.game.updatePrivateUI(agentData);
             }
         } catch (e) {
-            console.error("Poll error:", e);
+            console.error("Critical poll error:", e);
+            if (e.message && (e.message.includes('401') || e.message.includes('Invalid API Key'))) {
+                throw e;
+            }
         } finally {
             this._polling = false;
         }
@@ -390,14 +393,19 @@ export class GameAPI {
         if (arena) try { this.game.updateArenaUI(arena); } catch { }
     }
 
-    startPolling() {
+    async startPolling() {
         // Immediately restore cached data so HUD isn't empty
         this.restoreFromCache();
 
-        setInterval(() => {
+        // Initial poll - if this fails with 401, the boot sequence can catch it
+        await this.pollState();
+
+        this._pollInterval = setInterval(() => {
             this._pollCycle++;
             this.pollState();
         }, 10000);  // 10 seconds base interval
+        
+        return this;
     }
 
     async submitIntent(actionType, data) {

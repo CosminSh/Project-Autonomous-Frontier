@@ -1,8 +1,8 @@
-import { GameAPI } from './api.js?v=0.7.1';
-import { AuthManager } from './auth.js?v=0.7.1';
-import { GameRenderer } from './renderer.js?v=0.7.1';
-import { UIManager } from './ui.js?v=0.7.1';
-import { TerminalHandler } from './terminal.js?v=0.7.1';
+import { GameAPI } from './api.js?v=0.7.2';
+import { AuthManager } from './auth.js?v=0.7.2';
+import { GameRenderer } from './renderer.js?v=0.7.2';
+import { UIManager } from './ui.js?v=0.7.2';
+import { TerminalHandler } from './terminal.js?v=0.7.2';
 
 /**
  * app.js — Main Bootstrapper
@@ -39,9 +39,9 @@ class GameClient {
             console.log('[BOOT] Returning user detected. Loading live world.');
             this.auth.checkAuth();
             this.api.startPolling().catch(err => {
-                if (err.message && err.message.includes('401')) {
-                    console.warn('[BOOT] Token expired. Switching to guest flow.');
-                    this.logout(); 
+                if (err.message && (err.message.includes('401') || err.message.includes('Invalid API Key'))) {
+                    console.warn('[BOOT] Token expired or invalid. Switching to guest flow.');
+                    this.auth.logout(); 
                 }
             });
         } else {
