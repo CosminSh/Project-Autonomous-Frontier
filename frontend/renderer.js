@@ -1295,15 +1295,15 @@ export class GameRenderer {
     }
 
     centerOnAgent() {
+        if (this.hasCenteredInitially && this.game.isInitialized) return; // Prevent jittery re-centering
+
         const myAgentId = parseInt(localStorage.getItem('sv_agent_id'));
         const mesh = this.agents.get(myAgentId);
 
-        if (!mesh || !this.controls || !this.camera) {
-            // Silently fail or try again later?
-            return;
-        }
+        if (!mesh || !this.controls || !this.camera) return;
 
         const agentPos = mesh.position.clone();
+        if (agentPos.lengthSq() < 10) return; // Wait for valid position on surface
         const normal = agentPos.clone().normalize();
 
         // Find a vector pointing "south" along the sphere surface

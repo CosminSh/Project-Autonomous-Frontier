@@ -100,7 +100,10 @@ export class UIManager {
             subTab = subs.find(s => !document.getElementById(`stn-panel-${s}`).classList.contains('hidden')) || '';
         } else if (tab === 'social') {
             const subs = ['squad', 'corp'];
-            subTab = subs.find(s => !document.getElementById(`social-panel-${s}`).classList.contains('hidden')) || '';
+            subTab = subs.find(s => {
+                const p = document.getElementById(`social-panel-${s}`);
+                return p && !p.classList.contains('hidden');
+            }) || '';
         }
 
         let newHash = mode;
@@ -258,6 +261,20 @@ export class UIManager {
         }
         if (tabId === 'social') {
             this.updateCorporationUI();
+            const subs = ['squad', 'corp'];
+            const active = subs.find(s => {
+                const p = document.getElementById(`social-panel-${s}`);
+                return p && !p.classList.contains('hidden');
+            });
+            if (!active) this.switchSocialTab('squad', false);
+        }
+        if (tabId === 'station') {
+            const subs = ['smelt', 'forge', 'market', 'missions', 'repair'];
+            const active = subs.find(s => {
+                const p = document.getElementById(`stn-panel-${s}`);
+                return p && !p.classList.contains('hidden');
+            });
+            if (!active) this.switchStationTab('forge', false);
         }
 
         if (updateHash !== false) this.updateHash();

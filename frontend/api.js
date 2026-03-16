@@ -262,8 +262,7 @@ export class GameAPI {
                 }
 
                 if (!this.game.hasCenteredInitially) {
-                    this.game.centerOnAgent();
-                    this.game.hasCenteredInitially = true;
+                    // Logic moved to renderer.js to ensure mesh is present
                 }
             }
 

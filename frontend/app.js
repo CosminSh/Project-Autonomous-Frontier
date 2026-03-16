@@ -1,8 +1,8 @@
-import { GameAPI } from './api.js?v=0.6.13';
-import { AuthManager } from './auth.js?v=0.6.13';
-import { GameRenderer } from './renderer.js?v=0.6.13';
-import { UIManager } from './ui.js?v=0.6.13';
-import { TerminalHandler } from './terminal.js?v=0.6.13';
+import { GameAPI } from './api.js?v=0.7.1';
+import { AuthManager } from './auth.js?v=0.7.1';
+import { GameRenderer } from './renderer.js?v=0.7.1';
+import { UIManager } from './ui.js?v=0.7.1';
+import { TerminalHandler } from './terminal.js?v=0.7.1';
 
 /**
  * app.js — Main Bootstrapper
@@ -69,7 +69,7 @@ class GameClient {
         document.getElementById('btn-mode-leaderboard')?.addEventListener('click', () => this.ui.setUIMode('leaderboard'));
 
         // Tabs
-        ['terminal', 'inventory', 'station', 'system', 'arena', 'corporation'].forEach(tab => {
+        ['status', 'terminal', 'inventory', 'station', 'system', 'arena', 'social'].forEach(tab => {
             const el = document.getElementById(`tab-${tab}`);
             if (el) el.addEventListener('click', () => this.ui.switchTab(tab));
         });

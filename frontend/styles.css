@@ -91,3 +91,21 @@ textarea:focus {
 .bar-critical {
     animation: bar-critical 1.5s ease-in-out infinite;
 }
+
+/* Mobile 2-row tab layout */
+@media (max-width: 767px) {
+    nav.flex-wrap {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+    }
+    nav.flex-wrap button {
+        border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+        border-right: 1px solid rgba(30, 41, 59, 0.5);
+    }
+    nav.flex-wrap button:nth-child(3n) {
+        border-right: none;
+    }
+    #tab-status {
+        display: block !important;
+    }
+}
