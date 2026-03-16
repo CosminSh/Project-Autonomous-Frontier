@@ -141,7 +141,7 @@ class GameClient {
     updateResourceMesh(data) { return this.renderer.updateResourceMesh(data); }
     updateLootMesh(data) { return this.renderer.updateLootMesh(data); }
     createHex(data) { return this.renderer.createHex(data); }
-    centerOnAgent() { return this.renderer.centerOnAgent(); }
+    centerOnAgent(force = false) { return this.renderer.centerOnAgent(force); }
 
     // Internal state access helpers
     get apiKey() { return localStorage.getItem('sv_api_key'); }

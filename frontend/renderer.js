@@ -141,7 +141,7 @@ export class GameRenderer {
         });
 
         // Center Camera Handler
-        document.getElementById('center-camera-btn')?.addEventListener('click', () => this.centerOnAgent());
+        document.getElementById('center-camera-btn')?.addEventListener('click', () => this.centerOnAgent(true));
 
         // Debug Key Listener (F2)
         window.addEventListener('keydown', (e) => {
@@ -1294,8 +1294,8 @@ export class GameRenderer {
         anim();
     }
 
-    centerOnAgent() {
-        if (this.hasCenteredInitially && this.game.isInitialized) return; // Prevent jittery re-centering
+    centerOnAgent(force = false) {
+        if (!force && this.hasCenteredInitially && this.game.isInitialized) return; // Prevent jittery re-centering during sync
 
         const myAgentId = parseInt(localStorage.getItem('sv_agent_id'));
         const mesh = this.agents.get(myAgentId);

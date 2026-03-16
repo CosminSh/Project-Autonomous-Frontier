@@ -45,7 +45,7 @@ class TutorialClient {
         document.getElementById('btn-mode-leaderboard')?.addEventListener('click', () => this.ui.setUIMode('leaderboard'));
 
         // Tabs
-        ['terminal', 'inventory', 'station', 'system', 'arena', 'corporation'].forEach(tab => {
+        ['status', 'terminal', 'inventory', 'station', 'system', 'arena', 'social'].forEach(tab => {
             const el = document.getElementById(`tab-${tab}`);
             if (el) el.addEventListener('click', () => this.ui.switchTab(tab));
         });
@@ -102,7 +102,7 @@ class TutorialClient {
     updateResourceMesh(data) { return this.renderer.updateResourceMesh(data); }
     updateLootMesh(data) { return this.renderer.updateLootMesh(data); }
     createHex(data) { return this.renderer.createHex(data); }
-    centerOnAgent() { return this.renderer.centerOnAgent(); }
+    centerOnAgent(force = false) { return this.renderer.centerOnAgent(force); }
 
     setUIMode(mode) { return this.ui.setUIMode(mode); }
     switchTab(tab) { return this.ui.switchTab(tab); }
