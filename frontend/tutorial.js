@@ -234,7 +234,7 @@ export class TutorialManager {
         this.isActive = false;
         this.game.inTutorialMode = false;
         localStorage.setItem('tutorial_skipped', 'true');
-        window.location.href = './index.html';
+        window.location.href = '/';
     }
 
     stopSilently() {

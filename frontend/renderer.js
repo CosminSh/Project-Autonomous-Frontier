@@ -97,7 +97,7 @@ export class GameRenderer {
 
         // Camera
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.camera.position.set(0, 5, 30); // Zoomed out to show the full planet initially
+        this.camera.position.set(0, 50, 120); // Zoomed out to show the full planet initially
         this.camera.lookAt(0, 0, 0);
 
         // Renderer
