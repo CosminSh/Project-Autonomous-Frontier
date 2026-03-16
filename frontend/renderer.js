@@ -755,6 +755,10 @@ export class GameRenderer {
 
                 // Add 3D Station Structure
                 const stationMesh = this.createStationMesh(station_type || 'OUTPOST');
+                stationMesh.userData.isStation = true;
+                stationMesh.userData.stationType = station_type || 'OUTPOST';
+                stationMesh.userData.q = q;
+                stationMesh.userData.r = r;
                 const stationPos = centroid.clone().normalize().multiplyScalar(50.2);
                 stationMesh.position.copy(stationPos);
                 stationMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), centroid.clone().normalize());

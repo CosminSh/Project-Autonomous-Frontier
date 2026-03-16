@@ -33,14 +33,14 @@ export class TutorialManager {
             mining_yield: 25,
             faction: 1,
             inventory: [],
+            logs: [
+                { time: new Date().toLocaleTimeString(), message: "System Initialized", type: "system" },
+                { time: new Date().toLocaleTimeString(), message: "TUTORIAL_MODE Active", type: "info" }
+            ],
             discovery: {
-                stations: [
-                    {type: 'STATION_HUB', q: 0, r: 0, distance: 0},
-                    {type: 'SMELTER', q: 25, r: 2, distance: 30}
-                ],
-                resources: [
-                    {type: 'IRON_ORE', q: 10, r: 5, distance: 15}
-                ]
+                'HUB-01': { q: 0, r: 0, distance: 0 },
+                'SMELTER-A': { q: 25, r: 2, distance: 30 },
+                'IRON-FIELD-1': { q: 10, r: 5, distance: 15 }
             }
         };
 
@@ -128,7 +128,7 @@ export class TutorialManager {
             },
             {
                 title: "AUTOMATION & THE FUTURE",
-                text: "Autonomous Frontier is built for automation. You can write scripts to control your drones 24/7. Check the 'ABOUT' page for API documentation.",
+                text: "The true power of the Autonomous Frontier lies in automation. While you can command drones manually, the most successful corporations use scripts to manage entire fleets 24/7. Use the API endpoints you've seen here (and many more) to build your own autonomous empire. Check the 'DASHBOARD' and 'ABOUT' pages for detailed technical documentation.",
                 action: "Click 'FINISH' to start your journey.",
                 condition: 'finish'
             }
@@ -164,19 +164,46 @@ export class TutorialManager {
         localStorage.setItem('sv_api_key', 'TUTORIAL_MODE');
         
         this.setupUI();
+        
+        // Ensure agent is rendered
+        if (this.game.renderer) {
+            this.game.renderer.updateAgentMesh(this.agentState);
+        }
+
         this.showStep();
         
         // 3. Mock initial state
         const mockState = this.getMockWorldState();
         this.game.lastWorldData = mockState;
+        this.game.lastAgentData = this.agentState;
+        this.game.lastPerception = { 
+            self: this.agentState,
+            agents: [this.agentState],
+            discovery: {
+                stations: [
+                    {id_type: 'HUB-01', q: 0, r: 0, distance: 0},
+                    {id_type: 'SMELTER-A', q: 25, r: 2, distance: 30}
+                ],
+                resources: [
+                    {type: 'IRON_ORE', q: 10, r: 5, distance: 15}
+                ]
+            },
+            loot: []
+        };
+        
         this.game.updateTickUI(mockState.tick, mockState.phase);
+        this.game.updatePrivateLogs(this.agentState.logs, [], []);
 
         // Setup mock ticker (10s intervals)
         this.mockTick = mockState.tick;
+        const phases = ['PERCEPTION', 'STRATEGY', 'CRUNCH'];
+        let phaseIdx = 0;
+        
         this.tickInterval = setInterval(() => {
             this.mockTick++;
+            phaseIdx = (phaseIdx + 1) % phases.length;
             if (this.game.updateTickUI) {
-                this.game.updateTickUI(this.mockTick, 'PERCEPTION');
+                this.game.updateTickUI(this.mockTick, phases[phaseIdx]);
             }
         }, 10000);
 
@@ -327,13 +354,24 @@ export class TutorialManager {
 
         if (endpoint.startsWith('/api/perception')) {
             const agent = this.getMockAgent();
-            return { 
+            const p = { 
                 self: agent,
                 agents: [agent], 
                 hexes: this.worldState.hexes,
-                discovery: agent.discovery,
+                discovery: {
+                    stations: [
+                        {id_type: 'HUB-01', q: 0, r: 0, distance: 0},
+                        {id_type: 'SMELTER-A', q: 25, r: 2, distance: 30}
+                    ],
+                    resources: [
+                        {type: 'IRON_ORE', q: 10, r: 5, distance: 15}
+                    ]
+                },
                 loot: []
             };
+            this.game.lastPerception = p;
+            this.game.lastAgentData = agent;
+            return p;
         }
         
         if (endpoint === '/api/intent') {
@@ -346,10 +384,7 @@ export class TutorialManager {
                 
                 // Sync renderer
                 if (this.game.renderer) {
-                    this.game.renderer.handleWorldEvent({
-                        type: 'agent_update',
-                        agents: [this.agentState]
-                    });
+                    this.game.renderer.updateAgentMesh(this.agentState);
                 }
                 return {status: 'success', message: 'Move queued', tick_index: this.mockTick, tick: this.mockTick};
             }
