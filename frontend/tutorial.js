@@ -34,8 +34,8 @@ export class TutorialManager {
             faction: 1,
             inventory: [],
             logs: [
-                { time: new Date().toLocaleTimeString(), message: "System Initialized", type: "system" },
-                { time: new Date().toLocaleTimeString(), message: "TUTORIAL_MODE Active", type: "info" }
+                { time: new Date().toLocaleTimeString(), event: "SYSTEM_INIT", details: { message: "System Initialized" } },
+                { time: new Date().toLocaleTimeString(), event: "TUTORIAL_ACTIVE", details: { message: "TUTORIAL_MODE Active" } }
             ],
             discovery: {
                 'HUB-01': { q: 0, r: 0, distance: 0 },
@@ -165,7 +165,9 @@ export class TutorialManager {
         
         this.setupUI();
         
-        // Ensure agent is rendered
+        // Hide loading screen and ensure agent is rendered
+        if (this.game.hideLoading) this.game.hideLoading();
+        
         if (this.game.renderer) {
             this.game.renderer.updateAgentMesh(this.agentState);
         }
