@@ -259,7 +259,7 @@ export class UIManager {
 
             // Auto-Toast for failures or critical events
             if (!isChat) {
-                if (item.event.endsWith('_FAILED')) {
+                if (item.event && item.event.endsWith('_FAILED')) {
                     this.showToast(item.details.reason || item.event, 'error');
                 } else if (item.event === 'COMBAT_HIT' && item.details?.damage > 0) {
                     // Only toast players if they are involved or it's high stakes
