@@ -1105,6 +1105,13 @@ export class GameRenderer {
 
             this.scene.add(mesh);
             this.agents.set(agentData.id, mesh);
+            
+            // Auto-center on player's first appearance
+            if (agentData.id === parseInt(localStorage.getItem('sv_agent_id')) && !this.hasCenteredInitially) {
+                console.log("[Renderer] Initial Player Mesh detected. Centering camera...");
+                this.centerOnAgent();
+                this.hasCenteredInitially = true;
+            }
         }
 
         const { x, y, z } = this.qToSphere(q, r, 1.5);
