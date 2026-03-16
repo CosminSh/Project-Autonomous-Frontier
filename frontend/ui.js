@@ -22,6 +22,95 @@ export class UIManager {
         this._seenLogKeys = new Set();
 
         this.initTelemetryToggle();
+        this.initHashRouting();
+        this.initSmeltControls();
+    }
+
+    initSmeltControls() {
+        const btn = document.getElementById('btn-smelt');
+        if (btn) {
+            btn.onclick = () => {
+                const oreType = document.getElementById('smelt-ore-type').value;
+                const qtyInput = document.getElementById('smelt-quantity').value;
+                const quantity = parseInt(qtyInput) || 1;
+                this.game.api.submitIntent('SMELT', { ore_type: oreType, quantity: quantity });
+            };
+        }
+    }
+
+    initHashRouting() {
+        window.addEventListener('hashchange', () => this.handleHashChange());
+        // Initial route handling will be called by App.init or here
+        setTimeout(() => this.handleHashChange(), 100);
+    }
+
+    handleHashChange() {
+        const hash = window.location.hash.substring(1);
+        if (!hash) return;
+
+        const parts = hash.split('/');
+        const mode = parts[0]; // world, management, leaderboard
+        const tab = parts[1];  // terminal, inventory, station, social, arena, system
+        const subTab = parts[2]; // e.g., forge, market, missions, repair
+
+        if (mode) {
+            this.setUIMode(mode, false); // false to avoid recursive hash update
+        }
+
+        if (tab) {
+            this.switchTab(tab, false);
+        }
+
+        if (subTab) {
+            if (tab === 'inventory') this.switchInventoryTab(subTab, false);
+            if (tab === 'station') this.switchStationTab(subTab, false);
+            if (tab === 'social') this.switchSocialTab(subTab, false);
+        }
+    }
+
+    updateHash() {
+        // Get current state
+        const privateLayer = document.getElementById('private-dashboard');
+        const leaderboardLayer = document.getElementById('leaderboard-layer');
+        const mapCanvas = document.getElementById('canvas-container');
+
+        let mode = 'world';
+        if (!privateLayer.classList.contains('hidden')) mode = 'management';
+        else if (!leaderboardLayer.classList.contains('hidden')) mode = 'leaderboard';
+
+        let tab = '';
+        if (mode === 'management') {
+            const tabs = ['status', 'terminal', 'inventory', 'station', 'social', 'arena', 'system'];
+            tab = tabs.find(t => {
+                const content = document.getElementById(`content-${t}`);
+                if (t === 'status') {
+                    const agentDetail = document.getElementById('agent-detail');
+                    return agentDetail && !agentDetail.classList.contains('hidden') && window.innerWidth < 1024;
+                }
+                return content && !content.classList.contains('hidden');
+            }) || 'terminal';
+        }
+
+        let subTab = '';
+        if (tab === 'inventory') {
+            const subs = ['cargo', 'gear', 'vault'];
+            subTab = subs.find(s => !document.getElementById(`inv-panel-${s}`).classList.contains('hidden')) || '';
+        } else if (tab === 'station') {
+            const subs = ['smelt', 'forge', 'market', 'missions', 'repair'];
+            subTab = subs.find(s => !document.getElementById(`stn-panel-${s}`).classList.contains('hidden')) || '';
+        } else if (tab === 'social') {
+            const subs = ['squad', 'corp'];
+            subTab = subs.find(s => !document.getElementById(`social-panel-${s}`).classList.contains('hidden')) || '';
+        }
+
+        let newHash = mode;
+        if (tab) newHash += `/${tab}`;
+        if (subTab) newHash += `/${subTab}`;
+
+        // Avoid infinite loops and unnecessary history entries
+        if (window.location.hash.substring(1) !== newHash) {
+            window.location.hash = newHash;
+        }
     }
 
     initTelemetryToggle() {
@@ -84,7 +173,7 @@ export class UIManager {
         }, duration);
     }
 
-    setUIMode(mode) {
+    setUIMode(mode, updateHash = true) {
         const privateLayer = document.getElementById('private-dashboard');
         const leaderboardLayer = document.getElementById('leaderboard-layer');
         const btnWorld = document.getElementById('btn-mode-world');
@@ -123,13 +212,18 @@ export class UIManager {
             this.game.api.fetchLeaderboards();
         }
 
+        if (updateHash !== false) this.updateHash();
+
         if (this.game.inTutorialMode && this.game.tutorial) {
             this.game.tutorial.handleAction('ui_mode', mode);
         }
     }
 
-    switchTab(tabId) {
-        const tabs = ['terminal', 'inventory', 'station', 'system', 'arena', 'corporation'];
+    switchTab(tabId, updateHash = true) {
+        const tabs = ['status', 'terminal', 'inventory', 'station', 'social', 'arena', 'system'];
+        const agentDetail = document.getElementById('agent-detail');
+        const mainContent = document.querySelector('#private-dashboard main');
+
         tabs.forEach(t => {
             const btn = document.getElementById(`tab-${t}`);
             const content = document.getElementById(`content-${t}`);
@@ -143,18 +237,33 @@ export class UIManager {
             if (content) content.classList.toggle('hidden', t !== tabId);
         });
 
+        // Mobile Status handling
+        if (tabId === 'status') {
+            if (agentDetail) agentDetail.classList.remove('hidden');
+            if (mainContent) {
+                // Hide all tab content divs inside main to only show the status panel
+                const contentDivs = mainContent.querySelectorAll('div[id^="content-"]');
+                contentDivs.forEach(d => d.classList.add('hidden'));
+            }
+        } else {
+            // Only hide agentDetail on mobile (lg:block takes over on desktop)
+            if (agentDetail && window.innerWidth < 1024) agentDetail.classList.add('hidden');
+        }
+
         if (tabId === 'inventory' && window.storageUI) {
             window.storageUI.refreshStorage();
         }
         if (tabId === 'arena') {
             this.game.api.fetchArenaStatus();
         }
-        if (tabId === 'corporation') {
+        if (tabId === 'social') {
             this.updateCorporationUI();
         }
+
+        if (updateHash !== false) this.updateHash();
     }
 
-    switchInventoryTab(subTab) {
+    switchInventoryTab(subTab, updateHash = true) {
         const panels = ['cargo', 'gear', 'vault'];
         const activeColors = { cargo: 'sky', gear: 'sky', vault: 'sky' };
         panels.forEach(p => {
@@ -174,10 +283,12 @@ export class UIManager {
         if (subTab === 'vault' && window.storageUI) {
             window.storageUI.refreshStorage();
         }
+
+        if (updateHash !== false) this.updateHash();
     }
 
-    switchStationTab(subTab) {
-        const panels = ['forge', 'market', 'missions'];
+    switchStationTab(subTab, updateHash = true) {
+        const panels = ['smelt', 'forge', 'market', 'missions', 'repair'];
         panels.forEach(p => {
             const btn = document.getElementById(`stn-tab-${p}`);
             const panel = document.getElementById(`stn-panel-${p}`);
@@ -192,6 +303,94 @@ export class UIManager {
                 }
             }
         });
+
+        if (subTab === 'smelt') {
+            this.updateSmeltRequirements();
+        }
+
+        if (updateHash !== false) this.updateHash();
+    }
+
+    switchSocialTab(subTab, updateHash = true) {
+        const panels = ['squad', 'corp'];
+        panels.forEach(p => {
+            const btn = document.getElementById(`social-tab-${p}`);
+            const panel = document.getElementById(`social-panel-${p}`);
+            if (panel) panel.classList.toggle('hidden', p !== subTab);
+            if (btn) {
+                if (p === subTab) {
+                    btn.classList.add('border-purple-500/50', 'bg-purple-500/10', 'text-purple-400');
+                    btn.classList.remove('border-slate-700', 'text-slate-500');
+                } else {
+                    btn.classList.remove('border-purple-500/50', 'bg-purple-500/10', 'text-purple-400');
+                    btn.classList.add('border-slate-700', 'text-slate-500');
+                }
+            }
+        });
+
+        if (updateHash !== false) this.updateHash();
+    }
+
+    updateSmeltRequirements() {
+        const oreEl = document.getElementById('smelt-ore-type');
+        const qtyEl = document.getElementById('smelt-quantity');
+        const reqEnergyEl = document.getElementById('smelt-req-energy');
+        const reqTimeEl = document.getElementById('smelt-req-time');
+        const reqOreEl = document.getElementById('smelt-req-ore');
+
+        if (!oreEl || !qtyEl || !reqEnergyEl || !reqTimeEl || !reqOreEl) return;
+
+        const oreType = oreEl.value;
+        const qty = parseInt(qtyEl.value) || 0;
+
+        const energyCosts = {
+            'IRON_ORE': 5,
+            'COPPER_ORE': 10,
+            'GOLD_ORE': 15,
+            'COBALT_ORE': 20
+        };
+
+        const energyPerIngot = energyCosts[oreType] || 0;
+        const ratio = 5; // 5 Ore -> 1 Ingot
+
+        const totalEnergy = qty * energyPerIngot;
+        const totalOre = qty * ratio;
+        const totalTime = qty; // 1 tick per ingot
+
+        reqEnergyEl.innerText = totalEnergy;
+        reqTimeEl.innerText = `${totalTime} TICKS`;
+        reqOreEl.innerText = `${totalOre} ${oreType.replace('_', ' ')}`;
+    }
+
+    setSmeltMax() {
+        const oreEl = document.getElementById('smelt-ore-type');
+        if (!oreEl) return;
+        const oreType = oreEl.value;
+        
+        // Search in personal inventory and vault
+        let totalOreCount = 0;
+        if (this.game.me) {
+            // Check inventory
+            if (this.game.me.inventory) {
+                totalOreCount += this.game.me.inventory
+                    .filter(i => i.type === oreType)
+                    .reduce((sum, i) => sum + i.quantity, 0);
+            }
+            // Check vault
+            if (this.game.me.storage) {
+                totalOreCount += this.game.me.storage
+                    .filter(i => i.item_type === oreType)
+                    .reduce((sum, i) => sum + i.quantity, 0);
+            }
+        }
+
+        const ratio = 5;
+        const maxIngots = Math.floor(totalOreCount / ratio);
+        const qtyEl = document.getElementById('smelt-quantity');
+        if (qtyEl) {
+            qtyEl.value = maxIngots;
+            this.updateSmeltRequirements();
+        }
     }
 
 
@@ -1823,7 +2022,7 @@ Intent payload format:
     }
 
     async updateCorporationUI() {
-        const container = document.getElementById('content-corporation');
+        const container = document.getElementById('corporation-social-panel');
         if (!container) return;
 
         const apiKey = localStorage.getItem('sv_api_key');

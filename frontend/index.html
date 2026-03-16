@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=0.6.13">
+    <link rel="stylesheet" href="styles.css?v=0.7.0">
     <style>
         body {
             background-color: #050507;
@@ -427,7 +427,7 @@
             class="flex-grow flex flex-col lg:flex-row justify-between items-stretch py-2 md:py-4 hidden overflow-visible">
             <!-- Agent Details Left Sidebar -->
             <aside id="agent-detail"
-                class="w-full lg:w-72 glass mx-0 lg:m-2 lg:rounded-2xl border-l-4 border-l-sky-500 interactive flex flex-col opacity-0 transition-opacity mb-2 lg:mb-0">
+                class="hidden lg:block w-full lg:w-80 h-fit lg:h-full overflow-y-auto custom-scrollbar border-b lg:border-b-0 lg:border-r border-slate-800 bg-slate-900/40 backdrop-blur-md p-4 lg:p-6 lg:shrink-0 order-2 lg:order-1">
                 <!-- Profile Header -->
                 <div class="p-3 md:p-4 border-b border-slate-800">
                     <div class="flex justify-between items-start">
@@ -618,6 +618,9 @@
             <main
                 class="flex-grow mx-0 lg:m-2 lg:rounded-2xl overflow-hidden glass interactive flex flex-col border border-slate-800 min-h-[400px]">
                 <nav class="flex border-b border-slate-800/80 overflow-x-auto">
+                    <button id="tab-status"
+                        class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all lg:hidden">📊
+                        Status</button>
                     <button id="tab-terminal"
                         class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold border-b-2 border-sky-500 text-sky-400 whitespace-nowrap transition-all">⌨️
                         Command</button>
@@ -627,13 +630,15 @@
                     <button id="tab-station"
                         class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">🏭
                         Station</button>
+                    <button id="tab-social"
+                        class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">👥
+                        Social</button>
+                    <button id="tab-arena"
+                        class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">🥊
+                        Arena</button>
                     <button id="tab-system"
                         class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">⚙️
                         System</button>
-                    <button id="tab-arena"
-                        class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">🥊 Arena</button>
-                    <button id="tab-corporation"
-                        class="flex-1 min-w-[110px] py-3 text-[9px] md:text-[10px] uppercase tracking-widest orbitron font-bold text-slate-500 hover:text-slate-300 whitespace-nowrap transition-all">🏢 Corp</button>
                 </nav>
                 <div class="p-3 md:p-4 flex-grow overflow-y-auto custom-scrollbar">
 
@@ -832,6 +837,9 @@
                     <div id="content-station" class="hidden">
                         <!-- Sub-tab pills -->
                         <div class="flex gap-2 mb-4">
+                            <button onclick="game.ui.switchStationTab('smelt')" id="stn-tab-smelt"
+                                class="stn-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-slate-700 text-slate-500 hover:border-emerald-500/30 hover:text-slate-300 transition-all">🔥
+                                Smelting</button>
                             <button onclick="game.ui.switchStationTab('forge')" id="stn-tab-forge"
                                 class="stn-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 transition-all">⚒️
                                 Forge</button>
@@ -841,32 +849,15 @@
                             <button onclick="game.ui.switchStationTab('missions')" id="stn-tab-missions"
                                 class="stn-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-slate-700 text-slate-500 hover:border-emerald-500/30 hover:text-slate-300 transition-all">📋
                                 Missions</button>
+                            <button onclick="game.ui.switchStationTab('repair')" id="stn-tab-repair"
+                                class="stn-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-slate-700 text-slate-500 hover:border-emerald-500/30 hover:text-slate-300 transition-all">🔧
+                                Repair</button>
                         </div>
 
                         <!-- Forge sub-panel -->
                         <div id="stn-panel-forge" class="space-y-4">
-                            <p class="text-[9px] text-slate-500">Process raw materials at specialized stations. Each
-                                operation requires station proximity.</p>
-                            <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
-                                <h4 class="text-[10px] text-emerald-400 uppercase mb-3 tracking-widest font-bold">
-                                    Smelting Furnace</h4>
-                                <p class="text-[10px] text-slate-500 mb-3 font-mono">Process raw ores into
-                                    industrial-grade ingots (5:1 Ratio). Requires proximity to a SMELTER station.
-                                    <b>Uses
-                                        resources from your inventory OR vault storage.</b>
-                                </p>
-                                <div class="flex items-center space-x-3">
-                                    <select id="smelt-ore-type"
-                                        class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-emerald-500 outline-none">
-                                        <option value="IRON_ORE">IRON ORE (5 Ore -> 1 Ingot)</option>
-                                        <option value="COPPER_ORE">COPPER ORE (5 Ore -> 1 Ingot)</option>
-                                        <option value="GOLD_ORE">GOLD ORE (5 Ore -> 1 Ingot)</option>
-                                        <option value="COBALT_ORE">COBALT_ORE (5 Ore -> 1 Ingot)</option>
-                                    </select>
-                                    <button id="btn-smelt"
-                                        class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-6 py-3 rounded-lg font-bold text-[10px] orbitron transition-all">SMELT</button>
-                                </div>
-                            </div>
+                            <p class="text-[9px] text-slate-500">Fabricate advanced agent components from refined
+                                materials. Each operation requires station proximity.</p>
                             <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
                                 <h4 class="text-[10px] text-sky-400 uppercase mb-3 tracking-widest font-bold">
                                     Fabrication Unit</h4>
@@ -901,6 +892,61 @@
                                     <div class="text-[10px] text-slate-600 italic">Syncing Forge Database...</div>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Smelting sub-panel -->
+                        <div id="stn-panel-smelt" class="hidden space-y-4">
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
+                                <h4 class="text-[10px] text-amber-500 uppercase mb-3 tracking-widest font-bold">🔥
+                                    Smelting Furnace</h4>
+                                <p class="text-[10px] text-slate-500 mb-4 font-mono">Convert raw minerals into industrial
+                                    ingots (5:1 Ratio). Each produced ingot takes 1 tick. Requires SMELTER proximity.
+                                    <b>Draws resources from inventory or vault.</b></p>
+
+                                <div class="space-y-4">
+                                    <div class="flex flex-col md:flex-row gap-3">
+                                        <select id="smelt-ore-type"
+                                            onchange="game.ui.updateSmeltRequirements()"
+                                            class="flex-grow bg-slate-900 text-xs text-slate-300 p-3 rounded border border-slate-800 focus:border-amber-500 outline-none">
+                                            <option value="IRON_ORE">IRON ORE (5 -> 1 Ingot)</option>
+                                            <option value="COPPER_ORE">COPPER ORE (5 -> 1 Ingot)</option>
+                                            <option value="GOLD_ORE">GOLD ORE (5 -> 1 Ingot)</option>
+                                            <option value="COBALT_ORE">COBALT_ORE (5 -> 1 Ingot)</option>
+                                        </select>
+                                        <div
+                                            class="flex items-center bg-slate-900 px-2 rounded border border-slate-800 focus-within:border-amber-500 transition-colors">
+                                            <input type="number" id="smelt-quantity" placeholder="Ingots"
+                                                oninput="game.ui.updateSmeltRequirements()"
+                                                class="bg-transparent text-xs text-amber-400 outline-none p-2 w-24">
+                                            <button onclick="game.ui.setSmeltMax()"
+                                                class="text-[9px] orbitron font-bold text-amber-500 hover:text-amber-300 px-2 uppercase transition-colors">MAX</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex flex-wrap gap-4 text-[10px] orbitron font-bold py-2 px-1">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-slate-500 uppercase tracking-widest">Energy:</span>
+                                            <span id="smelt-req-energy" class="text-sky-400">0</span>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-slate-500 uppercase tracking-widest">Time:</span>
+                                            <span id="smelt-req-time" class="text-amber-400">0 TICKS</span>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-slate-500 uppercase tracking-widest">Ore Needed:</span>
+                                            <span id="smelt-req-ore" class="text-emerald-400">0</span>
+                                        </div>
+                                    </div>
+
+                                    <button id="btn-smelt"
+                                        class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-3 rounded-lg font-black text-xs orbitron transition-all shadow-lg shadow-amber-500/10">INITIATE
+                                        SMELT SEQUENCE</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Repair sub-panel -->
+                        <div id="stn-panel-repair" class="hidden space-y-4">
                             <div class="glass p-4 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
                                 <h4 class="text-[10px] text-rose-400 uppercase mb-3 tracking-widest font-bold">Repair
                                     Bay</h4>
@@ -1065,6 +1111,69 @@
                          TAB 4: SYSTEM & COMMS
                          API Key | Squad | Directive
                     ════════════════════════════════════════════════ -->
+                    <!-- ════════════════════════════════════════════════
+                         TAB 4: SOCIAL & DEPLOYMENT
+                         Squad | Corporation
+                    ════════════════════════════════════════════════ -->
+                    <div id="content-social" class="hidden space-y-4">
+                        <div class="flex gap-2 mb-4">
+                            <button onclick="game.ui.switchSocialTab('squad')" id="social-tab-squad"
+                                class="social-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-purple-500/50 bg-purple-500/10 text-purple-400 transition-all">👥
+                                Squad</button>
+                            <button onclick="game.ui.switchSocialTab('corp')" id="social-tab-corp"
+                                class="social-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-slate-700 text-slate-500 hover:border-purple-500/30 hover:text-slate-300 transition-all">🏢
+                                Corp</button>
+                        </div>
+
+                        <!-- Squad Telemetry Panel -->
+                        <div id="social-panel-squad" class="space-y-4">
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-purple-500">
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="text-[10px] text-purple-400 uppercase tracking-widest font-bold">👥 Squad
+                                        Telemetry</h4>
+                                    <span id="squad-id-display" class="text-[8px] text-slate-500 uppercase font-mono">No
+                                        Squad</span>
+                                </div>
+                                <div id="pending-invite-panel"
+                                    class="hidden mb-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                                    <p class="text-[10px] text-purple-300 mb-2">Pending Invite Received!</p>
+                                    <div class="flex space-x-2">
+                                        <button onclick="window.game.acceptSquad()"
+                                            class="flex-1 bg-purple-500 hover:bg-purple-400 text-slate-950 font-bold text-[9px] py-1.5 rounded uppercase transition-colors">Accept</button>
+                                        <button onclick="window.game.declineSquad()"
+                                            class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[9px] py-1.5 rounded uppercase transition-colors">Decline</button>
+                                    </div>
+                                </div>
+                                <div id="squad-members-list" class="space-y-2 mb-4">
+                                    <div class="text-[10px] text-slate-600 italic">Operating solo.</div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <input type="number" id="invite-target-id" placeholder="Agent ID"
+                                        class="w-20 bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded p-1 outline-none relative z-10 focus:border-purple-500 transition-colors pointer-events-auto">
+                                    <button onclick="window.game.inviteSquad()"
+                                        class="flex-grow bg-slate-800 hover:bg-slate-700 text-purple-400 border border-purple-500/30 px-2 py-1 rounded text-[10px] orbitron font-bold transition-all relative z-10 pointer-events-auto">INVITE</button>
+                                    <button onclick="window.game.leaveSquad()"
+                                        class="hidden bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 border border-rose-500/30 px-2 py-1 rounded text-[10px] orbitron font-bold transition-all relative z-10 pointer-events-auto"
+                                        id="btn-leave-squad">LEAVE</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Corporation Management Panel -->
+                        <div id="social-panel-corp" class="hidden">
+                            <div id="corporation-social-panel" class="flex flex-col gap-6">
+                                <div
+                                    class="flex items-center justify-center p-12 text-slate-500 orbitron text-[10px] animate-pulse">
+                                    Accessing Corporate Secure Channel...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ════════════════════════════════════════════════
+                         TAB 5: SYSTEM & COMMS
+                         API Key | Directive | Faction
+                    ════════════════════════════════════════════════ -->
                     <div id="content-system" class="hidden space-y-4">
                         <!-- Faction Realignment -->
                         <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-rose-500">
@@ -1130,38 +1239,6 @@
                                 </svg>
                             </div>
                         </button>
-
-                        <!-- Squad Telemetry -->
-                        <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-purple-500">
-                            <div class="flex justify-between items-center mb-3">
-                                <h4 class="text-[10px] text-purple-400 uppercase tracking-widest font-bold">👥 Squad
-                                    Telemetry</h4>
-                                <span id="squad-id-display" class="text-[8px] text-slate-500 uppercase font-mono">No
-                                    Squad</span>
-                            </div>
-                            <div id="pending-invite-panel"
-                                class="hidden mb-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
-                                <p class="text-[10px] text-purple-300 mb-2">Pending Invite Received!</p>
-                                <div class="flex space-x-2">
-                                    <button onclick="window.game.acceptSquad()"
-                                        class="flex-1 bg-purple-500 hover:bg-purple-400 text-slate-950 font-bold text-[9px] py-1.5 rounded uppercase transition-colors">Accept</button>
-                                    <button onclick="window.game.declineSquad()"
-                                        class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[9px] py-1.5 rounded uppercase transition-colors">Decline</button>
-                                </div>
-                            </div>
-                            <div id="squad-members-list" class="space-y-2 mb-4">
-                                <div class="text-[10px] text-slate-600 italic">Operating solo.</div>
-                            </div>
-                            <div class="flex space-x-2">
-                                <input type="number" id="invite-target-id" placeholder="Agent ID"
-                                    class="w-20 bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded p-1 outline-none relative z-10 focus:border-purple-500 transition-colors pointer-events-auto">
-                                <button onclick="window.game.inviteSquad()"
-                                    class="flex-grow bg-slate-800 hover:bg-slate-700 text-purple-400 border border-purple-500/30 px-2 py-1 rounded text-[10px] orbitron font-bold transition-all relative z-10 pointer-events-auto">INVITE</button>
-                                <button onclick="window.game.leaveSquad()"
-                                    class="hidden bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 border border-rose-500/30 px-2 py-1 rounded text-[10px] orbitron font-bold transition-all relative z-10 pointer-events-auto"
-                                    id="btn-leave-squad">LEAVE</button>
-                            </div>
-                        </div>
                     </div>
 
                     <!-- ════════════════════════════════════════════════
@@ -1261,15 +1338,6 @@
 
                     </div>
 
-                    <!-- ════════════════════════════════════════════════
-                         TAB 6: CORPORATION MANAGEMENT
-                         Members | Vault | Hierarchy
-                    ════════════════════════════════════════════════ -->
-                    <div id="content-corporation" class="hidden flex flex-col gap-6">
-                        <div class="flex items-center justify-center p-12 text-slate-500 orbitron text-[10px] animate-pulse">
-                            Accessing Corporate Secure Channel...
-                        </div>
-                    </div>
                 </main>
         </div>
 
@@ -1510,8 +1578,8 @@
         }
     }
     </script>
-    <script type="module" src="storage.js?v=0.6.7"></script>
-    <script type="module" src="app.js?v=0.6.7"></script>
+    <script type="module" src="storage.js?v=0.7.0"></script>
+    <script type="module" src="app.js?v=0.7.0"></script>
 
 </body>
 
