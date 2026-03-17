@@ -152,7 +152,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="TERMINAL FRONTIER API",
     description="Backend API for Terminal Frontier agent-centric industrial RPG",
-    version="0.1.0",
+    version="0.7.8",
     lifespan=lifespan
 )
 
@@ -354,7 +354,7 @@ if os.path.exists(frontend_path):
     @app.get("/api/metadata")
     async def get_metadata():
         return {
-            "version": "0.2.2",
+            "version": "0.7.8",
             "features": ["continuous_mining", "pilot_console_compat", "enhanced_ui"]
         }
 
@@ -371,7 +371,7 @@ else:
         return {
             "message": "Welcome to the Terminal Frontier API",
             "status": "online",
-            "version": "0.1.4",
+            "version": "0.7.8",
             "note": f"Frontend directory not found at {frontend_path}."
         }
 
