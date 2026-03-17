@@ -1,8 +1,8 @@
-import { GameAPI } from './api.js?v=0.7.2';
-import { AuthManager } from './auth.js?v=0.7.2';
-import { GameRenderer } from './renderer.js?v=0.7.2';
-import { UIManager } from './ui.js?v=0.7.2';
-import { TerminalHandler } from './terminal.js?v=0.7.2';
+import { GameAPI } from './api.js?v=0.7.5';
+import { AuthManager } from './auth.js?v=0.7.5';
+import { GameRenderer } from './renderer.js?v=0.7.5';
+import { UIManager } from './ui.js?v=0.7.5';
+import { TerminalHandler } from './terminal.js?v=0.7.5';
 
 /**
  * app.js — Main Bootstrapper
@@ -66,6 +66,8 @@ class GameClient {
         // Mode Switcher
         document.getElementById('btn-mode-world')?.addEventListener('click', () => this.ui.setUIMode('world'));
         document.getElementById('btn-mode-agent')?.addEventListener('click', () => this.ui.setUIMode('management'));
+        document.getElementById('btn-mode-contracts')?.addEventListener('click', () => this.ui.setUIMode('contracts'));
+        document.getElementById('btn-mode-wiki')?.addEventListener('click', () => this.ui.setUIMode('wiki'));
         document.getElementById('btn-mode-leaderboard')?.addEventListener('click', () => this.ui.setUIMode('leaderboard'));
 
         // Tabs
@@ -130,6 +132,7 @@ class GameClient {
             console.log("--- SYNC COMPLETE: HIDING LOADING PANEL ---");
             screen.style.display = 'none';
             this._loadingHidden = true;
+            document.getElementById('mode-switcher')?.classList.remove('hidden');
         }
     }
 

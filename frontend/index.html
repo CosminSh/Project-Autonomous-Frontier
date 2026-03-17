@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=0.7.2">
+    <link rel="stylesheet" href="styles.css?v=0.7.5">
     <style>
         body {
             background-color: #050507;
@@ -243,6 +243,8 @@
                         class="text-[8px] text-sky-500/70 hover:text-sky-400 uppercase tracking-wider transition-colors">About</a>
                     <a href="/gdd" target="_blank"
                         class="text-[8px] text-sky-500/70 hover:text-sky-400 uppercase tracking-wider transition-colors">GDD</a>
+                    <button onclick="game.ui.toggleWiki()" 
+                        class="text-[8px] text-sky-500/70 hover:text-sky-400 uppercase tracking-wider transition-colors cursor-pointer">Wiki</button>
                 </div>
             </div>
 
@@ -1123,6 +1125,9 @@
                             <button onclick="game.ui.switchSocialTab('corp')" id="social-tab-corp"
                                 class="social-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-slate-700 text-slate-500 hover:border-purple-500/30 hover:text-slate-300 transition-all">🏢
                                 Corp</button>
+                            <button onclick="game.ui.switchSocialTab('contracts')" id="social-tab-contracts"
+                                class="social-sub-tab px-4 py-1.5 rounded-full text-[9px] orbitron font-bold uppercase border border-slate-700 text-slate-500 hover:border-purple-500/30 hover:text-slate-300 transition-all">🤝
+                                Contracts</button>
                         </div>
 
                         <!-- Squad Telemetry Panel -->
@@ -1165,6 +1170,27 @@
                                 <div
                                     class="flex items-center justify-center p-12 text-slate-500 orbitron text-[10px] animate-pulse">
                                     Accessing Corporate Secure Channel...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contracts Panel -->
+                        <div id="social-panel-contracts" class="hidden space-y-4">
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-sky-500">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="text-[10px] text-sky-400 uppercase tracking-widest font-bold">🤝 Public Mission Board</h4>
+                                    <button onclick="document.getElementById('post-contract-modal').classList.remove('hidden')" 
+                                        class="bg-sky-500/20 hover:bg-sky-500/40 text-sky-400 border border-sky-500/30 px-3 py-1 rounded text-[9px] orbitron font-bold transition-all">POST CONTRACT</button>
+                                </div>
+                                <div id="contracts-list" class="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar">
+                                    <p class="text-[10px] text-slate-600 italic">Scanning colonial frequencies...</p>
+                                </div>
+                            </div>
+                            
+                            <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
+                                <h4 class="text-[10px] text-amber-500 uppercase tracking-widest font-bold mb-3">Your Active Operations</h4>
+                                <div id="my-contracts-list" class="space-y-2">
+                                    <p class="text-[10px] text-slate-600 italic">No active operations.</p>
                                 </div>
                             </div>
                         </div>
@@ -1402,7 +1428,87 @@
                     class="text-slate-400">--</span>
             </p>
         </div>
+        
     </main>
+
+    <!-- Post Contract Modal -->
+    <div id="post-contract-modal" class="fixed inset-0 z-[110] flex items-center justify-center hidden interactive">
+        <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onclick="this.parentElement.classList.add('hidden')"></div>
+        <div class="glass w-full max-w-lg rounded-2xl border-t-4 border-t-sky-500 p-8 relative z-10 m-4 shadow-3xl">
+            <h2 class="orbitron text-sky-400 font-bold text-xl tracking-widest mb-6 uppercase">Transmit Public Contract</h2>
+            
+            <div class="space-y-4 mb-8">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[9px] text-slate-500 uppercase font-black block mb-1.5">Contract Type</label>
+                        <select id="contract-type" class="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-sky-300">
+                            <option value="PROCUREMENT">PROCUREMENT</option>
+                            <option value="TRANSPORT">TRANSPORT</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-slate-500 uppercase font-black block mb-1.5">Target Station ID</label>
+                        <input type="number" id="contract-target" placeholder="E.g. 1" class="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-sky-400">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[9px] text-slate-500 uppercase font-black block mb-1.5">Resource Identifier</label>
+                    <input type="text" id="contract-item" placeholder="IRON_ORE, HE3_FUEL, etc." class="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-sky-400 uppercase">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[9px] text-slate-500 uppercase font-black block mb-1.5">Units Required</label>
+                        <input type="number" id="contract-qty" value="10" class="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-sky-400">
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-slate-500 uppercase font-black block mb-1.5">Reward (Credits)</label>
+                        <input type="number" id="contract-reward" value="1000" class="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-amber-400 font-bold">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex space-x-3">
+                <button onclick="document.getElementById('post-contract-modal').classList.add('hidden')" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs orbitron font-bold rounded-xl transition-all uppercase">Abort</button>
+                <button onclick="game.ui.postContract(); document.getElementById('post-contract-modal').classList.add('hidden')" class="flex-2 py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-black orbitron rounded-xl transition-all uppercase shadow-lg shadow-sky-500/20">Transmit Directive</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Wiki Modal -->
+    <div id="wiki-modal" class="fixed inset-0 z-[110] flex items-center justify-center hidden interactive">
+        <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onclick="this.parentElement.classList.add('hidden')"></div>
+        <div class="glass w-full max-w-4xl max-h-[85vh] rounded-2xl border-t-4 border-t-sky-500 flex flex-col relative z-10 m-4 shadow-3xl overflow-hidden">
+            <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <h2 class="orbitron text-sky-400 font-bold text-xl tracking-widest uppercase">Galactic Encyclopedia</h2>
+                <button onclick="document.getElementById('wiki-modal').classList.add('hidden')" class="text-slate-500 hover:text-white transition-colors cursor-pointer">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="flex-grow flex overflow-hidden">
+                <!-- Wiki Sidebar -->
+                <div class="w-48 bg-slate-950/50 border-r border-slate-800 p-4 space-y-2 flex flex-col">
+                    <button onclick="game.ui.switchWikiTab('MANUAL')" id="wiki-tab-MANUAL" class="w-full text-left px-4 py-3 rounded-xl text-[10px] orbitron font-bold tracking-widest transition-all border border-transparent hover:bg-sky-500/10 hover:text-sky-400">MANUAL</button>
+                    <button onclick="game.ui.switchWikiTab('DATABASE')" id="wiki-tab-DATABASE" class="w-full text-left px-4 py-3 rounded-xl text-[10px] orbitron font-bold tracking-widest transition-all border border-transparent hover:bg-emerald-500/10 hover:text-emerald-400">DATABASE</button>
+                    <button onclick="game.ui.switchWikiTab('ARCHIVES')" id="wiki-tab-ARCHIVES" class="w-full text-left px-4 py-3 rounded-xl text-[10px] orbitron font-bold tracking-widest transition-all border border-transparent hover:bg-amber-500/10 hover:text-amber-400">ARCHIVES</button>
+                    
+                    <div class="mt-auto pt-4 border-t border-slate-900">
+                        <h4 class="text-[9px] text-slate-600 uppercase font-black mb-3 px-2">Reference</h4>
+                        <button onclick="game.ui.switchWikiTab('SCRIPTS')" id="wiki-tab-SCRIPTS" class="w-full text-left px-3 py-2 rounded-lg text-[9px] orbitron font-bold text-slate-500 hover:text-emerald-400 transition-colors">STARTER SCRIPTS</button>
+                    </div>
+                </div>
+
+                <!-- Wiki Content Area -->
+                <div id="wiki-main-viewport" class="flex-grow p-8 overflow-y-auto custom-scrollbar">
+                    <div id="wiki-content" class="max-w-3xl mx-auto space-y-8">
+                        <!-- Dynamic Content -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Tooltip -->
     <div id="hex-tooltip" class="absolute hidden glass px-3 py-2 rounded-lg text-xs pointer-events-none transition-all">
         <div id="hex-coords" class="font-mono text-sky-400">Q:0, R:0</div>
@@ -1462,27 +1568,27 @@
                 </section>
 
                 <section>
-                    <h3 class="orbitron text-sm text-sky-400 mb-4 border-b border-slate-800 pb-2">2. THE TICK PHASE</h3>
-                    <p class="text-xs text-slate-400 leading-relaxed mb-4">The world operates in discrete cycles.
-                        Synchronize your agent logic with the server phase:</p>
+                    <h3 class="orbitron text-sm text-sky-400 mb-4 border-b border-slate-800 pb-2">TERMINAL FRONTIER PROTOCOL</h3>
+                    <p class="text-[11px] text-slate-400 leading-relaxed mb-4">You are a Fleet Commander directing autonomous assets on Aether-Alpha. This is a persistent, API-driven industrial RPG. Write code to dominate.</p>
+                    
+                    <div class="glass p-4 rounded-xl border-l-2 border-sky-500 bg-sky-500/5 mb-6">
+                        <h4 class="text-[10px] orbitron font-bold text-sky-400 mb-1 uppercase">New Commander?</h4>
+                        <p class="text-[10px] text-slate-400">Deep mechanics, solar cycles, and command references have been moved to the <button onclick="game.ui.toggleWiki()" class="text-sky-400 hover:underline font-bold">Galactic Encyclopedia (Wiki)</button>.</p>
+                    </div>
+
+                    <h4 class="text-[10px] orbitron font-bold text-slate-300 mb-3 uppercase tracking-widest">Core Execution Loop</h4>
                     <div class="space-y-3">
                         <div class="flex items-start space-x-3">
-                            <span
-                                class="text-[10px] font-bold text-sky-500 bg-sky-500/10 px-2 py-1 rounded">PERCEPTION</span>
-                            <p class="text-[10px] text-slate-500 italic flex-grow">Fetch world state via <code
-                                    class="text-slate-300">/api/perception</code>.</p>
+                            <span class="text-[9px] font-bold text-sky-500 bg-sky-500/10 px-2 py-1 rounded w-20 text-center">PERCEPTION</span>
+                            <p class="text-[10px] text-slate-500 italic flex-grow">Read world state via <code class="text-slate-300">/api/perception</code>.</p>
                         </div>
                         <div class="flex items-start space-x-3">
-                            <span
-                                class="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded">STRATEGY</span>
-                            <p class="text-[10px] text-slate-500 italic flex-grow">Calculate moves and submit intentions
-                                via <code class="text-slate-300">/api/intent</code>.</p>
+                            <span class="text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded w-20 text-center">STRATEGY</span>
+                            <p class="text-[10px] text-slate-500 italic flex-grow">Calculate moves and submit via <code class="text-slate-300">/api/intent</code>.</p>
                         </div>
                         <div class="flex items-start space-x-3">
-                            <span
-                                class="text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded">CRUNCH</span>
-                            <p class="text-[10px] text-slate-500 italic flex-grow">Server resolves all intents. No new
-                                commands accepted.</p>
+                            <span class="text-[9px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded w-20 text-center">CRUNCH</span>
+                            <p class="text-[10px] text-slate-500 italic flex-grow">Server resolves actions. Cycle repeats every 90s.</p>
                         </div>
                     </div>
                 </section>
@@ -1578,8 +1684,8 @@
         }
     }
     </script>
-    <script type="module" src="storage.js?v=0.7.1"></script>
-    <script type="module" src="app.js?v=0.7.1"></script>
+    <script type="module" src="storage.js?v=0.7.7"></script>
+    <script type="module" src="app.js?v=0.7.7"></script>
 
 </body>
 

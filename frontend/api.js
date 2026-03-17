@@ -22,6 +22,8 @@ function cacheSet(key, data) {
 function cacheGet(key) {
     try { const v = sessionStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; }
 }
+window.cacheSet = cacheSet;
+window.cacheGet = cacheGet;
 
 export class GameAPI {
     constructor(game) {
@@ -141,6 +143,25 @@ export class GameAPI {
             let chatResult = null;
             if (isSlow && apiKey) {
                 chatResult = await this._fetch('/api/chat').then(v => ({status: 'fulfilled', value: v})).catch(e => ({status: 'rejected', reason: e}));
+            }
+
+            // ── CONTEXTUAL TIER: Poll based on active UI mode ──
+            const wikiLayer = document.getElementById('wiki-modal');
+            const contractsLayer = document.getElementById('social-panel-contracts');
+
+            if (wikiLayer && !wikiLayer.classList.contains('hidden')) {
+                // If wiki is open, refresh wiki data occasionally
+                if (this._pollCycle % 6 === 0) { // every 60s
+                    this.fetchWikiData();
+                    this.fetchStarterScripts();
+                }
+            }
+
+            if (contractsLayer && !contractsLayer.classList.contains('hidden')) {
+                // If contracts are open, refresh every 20s
+                if (this._pollCycle % 2 === 0) {
+                    this.fetchContracts();
+                }
             }
 
             // Helper: safely get result
@@ -758,6 +779,75 @@ export class GameAPI {
         } catch (e) {
             console.error("Depth API error:", e);
             return null;
+        }
+    }
+
+    // ── WIKI & STARTER SCRIPTS ──
+    async fetchWikiData() {
+        try {
+            const data = await this._fetch('/api/wiki/data');
+            cacheSet('tf_wiki_data', data);
+            this.game.ui.renderWiki(data);
+        } catch (e) {
+            console.error("Wiki fetch error:", e);
+        }
+    }
+
+    async fetchStarterScripts() {
+        try {
+            const resp = await fetch('/starter_scripts.json');
+            if (resp.ok) {
+                const data = await resp.json();
+                cacheSet('tf_starter_scripts', data);
+                this.game.ui.renderStarterScripts(data);
+            }
+        } catch (e) {
+            console.error("Starter scripts fetch error:", e);
+        }
+    }
+
+    // ── CONTRACTS ──
+    async fetchContracts() {
+        try {
+            const [available, mine] = await Promise.all([
+                this._fetch('/api/contracts/available'),
+                this._fetch('/api/contracts/my_contracts')
+            ]);
+            cacheSet('tf_contracts_available', available);
+            cacheSet('tf_contracts_mine', mine);
+            this.game.ui.updateContractsUI(available, mine);
+        } catch (e) {
+            console.error("Contracts fetch error:", e);
+        }
+    }
+
+    async postContract(data) {
+        try {
+            const res = await this._post('/api/contracts/post', data);
+            this.game.ui.showToast("Contract posted and credits escrowed!", "success");
+            this.fetchContracts();
+        } catch (e) {
+            this.game.ui.showToast(e.message, "error");
+        }
+    }
+
+    async claimContract(contractId) {
+        try {
+            await this._post(`/api/contracts/claim/${contractId}`);
+            this.game.ui.showToast("Contract claimed! Check your operations.", "success");
+            this.fetchContracts();
+        } catch (e) {
+            this.game.ui.showToast(e.message, "error");
+        }
+    }
+
+    async fulfillContract(contractId) {
+        try {
+            await this._post(`/api/contracts/fulfill/${contractId}`);
+            this.game.ui.showToast("Contract fulfilled! Reward collected.", "success");
+            this.fetchContracts();
+        } catch (e) {
+            this.game.ui.showToast(e.message, "error");
         }
     }
 }

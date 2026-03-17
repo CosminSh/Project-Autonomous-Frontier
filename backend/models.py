@@ -297,3 +297,28 @@ class APIKeyRevocation(Base):
     revoked_key = Column(String, unique=True, index=True)
     revoked_at = Column(DateTime(timezone=True), server_default=func.now())
     reason = Column(String)  # "rotation", "compromised", etc.
+
+class PlayerContract(Base):
+    __tablename__ = "player_contracts"
+    id = Column(Integer, primary_key=True, index=True)
+    issuer_id = Column(Integer, ForeignKey("agents.id"), index=True)
+    contract_type = Column(String) # "DELIVERY", "BOUNTY"
+    
+    # Requirements (JSON blob for flexibility, e.g., {"item": "IRON_ORE", "qty": 10})
+    requirements = Column(JSON, nullable=True)
+    
+    reward_credits = Column(Integer)
+    status = Column(String, default="OPEN") # OPEN, CLAIMED, COMPLETED, EXPIRED, CANCELLED
+    
+    issuer_name = Column(String) # Denormalized for rapid listing
+    
+    claimed_by_id = Column(Integer, ForeignKey("agents.id"), nullable=True, index=True)
+    target_station_q = Column(Integer, nullable=True) # For delivery contracts
+    target_station_r = Column(Integer, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Relationships
+    issuer = relationship("Agent", foreign_keys=[issuer_id])
+    claimant = relationship("Agent", foreign_keys=[claimed_by_id])

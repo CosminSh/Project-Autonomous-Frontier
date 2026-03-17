@@ -66,6 +66,10 @@
                 class="flex-1 md:flex-none px-6 py-2 rounded-lg text-[10px] orbitron font-bold transition-all bg-sky-500/20 text-sky-300 border border-sky-500/30">AGENT</button>
             <button id="tab-world" onclick="window.dashboard.switchTab('world')"
                 class="flex-1 md:flex-none px-6 py-2 rounded-lg text-[10px] orbitron font-bold transition-all text-slate-500 hover:text-slate-300">WORLD</button>
+            <button id="tab-contracts" onclick="window.dashboard.switchTab('contracts')"
+                class="flex-1 md:flex-none px-6 py-2 rounded-lg text-[10px] orbitron font-bold transition-all text-slate-500 hover:text-slate-300">CONTRACTS</button>
+            <button id="tab-wiki" onclick="window.dashboard.switchTab('wiki')"
+                class="flex-1 md:flex-none px-6 py-2 rounded-lg text-[10px] orbitron font-bold transition-all text-slate-500 hover:text-slate-300">WIKI</button>
         </nav>
 
         <button onclick="logout()"
@@ -209,7 +213,38 @@ requests.post(URL, json={
                     </div>
                 </div>
             </section>
+
+            <!-- Live World Feed -->
+            <section class="lg:col-span-1 glass rounded-xl p-4 border-t-2 border-t-pink-500 overflow-hidden flex flex-col h-[400px]">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="orbitron text-[11px] text-pink-400 uppercase tracking-widest">Live World Feed</h2>
+                    <span id="ws-status" class="w-2 h-2 rounded-full bg-slate-500 animate-pulse"></span>
+                </div>
+                <div id="live-feed" class="flex-grow space-y-2 overflow-y-auto custom-scrollbar pr-1 font-mono text-[9px]">
+                    <p class="text-slate-600 italic">Connecting to relay...</p>
+                </div>
+            </section>
         </div>
+
+    <div id="view-wiki" class="hidden space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Dynamic Wiki Content -->
+            <section class="glass rounded-xl p-4 border-t-2 border-t-sky-500">
+                <h2 class="orbitron text-[11px] text-sky-400 mb-4 uppercase tracking-widest">Galactic Encyclopedia</h2>
+                <div id="wiki-content" class="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-1">
+                    <p class="text-slate-500 italic text-[10px]">Downloading encrypted records...</p>
+                </div>
+            </section>
+
+            <!-- Starter Scripts -->
+            <section class="glass rounded-xl p-4 border-t-2 border-t-emerald-500">
+                <h2 class="orbitron text-[11px] text-emerald-400 mb-4 uppercase tracking-widest">Starter Command Scripts</h2>
+                <div id="starter-scripts-list" class="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-1">
+                    <p class="text-slate-500 italic text-[10px]">Accessing colony code-banks...</p>
+                </div>
+            </section>
+        </div>
+    </div>
 
         <!-- Placeholder for Map -->
         <section class="glass rounded-xl p-4 border border-slate-800 min-h-[400px] flex items-center justify-center">
@@ -218,7 +253,7 @@ requests.post(URL, json={
         </section>
     </div>
 
-    <script src="dashboard.js?v=0.2.1"></script>
+    <script src="dashboard.js?v=0.7.5"></script>
 </body>
 
 </html>

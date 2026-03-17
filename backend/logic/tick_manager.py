@@ -191,6 +191,12 @@ class TickManager:
                     logger.error(f"Error in intent {intent.id}: {e}")
             db.delete(intent) # Intent is consumed even if handler fails
 
+        if self.manager:
+            await self.manager.broadcast({
+                "type": "EVENT", "event": "SIMULATION", "subtype": "COMPLETE",
+                "tick": self.tick_count, "processed": processed_count
+            })
+
         # 3. Global Activity Analytics -- Isolated Session to prevent transaction poisoning
         if processed_count > 0:
             with SessionLocal() as act_db:

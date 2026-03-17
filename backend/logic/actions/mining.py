@@ -147,6 +147,11 @@ async def handle_mine(db, agent, intent, tick_count, manager):
             hex_data.resource_density = 0.0
             hex_data.resource_quantity = 0
             db.add(AuditLog(agent_id=agent.id, event_type="NODE_DEPLETED", details={"resource": res_name, "q": hex_data.q, "r": hex_data.r}))
+            if manager:
+                await manager.broadcast({
+                    "type": "EVENT", "event": "RESOURCE", "subtype": "DEPLETED",
+                    "resource": res_name, "q": hex_data.q, "r": hex_data.r
+                })
 
     # 8. Update Estate
     inv_item = next((i for i in agent.inventory if i.item_type == res_name), None)

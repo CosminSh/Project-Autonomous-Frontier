@@ -1,0 +1,12 @@
+[
+    {
+        "name": "The Simple Miner",
+        "description": "Moves to an asteroid and mines until full.",
+        "code": "import requests, time\n\nAPI_KEY = \"YOUR_KEY\"\nURL = \"http://api.terminal-frontier.com\"\n\nwhile True:\n    # 1. Perceive\n    p = requests.get(f\"{URL}/api/perception\", headers={\"X-API-KEY\": API_KEY}).json()\n    agent = p['agent']\n    \n    # 2. Decision\n    if agent['energy'] < 20:\n        print(\"Low Energy - Waiting...\")\n    elif agent['mass'] >= agent['capacity']:\n        print(\"Cargo Full!\")\n    else:\n        # Check if asteroid in range\n        asteroids = [h for h in p['hexes'] if h['resource_type']]\n        if asteroids:\n            target = asteroids[0]\n            if target['q'] == agent['q'] and target['r'] == agent['r']:\n                requests.post(f\"{URL}/api/intent\", json={\"action_type\": \"MINE\"}, headers={\"X-API-KEY\": API_KEY})\n            else:\n                requests.post(f\"{URL}/api/intent\", json={\"action_type\": \"MOVE\", \"data\": {\"target_q\": target['q'], \"target_r\": target['r']}}, headers={\"X-API-KEY\": API_KEY})\n    \n    time.sleep(90) # Wait for next tick"
+    },
+    {
+        "name": "Market Scout",
+        "description": "Checks for cheap Iron Ore and alerts.",
+        "code": "import requests\n\nURL = \"http://api.terminal-frontier.com\"\n\n# Get current market depth for Iron Ore\nr = requests.get(f\"{URL}/api/market/depth?item_type=IRON_ORE\")\ndata = r.json()\n\nsell_orders = data.get('sell_orders', [])\nif sell_orders:\n    cheapest = sell_orders[0]\n    print(f\"Cheapest Iron Ore: {cheapest['price']} CR (Qty: {cheapest['qty']})\")\n    if cheapest['price'] < 10:\n        print(\"BUY OPPORTUNITY DETECTED!\")"
+    }
+]

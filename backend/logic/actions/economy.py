@@ -87,7 +87,13 @@ async def handle_list(db, agent, intent, tick_count, manager):
         else: db.delete(matching_buy)
         
         db.add(AuditLog(agent_id=agent.id, event_type="MARKET_MATCH", details={"item": item_type, "qty": trade_qty}))
-        if manager: await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
+        if manager:
+            await manager.broadcast({
+                "type": "EVENT", "event": "MARKET", "subtype": "MATCH",
+                "item": item_type, "qty": trade_qty, "price": trade_price,
+                "seller": agent.name, "buyer": matching_buy.owner
+            })
+            await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
         
         quantity -= trade_qty
 
@@ -193,7 +199,12 @@ async def handle_buy(db, agent, intent, tick_count, manager):
     if total_bought > 0:
         await _update_buy_mission(db, agent.id)
         db.add(AuditLog(agent_id=agent.id, event_type="MARKET_BUY_BULK", details={"item": item_type, "qty": total_bought}))
-        if manager: await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
+        if manager:
+            await manager.broadcast({
+                "type": "EVENT", "event": "MARKET", "subtype": "BULK_BUY",
+                "item": item_type, "qty": total_bought, "buyer": agent.name
+            })
+            await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
 
     # If we still want more and have credits, post a persistent BUY order
     if remaining_qty > 0 and remaining_qty < 9999: # Don't post infinite buy orders from 'MAX'

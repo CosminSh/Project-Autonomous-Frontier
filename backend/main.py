@@ -1,3 +1,4 @@
+# Wiki update trigger
 """
 main.py — Application entry point.
 Sets up FastAPI, CORS, WebSocket, mounts routers, and starts the heartbeat.
@@ -20,6 +21,7 @@ import heartbeat as hb
 
 # Routers
 from routes import auth, perception, agent_meta, intent, economy, missions, social, world, corp, admin, arena, debug
+from logic.events import event_manager
 
 from contextlib import asynccontextmanager
 
@@ -129,7 +131,7 @@ async def lifespan(app: FastAPI):
     refresh_station_cache()
 
     # Inject the shared WebSocket manager into heartbeat module
-    hb.manager = manager
+    hb.manager = event_manager
     asyncio.create_task(hb.heartbeat_loop())
     
     # Start Leaderboard Generation loop - Non-blocking background task
@@ -199,36 +201,12 @@ async def add_security_headers(request: Request, call_next):
 # ─────────────────────────────────────────────────────────────────────────────
 # WebSocket
 # ─────────────────────────────────────────────────────────────────────────────
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections = []
-
-    async def connect(self, websocket: WebSocket, agent_id: int):
-        # Already accepted in the endpoint
-        websocket.agent_id = agent_id
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: dict):
-        for connection in list(self.active_connections):
-            try:
-                await connection.send_json(message)
-            except Exception:
-                if connection in self.active_connections:
-                    self.active_connections.remove(connection)
-
-manager = ConnectionManager()
-
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     # Standard upgrade
-    await websocket.accept()
-    
     token = websocket.query_params.get("token")
     if not token:
+        await websocket.accept() # Accept to send close code properly
         await websocket.close(code=4001)
         return
 
@@ -239,23 +217,26 @@ async def websocket_endpoint(websocket: WebSocket):
     with SessionLocal() as db:
         agent = db.execute(select(Agent).where(Agent.api_key == token)).scalar_one_or_none()
         if not agent:
+            await websocket.accept()
             await websocket.close(code=4001)
             return
         agent_id = agent.id
 
-    await manager.connect(websocket, agent_id)
+    await event_manager.connect(websocket)
     try:
         while True:
             # Keep-alive loop
             await websocket.receive_text()
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        event_manager.disconnect(websocket)
     except Exception:
-        manager.disconnect(websocket)
+        event_manager.disconnect(websocket)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Routers
 # ─────────────────────────────────────────────────────────────────────────────
+from routes import perception, world, economy, agent_meta, auth, social, missions, arena, admin, corp, contracts, wiki
+
 app.include_router(auth.router)
 app.include_router(perception.router)
 app.include_router(agent_meta.router)
@@ -267,6 +248,8 @@ app.include_router(world.router)
 app.include_router(corp.router)
 app.include_router(admin.router)
 app.include_router(arena.router)
+app.include_router(contracts.router)
+app.include_router(wiki.router)
 
 if os.getenv("ENVIRONMENT") != "production":
     app.include_router(debug.router)

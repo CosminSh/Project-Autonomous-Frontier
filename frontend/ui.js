@@ -74,12 +74,12 @@ export class UIManager {
         const leaderboardLayer = document.getElementById('leaderboard-layer');
         const mapCanvas = document.getElementById('canvas-container');
 
-        let mode = 'world';
-        if (!privateLayer.classList.contains('hidden')) mode = 'management';
-        else if (!leaderboardLayer.classList.contains('hidden')) mode = 'leaderboard';
+        let modeStr = 'world';
+        if (privateLayer && !privateLayer.classList.contains('hidden')) modeStr = 'management';
+        else if (leaderboardLayer && !leaderboardLayer.classList.contains('hidden')) modeStr = 'leaderboard';
 
         let tab = '';
-        if (mode === 'management') {
+        if (modeStr === 'management') {
             const tabs = ['status', 'terminal', 'inventory', 'station', 'social', 'arena', 'system'];
             tab = tabs.find(t => {
                 const content = document.getElementById(`content-${t}`);
@@ -99,14 +99,14 @@ export class UIManager {
             const subs = ['smelt', 'forge', 'market', 'missions', 'repair'];
             subTab = subs.find(s => !document.getElementById(`stn-panel-${s}`).classList.contains('hidden')) || '';
         } else if (tab === 'social') {
-            const subs = ['squad', 'corp'];
+            const subs = ['squad', 'corp', 'contracts'];
             subTab = subs.find(s => {
                 const p = document.getElementById(`social-panel-${s}`);
                 return p && !p.classList.contains('hidden');
             }) || '';
         }
 
-        let newHash = mode;
+        let newHash = modeStr;
         if (tab) newHash += `/${tab}`;
         if (subTab) newHash += `/${subTab}`;
 
@@ -329,7 +329,7 @@ export class UIManager {
     }
 
     switchSocialTab(subTab, updateHash = true) {
-        const panels = ['squad', 'corp'];
+        const panels = ['squad', 'corp', 'contracts'];
         panels.forEach(p => {
             const btn = document.getElementById(`social-tab-${p}`);
             const panel = document.getElementById(`social-panel-${p}`);
@@ -340,12 +340,28 @@ export class UIManager {
                     btn.classList.remove('border-slate-700', 'text-slate-500');
                 } else {
                     btn.classList.remove('border-purple-500/50', 'bg-purple-500/10', 'text-purple-400');
-                    btn.classList.add('border-slate-700', 'text-slate-500');
                 }
             }
         });
 
+        if (subTab === 'contracts') {
+            this.game.api.fetchContracts();
+        }
+
         if (updateHash !== false) this.updateHash();
+    }
+
+    toggleWiki() {
+        const modal = document.getElementById('wiki-modal');
+        if (modal) {
+            const isHidden = modal.classList.contains('hidden');
+            modal.classList.toggle('hidden');
+            if (isHidden) {
+                // Was hidden, now showing
+                this.game.api.fetchWikiData();
+                this.game.api.fetchStarterScripts();
+            }
+        }
     }
 
     updateSmeltRequirements() {
@@ -439,10 +455,9 @@ export class UIManager {
 
     updatePrivateLogs(logs, pendingIntent, chatMessages = []) {
         const logEl = document.getElementById('private-logs');
-        if (!logEl) return;
 
         // ── Pending Intent card (pinned at top, updated every call) ──
-        if (!this._pendingIntentEl) {
+        if (logEl && !this._pendingIntentEl) {
             this._pendingIntentEl = document.createElement('div');
             this._pendingIntentEl.id = 'telemetry-pending-intent';
             logEl.prepend(this._pendingIntentEl);
@@ -527,10 +542,12 @@ export class UIManager {
 
         if (hasNew) {
             // Insert new entries after the pending-intent card (at top of log feed)
-            const afterPending = this._pendingIntentEl?.nextSibling || null;
-            logEl.insertBefore(fragment.cloneNode(true), afterPending);
-            // Auto-scroll to top to show newest entries
-            logEl.scrollTop = 0;
+            if (logEl) {
+                const afterPending = this._pendingIntentEl?.nextSibling || null;
+                logEl.insertBefore(fragment.cloneNode(true), afterPending);
+                // Auto-scroll to top to show newest entries
+                logEl.scrollTop = 0;
+            }
 
             // --- SYNC TO WORLD SCREEN FEED ---
             const worldFeed = document.getElementById('world-telemetry-feed');
@@ -579,7 +596,7 @@ export class UIManager {
                 </td>
                 <td class="py-4"><span class="px-2 py-0.5 rounded-full text-[7px] font-black border ${order.type === 'SELL' ? 'bg-sky-500/10 border-sky-500/30 text-sky-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-400'}">${order.type}</span></td>
                 <td class="py-4 font-mono text-slate-400">${order.quantity}</td>
-                <td class="py-4 font-bold ${color}">$${order.price.toFixed(2)}</td>
+                <td class="py-4 font-bold ${color}">$${(order.price || 0).toFixed(2)}</td>
                 <td class="py-4 text-right">
                     ${isMine ? `
                         <button class="opacity-0 group-hover:opacity-100 bg-rose-800/50 hover:bg-rose-700 text-rose-300 px-3 py-1 rounded text-[9px] font-bold mr-1 border border-rose-500/30 transition-all" onclick="window.game.api.cancelMarketOrder(${order.id})">CANCEL</button>
@@ -632,7 +649,7 @@ export class UIManager {
             html += `
                 <tr class="group hover:bg-sky-500/5 transition-all">
                     <td class="py-2"><span class="px-1.5 py-0.5 rounded text-[7px] font-black bg-sky-500/10 border border-sky-500/30 text-sky-400">ASK</span></td>
-                    <td class="py-2 font-bold text-sky-400">$${o.price.toFixed(2)}</td>
+                    <td class="py-2 font-bold text-sky-400">$${(o.price || 0).toFixed(2)}</td>
                     <td class="py-2 font-mono text-slate-400">${o.qty}</td>
                     <td class="py-2 text-right">
                         <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded text-[8px] font-bold" onclick="game.ui.quickTrade('${data.item}', ${o.price}, 'SELL')">BUY</button>
@@ -652,7 +669,7 @@ export class UIManager {
             html += `
                 <tr class="group hover:bg-amber-500/5 transition-all">
                     <td class="py-2"><span class="px-1.5 py-0.5 rounded text-[7px] font-black bg-amber-500/10 border border-amber-500/30 text-amber-400">BID</span></td>
-                    <td class="py-2 font-bold text-amber-500">$${o.price.toFixed(2)}</td>
+                    <td class="py-2 font-bold text-amber-500">$${(o.price || 0).toFixed(2)}</td>
                     <td class="py-2 font-mono text-slate-400">${o.qty}</td>
                     <td class="py-2 text-right">
                         <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded text-[8px] font-bold" onclick="game.ui.quickTrade('${data.item}', ${o.price}, 'BUY')">SELL</button>
@@ -2275,6 +2292,246 @@ Intent payload format:
         } catch (e) {
             console.error("Corp UI update error:", e);
         }
+    }
+
+    // ── CONTRACTS UI ──
+    updateContractsUI(available, mine) {
+        const list = document.getElementById('contracts-list');
+        const myList = document.getElementById('my-contracts-list');
+        if (!list || !myList) return;
+
+        // Render Available
+        if (!available || available.length === 0) {
+            list.innerHTML = '<p class="text-slate-600 italic text-sm">No public contracts currently posted.</p>';
+        } else {
+            list.innerHTML = available.map(c => `
+                <div class="glass p-4 rounded-xl border border-slate-800 hover:border-sky-500/50 transition-all group">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <span class="text-[10px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded border border-sky-500/30 font-bold orbitron">${c.type}</span>
+                            <h4 class="text-sm font-bold text-slate-200 mt-2">${c.quantity}x ${c.item.replace('_', ' ')}</h4>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-lg font-bold text-amber-400 orbitron">${c.reward_credits} Ȼ</span>
+                            <p class="text-[9px] text-slate-500 uppercase mt-1">Reward</p>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-end mt-4">
+                        <div class="text-[10px] text-slate-500">
+                            <p><span class="text-slate-400">Target:</span> Station #${c.target_station_id}</p>
+                            <p><span class="text-slate-400">Issuer:</span> ${c.issuer_name}</p>
+                        </div>
+                        <button onclick="window.game.api.claimContract(${c.id})" class="px-4 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 text-[10px] font-bold orbitron rounded-lg transition-all uppercase">Accept</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render Mine
+        if (!mine || mine.length === 0) {
+            myList.innerHTML = '<p class="text-slate-600 italic text-xs">You have no active contract operations.</p>';
+        } else {
+            myList.innerHTML = mine.map(c => {
+                const isIssuer = c.issuer_id === parseInt(localStorage.getItem('sv_agent_id'));
+                const statusColor = c.status === 'OPEN' ? 'text-sky-400' : (c.status === 'CLAIMED' ? 'text-amber-400' : 'text-emerald-400');
+                
+                return `
+                <div class="p-3 bg-slate-900/50 rounded-lg border border-slate-800 mb-2">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[8px] font-bold ${statusColor} orbitron">${c.status}</span>
+                        <span class="text-[8px] text-slate-500 uppercase">${isIssuer ? 'Issued By You' : 'Claimed By You'}</span>
+                    </div>
+                    <p class="text-[10px] text-slate-300 font-bold">${c.quantity}x ${c.item.replace('_', ' ')} @ Station #${c.target_station_id}</p>
+                    ${!isIssuer && c.status === 'CLAIMED' ? `
+                        <button onclick="window.game.api.fulfillContract(${c.id})" class="w-full mt-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-500/40 text-emerald-400 text-[9px] font-bold orbitron rounded transition-all">FULFILL AT STATION</button>
+                    ` : ''}
+                </div>
+            `}).join('');
+        }
+    }
+
+    async postContract() {
+        const type = document.getElementById('contract-type').value;
+        const item = document.getElementById('contract-item').value.toUpperCase();
+        const qty = parseInt(document.getElementById('contract-qty').value);
+        const reward = parseInt(document.getElementById('contract-reward').value);
+        const target = parseInt(document.getElementById('contract-target').value);
+
+        if (!item || !qty || !reward || !target) {
+            this.showToast("All fields are required for contract transmission.", "warning");
+            return;
+        }
+
+        await this.game.api.postContract({
+            type, item, quantity: qty, reward_credits: reward, target_station_id: target
+        });
+    }
+
+    // ── WIKI UI ──
+    renderWiki(data) {
+        this._wikiData = data;
+        if (!this._currentWikiTab) this._currentWikiTab = 'MANUAL';
+        this.switchWikiTab(this._currentWikiTab, false);
+    }
+
+    switchWikiTab(tabId, updateUI = true) {
+        this._currentWikiTab = tabId;
+        const wikiContent = document.getElementById('wiki-content');
+        if (!wikiContent || !this._wikiData) return;
+
+        // Update Tab Button Styles
+        ['MANUAL', 'DATABASE', 'ARCHIVES', 'SCRIPTS'].forEach(t => {
+            const btn = document.getElementById(`wiki-tab-${t}`);
+            if (btn) {
+                if (t === tabId) {
+                    btn.classList.add('bg-slate-900', 'border-slate-700', 'text-white');
+                    btn.classList.remove('border-transparent', 'text-slate-500');
+                } else {
+                    btn.classList.remove('bg-slate-900', 'border-slate-700', 'text-white');
+                    btn.classList.add('border-transparent', 'text-slate-500');
+                }
+            }
+        });
+
+        let html = '';
+        const data = this._wikiData;
+
+        if (tabId === 'MANUAL') {
+            (data.manual || []).forEach(cat => {
+                html += `
+                    <div class="mb-10">
+                        <h3 class="orbitron text-sky-400 text-[10px] font-black uppercase tracking-[0.3em] mb-4 flex items-center">
+                            <span class="w-8 h-[1px] bg-sky-500/30 mr-3"></span>
+                            ${cat.category}
+                        </h3>
+                        <div class="grid grid-cols-1 gap-4">
+                            ${cat.items.map(item => `
+                                <div class="glass p-5 rounded-2xl border-l-2 border-l-sky-500/30 hover:border-l-sky-500 transition-all bg-slate-900/20">
+                                    <h4 class="orbitron text-xs font-bold text-slate-200 mb-2">${item.title}</h4>
+                                    <p class="text-[11px] text-slate-400 leading-relaxed">${item.text}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Command Reference
+            if (data.commands) {
+                html += `
+                    <div class="mb-10">
+                        <h3 class="orbitron text-amber-500 text-[10px] font-black uppercase tracking-[0.3em] mb-4 flex items-center">
+                            <span class="w-8 h-[1px] bg-amber-500/30 mr-3"></span>
+                            PROTOCOL REFERENCE
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            ${data.commands.map(cmd => `
+                                <div class="bg-slate-900/40 p-3 rounded-xl border border-slate-800 flex justify-between items-center group">
+                                    <div class="flex flex-col">
+                                        <span class="text-[10px] font-mono font-bold text-amber-400 group-hover:text-amber-300 transition-colors">${cmd.type}</span>
+                                        <span class="text-[9px] text-slate-500 uppercase mt-0.5">${cmd.desc}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        } 
+        else if (tabId === 'DATABASE') {
+            // Smelting
+            if (data.smelting) {
+                html += `
+                    <div class="mb-10">
+                        <h3 class="orbitron text-emerald-400 text-[10px] font-black uppercase tracking-[0.3em] mb-4 flex items-center">
+                            <span class="w-8 h-[1px] bg-emerald-500/30 mr-3"></span>
+                            REFINERY SCHEMATICS
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            ${data.smelting.map(s => `
+                                <div class="bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="text-xs font-bold text-slate-200">${s.ore.replace('_', ' ')} → ${s.ingot.replace('_', ' ')}</span>
+                                        <span class="text-[10px] text-emerald-400 font-bold orbitron">${s.ratio}:1</span>
+                                    </div>
+                                    <div class="text-[9px] text-slate-500 uppercase font-medium">Capacitor Load: <span class="text-sky-400">${s.energy_cost} EN</span></div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Item Statistics
+            if (data.items) {
+                html += `
+                    <div class="mb-10">
+                        <h3 class="orbitron text-indigo-400 text-[10px] font-black uppercase tracking-[0.3em] mb-4 flex items-center">
+                            <span class="w-8 h-[1px] bg-indigo-500/30 mr-3"></span>
+                            COMPONENT REGISTRY
+                        </h3>
+                        <div class="space-y-3">
+                            ${data.items.map(item => `
+                                <div class="bg-slate-900/40 p-4 rounded-2xl border border-slate-800 flex justify-between items-center group hover:bg-slate-900/60 transition-all">
+                                    <div>
+                                        <h5 class="text-xs font-bold text-slate-300 uppercase tracking-wide group-hover:text-indigo-400 transition-colors">${item.name}</h5>
+                                        <p class="text-[10px] text-slate-500 mt-1">${item.description}</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-[10px] text-indigo-400 font-bold orbitron uppercase">${item.type}</span>
+                                        <p class="text-[9px] text-slate-600 mt-1">${item.weight} KG</p>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        } 
+        else if (tabId === 'ARCHIVES') {
+            (data.lore || []).forEach(entry => {
+                html += `
+                    <div class="mb-10">
+                        <h3 class="orbitron text-amber-500/80 text-[10px] font-black uppercase tracking-[0.4em] mb-4 block border-b border-amber-500/20 pb-2">${entry.title}</h3>
+                        <p class="text-xs text-slate-400 leading-relaxed italic border-l-2 border-slate-800 pl-6 py-2">${entry.text}</p>
+                    </div>
+                `;
+            });
+        }
+        else if (tabId === 'SCRIPTS') {
+            const scripts = (window.cacheGet ? window.cacheGet('tf_starter_scripts') : null) || [];
+            html += `
+                <div class="mb-10">
+                    <h3 class="orbitron text-emerald-400 text-[10px] font-black uppercase tracking-[0.3em] mb-6 flex items-center">
+                        <span class="w-8 h-[1px] bg-emerald-500/30 mr-3"></span>
+                        STARTER SCRIPTS
+                    </h3>
+                    <div class="space-y-6">
+                        ${scripts.map(s => {
+                            const safeCode = s.code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            return `
+                            <div class="bg-slate-900/60 p-6 rounded-2xl border border-slate-800 hover:border-emerald-500/30 transition-all relative group shadow-lg">
+                                <button onclick="navigator.clipboard.writeText(decodeURIComponent('${encodeURIComponent(s.code)}')).then(() => { if(window.game && window.game.ui) window.game.ui.showToast('Code copied!', 'success'); })" 
+                                    class="absolute top-6 right-6 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-4 py-1.5 rounded-lg text-[10px] orbitron font-bold transition-all uppercase tracking-widest">Copy Code</button>
+                                <h4 class="text-sm font-bold text-emerald-400 mb-2 orbitron tracking-wider">${s.name}</h4>
+                                <p class="text-[11px] text-slate-500 mb-6 pr-24 leading-relaxed">${s.description}</p>
+                                <div class="bg-black/40 p-4 rounded-xl border border-slate-800/80 max-h-60 overflow-y-auto custom-scrollbar">
+                                    <pre class="text-[10px] text-emerald-300/70 font-mono leading-relaxed">${safeCode}</pre>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        wikiContent.innerHTML = html;
+        document.getElementById('wiki-main-viewport').scrollTop = 0;
+    }
+
+    renderStarterScripts(scripts) {
+        // Now handled by switchWikiTab('SCRIPTS')
+        if (window.cacheSet) window.cacheSet('tf_starter_scripts', scripts);
     }
 }
 
