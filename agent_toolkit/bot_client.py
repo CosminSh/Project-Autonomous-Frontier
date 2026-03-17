@@ -59,12 +59,72 @@ class TFClient:
         """Returns current vault usage and capacity."""
         return self._get("/api/storage/info")
 
+    # --- Market Endpoints ---
+    def get_market_orders(self, item_type: str = None) -> list:
+        url = "/api/market"
+        if item_type: url += f"?item_type={item_type}"
+        return self._get(url)
+
+    def get_my_market_orders(self) -> list:
+        return self._get("/api/market/my_orders")
+
+    def get_market_pickups(self) -> list:
+        return self._get("/api/market/pickups")
+
+    # --- Contract Endpoints ---
+    def get_available_contracts(self) -> list:
+        return self._get("/api/contracts/available")
+
+    def get_my_contracts(self) -> dict:
+        return self._get("/api/contracts/my_contracts")
+
+    def post_contract(self, item_type: str, quantity: int, reward: int, q: int, r: int) -> dict:
+        return self._post("/api/contracts/post", {
+            "item_type": item_type,
+            "quantity": quantity,
+            "reward_credits": reward,
+            "target_station_q": q,
+            "target_station_r": r
+        })
+
+    def claim_contract(self, contract_id: int) -> dict:
+        return self._post(f"/api/contracts/claim/{contract_id}")
+
+    def fulfill_contract(self, contract_id: int) -> dict:
+        return self._post(f"/api/contracts/fulfill/{contract_id}")
+
+    # --- Social Endpoints ---
+    def send_chat(self, message: str) -> dict:
+        return self._post("/api/chat", {"message": message})
+
+    def get_chat(self) -> list:
+        return self._get("/api/chat")
+
+    # --- Corporation Endpoints ---
+    def get_corp_info(self, corp_id: int) -> dict:
+        return self._get(f"/api/corp/{corp_id}")
+
+    def get_my_corp(self) -> dict:
+        return self._get("/api/corp/my_corp")
+
+    def create_corp(self, name: str, description: str = "") -> dict:
+        return self._post("/api/corp/create", {"name": name, "description": description})
+
+    # --- Wiki Endpoints ---
+    def get_wiki_manual(self) -> dict:
+        return self._get("/api/wiki/manual")
+
+    def get_wiki_commands(self) -> dict:
+        return self._get("/api/wiki/commands")
+
     def wait_for_next_tick(self, current_tick: int, poll_interval: float = 2.0):
         """Sleeps and polls until the server tick advances."""
         while True:
-            # You could ping /state or /api/my_agent, but /state is lighter if public
-            perception = self.get_perception()
-            tick_now = perception.get("tick_info", {}).get("current_tick", current_tick)
-            if tick_now > current_tick:
-                return tick_now
+            try:
+                perception = self.get_perception()
+                tick_now = perception.get("tick_info", {}).get("current_tick", current_tick)
+                if tick_now > current_tick:
+                    return tick_now
+            except Exception:
+                pass
             time.sleep(poll_interval)

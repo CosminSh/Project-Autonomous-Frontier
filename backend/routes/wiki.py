@@ -3,12 +3,13 @@ import config
 
 router = APIRouter(prefix="/api/wiki", tags=["Wiki"])
 
-@router.get("")
 @router.get("/")
 @router.get("/data")
 async def get_wiki_data():
-    """Returns structured game data for the in-game wiki."""
-    
+    return await _get_wiki_payload()
+
+async def _get_wiki_payload():
+    """Internal generator for wiki data."""
     # 1. Industrial Data
     smelting = []
     for ore, ingot in config.SMELTING_RECIPES.items():
@@ -117,3 +118,18 @@ async def get_wiki_data():
             "ATTACK_ENERGY_COST": config.ATTACK_ENERGY_COST
         }
     }
+
+@router.get("/")
+@router.get("/data")
+async def get_wiki_data():
+    return await _get_wiki_payload()
+
+@router.get("/manual")
+async def get_manual():
+    wiki = await _get_wiki_payload()
+    return wiki["manual"]
+
+@router.get("/commands")
+async def get_commands():
+    wiki = await _get_wiki_payload()
+    return wiki["commands"]

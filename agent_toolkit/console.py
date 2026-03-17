@@ -11,9 +11,10 @@ import re
 from bot_client import TFClient
 from dotenv import load_dotenv
 
-VERSION = "0.3.7"
+VERSION = "0.8.0"
 GITHUB_RAW_VERSION_URL = "https://raw.githubusercontent.com/CosminSh/Project-Autonomous-Frontier/main/agent_toolkit/console.py"
 DEFAULT_API_URL = "https://terminal-frontier.pixek.xyz"
+LOCAL_API_URL = "http://localhost:8000"
 
 # Aesthetic Constants
 COLORS = {
@@ -48,6 +49,7 @@ class PilotConsole:
         self.is_running = False
         self.api_key = tk.StringVar()
         self.openrouter_key = tk.StringVar()
+        self.server_url = tk.StringVar(value=DEFAULT_API_URL)
         self.objective = tk.StringVar(value="Mine Iron Ore, smelt it and deposit it at the vault")
 
         self.setup_ui()
@@ -128,6 +130,14 @@ class PilotConsole:
         self.gear_list = tk.Text(gear_frame, height=6, bg="#020617", fg=COLORS["slate"], font=("Courier", 9), borderwidth=0, state="disabled")
         self.gear_list.pack(fill="x")
 
+        # Quick Actions
+        qa_frame = ttk.LabelFrame(top_right, text="QUICK COMMANDS", padding=10)
+        qa_frame.pack(fill="x", side="top", pady=(10, 0))
+        ttk.Button(qa_frame, text="WIKI", command=self.show_wiki).pack(side="left", padx=2)
+        ttk.Button(qa_frame, text="MARKET", command=self.show_market).pack(side="left", padx=2)
+        ttk.Button(qa_frame, text="CONTRACTS", command=self.show_contracts).pack(side="left", padx=2)
+        ttk.Button(qa_frame, text="CORP", command=self.show_corp).pack(side="left", padx=2)
+
         # BOTTOM: Log & Cargo
         bottom_right = ttk.Frame(right_main)
         bottom_right.pack(fill="both", expand=True)
@@ -183,6 +193,7 @@ class PilotConsole:
                     config = json.load(f)
                     self.api_key.set(config.get("TF_API_KEY", ""))
                     self.openrouter_key.set(config.get("OPENROUTER_API_KEY", ""))
+                    self.server_url.set(config.get("SERVER_URL", DEFAULT_API_URL))
             except:
                 pass
         if not self.api_key.get():
@@ -194,7 +205,8 @@ class PilotConsole:
         path = self.get_config_path()
         config = {
             "TF_API_KEY": self.api_key.get(),
-            "OPENROUTER_API_KEY": self.openrouter_key.get()
+            "OPENROUTER_API_KEY": self.openrouter_key.get(),
+            "SERVER_URL": self.server_url.get()
         }
         with open(path, "w") as f:
             json.dump(config, f, indent=4)
@@ -209,6 +221,14 @@ class PilotConsole:
         frame.pack(fill="both", expand=True)
 
         ttk.Label(frame, text="CREDENTIALS", style="Header.TLabel").pack(pady=(0, 15))
+        
+        ttk.Label(frame, text="SERVER ENDPOINT:").pack(anchor="w")
+        srv_frame = ttk.Frame(frame)
+        srv_frame.pack(fill="x", pady=(0, 10))
+        ttk.Entry(srv_frame, textvariable=self.server_url).pack(side="left", fill="x", expand=True)
+        ttk.Button(srv_frame, text="LOCAL", command=lambda: self.server_url.set(LOCAL_API_URL)).pack(side="left", padx=2)
+        ttk.Button(srv_frame, text="LIVE", command=lambda: self.server_url.set(DEFAULT_API_URL)).pack(side="left", padx=2)
+
         ttk.Label(frame, text="TF API KEY:").pack(anchor="w")
         ttk.Entry(frame, textvariable=self.api_key, width=50, show="*").pack(fill="x", pady=(0, 10))
         ttk.Label(frame, text="OPENROUTER KEY:").pack(anchor="w")
@@ -308,7 +328,7 @@ class PilotConsole:
             if not self.api_key.get():
                 messagebox.showerror("Error", "Missing API Key")
                 return
-            self.client = TFClient(self.api_key.get(), DEFAULT_API_URL)
+            self.client = TFClient(self.api_key.get(), self.server_url.get())
             self.is_running = True
             self.start_btn.config(text="DISENGAGE", bg=COLORS["rose"])
             self.log("--- AUTOPILOT ONLINE ---")
@@ -336,6 +356,63 @@ class PilotConsole:
                     self.log(f"Tactical AI: {plan}")
             except Exception as e: self.log(f"AI ERR: {e}")
         threading.Thread(target=ask, daemon=True).start()
+
+    def show_wiki(self):
+        self.log("Command: Retrieval of Universal Database (Wiki)...")
+        try:
+            manual = self.client.get_wiki_manual()
+            win = tk.Toplevel(self.root)
+            win.title("SYSTEM MANUAL")
+            win.geometry("600x400")
+            txt = scrolledtext.ScrolledText(win, bg=COLORS["bg"], fg=COLORS["white"])
+            txt.pack(fill="both", expand=True)
+            txt.insert(tk.END, json.dumps(manual, indent=2))
+            txt.config(state="disabled")
+        except: self.log("ERR: Wiki Uplink Failed")
+
+    def show_market(self):
+        self.log("Command: Syncing with Galactic Exchange...")
+        try:
+            orders = self.client.get_market_orders()
+            win = tk.Toplevel(self.root)
+            win.title("MARKET LISTINGS")
+            win.geometry("600x400")
+            txt = scrolledtext.ScrolledText(win, bg=COLORS["bg"], fg=COLORS["white"])
+            txt.pack(fill="both", expand=True)
+            txt.insert(tk.END, "ID | TYPE | QTY | PRICE | LOC\n" + "-"*40 + "\n")
+            for o in orders:
+                txt.insert(tk.END, f"{o.get('id')} | {o.get('item_type')} | {o.get('quantity')} | {o.get('price')} | ({o.get('q')},{o.get('r')})\n")
+            txt.config(state="disabled")
+        except: self.log("ERR: Market Sync Failed")
+
+    def show_contracts(self):
+        self.log("Command: Fetching Player Contracts...")
+        try:
+            contracts = self.client.get_available_contracts()
+            win = tk.Toplevel(self.root)
+            win.title("AVAILABLE CONTRACTS")
+            win.geometry("600x400")
+            txt = scrolledtext.ScrolledText(win, bg=COLORS["bg"], fg=COLORS["white"])
+            txt.pack(fill="both", expand=True)
+            txt.insert(tk.END, "ID | ITEM | QTY | REWARD | TARGET\n" + "-"*40 + "\n")
+            for c in contracts:
+                req = c.get('requirements', {})
+                txt.insert(tk.END, f"{c.get('id')} | {req.get('item')} | {req.get('qty')} | {c.get('reward')} | ({c.get('target',{}).get('q')},{c.get('target',{}).get('r')})\n")
+            txt.config(state="disabled")
+        except: self.log("ERR: Contract Sync Failed")
+
+    def show_corp(self):
+        self.log("Command: Accessing Corporate Network...")
+        try:
+            corp = self.client.get_my_corp()
+            win = tk.Toplevel(self.root)
+            win.title("CORPORATION INFO")
+            win.geometry("400x300")
+            txt = scrolledtext.ScrolledText(win, bg=COLORS["bg"], fg=COLORS["white"])
+            txt.pack(fill="both", expand=True)
+            txt.insert(tk.END, json.dumps(corp, indent=2))
+            txt.config(state="disabled")
+        except: self.log("ERR: Corp Access Failed (Are you in one?)")
 
     def worker_loop(self):
         last_tick = 0
@@ -396,10 +473,50 @@ class PilotConsole:
 
         if current_state == "CHARGING": return "CHARGING"
 
-        # 2. Determine Profession (MINER vs HUNTER)
+        # 2. Determine Profession (MINER vs HUNTER vs CONTRACTOR)
         is_hunter = "HUNT" in obj_text or "FERAL" in obj_text
+        is_contractor = "CONTRACT" in obj_text or "DELIVERY" in obj_text
         
         # 3. Profession Logic
+        if is_contractor:
+            # --- CONTRACTOR LOGIC ---
+            my_contracts = self.client.get_my_contracts()
+            active_claims = my_contracts.get("claimed", [])
+            
+            if active_claims:
+                # Fulfill first one
+                contract = active_claims[0]
+                target = contract.get("target", {"q": contract["target_station_q"], "r": contract["target_station_r"]})
+                req = contract.get("requirements", {})
+                item = req.get("item")
+                qty = req.get("qty")
+                
+                # Check if we have the items
+                has_qty = inv.get(item, 0)
+                if has_qty >= qty:
+                    self.log(f"CONTRACT: Delivering {qty}x {item} to ({target['q']}, {target['r']})")
+                    if agent["q"] == target["q"] and agent["r"] == target["r"]:
+                        self.client.fulfill_contract(contract["id"])
+                    else:
+                        self.client.submit_intent("MOVE", {"target_q": target["q"], "target_r": target["r"]})
+                else:
+                    self.log(f"CONTRACT: Need {qty}x {item}. Currently have {has_qty}. Reverting to gathering.")
+                    # Revert to gathering logic for that item
+                    obj_text = f"Gather {item}"
+                    # (Fall through to miner logic below by altering local obj_text)
+            else:
+                self.log("CONTRACT: Seeking available contracts...")
+                available = self.client.get_available_contracts()
+                if available:
+                    # Sort by reward and claim best
+                    available.sort(key=lambda x: x.get("reward", 0), reverse=True)
+                    best = available[0]
+                    self.log(f"CONTRACT: Claiming contract {best['id']} for {best['reward']} Credits.")
+                    self.client.claim_contract(best["id"])
+                else:
+                    self.log("CONTRACT: No contracts available. Waiting...")
+                return "IDLE"
+
         if is_hunter:
             # --- HUNTER LOGIC ---
             import re

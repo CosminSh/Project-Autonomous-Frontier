@@ -61,3 +61,32 @@ async def debug_set_structure(data: dict, db: Session = Depends(get_db)):
         db.commit()
         return {"status": "ok"}
     raise HTTPException(status_code=404, detail="Agent not found")
+
+@router.post("/equip")
+async def debug_equip(data: dict, db: Session = Depends(get_db)):
+    agent_id = data.get("agent_id")
+    part_name = data.get("part_name")
+    
+    agent = db.get(Agent, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+        
+    from models import ChassisPart
+    from config import PART_DEFINITIONS
+    
+    defn = PART_DEFINITIONS.get(part_name)
+    if not defn:
+        raise HTTPException(status_code=400, detail=f"Invalid part name: {part_name}")
+        
+    p = ChassisPart(
+        agent_id=agent.id,
+        part_type=defn["type"],
+        name=part_name,
+        stats=defn["stats"],
+        rarity="STANDARD"
+    )
+    db.add(p)
+    db.commit()
+    recalculate_agent_stats(agent)
+    db.commit()
+    return {"status": "ok"}
