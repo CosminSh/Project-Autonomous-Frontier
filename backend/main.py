@@ -105,14 +105,15 @@ async def lifespan(app: FastAPI):
                 logger.info(f"Migration: Added column {col} to {table}.")
             except Exception as e:
                 # IMPORTANT for Postgres: Rollback the failed statement so the transaction can continue
-                conn.rollback()
+                try:
+                    conn.rollback()
+                except:
+                    pass
                 err_str = str(e).lower()
                 if "duplicate column" in err_str or "already exists" in err_str:
                     logger.debug(f"Migration: Column {col} already exists in {table}.")
                 else:
-                    logger.error(f"CRITICAL MIGRATION ERROR on {table}.{col}: {e}")
-                    # In a real production environment, we might want to raise here
-                    # raise e 
+                    logger.error(f"MIGRATION ERROR (Ignored) on {table}.{col}: {e}")
         
         # Tag existing pitfighters if they aren't tagged yet
         try:
@@ -139,13 +140,14 @@ async def lifespan(app: FastAPI):
     
     # Start Leaderboard Generation loop - Non-blocking background task
     async def _safe_leaderboard_init():
+        logger.info("[INIT] Waiting 15s for database/heartbeat to stabilize before leaderboard init...")
+        await asyncio.sleep(15)
         try:
-            from logic.leaderboard_manager import start_leaderboard_loop, generate_leaderboards
-            with SessionLocal() as db_lb:
-                generate_leaderboards(db_lb) # Initial generation
+            from logic.leaderboard_manager import start_leaderboard_loop
+            logger.info("[INIT] Starting leaderboard background loop...")
             await start_leaderboard_loop()
         except Exception as e:
-            logger.error(f"Leaderboard task error: {e}")
+            logger.error(f"[INIT] CRITICAL Leaderboard task error: {e}")
 
     asyncio.create_task(_safe_leaderboard_init())
     
