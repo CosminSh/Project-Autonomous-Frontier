@@ -63,6 +63,7 @@ async def handle_attack(db, agent, intent, tick_count, manager):
 
     agent.energy -= total_cost
     if is_pvp: agent.heat = (agent.heat or 0) + 1
+    agent.wear_and_tear = (agent.wear_and_tear or 0.0) + 0.15
     target.last_attacked_tick = tick_count
 
     outcome = simulate_battle(db, agent, target, manager, combat_type="SKIRMISH")

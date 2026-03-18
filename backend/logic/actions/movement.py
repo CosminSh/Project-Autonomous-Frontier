@@ -34,8 +34,6 @@ async def handle_move(db, agent, intent, tick_count, manager):
     # Map bound check - ensure the hex is seeded
     target_hex = db.execute(select(WorldHex).where(WorldHex.q == target_q, WorldHex.r == target_r)).scalar_one_or_none()
     if not target_hex:
-        # In a finite wrap world, missing hexes should not happen if pre-seeded.
-        # However, we allow "ghost" targets if we want, but better to check obstacle.
         db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT_FAILED", details={"reason": "OUT_OF_BOUNDS", "help": "Target coordinates are not initialized."}))
         return
 
@@ -102,6 +100,7 @@ async def handle_move(db, agent, intent, tick_count, manager):
 
     agent.q, agent.r = target_q, target_r
     agent.energy -= energy_cost
+    agent.wear_and_tear = min(100.0, (agent.wear_and_tear or 0.0) + 0.05)
     db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT", details={"q": target_q, "r": target_r}))
     if manager:
         await manager.broadcast({"type": "EVENT", "event": "MOVE", "agent_id": agent.id, "q": target_q, "r": target_r})

@@ -510,14 +510,21 @@ def recalculate_agent_stats(db: Session, agent: Agent):
     agent.max_mass = max(50.0, agent.max_mass)
 
     # Wear & Tear penalty (Applied after all bonuses)
-    wear = agent.wear_and_tear or 0.0
-    if wear > 50.0:
-        penalty_factor = max(0.2, 1.0 - ((wear - 50.0) / 100.0))
-        agent.damage = int(agent.damage * penalty_factor)
-        agent.accuracy = int(agent.accuracy * penalty_factor)
-        agent.speed = int(agent.speed * penalty_factor)
-        agent.mining_yield = int(agent.mining_yield * penalty_factor)
-        logger.info(f"Agent {agent.id} Wear & Tear penalty: {penalty_factor:.2f}x")
+    # Capped at 100.0%, 10% stats at 100% wear
+    wear = min(100.0, agent.wear_and_tear or 0.0)
+    agent.wear_and_tear = wear
+    
+    # Linear penalty: 1.0 at 0% wear, 0.1 at 100% wear
+    penalty_factor = 1.0 - (wear / 100.0) * 0.9
+    
+    agent.damage = int(agent.damage * penalty_factor)
+    agent.accuracy = int(agent.accuracy * penalty_factor)
+    agent.speed = int(agent.speed * penalty_factor)
+    agent.mining_yield = int(agent.mining_yield * penalty_factor)
+    agent.armor = int(agent.armor * penalty_factor)
+    
+    if wear > 0:
+        logger.info(f"Agent {agent.id} Wear & Tear penalty: {penalty_factor:.2f}x (Wear: {wear:.1f}%)")
 
     if agent.health > agent.max_health:
         agent.health = agent.max_health

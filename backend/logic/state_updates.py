@@ -77,7 +77,6 @@ async def update_global_agent_stats(db, tick_count, manager):
 
         # Progression Ticks
         if (agent.overclock_ticks or 0) > 0: agent.overclock_ticks -= 1
-        agent.wear_and_tear = (agent.wear_and_tear or 0.0) + 0.02
 
         # Cluster Clutter Signal Noise
         if agent.faction_id is not None:

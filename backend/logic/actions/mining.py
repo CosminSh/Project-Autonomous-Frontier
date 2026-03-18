@@ -171,6 +171,7 @@ async def handle_mine(db, agent, intent, tick_count, manager):
         logger.info(f"MINING: Agent {agent.id} found a VOID_CRYSTAL!")
 
     agent.energy -= MINE_ENERGY_COST
+    agent.wear_and_tear = min(100.0, (agent.wear_and_tear or 0.0) + 0.10)
     
     # Durability Decay
     decay_amount = random.uniform(0.2, 0.4) # Slightly increased for looping

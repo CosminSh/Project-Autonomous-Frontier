@@ -1,8 +1,9 @@
+import os
 import requests
-import time
 import uuid
+import time
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = os.getenv("TF_BASE_URL", "http://localhost:8000")
 
 def log_test(name, success, detail=""):
     status = "[PASS]" if success else "[FAIL]"
@@ -109,6 +110,18 @@ class APITester:
         
         return success
 
+    def test_wiki(self):
+        success = True
+        # Manual
+        resp = requests.get(f"{BASE_URL}/api/wiki/manual", headers=self.headers)
+        success &= log_test("Wiki: Get Manual", resp.ok)
+        
+        # Commands
+        resp = requests.get(f"{BASE_URL}/api/wiki/commands", headers=self.headers)
+        success &= log_test("Wiki: Get Commands", resp.ok)
+        
+        return success
+
 def run_all_api_tests():
     print(f"=== Starting API Integration Tests at {BASE_URL} ===")
     tester = APITester()
@@ -120,6 +133,7 @@ def run_all_api_tests():
     tester.test_social()
     tester.test_economy()
     tester.test_contracts()
+    tester.test_wiki()
     
     print("=== API Integration Tests Complete ===")
 
