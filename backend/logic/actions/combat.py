@@ -61,9 +61,17 @@ async def handle_attack(db, agent, intent, tick_count, manager):
         db.add(AuditLog(agent_id=agent.id, event_type="COMBAT_FAILED", details={"reason": "SAFE_ZONE_PROTECTION"}))
         return
 
-    agent.energy -= total_cost
+    # Energy Save check
+    save_roll = random.randint(1, 100)
+    if save_roll > (agent.energy_save or 0):
+        agent.energy -= total_cost
+    else:
+        db.add(AuditLog(agent_id=agent.id, event_type="ENERGY_SAVED", details={"action": "ATTACK"}))
+
     if is_pvp: agent.heat = (agent.heat or 0) + 1
-    agent.wear_and_tear = (agent.wear_and_tear or 0.0) + 0.15
+    
+    wear_gain = 0.15 * (1.0 - (agent.wear_resistance or 0.0))
+    agent.wear_and_tear = (agent.wear_and_tear or 0.0) + wear_gain
     target.last_attacked_tick = tick_count
 
     outcome = simulate_battle(db, agent, target, manager, combat_type="SKIRMISH")
@@ -294,14 +302,15 @@ async def _handle_death(db, killer, target, manager):
         db.delete(target)
         logger.info(f"Feral {target.id} destroyed by {killer.id} and removed from world.")
 
-        # [NEW] Rare Material Discovery: QUANTUM_CHIP (3% chance from ferals)
-        if random.random() < 0.03:
+        # Rare Material Discovery: QUANTUM_CHIP (Base 3% chance, boosted by loot_bonus)
+        drop_chance = 0.03 * (1.0 + (killer.loot_bonus or 0.0))
+        if random.random() < drop_chance:
             chip_item = next((i for i in killer.inventory if i.item_type == "QUANTUM_CHIP"), None)
             if chip_item: chip_item.quantity += 1
             else:
                 db.add(InventoryItem(agent_id=killer.id, item_type="QUANTUM_CHIP", quantity=1))
-            db.add(AuditLog(agent_id=killer.id, event_type="RARE_DISCOVERY", details={"item": "QUANTUM_CHIP", "source": "FERAL_KILL"}))
-            logger.info(f"COMBAT: Killer {killer.name} found a QUANTUM_CHIP!")
+            db.add(AuditLog(agent_id=killer.id, event_type="RARE_DISCOVERY", details={"item": "QUANTUM_CHIP", "source": "FERAL_KILL", "chance": round(drop_chance, 4)}))
+            logger.info(f"COMBAT: Killer {killer.name} found a QUANTUM_CHIP (Chance: {drop_chance:.2%})!")
     else:
         target.q, target.r = TOWN_COORDINATES
         target.health = int(target.max_health * RESPAWN_HP_PERCENT)

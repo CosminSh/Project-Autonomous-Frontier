@@ -4,7 +4,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from database import get_db
 from models import Agent, InventoryItem, ChassisPart, AuditLog, GlobalState
-from game_helpers import get_agent_mass, get_agent_visual_signature, get_discovery_packet, get_solar_intensity, get_hex_distance, PART_NAME_TO_WEIGHT
+from game_helpers import (
+    get_agent_mass, 
+    get_agent_visual_signature, 
+    get_discovery_packet, 
+    get_solar_intensity, 
+    get_hex_distance, 
+    PART_NAME_TO_WEIGHT,
+    recalculate_agent_stats,
+    get_wear_penalty_factor
+)
 from database import STATION_CACHE
 from routes.common import verify_api_key
 from config import ITEM_WEIGHTS, PART_DEFINITIONS
@@ -68,6 +77,9 @@ async def claim_daily_reward(agent: Agent = Depends(verify_api_key), db: Session
 @router.get("/api/my_agent")
 async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Legacy endpoint for the frontend."""
+    # Recalculate to ensure stats matches current wear/gear
+    recalculate_agent_stats(db, agent)
+    penalty = get_wear_penalty_factor(agent.wear_and_tear)
     state = db.execute(select(GlobalState)).scalars().first()
     tick = state.tick_index if state else 0
     
@@ -128,6 +140,7 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         "level": agent.level, "experience": agent.experience, "faction": agent.faction_id,
         "damage": agent.damage, "accuracy": agent.accuracy, "speed": agent.speed, "armor": agent.armor,
         "mining_yield": agent.mining_yield,
+        "loot_bonus": agent.loot_bonus, "energy_save": agent.energy_save, "wear_resistance": agent.wear_resistance,
         "wear_and_tear": agent.wear_and_tear, "mass": get_agent_mass(agent), "max_mass": agent.max_mass,
         "heat": agent.heat,
         "squad_id": agent.squad_id,
@@ -137,7 +150,16 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         "inventory": list(aggregated_inv.values()),
         "storage": list(aggregated_storage.values()),
         "discovery": get_discovery_packet(STATION_CACHE, agent),
-        "parts": [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity, "weight": PART_NAME_TO_WEIGHT.get(p.name, 10.0)} for p in agent.parts],
+        "parts": [
+            {
+                "id": p.id, 
+                "type": p.part_type, 
+                "name": p.name, 
+                "stats": {k: int(v * penalty) for k, v in p.stats.items()} if p.stats else {}, 
+                "rarity": p.rarity, 
+                "weight": PART_NAME_TO_WEIGHT.get(p.name, 10.0)
+            } for p in agent.parts
+        ],
         "visual_signature": get_agent_visual_signature(agent),
         "solar_intensity": int(get_solar_intensity(agent.q, agent.r, tick) * 100)
     }
@@ -151,6 +173,8 @@ async def get_agent_logs(agent: Agent = Depends(verify_api_key), db: Session = D
 @router.get("/status")
 async def get_agent_status(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns detailed status of the authenticated agent."""
+    recalculate_agent_stats(db, agent)
+    
     state = db.execute(select(GlobalState)).scalars().first()
     tick = state.tick_index if state else 0
     
@@ -186,9 +210,21 @@ async def get_agent_inventory(agent: Agent = Depends(verify_api_key)):
     return list(aggregated.values())
 
 @router.get("/api/gear")
-async def get_agent_gear(agent: Agent = Depends(verify_api_key)):
-    """Returns the agent's equipped chassis parts."""
-    return [{"id": p.id, "type": p.part_type, "name": p.name, "stats": p.stats, "rarity": p.rarity, "weight": PART_NAME_TO_WEIGHT.get(p.name, 10.0)} for p in agent.parts]
+async def get_agent_gear(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    """Returns the agent's equipped chassis parts with wear-penalized stats."""
+    recalculate_agent_stats(db, agent)
+    penalty = get_wear_penalty_factor(agent.wear_and_tear)
+    
+    return [
+        {
+            "id": p.id, 
+            "type": p.part_type, 
+            "name": p.name, 
+            "stats": {k: int(v * penalty) for k, v in p.stats.items()} if p.stats else {}, 
+            "rarity": p.rarity, 
+            "weight": PART_NAME_TO_WEIGHT.get(p.name, 10.0)
+        } for p in agent.parts
+    ]
 
 @router.get("/api/rescue_quote")
 async def get_rescue_quote(agent: Agent = Depends(verify_api_key)):

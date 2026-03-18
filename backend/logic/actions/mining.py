@@ -161,6 +161,16 @@ async def handle_mine(db, agent, intent, tick_count, manager):
         db.add(new_item)
         agent.inventory.append(new_item)
 
+    # 8b. Energy & Wear
+    save_roll = random.randint(1, 100)
+    if save_roll > (agent.energy_save or 0):
+        agent.energy -= MINE_ENERGY_COST
+    else:
+        db.add(AuditLog(agent_id=agent.id, event_type="ENERGY_SAVED", details={"action": "MINING"}))
+
+    wear_gain = 0.10 * (1.0 - (agent.wear_resistance or 0.0))
+    agent.wear_and_tear = min(100.0, (agent.wear_and_tear or 0.0) + wear_gain)
+
     # [NEW] Rare Material Discovery: VOID_CRYSTAL (0.5% chance)
     if random.random() < 0.005 and res_tier >= 3:
         crystal_item = next((i for i in agent.inventory if i.item_type == "VOID_CRYSTAL"), None)
@@ -169,9 +179,6 @@ async def handle_mine(db, agent, intent, tick_count, manager):
             db.add(InventoryItem(agent_id=agent.id, item_type="VOID_CRYSTAL", quantity=1))
         db.add(AuditLog(agent_id=agent.id, event_type="RARE_DISCOVERY", details={"item": "VOID_CRYSTAL"}))
         logger.info(f"MINING: Agent {agent.id} found a VOID_CRYSTAL!")
-
-    agent.energy -= MINE_ENERGY_COST
-    agent.wear_and_tear = min(100.0, (agent.wear_and_tear or 0.0) + 0.10)
     
     # Durability Decay
     decay_amount = random.uniform(0.2, 0.4) # Slightly increased for looping

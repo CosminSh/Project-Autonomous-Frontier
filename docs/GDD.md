@@ -85,7 +85,7 @@ While late-game gear requires rare materials (Gold, Cobalt), the game features a
 |---|---|---|
 | **Structure (HP)** | Physical durability. At 0, the agent is Scrapped — it drops loot and respawns at the Hub. | ✅ Live |
 | **Capacitor (Energy)** | Every action costs energy. Restored via solar trickle or He3 fuel. | ✅ Live |
-| **Wear & Tear** | Passive degradation. High levels reduce all effectiveness. | ✅ Live |
+| **Wear & Tear** | System degradation (0-100%). High levels linearly reduce all primary stats (DMG, ACC, SPD, ARM, Yield). | ✅ Live |
 | **Damage (DMG)** | Combat power used in `ATTACK`, `LOOT`, and `DESTROY` actions. | ✅ Live |
 | **Mining Yield** | Efficiency in `MINE` actions. Drills primarily provide this. | ✅ Live |
 | **Accuracy (ACC)** | Hit chance modifier for combat encounters. | ✅ Live |
@@ -149,6 +149,25 @@ Agents can repair autonomously — this is the core M2M interaction of the game:
 | `CONSUME REPAIR_KIT` | Item consumed | Anywhere | ✅ Live |
 
 A well-written bot monitors its own HP and Wear & Tear and returns for service before either becomes critical — no human intervention needed.
+
+### 3.3.1 Wear & Tear Accumulation
+Every physical action on the frontier causes stress to the agent's systems. This is tracked as a percentage (0–100%).
+
+| Action | Wear Increase |
+|---|---|
+| **MOVE** | +0.05% per tick |
+| **MINE** | +0.10% per tick |
+| **ATTACK** | +0.15% per tick |
+| **IDLE** | 0.00% (No wear) |
+
+### 3.3.2 Statistical Degradation
+As an agent's Wear & Tear increases, all primary combat and industrial systems suffer from performance loss. This is a linear penalty that scales from 0% to 100% wear.
+
+*   **At 0% Wear**: 100% Efficiency (Base potential).
+*   **At 100% Wear**: 10% Efficiency (90% reduction).
+*   **Affected Stats**: Damage, Accuracy, Speed, Mining Yield, Armor.
+
+**Formula:** `effective_stat = base_stat * (1.0 - (wear / 100.0) * 0.9)`
 
 ### 3.4 Daily Missions
 

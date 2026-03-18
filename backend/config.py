@@ -61,8 +61,9 @@ CRAFTING_RECIPES = {
     "HYBRID_CHASSIS": {"IRON_INGOT": 15, "COPPER_INGOT": 10},
     "HEAVY_FRAME": {"IRON_INGOT": 20, "COBALT_INGOT": 10},
     "STRIKER_CHASSIS": {"COPPER_INGOT": 25, "GOLD_INGOT": 5},
-    "INDUSTRIAL_HULL": {"IRON_INGOT": 30, "COBALT_INGOT": 15},
+    "INDUSTRIAL_HULL": {"COPPER_INGOT": 20, "COBALT_INGOT": 15},
     "HAULER_CHASSIS_MK2": {"IRON_INGOT": 50, "COPPER_INGOT": 20},
+    "AURUM_HAULER": {"GOLD_INGOT": 20, "COPPER_INGOT": 30},
     "GLADIATOR_FRAME": {"IRON_INGOT": 15, "FERAL_CORE": 1},
     "PIT_FRAME": {"IRON_INGOT": 10, "COPPER_INGOT": 5},
     "COPPER_MESH_FRAME": {"COPPER_INGOT": 15},
@@ -79,6 +80,7 @@ CRAFTING_RECIPES = {
     "DRILL_COBALT_BASIC": {"COBALT_INGOT": 5, "GOLD_INGOT": 5},
     "DRILL_COBALT_ADVANCED": {"COBALT_INGOT": 15},
     "DEEP_CORE_DRILL": {"COBALT_INGOT": 20, "GOLD_INGOT": 10},
+    "CONDUCTIVE_DRILL": {"GOLD_INGOT": 10, "COPPER_INGOT": 15},
 
     # Weapons (RPS Triangle)
     "IRON_AUTO_RIFLE": {"IRON_INGOT": 15},      # Balanced (Striker)
@@ -100,6 +102,7 @@ CRAFTING_RECIPES = {
     "SCRAP_SHIELD": {"IRON_INGOT": 10},
     "GEOLOGICAL_CORE": {"GOLD_INGOT": 15, "COBALT_INGOT": 5},
     "COPPER_SOLAR_ARRAY": {"COPPER_INGOT": 10},
+    "SOLAR_CAPACITOR": {"GOLD_INGOT": 8, "COPPER_INGOT": 12},
     
     
     # Sensors (Visibility & Intel)
@@ -109,6 +112,7 @@ CRAFTING_RECIPES = {
     "ADVANCED_SCANNER": {"COPPER_INGOT": 15, "GOLD_INGOT": 10},
     "GEOLOGICAL_SURVEYOR": {"GOLD_INGOT": 10, "COBALT_INGOT": 5},
     "MINING_SIG_ENHANCER": {"GOLD_INGOT": 10, "COPPER_INGOT": 10},
+    "MIDAS_SCANNER": {"GOLD_INGOT": 15, "COPPER_INGOT": 10},
     "COPPER_SENSE_DISH": {"COPPER_INGOT": 8},
     
 
@@ -165,7 +169,10 @@ AFFIX_POOL = {
     "Dense": {"max_health": 25},
     "Reactive": {"accuracy": 4, "overclock": 4},
     "Bulk": {"capacity": 50},
-    "Swift": {"speed": 5, "damage": 5}
+    "Swift": {"speed": 5, "damage": 5},
+    "Salvaging": {"loot_bonus": 0.15},
+    "Efficient": {"energy_save": 10},
+    "Durable": {"wear_resistance": 0.20}
 }
 
 REPAIR_COST_PER_HP = 1  # Credits per HP restored
@@ -271,6 +278,7 @@ FRAME_SLOT_LIMITS = {
     "GLADIATOR_FRAME": {"Frame": 1, "Actuator": 3, "Engine": 2, "Sensor": 1, "Power": 1},
     "PIT_FRAME": {"Frame": 1, "Actuator": 2, "Engine": 1, "Sensor": 1, "Power": 1},
     "COPPER_MESH_FRAME": {"Frame": 1, "Actuator": 2, "Engine": 1, "Sensor": 1, "Power": 1},
+    "AURUM_HAULER": {"Frame": 1, "Actuator": 1, "Engine": 1, "Sensor": 2, "Power": 2},
     "OMEGA_CHASSIS": {"Frame": 1, "Actuator": 5, "Engine": 3, "Sensor": 3, "Power": 5}
 }
 
@@ -309,7 +317,7 @@ PART_DEFINITIONS = {
     },
     "STRIKER_CHASSIS": {
         "type": "Frame",
-        "stats": {"max_health": 80, "armor": 2, "speed": 15, "capacity": 70},
+        "stats": {"max_health": 100, "armor": 5, "speed": 15, "capacity": 70},
         "name": "Striker Light Chassis",
         "weight": 10.0,
         "description": "High-mobility interceptor frame. Sacrifices survivability for speed."
@@ -349,6 +357,13 @@ PART_DEFINITIONS = {
         "weight": 30.0,
         "description": "A lightweight copper-reinforced frame. Better than scrap, but fragile."
     },
+    "AURUM_HAULER": {
+        "type": "Frame",
+        "stats": {"max_health": 180, "armor": 12, "capacity": 800, "speed": 10, "loot_bonus": 0.15},
+        "name": "Aurum Logistician",
+        "weight": 100.0,
+        "description": "A premium logistics chassis. High speed and capacity, with integrated loot optimization."
+    },
     
 
     # ACTUATORS - DRILLS (Mining Yield + Combat Damage)
@@ -362,10 +377,11 @@ PART_DEFINITIONS = {
     "DRILL_COBALT_BASIC": {"type": "Actuator", "stats": {"mining_yield": 250, "damage": 40}, "name": "Cobalt Drill", "weight": 9.0, "description": "Required for cobalt extraction."},
     "DRILL_COBALT_ADVANCED": {"type": "Actuator", "stats": {"mining_yield": 400, "damage": 60}, "name": "Advanced Cobalt Drill", "weight": 8.0, "description": "The peak of mining technology."},
     "DEEP_CORE_DRILL": {"type": "Actuator", "stats": {"mining_yield": 600, "damage": 15, "speed": -5}, "name": "Deep Core Thermal Drill", "weight": 25.0, "description": "Ultimate mining power, but heavy."},
+    "CONDUCTIVE_DRILL": {"type": "Actuator", "stats": {"mining_yield": 150, "damage": 10, "energy_save": 25}, "name": "Conductive Gold Drill", "weight": 8.0, "description": "High-efficiency drill that often bypasses energy consumption."},
 
     # ACTUATORS - WEAPONS (RPS)
     "IRON_AUTO_RIFLE": {"type": "Actuator", "stats": {"damage": 15, "accuracy": 10, "speed": 5}, "name": "Standard Auto-Rifle", "weight": 10.0, "description": "Balanced weapon."},
-    "COPPER_RAILGUN": {"type": "Actuator", "stats": {"damage": 50, "accuracy": -15, "speed": -10}, "name": "Copper Railgun", "weight": 18.0, "description": "High damage shots."},
+    "COPPER_RAILGUN": {"type": "Actuator", "stats": {"damage": 50, "accuracy": -10, "speed": -10}, "name": "Copper Railgun", "weight": 18.0, "description": "High damage shots."},
     "PULSE_REPEATER": {"type": "Actuator", "stats": {"damage": 12, "accuracy": 30, "speed": 10}, "name": "Pulse Repeater", "weight": 6.0, "description": "Rapid fire (Striker)."},
     "GOLD_LASER_CANNON": {"type": "Actuator", "stats": {"damage": 80, "accuracy": 25, "energy_cost": 5}, "name": "Precision Laser", "weight": 12.0, "description": "Extreme damage."},
     "HEAVY_CANNON": {"type": "Actuator", "stats": {"damage": 120, "accuracy": -15, "speed": -15}, "name": "Siege Cannon", "weight": 35.0, "description": "Devastating damage."},
@@ -381,6 +397,7 @@ PART_DEFINITIONS = {
     "ADVANCED_SCANNER": {"type": "Sensor", "stats": {"radar_radius": 18, "scan_depth": 2}, "name": "Deep-Space Array", "weight": 3.0, "description": "Long-range detection."},
     "GEOLOGICAL_SURVEYOR": {"type": "Sensor", "stats": {"radar_radius": 10, "mining_yield": 50}, "name": "Geological Surveyor", "weight": 8.0, "description": "Boosts mining efficiency."},
     "MINING_SIG_ENHANCER": {"type": "Sensor", "stats": {"mining_yield": 100, "radar_radius": 15}, "name": "Signal Enhancer", "weight": 8.0, "description": "Advanced mining intelligence."},
+    "MIDAS_SCANNER": {"type": "Sensor", "stats": {"radar_radius": 18, "loot_bonus": 0.20}, "name": "Midas Search-Array", "weight": 5.0, "description": "Gold-plated sensors calibrated to detect valuable loot remains."},
     "COPPER_SENSE_DISH": {"type": "Sensor", "stats": {"radar_radius": 6, "accuracy": 3}, "name": "Copper Sensing Dish", "weight": 4.0, "description": "A basic sensor dish made of copper wiring."},
     
 
@@ -404,6 +421,7 @@ PART_DEFINITIONS = {
     "SCRAP_SHIELD": {"type": "Power", "stats": {"armor": 20}, "name": "Scrap Shield", "weight": 5.0, "description": "Crude arena shielding. High wear."},
     "GEOLOGICAL_CORE": {"type": "Power", "stats": {"efficiency": 1.5}, "name": "Geological Core", "weight": 12.0, "description": "Stable power for survey equipment."},
     "COPPER_SOLAR_ARRAY": {"type": "Power", "stats": {"efficiency": 0.8}, "name": "Copper Solar Array", "weight": 8.0, "description": "Full copper solar collection array. Decent efficiency."},
+    "SOLAR_CAPACITOR": {"type": "Power", "stats": {"efficiency": 1.0, "max_energy": 200}, "name": "Aurum Solar Capacitor", "weight": 10.0, "description": "A hybrid unit providing both solar generation and massive energy storage."},
     "PLASMA_CORE": {"type": "Power", "stats": {"efficiency": 15.0, "max_energy": 500}, "name": "Quantum Plasma Core", "weight": 2.0, "description": "Experimental power source. Infinite energy potential."},
 
     # SPECIAL RELICS

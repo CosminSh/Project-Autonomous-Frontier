@@ -57,6 +57,9 @@ async def lifespan(app: FastAPI):
         ("agents", "is_pitfighter", "BOOLEAN DEFAULT FALSE"),
         ("agents", "is_aggressive", "BOOLEAN DEFAULT FALSE"),
         ("agents", "wear_and_tear", "FLOAT DEFAULT 0.0"),
+        ("agents", "loot_bonus", "FLOAT DEFAULT 0.0"),
+        ("agents", "energy_save", "INTEGER DEFAULT 0"),
+        ("agents", "wear_resistance", "FLOAT DEFAULT 0.0"),
         ("agents", "overclock_ticks", "INTEGER DEFAULT 0"),
         ("agents", "heat", "INTEGER DEFAULT 0"),
         ("agents", "unlocked_recipes", "JSON"),
@@ -378,4 +381,5 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

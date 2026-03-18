@@ -419,7 +419,11 @@ def get_agent_mass(agent: Agent) -> float:
         for p in agent.parts
     )
     return inv_mass + gear_mass
-
+    
+def get_wear_penalty_factor(wear: float) -> float:
+    """Calculates linear penalty: 1.0 at 0% wear, 0.1 at 100% wear."""
+    wear = min(100.0, max(0.0, wear or 0.0))
+    return 1.0 - (wear / 100.0) * 0.9
 
 def recalculate_agent_stats(db: Session, agent: Agent):
     """Resets and recalculates agent stats based on equipped parts."""
@@ -432,6 +436,9 @@ def recalculate_agent_stats(db: Session, agent: Agent):
     agent.armor = 5
     agent.max_mass = BASE_CAPACITY
     agent.mining_yield = 10
+    agent.loot_bonus = 0.0
+    agent.energy_save = 0
+    agent.wear_resistance = 0.0
     
     # Custom attributes (may not be in models yet, but we handle them)
     radar_radius = 5
@@ -450,6 +457,9 @@ def recalculate_agent_stats(db: Session, agent: Agent):
         agent.overclock += int(base_stats.get("overclock", 0) * multiplier)
         agent.armor += int(base_stats.get("armor", 0) * multiplier)
         agent.mining_yield += int(base_stats.get("mining_yield", 0) * multiplier)
+        agent.loot_bonus += (base_stats.get("loot_bonus", 0.0) * multiplier)
+        agent.energy_save += int(base_stats.get("energy_save", 0) * multiplier)
+        agent.wear_resistance += (base_stats.get("wear_resistance", 0.0) * multiplier)
         
         # Capacity is special (Float)
         agent.max_mass += (base_stats.get("capacity", 0) * multiplier)
@@ -468,6 +478,9 @@ def recalculate_agent_stats(db: Session, agent: Agent):
             agent.overclock = int(agent.overclock * boost)
             agent.armor = int(agent.armor * boost)
             agent.mining_yield = int(agent.mining_yield * boost)
+            agent.loot_bonus *= boost
+            agent.energy_save = int(agent.energy_save * boost)
+            agent.wear_resistance *= boost
 
         # Random Affixes
         affixes = part.affixes or {}
@@ -481,6 +494,12 @@ def recalculate_agent_stats(db: Session, agent: Agent):
                         agent.max_mass += bonus
                     elif stat_name == "radar_radius":
                         radar_radius += bonus
+                    elif stat_name == "loot_bonus":
+                        agent.loot_bonus += bonus
+                    elif stat_name == "energy_save":
+                        agent.energy_save += bonus
+                    elif stat_name == "wear_resistance":
+                        agent.wear_resistance += bonus
 
     # ── Corporate Upgrade Bonuses ──
     if agent.corporation and agent.corporation.upgrades:
@@ -508,14 +527,12 @@ def recalculate_agent_stats(db: Session, agent: Agent):
     agent.damage = max(1, agent.damage)
     agent.mining_yield = max(1, agent.mining_yield)
     agent.max_mass = max(50.0, agent.max_mass)
+    agent.energy_save = min(90, max(0, agent.energy_save))  # Cap at 90%
+    agent.wear_resistance = min(1.0, max(0.0, agent.wear_resistance))
+    agent.loot_bonus = max(0.0, agent.loot_bonus)
 
-    # Wear & Tear penalty (Applied after all bonuses)
-    # Capped at 100.0%, 10% stats at 100% wear
-    wear = min(100.0, agent.wear_and_tear or 0.0)
-    agent.wear_and_tear = wear
-    
-    # Linear penalty: 1.0 at 0% wear, 0.1 at 100% wear
-    penalty_factor = 1.0 - (wear / 100.0) * 0.9
+    # Linear penalty via helper
+    penalty_factor = get_wear_penalty_factor(agent.wear_and_tear)
     
     agent.damage = int(agent.damage * penalty_factor)
     agent.accuracy = int(agent.accuracy * penalty_factor)
@@ -523,8 +540,8 @@ def recalculate_agent_stats(db: Session, agent: Agent):
     agent.mining_yield = int(agent.mining_yield * penalty_factor)
     agent.armor = int(agent.armor * penalty_factor)
     
-    if wear > 0:
-        logger.info(f"Agent {agent.id} Wear & Tear penalty: {penalty_factor:.2f}x (Wear: {wear:.1f}%)")
+    if agent.wear_and_tear and agent.wear_and_tear > 0:
+        logger.info(f"Agent {agent.id} Wear & Tear penalty: {penalty_factor:.2f}x (Wear: {agent.wear_and_tear:.1f}%)")
 
     if agent.health > agent.max_health:
         agent.health = agent.max_health

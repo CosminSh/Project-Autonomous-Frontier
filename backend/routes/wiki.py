@@ -55,6 +55,10 @@ async def _get_wiki_payload():
                 {
                     "title": "Frame Dynamics (RPS)",
                     "text": "Strikers (Speed/Damage) beat Balanced ships. Heavy (HP/Armor) beat Strikers. Industrial (Mining/Cargo) trade combat power for efficiency."
+                },
+                {
+                    "title": "Wear & Tear",
+                    "text": "Actions (Move, Mine, Attack) increase Wear (up to 100%). High wear reduces Damage, Accuracy, Speed, and Mining Yield by up to 90%. Use CORE_SERVICE at a Repair station to reset."
                 }
             ]
         },

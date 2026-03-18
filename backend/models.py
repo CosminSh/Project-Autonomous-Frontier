@@ -27,6 +27,12 @@ class Agent(Base):
     storage_capacity = Column(Float, server_default="500.0")
     mining_yield = Column(Integer, server_default="10")
     
+    # Reward & Efficiency Attributes
+    loot_bonus = Column(Float, server_default="0.0")
+    energy_save = Column(Integer, server_default="0") # Percentage chance to skip energy cost
+    wear_resistance = Column(Float, server_default="0.0") # Percentage reduction (0.0 to 1.0)
+
+    
     # State / Status
     is_bot = Column(Boolean, default=False)
     is_feral = Column(Boolean, default=False)
