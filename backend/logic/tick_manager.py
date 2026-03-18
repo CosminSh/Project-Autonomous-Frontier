@@ -174,32 +174,42 @@ class TickManager:
 
     async def _process_player_intents(self, db):
         """Processes all intents scheduled for the current or recent ticks."""
-        # 1. Catch-up logic: Only process intents from the last 5 ticks to avoid backlog explosions.
-        # This prevents 520 errors if thousands of old intents are queued during lag.
+        # 1. Catch-up logic
         min_tick = max(0, self.tick_count - 5)
         intents = db.execute(select(Intent).where(Intent.tick_index >= min_tick, Intent.tick_index <= self.tick_count)).scalars().all()
         
-        # 2. Hard Cleanup: Delete all intents older than our catch-up window to prevent DB bloat.
+        # 2. Hard Cleanup: Delete all intents older than our catch-up window
         from sqlalchemy import delete
         db.execute(delete(Intent).where(Intent.tick_index < min_tick))
         
         if not intents:
             return
 
-        # Priority Sorting: STOP -> MOVE -> Actions -> Industry/Trade
+        # 3. BATCH LOAD AGENTS: Avoid N+1 database queries during processing
+        agent_ids = {i.agent_id for i in intents}
+        from sqlalchemy.orm import selectinload
+        agents_map = {
+            a.id: a for a in db.execute(
+                select(Agent)
+                .where(Agent.id.in_(agent_ids))
+                .options(selectinload(Agent.parts), selectinload(Agent.inventory), selectinload(Agent.corporation))
+            ).scalars().all()
+        }
+
+        # Priority Sorting
         PRIORITY = {"STOP": 0, "MOVE": 1, "MINE": 3, "ATTACK": 3, "LOOT": 3, "DESTROY": 3, "LIST": 4, "BUY": 4}
         sorted_intents = sorted(intents, key=lambda x: PRIORITY.get(x.action_type, 99))
 
         processed_count = 0
         for intent in sorted_intents:
-            agent = db.get(Agent, intent.agent_id)
+            agent = agents_map.get(intent.agent_id)
             if agent:
                 try:
                     await self.processor.process_intent(db, agent, intent, self.tick_count)
                     processed_count += 1
                 except Exception as e:
                     logger.error(f"Error in intent {intent.id}: {e}")
-            db.delete(intent) # Intent is consumed even if handler fails
+            db.delete(intent) 
 
         if self.manager:
             await self.manager.broadcast({
