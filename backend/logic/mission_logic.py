@@ -9,28 +9,47 @@ from game_helpers import get_hex_distance, add_experience
 logger = logging.getLogger("heartbeat.mission_logic")
 
 def generate_daily_missions(db):
-    """Generates a fresh set of daily missions for all player tiers."""
-    active = db.execute(select(DailyMission).where(DailyMission.expires_at > func.now())).scalars().all()
-    if active: return
+    """Generates a fresh set of daily missions for all player tiers every 8 hours."""
+    now = datetime.now(timezone.utc)
+    
+    # Check if there's any active mission that expires in the future
+    # We use a slight overlap or a specific 'current' check.
+    # To keep it simple: if there are ANY missions that expire in the future, we assume we are in an active window.
+    # BUT! If the DB has missions from "yesterday" that are technically expired, we must clear them.
+    
+    active_count = db.execute(select(func.count(DailyMission.id)).where(DailyMission.expires_at > now)).scalar() or 0
+    if active_count > 0:
+        return # Missions are still fresh
 
-    logger.info("Generating new Daily Missions for all tiers...")
-    expires = datetime.now(timezone.utc) + timedelta(hours=8)
+    # If we reach here, it means all missions have expired.
+    logger.info("Missions expired. Cleaning up old records and generating new pool...")
+    
+    # 1. Cleanup Old Missions (Cascade to AgentMission progress)
+    from sqlalchemy import delete
+    db.execute(delete(AgentMission)) # Clear everyone's progress for the new window
+    db.execute(delete(DailyMission)) # Clear the old pool
+    db.commit() # Flush the deletion before adding new ones
+
+    # 2. Generate New Pool (8-hour window)
+    expires = now + timedelta(hours=8)
     
     # Tier 1 (Level 1-2)
-    db.add(DailyMission(mission_type="HUNT_FERAL", target_amount=1, reward_credits=200, min_level=1, max_level=2, expires_at=expires))
+    db.add(DailyMission(mission_type="HUNT_FERAL", target_amount=random.randint(1, 2), reward_credits=200, min_level=1, max_level=2, expires_at=expires))
     db.add(DailyMission(mission_type="BUY_MARKET", target_amount=1, reward_credits=100, min_level=1, max_level=2, expires_at=expires))
-    db.add(DailyMission(mission_type="TURN_IN", target_amount=10, item_type="IRON_ORE", reward_credits=100, min_level=1, max_level=2, expires_at=expires))
+    db.add(DailyMission(mission_type="TURN_IN", target_amount=random.choice([5, 10]), item_type="IRON_ORE", reward_credits=100, min_level=1, max_level=2, expires_at=expires))
     
     # Tier 2 (Level 3-5)
-    db.add(DailyMission(mission_type="HUNT_FERAL", target_amount=3, reward_credits=450, min_level=3, max_level=5, expires_at=expires))
-    db.add(DailyMission(mission_type="BUY_MARKET", target_amount=2, reward_credits=300, min_level=3, max_level=5, expires_at=expires))
-    db.add(DailyMission(mission_type="TURN_IN", target_amount=20, item_type="COPPER_ORE", reward_credits=400, min_level=3, max_level=5, expires_at=expires))
+    db.add(DailyMission(mission_type="HUNT_FERAL", target_amount=random.randint(3, 5), reward_credits=450, min_level=3, max_level=5, expires_at=expires))
+    db.add(DailyMission(mission_type="BUY_MARKET", target_amount=random.randint(2, 3), reward_credits=300, min_level=3, max_level=5, expires_at=expires))
+    db.add(DailyMission(mission_type="TURN_IN", target_amount=random.choice([15, 20]), item_type="COPPER_ORE", reward_credits=400, min_level=3, max_level=5, expires_at=expires))
     
     # Tier 3 (Level 6+)
-    db.add(DailyMission(mission_type="HUNT_FERAL", target_amount=5, reward_credits=800, min_level=6, max_level=99, expires_at=expires))
-    db.add(DailyMission(mission_type="BUY_MARKET", target_amount=3, reward_credits=500, min_level=6, max_level=99, expires_at=expires))
+    db.add(DailyMission(mission_type="HUNT_FERAL", target_amount=random.randint(5, 10), reward_credits=800, min_level=6, max_level=99, expires_at=expires))
+    db.add(DailyMission(mission_type="BUY_MARKET", target_amount=random.randint(3, 5), reward_credits=500, min_level=6, max_level=99, expires_at=expires))
+    db.add(DailyMission(mission_type="TURN_IN", target_amount=random.choice([20, 30]), item_type="SILVER_ORE", reward_credits=700, min_level=6, max_level=99, expires_at=expires))
     
     db.commit()
+    logger.info(f"New missions generated, expiring at {expires}")
 
 async def handle_turn_in(db, agent, intent, tick_count, manager):
     """Processes a TURN_IN intent for item-based missions."""
