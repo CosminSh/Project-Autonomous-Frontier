@@ -116,8 +116,3 @@ async def update_global_agent_stats(db, tick_count, manager):
     del resource_cache
     del ally_cache
     gc.collect()
-
-    # Final tick cleanup
-    del all_agents
-    del station_coords
-    gc.collect()
