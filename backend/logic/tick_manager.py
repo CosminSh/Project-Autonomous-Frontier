@@ -7,7 +7,7 @@ from database import SessionLocal
 from models import GlobalState, Agent, InventoryItem, Intent, AgentMessage
 from datetime import datetime, timezone, timedelta
 from config import (
-    PHASE_PERCEPTION_DURATION, PHASE_STRATEGY_DURATION, PHASE_CRUNCH_DURATION
+    PHASE_SCAN_DURATION, PHASE_DECIDE_DURATION, PHASE_EXECUTE_DURATION
 )
 from logic.mission_logic import generate_daily_missions
 from logic.state_updates import update_global_agent_stats
@@ -30,7 +30,7 @@ class TickManager:
         with SessionLocal() as db:
             state = db.execute(select(GlobalState)).scalars().first()
             if not state:
-                state = GlobalState(tick_index=0, phase="PERCEPTION")
+                state = GlobalState(tick_index=0, phase="SCAN")
                 db.add(state)
                 db.commit()
             self.tick_count = state.tick_index
@@ -45,12 +45,12 @@ class TickManager:
 
     async def _run_tick(self):
         """Executes a single game tick across three phases."""
-        # 1. PERCEPTION
-        await self._set_phase("PERCEPTION")
-        await asyncio.sleep(PHASE_PERCEPTION_DURATION)
+        # 1. SCAN
+        await self._set_phase("SCAN")
+        await asyncio.sleep(PHASE_SCAN_DURATION)
 
-        # 2. STRATEGY (NPC Think + Repop)
-        await self._set_phase("STRATEGY")
+        # 2. DECIDE (NPC Think + Repop)
+        await self._set_phase("DECIDE")
         with SessionLocal() as db:
             await update_global_agent_stats(db, self.tick_count, self.manager)
             self._repopulate_ferals(db)
@@ -63,10 +63,10 @@ class TickManager:
                 await spawn_random_anomaly(db, self.tick_count, self.manager)
                 
             db.commit()
-        await asyncio.sleep(PHASE_STRATEGY_DURATION)
+        await asyncio.sleep(PHASE_DECIDE_DURATION)
 
-        # 3. THE CRUNCH (Intents + Missions + Daily Matchups)
-        await self._set_phase("CRUNCH")
+        # 3. EXECUTE (Intents + Missions + Daily Matchups)
+        await self._set_phase("EXECUTE")
         with SessionLocal() as db:
             generate_daily_missions(db)
             
@@ -80,7 +80,7 @@ class TickManager:
                 self._cleanup_old_messages(db)
                 
             db.commit()
-        await asyncio.sleep(PHASE_CRUNCH_DURATION)
+        await asyncio.sleep(PHASE_EXECUTE_DURATION)
 
     async def _set_phase(self, phase_name):
         """Updates global state and broadcasts phase changes."""
@@ -197,7 +197,7 @@ class TickManager:
         }
 
         # Priority Sorting
-        PRIORITY = {"STOP": 0, "MOVE": 1, "MINE": 3, "ATTACK": 3, "LOOT": 3, "DESTROY": 3, "LIST": 4, "BUY": 4}
+        PRIORITY = {"STOP": 0, "MOVE": 1, "GO": 1, "MINE": 3, "ATTACK": 3, "LOOT": 3, "DESTROY": 3, "LIST": 4, "BUY": 4}
         sorted_intents = sorted(intents, key=lambda x: PRIORITY.get(x.action_type, 99))
 
         processed_count = 0

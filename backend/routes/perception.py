@@ -116,7 +116,7 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
 
     tick_info = {
         "current_tick": state.tick_index if state else 0,
-        "phase": state.phase if state else "PERCEPTION"
+        "phase": state.phase if state else "SCAN"
     }
     self_info = {
         "name": agent.name, 
@@ -129,10 +129,10 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
         "level": agent.level, 
         "faction": agent.faction_id
     }
-    # Calculate pending moves by counting future MOVE intents
+    # Calculate pending moves by counting future MOVE/GO intents
     pending_moves = 0
     if state:
-        pending_moves = sum(1 for i in agent.intents if i.action_type == "MOVE" and i.tick_index > state.tick_index)
+        pending_moves = sum(1 for i in agent.intents if i.action_type in ["MOVE", "GO"] and i.tick_index > state.tick_index)
 
     agent_status = {
         "pending_moves": pending_moves

@@ -11,6 +11,7 @@ class IntentProcessor:
         self.handlers = {
             "STOP": movement.handle_stop,
             "MOVE": movement.handle_move,
+            "GO": movement.handle_move, # Alias for MOVE
             "MINE": mining.handle_mine,
             "ATTACK": combat.handle_attack,
             "INTIMIDATE": combat.handle_intimidate,
