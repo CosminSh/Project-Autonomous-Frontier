@@ -145,11 +145,17 @@ class TickManager:
         if count < 400:
             logger.info(f"Resource nodes low ({count}). Spawning new veins...")
             
-            # Find a bunch of VOID hexes that are NOT stations
-            voids = db.execute(select(WorldHex).where(WorldHex.terrain_type == "VOID", WorldHex.is_station == False)).scalars().all()
+            # MEMORY OPTIMIZATION: Don't load all VOID hexes. Load a random sample of 100.
+            # We use a simple offset or limit to avoid loading 10,000+ objects into RAM.
+            voids = db.execute(
+                select(WorldHex)
+                .where(WorldHex.terrain_type == "VOID", WorldHex.is_station == False)
+                .limit(100)
+            ).scalars().all()
+            
             if not voids: return
             
-            # Spawn up to 20 per cycle
+            # Spawn a few per cycle
             random.shuffle(voids)
             spawned = 0
             for h in voids:
@@ -160,7 +166,11 @@ class TickManager:
                     h.resource_density = data["resource_density"]
                     h.resource_quantity = data["resource_quantity"]
                     spawned += 1
-                if spawned >= 20: break
+                if spawned >= 15: break
+            
+            # Force cleanup of the 'voids' list from memory
+            del voids
+            gc.collect() 
 
     async def _process_player_intents(self, db):
         """Processes all intents scheduled for the current or recent ticks."""

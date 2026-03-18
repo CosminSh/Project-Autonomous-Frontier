@@ -1,8 +1,10 @@
 import logging
 import asyncio
 import random
+import gc
 from sqlalchemy import select, func
-from models import Agent, InventoryItem, GlobalState, Bounty, Intent, AuditLog
+from sqlalchemy.orm import selectinload
+from models import Agent, InventoryItem, GlobalState, Bounty, Intent, AuditLog, WorldHex
 from config import BASE_REGEN, CLUTTER_PENALTY, TOWN_COORDINATES, RESPAWN_HP_PERCENT
 from game_helpers import get_solar_intensity, merge_inventory
 from .bot_logic import process_bot_brain, process_feral_brain
@@ -11,44 +13,50 @@ logger = logging.getLogger("heartbeat.state_updates")
 
 async def update_global_agent_stats(db, tick_count, manager):
     """Processes energy regen, wear & tear, clutter, and NPC brains for all agents."""
-    # 0. Global Death Reaper (Safety Net)
-    # Catches agents that hit 0 or negative HP and didn't respawn correctly.
-    dead_agents = db.execute(select(Agent).where(Agent.health <= 0, Agent.is_feral == False)).scalars().all()
-    for corpse in dead_agents:
-        logger.warning(f"Reaper: Found dead agent {corpse.name} ({corpse.id}) at ({corpse.q}, {corpse.r}). Respawning...")
-        corpse.q, corpse.r = TOWN_COORDINATES
-        corpse.health = int(corpse.max_health * RESPAWN_HP_PERCENT)
-        corpse.energy = 0
-        
-        # Clear intents to stop loops
-        cursor = db.execute(select(Intent).where(Intent.agent_id == corpse.id))
-        for intent in cursor.scalars().all():
-            db.delete(intent)
-            
-        db.add(AuditLog(agent_id=corpse.id, event_type="REAPER_RESPAWN", details={"q": 0, "r": 0, "hp": corpse.health}))
+    
+    # 0. Global Station Cache (Batching to avoid per-agent queries)
+    # Fetch all station coordinates into a set for O(1) lookups
+    stations = db.execute(select(WorldHex.q, WorldHex.r).where(WorldHex.is_station == True)).all()
+    station_coords = {(s.q, s.r) for s in stations}
+    
+    # 1. Global Death Reaper & Brains (Eager Loading to prevent N+1 queries)
+    # We load parts and inventory in one go.
+    all_agents = db.execute(
+        select(Agent)
+        .options(selectinload(Agent.parts), selectinload(Agent.inventory))
+    ).scalars().all()
 
-    # 1. NPC Brains & Pop (Phase 2 Equivalent)
-    ai_agents = db.execute(select(Agent).where((Agent.is_bot == True) | (Agent.is_feral == True))).scalars().all()
-    for ai in ai_agents:
-        if ai.is_feral: process_feral_brain(db, ai, tick_count)
-        else: process_bot_brain(db, ai, tick_count, []) # Cache injected from outer loop
-        await asyncio.sleep(0)
-
-    # Automated Bounties
-    high_heat = db.execute(select(Agent).where(Agent.heat >= 5, Agent.is_feral == False)).scalars().all()
-    for criminal in high_heat:
-        existing = db.execute(select(Bounty).where(Bounty.target_id == criminal.id, Bounty.is_open == True)).scalar_one_or_none()
-        if not existing:
-            db.add(Bounty(target_id=criminal.id, reward=500.0, issuer="Colonial Administration"))
-            logger.info(f"Automated Bounty issued for Agent {criminal.id}")
-
-    # Ambient Stats (Phase 3 Crunch Equivalent)
-    all_agents = db.execute(select(Agent)).scalars().all()
     for agent in all_agents:
-        merge_inventory(db, agent)
+        # A. Cleanup Death
+        if agent.health <= 0 and not agent.is_feral:
+            logger.warning(f"Reaper: Respawning {agent.name} ({agent.id})")
+            agent.q, agent.r = TOWN_COORDINATES
+            agent.health = int(agent.max_health * RESPAWN_HP_PERCENT)
+            agent.energy = 0
+            
+            # Clear intents
+            cursor = db.execute(select(Intent).where(Intent.agent_id == agent.id))
+            for intent in cursor.scalars().all():
+                db.delete(intent)
+            db.add(AuditLog(agent_id=agent.id, event_type="REAPER_RESPAWN", details={"q": 0, "r": 0, "hp": agent.health}))
+
+        # B. NPC Brains
+        if agent.is_bot or agent.is_feral:
+            if agent.is_feral: process_feral_brain(db, agent, tick_count)
+            else: process_bot_brain(db, agent, tick_count, [])
         
-        # Energy REGEN
+        # C. Bounties (High Heat)
+        if agent.heat >= 5 and not agent.is_feral:
+            # Only check for open bounties
+            existing = db.execute(select(Bounty).where(Bounty.target_id == agent.id, Bounty.is_open == True)).scalar_one_or_none()
+            if not existing:
+                db.add(Bounty(target_id=agent.id, reward=500.0, issuer="Colonial Administration"))
+
+        # D. Ambient Stats & Regen
+        merge_inventory(db, agent)
         intensity = get_solar_intensity(agent.q, agent.r, tick_count)
+        
+        # Eager loaded parts are now free to access!
         power_part = next((p for p in agent.parts if p.part_type == "Power"), None)
         efficiency = (power_part.stats or {}).get("efficiency", 1.0) if power_part else 1.0
         
@@ -66,19 +74,17 @@ async def update_global_agent_stats(db, tick_count, manager):
 
         regen = int(BASE_REGEN * efficiency * (1.0 if fuel_bypass else intensity))
         
-        # 2x Regeneration bonus at Stations (POI)
-        from models import WorldHex
-        is_at_station = db.execute(select(func.count(WorldHex.id)).where(
-            WorldHex.q == agent.q, WorldHex.r == agent.r, WorldHex.is_station == True
-        )).scalar()
-        if is_at_station: regen *= 2
+        # 2x Regeneration bonus at Stations (Using our local O(1) set)
+        if (agent.q, agent.r) in station_coords:
+            regen *= 2
         
         agent.energy = min(100, agent.energy + regen)
 
         # Progression Ticks
         if (agent.overclock_ticks or 0) > 0: agent.overclock_ticks -= 1
 
-        # Cluster Clutter Signal Noise
+        # Cluster Clutter (Still per-agent but we could batch this too if needed)
+        # For now, 1GB RAM can handle this single count query per agent
         if agent.faction_id is not None:
              allies = db.execute(select(func.count(Agent.id)).where(
                  Agent.q == agent.q, Agent.r == agent.r, 
@@ -88,3 +94,8 @@ async def update_global_agent_stats(db, tick_count, manager):
                  agent.accuracy = int(agent.accuracy * (1.0 - CLUTTER_PENALTY))
         
         await asyncio.sleep(0) # Yield for other tasks
+
+    # Final tick cleanup
+    del all_agents
+    del station_coords
+    gc.collect()
