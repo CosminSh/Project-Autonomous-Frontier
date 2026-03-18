@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
         ("agents", "overclock", "INTEGER DEFAULT 10"),
         ("agents", "max_mass", "FLOAT DEFAULT 100.0"),
         ("agents", "storage_capacity", "FLOAT DEFAULT 500.0"),
-        ("agents", "last_daily_reward", "DATETIME"),
+        ("agents", "last_daily_reward", "TIMESTAMP"),
         ("agents", "is_pitfighter", "BOOLEAN DEFAULT FALSE"),
         ("agents", "is_aggressive", "BOOLEAN DEFAULT FALSE"),
         ("agents", "wear_and_tear", "FLOAT DEFAULT 0.0"),
@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
         ("agents", "wear_resistance", "FLOAT DEFAULT 0.0"),
         ("agents", "overclock_ticks", "INTEGER DEFAULT 0"),
         ("agents", "heat", "INTEGER DEFAULT 0"),
-        ("agents", "unlocked_recipes", "JSON"),
+        ("agents", "unlocked_recipes", "JSONB"),
         ("agents", "squad_id", "INTEGER"),
         ("agents", "pending_squad_invite", "INTEGER"),
         ("agents", "corporation_id", "INTEGER"),
@@ -70,7 +70,7 @@ async def lifespan(app: FastAPI):
         ("agents", "last_attacked_tick", "INTEGER DEFAULT 0"),
         ("agents", "is_in_anarchy_zone", "BOOLEAN DEFAULT FALSE"),
         ("agents", "arena_losses", "INTEGER DEFAULT 0"),
-        ("arena_profiles", "daily_opponents", "JSON"),
+        ("arena_profiles", "daily_opponents", "JSONB"),
         ("agents", "mining_yield", "INTEGER DEFAULT 10"),
         ("agents", "experience", "INTEGER DEFAULT 0"),
         ("agents", "level", "INTEGER DEFAULT 1"),
@@ -80,21 +80,21 @@ async def lifespan(app: FastAPI):
         ("global_state", "actions_processed", "INTEGER DEFAULT 0"),
         ("bounties", "claimed_by", "INTEGER REFERENCES agents(id)"),
         ("bounties", "claim_tick", "BIGINT"),
-        ("bounties", "created_at", "DATETIME"),
-        ("auction_house", "created_at", "DATETIME"),
-        ("market_pickups", "created_at", "DATETIME"),
-        ("intents", "created_at", "DATETIME"),
-        ("daily_missions", "created_at", "DATETIME"),
+        ("bounties", "created_at", "TIMESTAMP"),
+        ("auction_house", "created_at", "TIMESTAMP"),
+        ("market_pickups", "created_at", "TIMESTAMP"),
+        ("intents", "created_at", "TIMESTAMP"),
+        ("daily_missions", "created_at", "TIMESTAMP"),
         ("daily_missions", "reward_xp", "INTEGER DEFAULT 100"),
-        ("corporations", "created_at", "DATETIME"),
+        ("corporations", "created_at", "TIMESTAMP"),
         ("corporations", "vault_capacity", "FLOAT DEFAULT 5000.0"),
         ("corporations", "credit_vault", "INTEGER DEFAULT 0"),
         ("corporations", "tax_rate", "FLOAT DEFAULT 0.0"),
-        ("api_key_revocations", "revoked_at", "DATETIME"),
+        ("api_key_revocations", "revoked_at", "TIMESTAMP"),
         ("agents", "corp_role", "VARCHAR DEFAULT 'MEMBER'"),
         ("corporations", "join_policy", "VARCHAR DEFAULT 'OPEN'"),
         ("corporations", "motd", "TEXT"),
-        ("corporations", "upgrades", "JSON"),
+        ("corporations", "upgrades", "JSONB"),
     ]
     
     with engine.connect() as conn:
@@ -132,26 +132,38 @@ async def lifespan(app: FastAPI):
     else:
         logger.info(f"World already seeded ({hex_count} hexes). Skipping auto-seed.")
 
-    refresh_station_cache()
+    try:
+        # 1. Sync station cache
+        refresh_station_cache()
 
-    # Inject the shared WebSocket manager into heartbeat module
-    hb.manager = event_manager
-    asyncio.create_task(hb.heartbeat_loop())
-    
-    # Start Leaderboard Generation loop - Non-blocking background task
-    async def _safe_leaderboard_init():
-        logger.info("[INIT] Waiting 15s for database/heartbeat to stabilize before leaderboard init...")
-        await asyncio.sleep(15)
-        try:
-            from logic.leaderboard_manager import start_leaderboard_loop
-            logger.info("[INIT] Starting leaderboard background loop...")
-            await start_leaderboard_loop()
-        except Exception as e:
-            logger.error(f"[INIT] CRITICAL Leaderboard task error: {e}")
+        # Inject the shared WebSocket manager into heartbeat module
+        hb.manager = event_manager
+        asyncio.create_task(hb.heartbeat_loop())
+        
+        # Start Leaderboard Generation loop - Non-blocking background task
+        async def _safe_leaderboard_init():
+            logger.info("[INIT] Waiting 15s for database/heartbeat to stabilize before leaderboard init...")
+            await asyncio.sleep(15)
+            try:
+                from logic.leaderboard_manager import start_leaderboard_loop
+                logger.info("[INIT] Starting leaderboard background loop...")
+                await start_leaderboard_loop()
+            except Exception as e:
+                msg = f"[INIT] CRITICAL Leaderboard task error: {e}"
+                logger.error(msg)
+                with open("startup_error.log", "a") as f:
+                    f.write(f"{datetime.now()}: {msg}\n")
 
-    asyncio.create_task(_safe_leaderboard_init())
-    
-    yield
+        asyncio.create_task(_safe_leaderboard_init())
+        
+        yield
+    except Exception as e:
+        import traceback
+        error_msg = f"FATAL LIFESPAN ERROR: {e}\n{traceback.format_exc()}"
+        logger.error(error_msg)
+        with open("startup_error.log", "a") as f:
+            f.write(f"{datetime.now()}: {error_msg}\n")
+        raise e
     # Shutdown logic (if any) could go here
 
 app = FastAPI(
