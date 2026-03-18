@@ -790,8 +790,9 @@ export class UIManager {
             `).join('');
         };
 
+        console.log("Leaderboard Data Received:", data);
         if (xpBody) xpBody.innerHTML = renderRows(data.categories.xp || []);
-        if (creditsBody) creditsBody.innerHTML = renderRows(data.categories.credits || []);
+        if (creditsBody) creditsBody.innerHTML = renderRows(data.categories.credits || [], true);
     }
 
     updateMyOrdersUI(orders) {
