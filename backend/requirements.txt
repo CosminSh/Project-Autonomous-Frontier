@@ -10,3 +10,4 @@ passlib[bcrypt]
 google-auth
 requests
 alembic
+psutil
