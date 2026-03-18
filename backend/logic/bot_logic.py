@@ -3,9 +3,17 @@ from sqlalchemy import select
 from models import Agent, WorldHex, Intent, InventoryItem, AuditLog
 from game_helpers import is_in_anarchy_zone, get_hex_distance, get_hex_neighbors, wrap_coords
 
+def find_nearest_station(stations, current_q, current_r, station_type):
+    """Finds the closest station of a specific type."""
+    type_stations = [s for s in stations if s["station_type"] == station_type]
+    if not type_stations:
+        return None
+    return min(type_stations, key=lambda s: get_hex_distance(current_q, current_r, s["q"], s["r"]))
+
 def process_bot_brain(db, agent: Agent, current_tick: int, stations: list, resource_cache: dict, allies: list):
     """
     Advanced bot logic using pre-fetched context to avoid N+1 queries.
+    Improved to always find the NEAREST station.
     """
     hp_pct = (agent.health / agent.max_health) if agent.max_health > 0 else 1.0
     wear = agent.wear_and_tear or 0.0
@@ -13,7 +21,7 @@ def process_bot_brain(db, agent: Agent, current_tick: int, stations: list, resou
     if hp_pct < 0.7 or wear > 50.0:
         # Need repair or service
         station_type = "REPAIR" if hp_pct < 0.7 else "MARKET"
-        station = next((s for s in stations if s["station_type"] == station_type), None)
+        station = find_nearest_station(stations, agent.q, agent.r, station_type)
         if station:
             if agent.q == station["q"] and agent.r == station["r"]:
                 if wear > 50.0:
@@ -47,13 +55,14 @@ def process_bot_brain(db, agent: Agent, current_tick: int, stations: list, resou
                     move_towards(db, agent, target["q"], target["r"], current_tick)
                 return
 
-    # 2. Check Inventory for Production
+    # 2. Check Inventory for Production (PRIORITIZE SELLABLE GOODS)
     ores = [i for i in agent.inventory if "_ORE" in i.item_type and i.quantity >= 10]
     gases = [i for i in agent.inventory if "HELIUM_GAS" in i.item_type and i.quantity >= 10]
     ingots = [i for i in agent.inventory if "_INGOT" in i.item_type and i.quantity >= 1]
     
+    # 2a. Sell Ingots at Market
     if ingots:
-        market = next((s for s in stations if s["station_type"] == "MARKET"), None)
+        market = find_nearest_station(stations, agent.q, agent.r, "MARKET")
         if market:
             if agent.q == market["q"] and agent.r == market["r"]:
                 ingot = ingots[0]
@@ -67,8 +76,9 @@ def process_bot_brain(db, agent: Agent, current_tick: int, stations: list, resou
                 move_towards(db, agent, market["q"], market["r"], current_tick)
             return
 
+    # 2b. Refine Gases
     if gases:
-        refinery = next((s for s in stations if s["station_type"] == "REFINERY"), None)
+        refinery = find_nearest_station(stations, agent.q, agent.r, "REFINERY")
         if refinery:
             if agent.q == refinery["q"] and agent.r == refinery["r"]:
                 db.add(Intent(
@@ -81,8 +91,9 @@ def process_bot_brain(db, agent: Agent, current_tick: int, stations: list, resou
                 move_towards(db, agent, refinery["q"], refinery["r"], current_tick)
             return
 
+    # 2c. Smelt Ores (NEAREST SMELTER)
     if ores:
-        smelter = next((s for s in stations if s["station_type"] == "SMELTER"), None)
+        smelter = find_nearest_station(stations, agent.q, agent.r, "SMELTER")
         if smelter:
             if agent.q == smelter["q"] and agent.r == smelter["r"]:
                 db.add(Intent(
