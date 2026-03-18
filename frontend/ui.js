@@ -877,6 +877,11 @@ export class UIManager {
         if (document.getElementById('stat-acc')) document.getElementById('stat-acc').innerText = agent.accuracy;
         if (document.getElementById('stat-arm')) document.getElementById('stat-arm').innerText = agent.armor;
         if (document.getElementById('stat-mining')) document.getElementById('stat-mining').innerText = agent.mining_yield || 10;
+        
+        // New Bonus Stats
+        if (document.getElementById('stat-loot')) document.getElementById('stat-loot').innerText = `+${((agent.loot_bonus || 0) * 100).toFixed(0)}%`;
+        if (document.getElementById('stat-energy-save')) document.getElementById('stat-energy-save').innerText = `${agent.energy_save || 0}%`;
+        if (document.getElementById('stat-wear-res')) document.getElementById('stat-wear-res').innerText = `${((agent.wear_resistance || 0) * 100).toFixed(0)}%`;
 
         document.getElementById('hp-bar').style.width = `${(agent.health / agent.max_health) * 100}%`;
         document.getElementById('hp-text').innerText = `${agent.health}/${agent.max_health}`;

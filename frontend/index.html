@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=0.8.1">
+    <link rel="stylesheet" href="styles.css?v=0.8.2">
     <style>
         body {
             background-color: #050507;
@@ -498,6 +498,22 @@
                         <div class="flex flex-col items-center flex-1">
                             <span class="text-[7px] text-slate-500 uppercase tracking-tighter">Mining</span>
                             <span id="stat-mining" class="text-[10px] font-bold text-indigo-400 orbitron">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Specialized Bonuses Row -->
+                    <div class="grid grid-cols-3 gap-2 bg-slate-900/40 p-2 rounded-xl border border-slate-800/80 mb-2">
+                        <div class="flex flex-col items-center flex-1 border-r border-slate-800">
+                            <span class="text-[7px] text-slate-500 uppercase tracking-tighter">Loot Bonus</span>
+                            <span id="stat-loot" class="text-[10px] font-bold text-amber-400 orbitron">--</span>
+                        </div>
+                        <div class="flex flex-col items-center flex-1 border-r border-slate-800">
+                            <span class="text-[7px] text-slate-500 uppercase tracking-tighter">Energy Save</span>
+                            <span id="stat-energy-save" class="text-[10px] font-bold text-sky-400 orbitron">--</span>
+                        </div>
+                        <div class="flex flex-col items-center flex-1">
+                            <span class="text-[7px] text-slate-500 uppercase tracking-tighter">Wear Res.</span>
+                            <span id="stat-wear-res" class="text-[10px] font-bold text-emerald-400 orbitron">--</span>
                         </div>
                     </div>
 
@@ -1684,8 +1700,8 @@
         }
     }
     </script>
-    <script type="module" src="storage.js?v=0.8.1"></script>
-    <script type="module" src="app.js?v=0.8.1"></script>
+    <script type="module" src="storage.js?v=0.8.2"></script>
+    <script type="module" src="app.js?v=0.8.2"></script>
 
 </body>
 
