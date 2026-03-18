@@ -765,6 +765,11 @@ export class UIManager {
     }
 
     updateLeaderboardsUI(data) {
+        if (!data || !data.categories) {
+            console.warn("Leaderboard data missing categories:", data);
+            return;
+        }
+
         const xpBody = document.getElementById('xp-leaderboard-body');
         const creditsBody = document.getElementById('credits-leaderboard-body');
         const updateText = document.getElementById('leaderboard-last-update');
@@ -785,8 +790,8 @@ export class UIManager {
             `).join('');
         };
 
-        if (xpBody) xpBody.innerHTML = renderRows(data.categories.experience);
-        if (creditsBody) creditsBody.innerHTML = renderRows(data.categories.credits, true);
+        if (xpBody) xpBody.innerHTML = renderRows(data.categories.xp || []);
+        if (creditsBody) creditsBody.innerHTML = renderRows(data.categories.credits || []);
     }
 
     updateMyOrdersUI(orders) {
@@ -1501,30 +1506,6 @@ export class UIManager {
         }).join('');
     }
 
-    updateLeaderboardsUI(data) {
-        const xpBody = document.getElementById('xp-leaderboard-body');
-        const creditsBody = document.getElementById('credits-leaderboard-body');
-        const updateText = document.getElementById('leaderboard-last-update');
-        const myAgentId = parseInt(localStorage.getItem('sv_agent_id'));
-
-        if (updateText && data.last_updated) {
-            updateText.innerText = new Date(data.last_updated).toLocaleString();
-        }
-
-        const renderRows = (list, isCredits = false) => {
-            if (!list || list.length === 0) return '<tr><td colspan="3" class="py-4 text-center text-slate-500 italic">No entries found.</td></tr>';
-            return list.map(entry => `
-                <tr class="border-b border-slate-800/50 ${entry.agent_id === myAgentId ? 'bg-sky-500/10 text-sky-400 font-bold' : 'text-slate-400'}">
-                    <td class="py-3 pl-2">${entry.rank}</td>
-                    <td class="py-3">${entry.name} ${entry.agent_id === myAgentId ? '<span class="text-[8px] bg-sky-500 text-slate-950 px-1 rounded ml-1">YOU</span>' : ''}</td>
-                    <td class="py-3 text-right pr-4 font-mono">${isCredits ? '$' : ''}${entry.value.toLocaleString()}</td>
-                </tr>
-            `).join('');
-        };
-
-        if (xpBody) xpBody.innerHTML = renderRows(data.categories.experience);
-        if (creditsBody) creditsBody.innerHTML = renderRows(data.categories.credits, true);
-    }
 
     toggleDirectiveModal(show) {
         const modal = document.getElementById('directive-modal');
