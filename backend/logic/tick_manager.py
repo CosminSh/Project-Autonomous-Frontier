@@ -145,12 +145,12 @@ class TickManager:
         if count < 400:
             logger.info(f"Resource nodes low ({count}). Spawning new veins...")
             
-            # MEMORY OPTIMIZATION: Don't load all VOID hexes. Load a random sample of 100.
-            # We use a simple offset or limit to avoid loading 10,000+ objects into RAM.
+            # MEMORY OPTIMIZATION: Don't load all VOID hexes. Load a random sample of 1000.
+            # We use a simple limit to avoid loading 10,000+ objects into RAM.
             voids = db.execute(
                 select(WorldHex)
                 .where(WorldHex.terrain_type == "VOID", WorldHex.is_station == False)
-                .limit(100)
+                .limit(1000)
             ).scalars().all()
             
             if not voids: return
@@ -160,13 +160,15 @@ class TickManager:
             spawned = 0
             for h in voids:
                 data = get_hex_terrain_data(h.q, h.r)
-                if data["terrain_type"] == "ASTEROID":
+                
+                # Check if it's natural OR if we are getting desperate (more than halfway through sample with no spawns)
+                if data["terrain_type"] == "ASTEROID" or (spawned == 0 and voids.index(h) > 500):
                     h.terrain_type = "ASTEROID"
-                    h.resource_type = data["resource_type"]
-                    h.resource_density = data["resource_density"]
-                    h.resource_quantity = data["resource_quantity"]
+                    h.resource_type = data["resource_type"] or random.choice(["IRON_ORE", "COPPER_ORE", "GOLD_ORE"])
+                    h.resource_density = data["resource_density"] or random.uniform(0.1, 0.5)
+                    h.resource_quantity = data["resource_quantity"] or random.randint(50, 200)
                     spawned += 1
-                if spawned >= 15: break
+                if spawned >= 20: break
             
             # Force cleanup of the 'voids' list from memory
             del voids
