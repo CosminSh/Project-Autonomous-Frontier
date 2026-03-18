@@ -5,7 +5,7 @@ import gc
 from datetime import datetime, timezone
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
-from models import Agent, InventoryItem
+from models import Agent, InventoryItem, ArenaProfile
 from database import SessionLocal
 
 logger = logging.getLogger("heartbeat.leaderboards")
@@ -57,40 +57,43 @@ def generate_leaderboards(db: Session):
     except Exception as e:
         logger.error(f"Error generating XP leaderboard: {e}")
 
-    # 2. Top Credits
+    # 2. Top Credits (SUM of InventoryItems of type 'CREDITS')
     try:
-        credit_agents = db.execute(
-            select(Agent.id, Agent.name, Agent.credits)
-            .where(Agent.is_bot == False)
-            .order_by(Agent.credits.desc())
+        credit_query = db.execute(
+            select(Agent.id, Agent.name, func.sum(InventoryItem.quantity).label("total_credits"))
+            .join(InventoryItem, Agent.id == InventoryItem.agent_id)
+            .where(Agent.is_bot == False, InventoryItem.item_type == "CREDITS")
+            .group_by(Agent.id, Agent.name)
+            .order_by(func.sum(InventoryItem.quantity).desc())
             .limit(100)
         ).all()
         
-        for rank, row in enumerate(credit_agents, 1):
+        for rank, row in enumerate(credit_query, 1):
             credit_list.append({
                 "rank": rank,
                 "agent_id": row.id,
                 "name": row.name,
-                "value": row.credits
+                "value": int(row.total_credits or 0)
             })
     except Exception as e:
         logger.error(f"Error generating Credits leaderboard: {e}")
 
-    # 3. Arena Rating
+    # 3. Arena Rating (From ArenaProfile.elo)
     try:
-        arena_agents = db.execute(
-            select(Agent.id, Agent.name, Agent.arena_rating)
-            .where(Agent.arena_rating > 1000)
-            .order_by(Agent.arena_rating.desc())
+        arena_query = db.execute(
+            select(Agent.id, Agent.name, ArenaProfile.elo)
+            .join(ArenaProfile, Agent.id == ArenaProfile.agent_id)
+            .where(ArenaProfile.elo > 1000)
+            .order_by(ArenaProfile.elo.desc())
             .limit(100)
         ).all()
         
-        for rank, row in enumerate(arena_agents, 1):
+        for rank, row in enumerate(arena_query, 1):
             elo_list.append({
                 "rank": rank,
                 "agent_id": row.id,
                 "name": row.name,
-                "value": row.arena_rating
+                "value": row.elo
             })
     except Exception as e:
         logger.error(f"Error generating Arena leaderboard: {e}")

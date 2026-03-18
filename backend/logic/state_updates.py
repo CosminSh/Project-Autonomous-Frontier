@@ -39,6 +39,14 @@ async def update_global_agent_stats(db, tick_count, manager):
     low_energy_allies = db.execute(select(Agent.q, Agent.r, Agent.id, Agent.faction_id).where(Agent.energy < 30)).all()
     ally_cache = [{"q": a.q, "r": a.r, "id": a.id, "faction_id": a.faction_id} for a in low_energy_allies]
 
+    # D. CLUTTER MAP (Fast O(1) lookup for faction overcrowding)
+    # Group ALL agents by (q, r, faction_id) to avoid nested loops inside the main loop
+    clutter_map = {}
+    for a in db.execute(select(Agent.q, Agent.r, Agent.id, Agent.faction_id).where(Agent.faction_id != None)).all():
+        key = (a.q, a.r, a.faction_id)
+        if key not in clutter_map: clutter_map[key] = 0
+        clutter_map[key] += 1
+
     # 2. Global Death Reaper & Simulation
     all_agents = db.execute(
         select(Agent)
@@ -59,7 +67,7 @@ async def update_global_agent_stats(db, tick_count, manager):
                 db.delete(intent)
             db.add(AuditLog(agent_id=agent.id, event_type="REAPER_RESPAWN", details={"q": 0, "r": 0, "hp": agent.health}))
 
-        # B. NPC Brains (Using the new pre-fetched caches!)
+        # B. NPC Brains
         if agent.is_bot or agent.is_feral:
             if agent.is_feral:
                 process_feral_brain(db, agent, tick_count, player_cache)
@@ -101,10 +109,10 @@ async def update_global_agent_stats(db, tick_count, manager):
         agent.energy = min(100, agent.energy + regen)
         if (agent.overclock_ticks or 0) > 0: agent.overclock_ticks -= 1
 
-        # Cluster Clutter
+        # Cluster Clutter (Using fast clutter_map lookup)
         if agent.faction_id is not None:
-             allies_here = [a for a in ally_cache if a["q"] == agent.q and a["r"] == agent.r and a["faction_id"] == agent.faction_id and a["id"] != agent.id]
-             if len(allies_here) >= 2:
+             friend_count = clutter_map.get((agent.q, agent.r, agent.faction_id), 0)
+             if friend_count >= 3: # 2 friends + self
                  agent.accuracy = int(agent.accuracy * (1.0 - CLUTTER_PENALTY))
         
         await asyncio.sleep(0) # Yield
@@ -115,4 +123,5 @@ async def update_global_agent_stats(db, tick_count, manager):
     del player_cache
     del resource_cache
     del ally_cache
+    del clutter_map
     gc.collect()

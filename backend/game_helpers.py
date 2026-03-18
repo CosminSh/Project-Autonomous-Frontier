@@ -540,8 +540,12 @@ def recalculate_agent_stats(db: Session, agent: Agent):
     agent.mining_yield = int(agent.mining_yield * penalty_factor)
     agent.armor = int(agent.armor * penalty_factor)
     
-    if agent.wear_and_tear and agent.wear_and_tear > 0:
-        logger.info(f"Agent {agent.id} Wear & Tear penalty: {penalty_factor:.2f}x (Wear: {agent.wear_and_tear:.1f}%)")
+    # agent.damage = int(agent.damage * penalty_factor)
+    # ... (Wait, why were these not being applied to the agent object permanently?)
+    # ...
+    
+    # if agent.wear_and_tear and agent.wear_and_tear > 0:
+    #     logger.info(f"Agent {agent.id} Wear & Tear penalty: {penalty_factor:.2f}x (Wear: {agent.wear_and_tear:.1f}%)")
 
     if agent.health > agent.max_health:
         agent.health = agent.max_health

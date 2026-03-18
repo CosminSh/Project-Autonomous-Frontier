@@ -77,8 +77,7 @@ async def claim_daily_reward(agent: Agent = Depends(verify_api_key), db: Session
 @router.get("/api/my_agent")
 async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Legacy endpoint for the frontend."""
-    # Recalculate to ensure stats matches current wear/gear
-    recalculate_agent_stats(db, agent)
+    # Stats are now handled exclusively by the Heartbeat once per tick to save DB IO.
     penalty = get_wear_penalty_factor(agent.wear_and_tear)
     state = db.execute(select(GlobalState)).scalars().first()
     tick = state.tick_index if state else 0
@@ -173,7 +172,6 @@ async def get_agent_logs(agent: Agent = Depends(verify_api_key), db: Session = D
 @router.get("/status")
 async def get_agent_status(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns detailed status of the authenticated agent."""
-    recalculate_agent_stats(db, agent)
     
     state = db.execute(select(GlobalState)).scalars().first()
     tick = state.tick_index if state else 0
@@ -212,7 +210,6 @@ async def get_agent_inventory(agent: Agent = Depends(verify_api_key)):
 @router.get("/api/gear")
 async def get_agent_gear(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns the agent's equipped chassis parts with wear-penalized stats."""
-    recalculate_agent_stats(db, agent)
     penalty = get_wear_penalty_factor(agent.wear_and_tear)
     
     return [
