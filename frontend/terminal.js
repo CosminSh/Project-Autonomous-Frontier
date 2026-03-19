@@ -27,7 +27,7 @@ export class TerminalHandler {
             'INTIMIDATE': { cat: 'COMBAT', syntax: 'INTIMIDATE <target_id>', example: 'INTIMIDATE 7', help: 'Piracy: intimidation check, success siphons 5% inventory' },
             'LOOT': { cat: 'COMBAT', syntax: 'LOOT <target_id>', example: 'LOOT 7', help: 'Piracy: light skirmish to siphon 15% inventory' },
             'DESTROY': { cat: 'COMBAT', syntax: 'DESTROY <target_id>', example: 'DESTROY 7', help: 'Piracy: deathmatch fight to 5% HP, siphons 40% cargo' },
-            'LIST': { cat: 'MARKET', syntax: 'LIST <item> <price> <qty>', example: 'LIST IRON_INGOT 50 10', help: 'List item on Auction House' },
+            'LIST': { cat: 'MARKET', syntax: 'LIST <item> <pricePerUnit> <qty>', example: 'LIST IRON_INGOT 50 10', help: 'List item for $50 each, 10 units total' },
             'BUY': { cat: 'MARKET', syntax: 'BUY <item> <max_price>', example: 'BUY IRON_INGOT 60', help: 'Purchase from Auction House' },
             'CANCEL': { cat: 'MARKET', syntax: 'CANCEL <order_id>', example: 'CANCEL 15', help: 'Withdraw an active order' },
             'MARKET': { cat: 'META', syntax: 'MARKET [item_type]', example: 'MARKET IRON_ORE', help: 'View active market listings' },

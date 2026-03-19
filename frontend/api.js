@@ -514,6 +514,34 @@ export class GameAPI {
         alert(`${type} intent queued for The Crunch!`);
     }
 
+    async submitTradeIntent() {
+        const itemType = document.getElementById('trade-item-type').value;
+        const quantity = parseInt(document.getElementById('trade-quantity').value);
+        const price = parseInt(document.getElementById('trade-price').value);
+
+        if (!itemType) {
+            alert("Please select an item to trade.");
+            return;
+        }
+        if (isNaN(quantity) || quantity <= 0) {
+            alert("Please enter a valid quantity.");
+            return;
+        }
+        if (isNaN(price) || price <= 0) {
+            alert("Please enter a valid price.");
+            return;
+        }
+
+        const actionType = this.game.tradeSide === 'BUY' ? 'BUY' : 'LIST';
+        const data = {
+            item_type: itemType,
+            quantity: quantity,
+            price: price
+        };
+
+        await this.submitIntent(actionType, data);
+    }
+
     async submitFactionRealignment() {
         const factionSelect = document.getElementById('faction-select');
         const factionId = parseInt(factionSelect.value);
