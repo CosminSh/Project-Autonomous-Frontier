@@ -813,6 +813,35 @@ export class UIManager {
         `).join('');
     }
 
+    updateMarketSellList(inventory) {
+        const select = document.getElementById('trade-item-type');
+        if (!select) return;
+
+        // Keep the current selection if possible
+        const currentVal = select.value;
+
+        // Filter out credits
+        const sellable = (inventory || []).filter(i => i.type !== 'CREDITS');
+
+        if (sellable.length === 0) {
+            select.innerHTML = '<option value="">(No items to sell)</option>';
+            return;
+        }
+
+        // De-duplicate types for the dropdown (since we might have multiple stacks or metadata-unique items)
+        const types = [...new Set(sellable.map(i => i.type))].sort();
+
+        select.innerHTML = types.map(t => {
+            const label = t.replace(/_/g, ' ');
+            return `<option value="${t}">${label}</option>`;
+        }).join('');
+
+        // Restore selection if it still exists
+        if (types.includes(currentVal)) {
+            select.value = currentVal;
+        }
+    }
+
     updateScannerUI(agentId) {
         const readout = document.getElementById('scanner-readout');
         const content = document.getElementById('scanner-content');
@@ -948,6 +977,10 @@ export class UIManager {
             const solarText = document.getElementById('solar-text');
             if (solarBar) solarBar.style.width = `${agent.solar_intensity}%`;
             if (solarText) solarText.innerText = `${agent.solar_intensity}%`;
+        }
+
+        if (agent.inventory) {
+            this.updateMarketSellList(agent.inventory);
         }
 
         const invList = document.getElementById('inventory-list');
