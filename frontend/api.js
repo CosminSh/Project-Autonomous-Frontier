@@ -441,10 +441,16 @@ export class GameAPI {
             if (this.game.terminal) {
                 this.game.terminal.log(`✓ ACCEPTED — Scheduled for Tick #${result.tick}`, 'success');
             }
+            if (this.game.ui && this.game.ui.showToast) {
+                this.game.ui.showToast(`${actionType} Intent Scheduled!`, 'success');
+            }
         } catch (e) {
             const detail = e.message || 'Server error';
             if (this.game.terminal) {
                 this.game.terminal.log(`✗ REJECTED — ${detail}`, 'error');
+            }
+            if (this.game.ui && this.game.ui.showToast) {
+                this.game.ui.showToast(detail, 'error');
             }
             console.error("Intent error:", e);
         }

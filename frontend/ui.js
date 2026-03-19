@@ -2556,6 +2556,45 @@ Intent payload format:
         // Now handled by switchWikiTab('SCRIPTS')
         if (window.cacheSet) window.cacheSet('tf_starter_scripts', scripts);
     }
+
+    showToast(message, type = 'success') {
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            // Fallback if not injected yet
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'fixed bottom-8 right-8 z-[200] flex flex-col items-end pointer-events-none';
+            document.body.appendChild(container);
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `flex items-center space-x-3 p-4 rounded-xl border shadow-2xl transform transition-all duration-500 translate-y-10 opacity-0 mb-3 pointer-events-auto ${
+            type === 'success' 
+                ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-400' 
+                : 'bg-rose-950/90 border-rose-500/30 text-rose-400'
+        }`;
+        
+        const icon = type === 'success' ? '✓' : '✗';
+        toast.innerHTML = `
+            <div class="w-6 h-6 rounded-full flex items-center justify-center border font-bold text-xs ${
+                type === 'success' ? 'border-emerald-500/50' : 'border-rose-500/50'
+            }">${icon}</div>
+            <div class="text-[11px] orbitron font-bold uppercase tracking-wider">${message}</div>
+        `;
+
+        container.appendChild(toast);
+
+        // Animate in
+        setTimeout(() => {
+            toast.classList.remove('translate-y-10', 'opacity-0');
+        }, 10);
+
+        // Animate out
+        setTimeout(() => {
+            toast.classList.add('translate-y-[-20px]', 'opacity-0');
+            setTimeout(() => toast.remove(), 500);
+        }, 3500);
+    }
 }
 
 // Global UI helpers
