@@ -122,23 +122,31 @@ export class TerminalHandler {
             this.input.focus();
         });
         document.getElementById('btn-quick-mine')?.addEventListener('click', () => {
-            this.input.value = 'MINE';
-            this.submit();
+            this.input.value = 'MINE ';
+            this.input.focus();
         });
         document.getElementById('btn-quick-scan')?.addEventListener('click', () => {
             this.input.value = 'SCAN';
-            this.submit();
-        });
-        document.getElementById('btn-quick-perceive')?.addEventListener('click', () => {
-            this.input.value = 'PERCEIVE';
             this.submit();
         });
         document.getElementById('btn-quick-status')?.addEventListener('click', () => {
             this.input.value = 'STATUS';
             this.submit();
         });
-        document.getElementById('btn-quick-say')?.addEventListener('click', () => {
-            this.input.value = 'SAY ';
+        document.getElementById('btn-quick-gear')?.addEventListener('click', () => {
+            this.input.value = 'GEAR';
+            this.submit();
+        });
+        document.getElementById('btn-quick-attack')?.addEventListener('click', () => {
+            this.input.value = 'ATTACK ';
+            this.input.focus();
+        });
+        document.getElementById('btn-quick-smelt')?.addEventListener('click', () => {
+            this.input.value = 'SMELT ';
+            this.input.focus();
+        });
+        document.getElementById('btn-quick-transfer')?.addEventListener('click', () => {
+            this.input.value = 'TRANSFER ';
             this.input.focus();
         });
         document.getElementById('btn-quick-salvage')?.addEventListener('click', () => {
@@ -146,15 +154,11 @@ export class TerminalHandler {
             this.input.focus();
         });
         document.getElementById('btn-quick-repair')?.addEventListener('click', () => {
-            this.input.value = 'RESTORE_HP ';
-            this.input.focus();
+            this.input.value = 'RESTORE_HP MAX';
+            this.submit();
         });
         document.getElementById('btn-quick-help')?.addEventListener('click', () => {
             this.input.value = 'HELP';
-            this.submit();
-        });
-        document.getElementById('btn-quick-missions')?.addEventListener('click', () => {
-            this.input.value = 'MISSIONS';
             this.submit();
         });
     }

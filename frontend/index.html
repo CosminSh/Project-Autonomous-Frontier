@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- VERSION: 0.9.5_TERMINAL_POWER -->
+<!-- VERSION: 0.9.6_QUICK_COMMANDS -->
 <html lang="en">
 
 <head>
@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=0.9.5">
+    <link rel="stylesheet" href="styles.css?v=0.9.6">
     <style>
         body {
             background-color: #050507;
@@ -690,39 +690,37 @@
                                         class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-5 py-2 rounded-xl font-bold orbitron text-xs transition-all uppercase">Enter</button>
                                 </div>
                                 <div class="mt-2 flex flex-wrap gap-1.5 pb-1">
-                                    <!-- Nav -->
+                                    <!-- Nav / Meta -->
                                     <button id="btn-quick-move"
                                         class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">MOVE</button>
-                                    <button id="btn-quick-perceive"
-                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">PERCEIVE</button>
                                     <button id="btn-quick-scan"
                                         class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">SCAN</button>
-
-                                    <div class="w-px h-3 bg-slate-800 self-center mx-0.5"></div>
-
-                                    <!-- Social -->
-                                    <button id="btn-quick-say"
-                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">SAY</button>
-                                    <button id="btn-quick-missions"
-                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-amber-400 hover:border-amber-500/30">MISSIONS</button>
-
-                                    <div class="w-px h-3 bg-slate-800 self-center mx-0.5"></div>
-
-                                    <!-- Status / Help -->
                                     <button id="btn-quick-status"
                                         class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">STATUS</button>
-                                    <button id="btn-quick-help"
-                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-amber-400 hover:border-amber-500/30">HELP</button>
+                                    <button id="btn-quick-gear"
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-indigo-400 hover:border-indigo-500/30">GEAR</button>
 
                                     <div class="w-px h-3 bg-slate-800 self-center mx-0.5"></div>
 
-                                    <!-- Industrial -->
+                                    <!-- Action -->
                                     <button id="btn-quick-mine"
                                         class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">MINE</button>
+                                    <button id="btn-quick-attack"
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-rose-400 hover:border-rose-500/30">ATTACK</button>
                                     <button id="btn-quick-salvage"
                                         class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">SALVAGE</button>
+                                    <button id="btn-quick-transfer"
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-sky-400 hover:border-sky-500/30">TRANSFER</button>
+
+                                    <div class="w-px h-3 bg-slate-800 self-center mx-0.5"></div>
+
+                                    <!-- Industrial & Utility -->
+                                    <button id="btn-quick-smelt"
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">SMELT</button>
                                     <button id="btn-quick-repair"
-                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">RESTORE_HP</button>
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-emerald-400 hover:border-emerald-500/30">FIX</button>
+                                    <button id="btn-quick-help"
+                                        class="text-[8px] bg-slate-900 text-slate-500 border border-slate-800 px-2 py-1 rounded hover:text-amber-400 hover:border-amber-500/30">HELP</button>
                                 </div>
                             </div>
                         </div>
@@ -1699,8 +1697,8 @@
     <!-- Toast Notifications -->
     <div id="toast-container" class="fixed bottom-8 right-8 z-[200] flex flex-col items-end pointer-events-none"></div>
 
-    <script type="module" src="storage.js?v=0.9.5"></script>
-    <script type="module" src="app.js?v=0.9.5"></script>
+    <script type="module" src="storage.js?v=0.9.6"></script>
+    <script type="module" src="app.js?v=0.9.6"></script>
 
 </body>
 
