@@ -65,11 +65,11 @@ async def cancel_market_order(order_id: int, agent: Agent = Depends(verify_api_k
     # Refund logic
     if order.order_type == "SELL":
         # Refund items
-        inv_item = next((i for i in agent.inventory if i.item_type == order.item_type), None)
+        inv_item = next((i for i in agent.inventory if i.item_type == order.item_type and i.data == order.data), None)
         if inv_item:
             inv_item.quantity += order.quantity
         else:
-            db.add(InventoryItem(agent_id=agent.id, item_type=order.item_type, quantity=order.quantity))
+            db.add(InventoryItem(agent_id=agent.id, item_type=order.item_type, quantity=order.quantity, data=order.data))
     elif order.order_type == "BUY":
         # Refund credits
         credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
@@ -138,11 +138,11 @@ async def claim_market_pickups(agent: Agent = Depends(verify_api_key), db: Sessi
     # Tally up what is being claimed
     claimed = {}
     for p in pickups:
-        inv_item = next((i for i in agent.inventory if i.item_type == p.item_type), None)
+        inv_item = next((i for i in agent.inventory if i.item_type == p.item_type and i.data == p.data), None)
         if inv_item:
             inv_item.quantity += p.quantity
         else:
-            db.add(InventoryItem(agent_id=agent.id, item_type=p.item_type, quantity=p.quantity))
+            db.add(InventoryItem(agent_id=agent.id, item_type=p.item_type, quantity=p.quantity, data=p.data))
             
         claimed[p.item_type] = claimed.get(p.item_type, 0) + p.quantity
         db.delete(p)
@@ -204,14 +204,15 @@ async def deposit_to_vault(
         )
 
     inv_item.quantity -= quantity
+    item_data = inv_item.data
     if inv_item.quantity <= 0:
         db.delete(inv_item)
 
-    vault_item = next((v for v in agent.storage if v.item_type == item_type), None)
+    vault_item = next((v for v in agent.storage if v.item_type == item_type and v.data == item_data), None)
     if vault_item:
         vault_item.quantity += quantity
     else:
-        db.add(StorageItem(agent_id=agent.id, item_type=item_type, quantity=quantity))
+        db.add(StorageItem(agent_id=agent.id, item_type=item_type, quantity=quantity, data=item_data))
 
     db.commit()
     return {"message": f"Deposited {quantity}x {item_type} into vault."}
@@ -246,14 +247,15 @@ async def withdraw_from_vault(
         )
 
     vault_item.quantity -= quantity
+    item_data = vault_item.data
     if vault_item.quantity <= 0:
         db.delete(vault_item)
 
-    inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
+    inv_item = next((i for i in agent.inventory if i.item_type == item_type and i.data == item_data), None)
     if inv_item:
         inv_item.quantity += quantity
     else:
-        db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=quantity))
+        db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=quantity, data=item_data))
 
     db.commit()
     return {"message": f"Withdrew {quantity}x {item_type} from vault."}

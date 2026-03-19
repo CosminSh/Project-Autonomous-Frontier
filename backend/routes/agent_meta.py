@@ -195,10 +195,11 @@ async def get_agent_status(agent: Agent = Depends(verify_api_key), db: Session =
     }
 
 @router.get("/inventory")
-async def get_agent_inventory(agent: Agent = Depends(verify_api_key)):
+async def get_agent_inventory(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns the agent's current inventory."""
+    items = db.execute(select(InventoryItem).where(InventoryItem.agent_id == agent.id)).scalars().all()
     aggregated = {}
-    for i in agent.inventory:
+    for i in items:
         key = (i.item_type, str(i.data))
         if key in aggregated:
             aggregated[key]["quantity"] += i.quantity

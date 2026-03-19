@@ -148,6 +148,8 @@ async def fulfill_contract(
     if not inv_item or inv_item.quantity < req_qty:
         raise HTTPException(status_code=400, detail=f"Insufficient {req_item} in inventory. Need {req_qty}.")
     
+    item_data = inv_item.data # Capture metadata
+    
     # 1. Remove items from claimant
     inv_item.quantity -= req_qty
     if inv_item.quantity <= 0:
@@ -163,13 +165,13 @@ async def fulfill_contract(
     # 3. Give items to issuer STORAGE
     from models import StorageItem
     issuer_storage = db.execute(
-        select(StorageItem).where(StorageItem.agent_id == contract.issuer_id, StorageItem.item_type == req_item)
+        select(StorageItem).where(StorageItem.agent_id == contract.issuer_id, StorageItem.item_type == req_item, StorageItem.data == item_data)
     ).scalars().first()
     
     if issuer_storage:
         issuer_storage.quantity += req_qty
     else:
-        db.add(StorageItem(agent_id=contract.issuer_id, item_type=req_item, quantity=req_qty))
+        db.add(StorageItem(agent_id=contract.issuer_id, item_type=req_item, quantity=req_qty, data=item_data))
     
     contract.status = "COMPLETED"
     db.add(AuditLog(agent_id=agent.id, event_type="CONTRACT_FULFILL", details={"contract_id": contract_id, "reward": contract.reward_credits}))

@@ -95,6 +95,9 @@ async def lifespan(app: FastAPI):
         ("corporations", "join_policy", "VARCHAR DEFAULT 'OPEN'"),
         ("corporations", "motd", "TEXT"),
         ("corporations", "upgrades", "JSONB"),
+        ("auction_house", "data", "JSON"),
+        ("market_pickups", "data", "JSON"),
+        ("corp_storage_items", "data", "JSON"),
     ]
     
     with engine.connect() as conn:

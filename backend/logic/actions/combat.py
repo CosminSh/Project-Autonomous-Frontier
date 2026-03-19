@@ -257,9 +257,9 @@ async def _handle_death(db, killer, target, manager):
             for i, member in enumerate(eligible_members):
                 member_share = share + (1 if i < remainder else 0)
                 if member_share > 0:
-                    inv_i = next((it for it in member.inventory if it.item_type == item.item_type), None)
+                    inv_i = next((it for it in member.inventory if it.item_type == item.item_type and it.data == item.data), None)
                     if inv_i: inv_i.quantity += member_share
-                    else: db.add(InventoryItem(agent_id=member.id, item_type=item.item_type, quantity=member_share))
+                    else: db.add(InventoryItem(agent_id=member.id, item_type=item.item_type, quantity=member_share, data=item.data))
                     if member.id == killer.id:
                         loot_summary.append({"type": item.item_type, "qty": member_share})
 

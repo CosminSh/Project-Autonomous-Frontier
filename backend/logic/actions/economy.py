@@ -67,6 +67,7 @@ async def handle_list(db, agent, intent, tick_count, manager):
         trade_price = matching_buy.price
         
         inv_item.quantity -= trade_qty
+        item_data = inv_item.data # Preserve metadata
         if inv_item.quantity <= 0: db.delete(inv_item)
         
         net_cr, tax_cr = _apply_corp_tax(db, agent, int(trade_price * trade_qty))
@@ -78,9 +79,9 @@ async def handle_list(db, agent, intent, tick_count, manager):
             buyer_id = int(matching_buy.owner.split(":")[1])
             buyer = db.get(Agent, buyer_id)
             if buyer:
-                pickup = next((p for p in buyer.market_pickups if p.item_type == item_type), None)
+                pickup = next((p for p in buyer.market_pickups if p.item_type == item_type and p.data == item_data), None)
                 if pickup: pickup.quantity += trade_qty
-                else: db.add(MarketPickup(agent_id=buyer_id, item_type=item_type, quantity=trade_qty))
+                else: db.add(MarketPickup(agent_id=buyer_id, item_type=item_type, quantity=trade_qty, data=item_data))
                 await _update_buy_mission(db, buyer_id)
         
         if matching_buy.quantity > trade_qty: matching_buy.quantity -= trade_qty
@@ -98,9 +99,10 @@ async def handle_list(db, agent, intent, tick_count, manager):
         quantity -= trade_qty
 
     if quantity > 0:
+        item_data = inv_item.data # Preserve metadata
         inv_item.quantity -= quantity
         if inv_item.quantity <= 0: db.delete(inv_item)
-        db.add(AuctionOrder(owner=f"agent:{agent.id}", item_type=item_type, quantity=quantity, price=price, order_type="SELL"))
+        db.add(AuctionOrder(owner=f"agent:{agent.id}", item_type=item_type, quantity=quantity, price=price, order_type="SELL", data=item_data))
         db.add(AuditLog(agent_id=agent.id, event_type="MARKET_LIST", details={"item": item_type, "qty": quantity, "price": price}))
         if manager: await manager.broadcast({"type": "MARKET_UPDATE", "item": item_type})
 
@@ -146,10 +148,10 @@ async def handle_buy(db, agent, intent, tick_count, manager):
             # Execute Trade
             credits.quantity -= total_cost
             
-            # Add to buyer's pickups
-            target = next((p for p in agent.market_pickups if p.item_type == item_type), None)
+            # Add to buyer's pickups (Preserving data if available)
+            target = next((p for p in agent.market_pickups if p.item_type == item_type and p.data == order.data), None)
             if target: target.quantity += trade_qty
-            else: db.add(MarketPickup(agent_id=agent.id, item_type=item_type, quantity=trade_qty))
+            else: db.add(MarketPickup(agent_id=agent.id, item_type=item_type, quantity=trade_qty, data=order.data))
             
             # Credit the seller
             if order.owner.startswith("agent:"):
@@ -177,9 +179,9 @@ async def handle_buy(db, agent, intent, tick_count, manager):
                 cost = int(trade_qty * order.price)
                 
                 credits.quantity -= cost
-                target = next((p for p in agent.market_pickups if p.item_type == item_type), None)
+                target = next((p for p in agent.market_pickups if p.item_type == item_type and p.data == order.data), None)
                 if target: target.quantity += trade_qty
-                else: db.add(MarketPickup(agent_id=agent.id, item_type=item_type, quantity=trade_qty))
+                else: db.add(MarketPickup(agent_id=agent.id, item_type=item_type, quantity=trade_qty, data=order.data))
                 
                 if order.owner.startswith("agent:"):
                     seller_id = int(order.owner.split(":")[1])
@@ -230,11 +232,11 @@ async def handle_cancel(db, agent, intent, tick_count, manager):
         return
 
     if order.order_type == "SELL":
-        inv_item = next((i for i in agent.inventory if i.item_type == order.item_type), None)
+        inv_item = next((i for i in agent.inventory if i.item_type == order.item_type and i.data == order.data), None)
         if inv_item:
             inv_item.quantity += order.quantity
         else:
-            db.add(InventoryItem(agent_id=agent.id, item_type=order.item_type, quantity=order.quantity))
+            db.add(InventoryItem(agent_id=agent.id, item_type=order.item_type, quantity=order.quantity, data=order.data))
     elif order.order_type == "BUY":
         credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
         refund_amount = order.price * order.quantity
@@ -318,6 +320,10 @@ async def handle_storage_deposit(db, agent, intent, tick_count, manager):
         # Subtract from inventory
         remaining = quantity
         inv_items = [i for i in agent.inventory if i.item_type == item_type]
+        # Sort by specific item metadata to ensure we take what the user likely intended
+        # (For now, we just pick the first ones, but we MUST preserve the data)
+        data_to_store = inv_items[0].data if inv_items else None
+
         for i in inv_items:
             if remaining <= 0: break
             take = min(i.quantity, remaining)
@@ -326,11 +332,11 @@ async def handle_storage_deposit(db, agent, intent, tick_count, manager):
             if i.quantity <= 0: db.delete(i)
             
         # Add to corp storage
-        vault_item = next((v for v in corp.storage if v.item_type == item_type), None)
+        vault_item = next((v for v in corp.storage if v.item_type == item_type and v.data == data_to_store), None)
         if vault_item:
             vault_item.quantity += quantity
         else:
-            db.add(CorpStorageItem(corporation_id=agent.corporation_id, item_type=item_type, quantity=quantity))
+            db.add(CorpStorageItem(corporation_id=agent.corporation_id, item_type=item_type, quantity=quantity, data=data_to_store))
         
         db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_DEPOSIT_CORP", details={"item": item_type, "qty": quantity, "corp_id": agent.corporation_id}))
 
@@ -344,6 +350,8 @@ async def handle_storage_deposit(db, agent, intent, tick_count, manager):
         # Subtract from inventory
         remaining = quantity
         inv_items = [i for i in agent.inventory if i.item_type == item_type]
+        data_to_store = inv_items[0].data if inv_items else None
+
         for i in inv_items:
             if remaining <= 0: break
             take = min(i.quantity, remaining)
@@ -352,11 +360,11 @@ async def handle_storage_deposit(db, agent, intent, tick_count, manager):
             if i.quantity <= 0: db.delete(i)
 
         # Add to storage
-        vault_item = next((v for v in agent.storage if v.item_type == item_type), None)
+        vault_item = next((v for v in agent.storage if v.item_type == item_type and v.data == data_to_store), None)
         if vault_item:
             vault_item.quantity += quantity
         else:
-            db.add(StorageItem(agent_id=agent.id, item_type=item_type, quantity=quantity))
+            db.add(StorageItem(agent_id=agent.id, item_type=item_type, quantity=quantity, data=data_to_store))
 
         db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_DEPOSIT", details={"item": item_type, "qty": quantity}))
 
@@ -404,6 +412,8 @@ async def handle_storage_withdraw(db, agent, intent, tick_count, manager):
         # Subtract from corp storage
         remaining = quantity
         vault_items = [s for s in corp.storage if s.item_type == item_type]
+        data_to_withdraw = vault_items[0].data if vault_items else None
+
         for s in vault_items:
             if remaining <= 0: break
             take = min(s.quantity, remaining)
@@ -412,11 +422,11 @@ async def handle_storage_withdraw(db, agent, intent, tick_count, manager):
             if s.quantity <= 0: db.delete(s)
             
         # Add to inventory
-        inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
+        inv_item = next((i for i in agent.inventory if i.item_type == item_type and i.data == data_to_withdraw), None)
         if inv_item:
             inv_item.quantity += quantity
         else:
-            db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=quantity))
+            db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=quantity, data=data_to_withdraw))
             
         db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_WITHDRAW_CORP", details={"item": item_type, "qty": quantity, "corp_id": agent.corporation_id}))
 
@@ -449,6 +459,8 @@ async def handle_storage_withdraw(db, agent, intent, tick_count, manager):
         # Subtract from storage
         remaining = quantity
         vault_items = [s for s in agent.storage if s.item_type == item_type]
+        data_to_withdraw = vault_items[0].data if vault_items else None
+
         for s in vault_items:
             if remaining <= 0: break
             take = min(s.quantity, remaining)
@@ -457,10 +469,77 @@ async def handle_storage_withdraw(db, agent, intent, tick_count, manager):
             if s.quantity <= 0: db.delete(s)
 
         # Add to inventory
-        inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
+        inv_item = next((i for i in agent.inventory if i.item_type == item_type and i.data == data_to_withdraw), None)
         if inv_item:
             inv_item.quantity += quantity
         else:
-            db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=quantity))
+            db.add(InventoryItem(agent_id=agent.id, item_type=item_type, quantity=quantity, data=data_to_withdraw))
 
         db.add(AuditLog(agent_id=agent.id, event_type="STORAGE_WITHDRAW", details={"item": item_type, "qty": quantity}))
+
+async def handle_transfer(db, agent, intent, tick_count, manager):
+    """Directly transfers items to another agent in the same hex."""
+    target_id = intent.data.get("target_id")
+    item_type = intent.data.get("item_type")
+    quantity = intent.data.get("quantity", 0)
+
+    if not target_id or not item_type or quantity <= 0:
+        db.add(AuditLog(agent_id=agent.id, event_type="TRANSFER_FAILED", details={"reason": "INVALID_PARAMETERS"}))
+        return
+
+    target = db.get(Agent, target_id)
+    if not target:
+        db.add(AuditLog(agent_id=agent.id, event_type="TRANSFER_FAILED", details={"reason": "TARGET_NOT_FOUND"}))
+        return
+
+    # Proximity check
+    if agent.q != target.q or agent.r != target.r:
+        db.add(AuditLog(agent_id=agent.id, event_type="TRANSFER_FAILED", details={"reason": "TARGET_TOO_FAR"}))
+        return
+
+    if quantity == "MAX":
+        quantity = sum(i.quantity for i in agent.inventory if i.item_type == item_type)
+
+    if quantity <= 0: return
+
+    # Check inventory
+    inv_items = [i for i in agent.inventory if i.item_type == item_type]
+    total_has = sum(i.quantity for i in inv_items)
+    if total_has < quantity:
+        db.add(AuditLog(agent_id=agent.id, event_type="TRANSFER_FAILED", details={"reason": "INSUFFICIENT_INVENTORY"}))
+        return
+
+    # Mass check for target
+    from game_helpers import get_agent_mass, ITEM_WEIGHTS
+    item_weight = ITEM_WEIGHTS.get(item_type, 1.0)
+    target_mass = get_agent_mass(target)
+    if target_mass + (quantity * item_weight) > target.max_mass:
+        db.add(AuditLog(agent_id=agent.id, event_type="TRANSFER_FAILED", details={"reason": "TARGET_CARGO_FULL"}))
+        return
+
+    # Transfer logic
+    remaining = quantity
+    data_to_transfer = inv_items[0].data if inv_items else None
+    
+    for i in inv_items:
+        if remaining <= 0: break
+        take = min(i.quantity, remaining)
+        i.quantity -= take
+        remaining -= take
+        if i.quantity <= 0: db.delete(i)
+
+    target_inv = next((i for i in target.inventory if i.item_type == item_type and i.data == data_to_transfer), None)
+    if target_inv:
+        target_inv.quantity += quantity
+    else:
+        db.add(InventoryItem(agent_id=target.id, item_type=item_type, quantity=quantity, data=data_to_transfer))
+
+    db.add(AuditLog(agent_id=agent.id, event_type="TRANSFER_SENT", details={"target": target.name, "item": item_type, "qty": quantity}))
+    db.add(AuditLog(agent_id=target.id, event_type="TRANSFER_RECEIVED", details={"from": agent.name, "item": item_type, "qty": quantity}))
+
+    if manager:
+        await manager.broadcast({
+            "type": "EVENT", "event": "TRANSFER", 
+            "sender_id": agent.id, "target_id": target.id, 
+            "item": item_type, "qty": quantity
+        })

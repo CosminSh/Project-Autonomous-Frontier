@@ -155,6 +155,7 @@ class AuctionOrder(Base):
     order_type = Column(String) # BUY, SELL
     quantity = Column(Integer)
     price = Column(Float)
+    data = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     owner = Column(String)
 
@@ -165,6 +166,7 @@ class MarketPickup(Base):
     agent_id = Column(Integer, ForeignKey("agents.id"), index=True)
     item_type = Column(String)
     quantity = Column(Integer)
+    data = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     agent = relationship("Agent", backref="market_pickups")
@@ -199,6 +201,7 @@ class GlobalState(Base):
     phase = Column(String, default="PERCEPTION") # PERCEPTION, STRATEGY, CRUNCH
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     actions_processed = Column(Integer, default=0, nullable=True)
+
 class Bounty(Base):
     __tablename__ = "bounties"
     id = Column(Integer, primary_key=True, index=True)
