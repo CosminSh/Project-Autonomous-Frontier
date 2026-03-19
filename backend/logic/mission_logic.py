@@ -46,7 +46,7 @@ def generate_daily_missions(db):
     # Tier 3 (Level 6+)
     db.add(DailyMission(mission_type="HUNT_FERAL", target_amount=random.randint(5, 10), reward_credits=800, min_level=6, max_level=99, expires_at=expires))
     db.add(DailyMission(mission_type="BUY_MARKET", target_amount=random.randint(3, 5), reward_credits=500, min_level=6, max_level=99, expires_at=expires))
-    db.add(DailyMission(mission_type="TURN_IN", target_amount=random.choice([20, 30]), item_type="SILVER_ORE", reward_credits=700, min_level=6, max_level=99, expires_at=expires))
+    db.add(DailyMission(mission_type="TURN_IN", target_amount=random.choice([20, 30]), item_type="GOLD_ORE", reward_credits=700, min_level=6, max_level=99, expires_at=expires))
     
     db.commit()
     logger.info(f"New missions generated, expiring at {expires}")
