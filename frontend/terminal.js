@@ -20,7 +20,8 @@ export class TerminalHandler {
         // ═══════════════════════════════════════════════════════
         this.commands = {
             'MOVE': { cat: 'NAV', syntax: 'MOVE <q> <r> | <KEYWORD>', example: 'MOVE SMELTER', help: 'Move to coordinates or nearest station (SMELTER, CRAFTER, MARKET, HUB, REPAIR, REFINERY).' },
-            'SCAN': { cat: 'NAV', syntax: 'SCAN', example: 'SCAN', help: 'Re-sync sensor telemetry and refresh tactical overlay.' },
+            'GO': { cat: 'NAV', syntax: 'GO <q> <r> | <KEYWORD>', example: 'GO HUB', help: 'Alias for MOVE.' },
+            'SCAN': { cat: 'META', syntax: 'SCAN', example: 'SCAN', help: 'Alias for PERCEIVE (Tactical Readout).' },
             'MINE': { cat: 'RESOURCE', syntax: 'MINE [resource] [q] [r]', example: 'MINE COPPER_ORE 2 3', help: 'Extract resources. Optional: auto-move to coordinates first.' },
             'SALVAGE': { cat: 'RESOURCE', syntax: 'SALVAGE <drop_id>', example: 'SALVAGE 42', help: 'Collect a world loot drop' },
             'ATTACK': { cat: 'COMBAT', syntax: 'ATTACK <target_id>', example: 'ATTACK 7', help: 'Standard combat engagement' },
@@ -30,7 +31,11 @@ export class TerminalHandler {
             'LIST': { cat: 'MARKET', syntax: 'LIST <item> <pricePerUnit> <qty>', example: 'LIST IRON_INGOT 50 10', help: 'List item for $50 each, 10 units total' },
             'BUY': { cat: 'MARKET', syntax: 'BUY <item> <max_price>', example: 'BUY IRON_INGOT 60', help: 'Purchase from Auction House' },
             'CANCEL': { cat: 'MARKET', syntax: 'CANCEL <order_id>', example: 'CANCEL 15', help: 'Withdraw an active order' },
+            'TRANSFER': { cat: 'MARKET', syntax: 'TRANSFER <target_id> <item> <qty>', example: 'TRANSFER 42 IRON_ORE 10', help: 'Directly transfer items to a nearby agent.' },
+            'MARKET_CLAIM': { cat: 'MARKET', syntax: 'MARKET_CLAIM', example: 'MARKET_CLAIM', help: 'Retrieve purchased items from the current Market station.' },
             'MARKET': { cat: 'META', syntax: 'MARKET [item_type]', example: 'MARKET IRON_ORE', help: 'View active market listings' },
+            'MARKET_PICKUPS': { cat: 'META', syntax: 'MARKET_PICKUPS', example: 'MARKET_PICKUPS', help: 'View items waiting for retrieval.' },
+            'BOUNTIES': { cat: 'META', syntax: 'BOUNTIES', example: 'BOUNTIES', help: 'View active player bounties (Warrants).' },
             'SMELT': { cat: 'INDUSTRY', syntax: 'SMELT <ore_type> <quantity>', example: 'SMELT IRON_ORE 5', help: 'Refine ore into ingots (SMELTER). Uses inventory only.' },
             'CRAFT': { cat: 'INDUSTRY', syntax: 'CRAFT <item_type>', example: 'CRAFT DRILL_MK1', help: 'Assemble parts (CRAFTER). Uses resources from inventory or vault.' },
             'REFINE_GAS': { cat: 'INDUSTRY', syntax: 'REFINE_GAS <quantity>', example: 'REFINE_GAS 3', help: 'Helium Gas to He3 (REFINERY). Uses inventory only.' },
@@ -231,7 +236,7 @@ export class TerminalHandler {
             // Wait, parseIntent for meta commands returns early.
             
             // Re-use logic from submit() for network intents
-            const metaCommands = ['HELP', 'RECIPES', 'MISSIONS', 'GUIDE', 'MARKET', 'MARKET_PICKUPS', 'ROTATE_KEY', 'GEAR', 'STATUS', 'PERCEIVE', 'REQUEST_RESCUE', 'LEADERBOARD', 'ARENA_STATUS', 'ARENA_LOGS', 'ARENA_REGISTER'];
+            const metaCommands = ['HELP', 'RECIPES', 'MISSIONS', 'GUIDE', 'MARKET', 'MARKET_PICKUPS', 'BOUNTIES', 'ROTATE_KEY', 'GEAR', 'STATUS', 'PERCEIVE', 'SCAN', 'REQUEST_RESCUE', 'LEADERBOARD', 'ARENA_STATUS', 'ARENA_LOGS', 'ARENA_REGISTER'];
             if (metaCommands.includes(actionType)) {
                 // For now, let's just make submit() more modular or re-implement here
                 // Meta logic is actually inside submit(). Let's refactor submit() slightly or just call it.
@@ -269,6 +274,7 @@ export class TerminalHandler {
         const data = {};
         switch (actionType) {
             case 'MOVE':
+            case 'GO':
                 if (args.length === 0) throw new Error('Usage: MOVE <q> <r> | <STATION_TYPE>');
                 
                 const keywords = ['SMELTER', 'CRAFTER', 'MARKET', 'HUB', 'REFINERY', 'REPAIR'];
@@ -348,6 +354,11 @@ export class TerminalHandler {
                 if (args.length < 3) throw new Error('Usage: LIST <item> <price> <qty>  — e.g. LIST IRON_INGOT 50 10');
                 data.item_type = args[0].toUpperCase(); data.price = parseInt(args[1]); data.quantity = parseInt(args[2]);
                 if (isNaN(data.price) || isNaN(data.quantity)) throw new Error('Price and Quantity must be integers.');
+                break;
+            case 'TRANSFER':
+                if (args.length < 3) throw new Error('Usage: TRANSFER <target_id> <item> <qty>  — e.g. TRANSFER 42 IRON_ORE 10');
+                data.target_id = parseInt(args[0]); data.item_type = args[1].toUpperCase(); data.quantity = parseInt(args[2]);
+                if (isNaN(data.target_id) || isNaN(data.quantity)) throw new Error('Target ID and Quantity must be integers.');
                 break;
             case 'BUY':
                 if (args.length < 2) throw new Error('Usage: BUY <item> <max_price>  — e.g. BUY IRON_INGOT 60');
@@ -441,10 +452,12 @@ export class TerminalHandler {
                 data.target_id = parseInt(args[0]); data.price = parseInt(args[1]);
                 data.items = args.slice(2);
                 break;
+            case 'MARKET_CLAIM':
             case 'ARENA_STATUS':
             case 'ARENA_LOGS':
             case 'ARENA_REGISTER':
             case 'LEADERBOARD':
+            case 'BOUNTIES':
                 return { action: actionType, timestamp: Date.now() };
             case 'ARENA_EQUIP':
                 if (args.length < 1) throw new Error('Usage: ARENA_EQUIP <part_id>  — e.g. ARENA_EQUIP 123');
@@ -722,6 +735,22 @@ export class TerminalHandler {
             return;
         }
 
+        if (actionType === 'BOUNTIES') {
+            try {
+                const bounties = await this.game.api._fetch('/api/bounties');
+                this.log(`<b>═══ BOUNTY BOARD ═══</b>`, 'system');
+                if (!bounties || bounties.length === 0) {
+                    this.log(`  No active bounties or warrants.`, 'info');
+                    return;
+                }
+                bounties.forEach(b => {
+                    const poster = b.posted_by_name || 'System';
+                    this.log(`  🎯 <b>${b.target_name}</b> — Reward: <span style="color:#10b981">$${b.reward_credits}</span> [Posted by: ${poster}]`, 'info');
+                });
+            } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
+            return;
+        }
+
         if (actionType === 'ROTATE_KEY') {
             try {
                 if (!confirm("This will PERMANENTLY rotate your API key. Proceed?")) return;
@@ -795,8 +824,8 @@ export class TerminalHandler {
             return;
         }
 
-        // ── META: PERCEIVE ──
-        if (actionType === 'PERCEIVE') {
+        // ── META: PERCEIVE / SCAN ──
+        if (actionType === 'PERCEIVE' || actionType === 'SCAN') {
             try {
                 const apiKey = localStorage.getItem('sv_api_key');
                 const p = await this.game.api._fetch('/api/perception');
