@@ -756,7 +756,7 @@ export class TerminalHandler {
                         const statsStr = Object.entries(p.stats || {})
                             .map(([k, v]) => `<span style="color:#94a3b8">${k.toUpperCase()}:</span> <span style="color:#a78bfa">${v > 0 ? '+' : ''}${v}</span>`)
                             .join(' | ');
-                        this.log(`  [ID: ${p.id}] <b>${p.name}</b> (${p.rarity})`, 'info');
+                        this.log(`  [ID: ${p.id}] <b>${p.name}</b> <span class="text-[9px] text-slate-500 uppercase">(${p.type})</span>`, 'info');
                         if (statsStr) this.log(`    ${statsStr}`, 'info');
                     });
                 }
@@ -784,7 +784,10 @@ export class TerminalHandler {
                 this.log(`  Combat:    <span class="text-rose-400">DMG ${a.damage}</span> | <span class="text-sky-400">SPD ${a.speed}</span> | <span class="text-emerald-400">ACC ${a.accuracy}</span> | <span class="text-amber-400">ARM ${a.armor}</span>`, 'info');
                 if (a.inventory && a.inventory.length > 0) {
                     this.log(`  Cargo:`, 'info');
-                    a.inventory.forEach(item => this.log(`    ${item.type.replace(/_/g, ' ')} x${item.quantity}`, 'info'));
+                    a.inventory.forEach(item => {
+                        const techName = item.type;
+                        this.log(`    ${item.type.replace(/_/g, ' ')} x${item.quantity} <span class="text-[9px] text-slate-500 uppercase">(${techName})</span>`, 'info');
+                    });
                 } else {
                     this.log(`  Cargo:     [empty]`, 'info');
                 }

@@ -190,6 +190,12 @@ async def handle_craft(db, agent, intent, tick_count, manager):
     """Crafts items and gear parts if materials are available and recipe is unlocked."""
     result_item = intent.data.get("item_type")
     recipe = CRAFTING_RECIPES.get(result_item)
+    if not recipe and result_item.startswith("PART_"):
+        # Try without prefix
+        alt_item = result_item.replace("PART_", "")
+        recipe = CRAFTING_RECIPES.get(alt_item)
+        if recipe: result_item = alt_item
+
     if not recipe:
         db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_FAILED", details={"reason": "INVALID_RECIPE", "item": result_item}))
         return

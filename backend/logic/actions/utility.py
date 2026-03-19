@@ -24,6 +24,11 @@ async def handle_consume(db, agent, intent, tick_count, manager):
     """Processes tactical item consumption (Repair Kits, Fuel Cells, etc.)."""
     item_type = intent.data.get("item_type")
     inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
+    if not inv_item and not item_type.startswith("PART_"):
+        alt_type = f"PART_{item_type}"
+        inv_item = next((i for i in agent.inventory if i.item_type == alt_type), None)
+        if inv_item: item_type = alt_type
+
     if not inv_item or inv_item.quantity < 1: return
 
     if item_type == "REPAIR_KIT":

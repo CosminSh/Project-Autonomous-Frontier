@@ -52,8 +52,14 @@ async def handle_list(db, agent, intent, tick_count, manager):
         quantity = sum(i.quantity for i in agent.inventory if i.item_type == item_type)
     
     inv_item = next((i for i in agent.inventory if i.item_type == item_type), None)
+    if not inv_item and not item_type.startswith("PART_"):
+        alt_type = f"PART_{item_type}"
+        if any(i.item_type == alt_type for i in agent.inventory):
+            item_type = alt_type
+            inv_item = next(i for i in agent.inventory if i.item_type == item_type)
+
     if not inv_item or inv_item.quantity < quantity:
-        db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "INSUFFICIENT_INVENTORY"}))
+        db.add(AuditLog(agent_id=agent.id, event_type="MARKET_FAILED", details={"reason": "INSUFFICIENT_INVENTORY", "item": item_type}))
         return
 
     # Instant Matching
@@ -130,10 +136,18 @@ async def handle_buy(db, agent, intent, tick_count, manager):
         return
 
     # Find cheapest SELL orders matching the criteria
-    orders = db.execute(select(AuctionOrder)
-        .where(AuctionOrder.item_type == item_type, AuctionOrder.order_type == "SELL", AuctionOrder.price <= max_price)
-        .order_by(AuctionOrder.price.asc(), AuctionOrder.created_at.asc())
-    ).scalars().all()
+    query = select(AuctionOrder).where(AuctionOrder.item_type == item_type, AuctionOrder.order_type == "SELL", AuctionOrder.price <= max_price)
+    orders = db.execute(query).scalars().all()
+    
+    if not orders and not item_type.startswith("PART_"):
+        alt_type = f"PART_{item_type}"
+        alt_query = select(AuctionOrder).where(AuctionOrder.item_type == alt_type, AuctionOrder.order_type == "SELL", AuctionOrder.price <= max_price)
+        alt_orders = db.execute(alt_query).scalars().all()
+        if alt_orders:
+            orders = alt_orders
+            item_type = alt_type # Use the one found
+
+    orders = sorted(orders, key=lambda o: (o.price, o.created_at))
     
     total_bought = 0
     remaining_qty = requested_qty
@@ -320,6 +334,11 @@ async def handle_storage_deposit(db, agent, intent, tick_count, manager):
         # Subtract from inventory
         remaining = quantity
         inv_items = [i for i in agent.inventory if i.item_type == item_type]
+        if not inv_items and not item_type.startswith("PART_"):
+            alt_type = f"PART_{item_type}"
+            inv_items = [i for i in agent.inventory if i.item_type == alt_type]
+            if inv_items: item_type = alt_type
+
         # Sort by specific item metadata to ensure we take what the user likely intended
         # (For now, we just pick the first ones, but we MUST preserve the data)
         data_to_store = inv_items[0].data if inv_items else None
@@ -350,6 +369,11 @@ async def handle_storage_deposit(db, agent, intent, tick_count, manager):
         # Subtract from inventory
         remaining = quantity
         inv_items = [i for i in agent.inventory if i.item_type == item_type]
+        if not inv_items and not item_type.startswith("PART_"):
+            alt_type = f"PART_{item_type}"
+            inv_items = [i for i in agent.inventory if i.item_type == alt_type]
+            if inv_items: item_type = alt_type
+
         data_to_store = inv_items[0].data if inv_items else None
 
         for i in inv_items:
@@ -412,6 +436,11 @@ async def handle_storage_withdraw(db, agent, intent, tick_count, manager):
         # Subtract from corp storage
         remaining = quantity
         vault_items = [s for s in corp.storage if s.item_type == item_type]
+        if not vault_items and not item_type.startswith("PART_"):
+            alt_type = f"PART_{item_type}"
+            vault_items = [s for s in corp.storage if s.item_type == alt_type]
+            if vault_items: item_type = alt_type
+
         data_to_withdraw = vault_items[0].data if vault_items else None
 
         for s in vault_items:
@@ -459,6 +488,11 @@ async def handle_storage_withdraw(db, agent, intent, tick_count, manager):
         # Subtract from storage
         remaining = quantity
         vault_items = [s for s in agent.storage if s.item_type == item_type]
+        if not vault_items and not item_type.startswith("PART_"):
+            alt_type = f"PART_{item_type}"
+            vault_items = [s for s in agent.storage if s.item_type == alt_type]
+            if vault_items: item_type = alt_type
+
         data_to_withdraw = vault_items[0].data if vault_items else None
 
         for s in vault_items:
@@ -504,9 +538,14 @@ async def handle_transfer(db, agent, intent, tick_count, manager):
 
     # Check inventory
     inv_items = [i for i in agent.inventory if i.item_type == item_type]
+    if not inv_items and not item_type.startswith("PART_"):
+        alt_type = f"PART_{item_type}"
+        inv_items = [i for i in agent.inventory if i.item_type == alt_type]
+        if inv_items: item_type = alt_type
+
     total_has = sum(i.quantity for i in inv_items)
     if total_has < quantity:
-        db.add(AuditLog(agent_id=agent.id, event_type="TRANSFER_FAILED", details={"reason": "INSUFFICIENT_INVENTORY"}))
+        db.add(AuditLog(agent_id=agent.id, event_type="TRANSFER_FAILED", details={"reason": "INSUFFICIENT_INVENTORY", "item": item_type}))
         return
 
     # Mass check for target
