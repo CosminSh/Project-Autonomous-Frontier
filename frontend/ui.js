@@ -820,24 +820,27 @@ export class UIManager {
         // Keep the current selection if possible
         const currentVal = select.value;
 
-        // Filter out credits
-        const sellable = (inventory || []).filter(i => i.type !== 'CREDITS');
+        // Filter out credits and invalid items
+        const sellable = (inventory || []).filter(i => i && i.type && i.type !== 'CREDITS');
 
         if (sellable.length === 0) {
             select.innerHTML = '<option value="">(No items to sell)</option>';
             return;
         }
 
-        // De-duplicate types for the dropdown (since we might have multiple stacks or metadata-unique items)
-        const types = [...new Set(sellable.map(i => i.type))].sort();
+        // De-duplicate types for the dropdown
+        const types = [...new Set(sellable.map(i => i.type))].filter(t => !!t).sort();
 
-        select.innerHTML = types.map(t => {
+        let html = '<option value="">(Select from inventory)</option>';
+        html += types.map(t => {
             const label = t.replace(/_/g, ' ');
             return `<option value="${t}">${label}</option>`;
         }).join('');
 
+        select.innerHTML = html;
+
         // Restore selection if it still exists
-        if (types.includes(currentVal)) {
+        if (currentVal && types.includes(currentVal)) {
             select.value = currentVal;
         }
     }
