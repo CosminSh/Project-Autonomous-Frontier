@@ -11,6 +11,11 @@ export class TerminalHandler {
         this.buffer = document.getElementById('terminal-buffer');
         this.suggestionsEl = document.getElementById('command-suggestions');
 
+        // Create hint element for predictive syntax
+        this.hintEl = document.createElement('div');
+        this.hintEl.className = 'terminal-hint';
+        this.input.parentElement.appendChild(this.hintEl);
+
         // UX State
         this.selectedIndex = -1;
         this.currentMatches = [];
@@ -21,7 +26,7 @@ export class TerminalHandler {
         this.commands = {
             'MOVE': { cat: 'NAV', syntax: 'MOVE <q> <r> | <KEYWORD>', example: 'MOVE SMELTER', help: 'Move to coordinates or nearest station (SMELTER, CRAFTER, MARKET, HUB, REPAIR, REFINERY).' },
             'GO': { cat: 'NAV', syntax: 'GO <q> <r> | <KEYWORD>', example: 'GO HUB', help: 'Alias for MOVE.' },
-            'SCAN': { cat: 'META', syntax: 'SCAN', example: 'SCAN', help: 'Alias for PERCEIVE (Tactical Readout).' },
+            'SCAN': { cat: 'META', syntax: 'SCAN', example: 'SCAN', help: 'Tactical Readout: View nearby agents, resources, and stations.' },
             'MINE': { cat: 'RESOURCE', syntax: 'MINE [resource] [q] [r]', example: 'MINE COPPER_ORE 2 3', help: 'Extract resources. Optional: auto-move to coordinates first.' },
             'SALVAGE': { cat: 'RESOURCE', syntax: 'SALVAGE <drop_id>', example: 'SALVAGE 42', help: 'Collect a world loot drop' },
             'ATTACK': { cat: 'COMBAT', syntax: 'ATTACK <target_id>', example: 'ATTACK 7', help: 'Standard combat engagement' },
@@ -111,6 +116,10 @@ export class TerminalHandler {
             } else {
                 this.handleSuggestions(e);
             }
+            // Clear hint on any key except Tab
+            if (e.key !== 'Tab') {
+                this.hintEl.innerText = '';
+            }
         });
 
         this.input.addEventListener('input', () => this.updateSuggestions());
@@ -163,7 +172,7 @@ export class TerminalHandler {
         });
     }
 
-    log(msg, type = 'info') {
+    log(msg, type = 'info', action = null) {
         const div = document.createElement('div');
         const colors = {
             info: 'text-slate-400',
@@ -173,9 +182,24 @@ export class TerminalHandler {
             highlight: 'text-white bg-sky-500/20 px-1 rounded',
             system: 'text-sky-400'
         };
-        div.className = `font-mono ${colors[type] || colors.info}`;
+        div.className = `font-mono ${colors[type] || colors.info} py-1 flex flex-wrap items-center gap-2`;
         const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        div.innerHTML = `<span class="opacity-30">[${time}]</span> ${msg}`;
+        
+        let content = `<span class="opacity-30 flex-shrink-0">[${time}]</span> <span class="flex-grow">${msg}</span>`;
+        div.innerHTML = content;
+
+        if (action && action.label && action.cmd) {
+            const btn = document.createElement('button');
+            btn.className = 'directive-btn ml-2';
+            btn.innerText = action.label;
+            btn.onclick = () => {
+                this.input.value = action.cmd;
+                this.input.focus();
+                if (action.autoSubmit) this.submit();
+            };
+            div.appendChild(btn);
+        }
+
         this.buffer.appendChild(div);
         this.buffer.scrollTop = this.buffer.scrollHeight;
     }
@@ -195,8 +219,14 @@ export class TerminalHandler {
             this.selectedIndex = -1; // Reset selection on typing
             this.renderSuggestions();
             this.suggestionsEl.classList.remove('hidden');
+
+            // Set prediction hint if there's a strong match
+            const firstCmd = this.currentMatches[0];
+            const syntax = this.commands[firstCmd].syntax;
+            this.hintEl.innerText = syntax;
         } else {
             this.suggestionsEl.classList.add('hidden');
+            this.hintEl.innerText = '';
             this.currentMatches = [];
         }
     }
@@ -524,7 +554,21 @@ export class TerminalHandler {
         try {
             await this.handleAction(actionType, args);
         } catch (e) {
-            this.log(`✗ ERROR: ${e.message}`, 'error');
+            let msg = e.message;
+            let action = null;
+
+            // Contextual Error Handling
+            if (msg.includes(' proximity')) {
+                const parts = msg.split(' proximity');
+                action = { label: "Move to " + parts[0].split('Requires ')[1], cmd: "MOVE " + parts[0].split('Requires ')[1] };
+            } else if (msg.includes('Unknown command')) {
+                action = { label: "Help", cmd: "HELP" };
+            } else if (msg.includes('Usage:')) {
+                const cmdPart = msg.split('Usage: ')[1].split(' ')[0];
+                action = { label: "Help " + cmdPart, cmd: "HELP " + cmdPart };
+            }
+
+            this.log(`✗ ERROR: ${msg}`, 'error', action);
         }
 
         if (this.game.inTutorialMode) {
@@ -578,13 +622,23 @@ export class TerminalHandler {
                 }
                 return;
             }
+            if (this.game.inTutorialMode) {
+                this.log('═══ TUTORIAL ASSISTANT ═══', 'system');
+                this.log('It looks like you are new here! Here are the 3 most important commands:', 'info');
+                this.log('  1. <span style="color:#38bdf8">SCAN</span>          - See what is around you.', 'info');
+                this.log('  2. <span style="color:#38bdf8">MOVE &lt;q&gt; &lt;r&gt;</span>  - Navigate to coordinates.', 'info');
+                this.log('  3. <span style="color:#38bdf8">MINE &lt;item&gt;</span>    - Extract resources from an asteroid.', 'info');
+                this.log('Type <span style="color:#38bdf8">HELP ALL</span> to see the full list of protocols.', 'info');
+                return;
+            }
+
             const categories = {
-                'COMM': '📡 COMMS',
-                'NAV': '🧭 NAVIGATION', 'RESOURCE': '⛏️ RESOURCES', 'COMBAT': '⚔️ COMBAT & PIRACY',
-                'MARKET': '🏪 MARKET', 'INDUSTRY': '🏭 INDUSTRY', 'MAINT': '🔧 MAINTENANCE',
-                'GEAR': '🎒 GEAR', 'STORAGE': '📦 STORAGE', 'SQUAD': '👥 SQUAD',
-                'ARENA': '🥊 ARENA',
-                'OTHER': '🌐 OTHER', 'META': '📖 META'
+                'NAV': '🧭 NAVIGATION', 'RESOURCE': '⛏️ RESOURCES', 'META': '📖 META',
+                'INDUSTRY': '🏭 INDUSTRY', 'MAINT': '🔧 MAINTENANCE',
+                'GEAR': '🎒 GEAR', 'STORAGE': '📦 STORAGE', 'MARKET': '🏪 MARKET',
+                'COMBAT': '⚔️ COMBAT & PIRACY', 'ARENA': '🥊 ARENA', 
+                'COMM': '📡 COMMS', 'SQUAD': '👥 SQUAD', 'CORP': '🏢 CORPORATION',
+                'OTHER': '🌐 OTHER'
             };
             const grouped = {};
             for (const [name, cmd] of Object.entries(this.commands)) {
@@ -592,6 +646,9 @@ export class TerminalHandler {
                 grouped[cmd.cat].push({ name, ...cmd });
             }
             this.log('═══ COMMAND PROTOCOLS ═══', 'system');
+            
+            // Show CORE commands first or emphasized? 
+            // Let's just reorder categories to put NAV/RESOURCE/META first.
             for (const [cat, label] of Object.entries(categories)) {
                 if (!grouped[cat]) continue;
                 this.log(`<b>${label}</b>`, 'info');
@@ -600,9 +657,11 @@ export class TerminalHandler {
                 });
             }
             this.log('Type <span style="color:#38bdf8">HELP &lt;command&gt;</span> for details.', 'system');
-            this.log('Read the survival guide via <span style="color:#38bdf8">GUIDE</span> (or /api/guide).', 'system');
             return;
         }
+
+        // --- NEW: Throw for usage errors to trigger Actionable Buttons ---
+        const usageThrow = (msg) => { throw new Error(msg); };
 
         // ── META: RECIPES ──
         if (actionType === 'RECIPES') {
@@ -1155,7 +1214,7 @@ export class TerminalHandler {
             }
 
             if (args.length < 2) {
-                this.log(`✗ Usage: ${actionType} <item_type> <quantity>`, 'error');
+                usageThrow(`Usage: ${actionType} <item_type> <quantity>`);
                 return;
             }
 
@@ -1281,7 +1340,7 @@ export class TerminalHandler {
 
             if (actionType === 'CORP_UPGRADE_PURCHASE') {
                 if (args.length < 1) {
-                    this.log(`✗ Usage: CORP_UPGRADE_PURCHASE <category>`, 'error');
+                    usageThrow(`Usage: CORP_UPGRADE_PURCHASE <category>`);
                     return;
                 }
                 const category = args[0].toUpperCase();
@@ -1302,7 +1361,7 @@ export class TerminalHandler {
         // ── CHAT COMMANDS ──
         if (['SAY', 'PROX', 'SQUAD', 'CORP', 'GLOBAL'].includes(actionType)) {
             if (args.length < 1) {
-                this.log(`✗ Usage: ${actionType} <message>`, 'error');
+                usageThrow(`Usage: ${actionType} <message>`);
                 return;
             }
             const channel = actionType === 'SAY' || actionType === 'PROX' ? 'PROX' : actionType;
@@ -1316,8 +1375,7 @@ export class TerminalHandler {
 
         // ── SERVER COMMANDS ──
         if (!this.commands[actionType]) {
-            this.log(`Unknown command '${actionType}'. Type HELP for list.`, 'error');
-            return;
+            throw new Error(`Unknown command '${actionType}'. Type HELP for list.`);
         }
 
         try {
@@ -1329,10 +1387,10 @@ export class TerminalHandler {
                 this.log(`✓ ACCEPTED — Tick #${result.tick_index || result.tick}`, 'success');
             } catch (e) {
                 const errorDetail = typeof e.message === 'object' ? JSON.stringify(e.message) : e.message;
-                this.log(`✗ REJECTED — ${errorDetail || 'Server error'}`, 'error');
+                throw new Error(`REJECTED: ${errorDetail || 'Server error'}`);
             }
         } catch (e) {
-            this.log(`✗ ${e.message}`, 'error');
+            throw e; // Bubble up to submit() for actionable buttons
         }
     }
 }

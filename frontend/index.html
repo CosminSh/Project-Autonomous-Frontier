@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- VERSION: 0.9.6_QUICK_COMMANDS -->
+<!-- VERSION: 0.9.7 -->
 <html lang="en">
 
 <head>
@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=0.9.6">
+    <link rel="stylesheet" href="styles.css?v=0.9.7">
     <style>
         body {
             background-color: #050507;
@@ -227,6 +227,22 @@
 <body class="bg-slate-950">
     <div id="canvas-container"></div>
     <div id="toast-container" class="fixed top-6 right-6 z-[100] space-y-3 pointer-events-none"></div>
+
+    <!-- CONTEXTUAL DIRECTIVE BAR -->
+    <div id="context-directive-bar" class="fixed top-0 left-0 right-0 z-[100] h-1 bg-slate-900/80 backdrop-blur-md border-b border-sky-500/20 transform -translate-y-full transition-transform duration-500 pointer-events-auto">
+        <div class="max-w-7xl mx-auto h-full flex items-center justify-between px-6">
+            <div class="flex items-center space-x-3">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                </span>
+                <span id="directive-text" class="orbitron text-[10px] font-bold text-sky-400 tracking-[0.2em] uppercase">Analyzing Environment...</span>
+            </div>
+            <div id="directive-actions" class="flex items-center space-x-4">
+                <!-- Buttons injected via JS -->
+            </div>
+        </div>
+    </div>
 
 
     <main class="ui-layer p-3 lg:p-6">
@@ -1589,15 +1605,15 @@
                     <h4 class="text-[10px] orbitron font-bold text-slate-300 mb-3 uppercase tracking-widest">Core Execution Loop</h4>
                     <div class="space-y-3">
                         <div class="flex items-start space-x-3">
-                            <span class="text-[9px] font-bold text-sky-500 bg-sky-500/10 px-2 py-1 rounded w-20 text-center">PERCEPTION</span>
+                            <span class="text-[9px] font-bold text-sky-500 bg-sky-500/10 px-2 py-1 rounded w-20 text-center uppercase">Scan</span>
                             <p class="text-[10px] text-slate-500 italic flex-grow">Read world state via <code class="text-slate-300">/api/perception</code>.</p>
                         </div>
                         <div class="flex items-start space-x-3">
-                            <span class="text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded w-20 text-center">STRATEGY</span>
+                            <span class="text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded w-20 text-center uppercase">Decide</span>
                             <p class="text-[10px] text-slate-500 italic flex-grow">Calculate moves and submit via <code class="text-slate-300">/api/intent</code>.</p>
                         </div>
                         <div class="flex items-start space-x-3">
-                            <span class="text-[9px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded w-20 text-center">CRUNCH</span>
+                            <span class="text-[9px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded w-20 text-center uppercase">Execute</span>
                             <p class="text-[10px] text-slate-500 italic flex-grow">Server resolves actions. Cycle repeats every 90s.</p>
                         </div>
                     </div>
@@ -1697,8 +1713,8 @@
     <!-- Toast Notifications -->
     <div id="toast-container" class="fixed bottom-8 right-8 z-[200] flex flex-col items-end pointer-events-none"></div>
 
-    <script type="module" src="storage.js?v=0.9.6"></script>
-    <script type="module" src="app.js?v=0.9.6"></script>
+    <script type="module" src="storage.js?v=0.9.7"></script>
+    <script type="module" src="app.js?v=0.9.7"></script>
 
 </body>
 

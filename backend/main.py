@@ -169,10 +169,20 @@ async def lifespan(app: FastAPI):
         raise e
     # Shutdown logic (if any) could go here
 
+# Load version from centralized json
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+version_file = os.path.join(base_dir, "version.json")
+try:
+    with open(version_file, "r") as f:
+        import json
+        VERSION = json.load(f).get("version", "0.7.8")
+except:
+    VERSION = "0.7.8"
+
 app = FastAPI(
     title="TERMINAL FRONTIER API",
     description="Backend API for Terminal Frontier agent-centric industrial RPG",
-    version="0.7.8",
+    version=VERSION,
     lifespan=lifespan
 )
 
@@ -374,7 +384,7 @@ if os.path.exists(frontend_path):
     @app.get("/api/metadata")
     async def get_metadata():
         return {
-            "version": "0.7.8",
+            "version": VERSION,
             "features": ["continuous_mining", "pilot_console_compat", "enhanced_ui"]
         }
 
@@ -391,7 +401,7 @@ else:
         return {
             "message": "Welcome to the Terminal Frontier API",
             "status": "online",
-            "version": "0.7.8",
+            "version": "0.9.7",
             "note": f"Frontend directory not found at {frontend_path}."
         }
 

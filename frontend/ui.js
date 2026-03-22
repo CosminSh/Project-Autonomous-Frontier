@@ -947,6 +947,28 @@ export class UIManager {
         const wearWarn = document.getElementById('wear-warning');
         if (wearBar) wearBar.style.width = `${agent.wear_and_tear}%`;
         if (wearText) wearText.innerText = `${Math.floor(agent.wear_and_tear)}%`;
+        
+        // Critical State Alerts
+        const hpBarParent = document.getElementById('hp-bar').parentElement;
+        if (agent.health / agent.max_health < 0.2) hpBarParent.classList.add('bar-critical', 'border-rose-500/50');
+        else hpBarParent.classList.remove('bar-critical', 'border-rose-500/50');
+
+        const nrgBarParent = document.getElementById('energy-bar').parentElement;
+        if (agent.energy < 20) nrgBarParent.classList.add('bar-critical', 'border-rose-500/50');
+        else nrgBarParent.classList.remove('bar-critical', 'border-rose-500/50');
+
+        const massBarParent = document.getElementById('mass-bar').parentElement;
+        const massLabel = document.getElementById('mass-text').previousElementSibling;
+        if (agent.mass / agent.max_mass >= 0.95) {
+            massBarParent.classList.add('border-rose-500/50');
+            if (!massLabel.querySelector('.cargo-full-badge')) {
+                massLabel.innerHTML += ' <span class="cargo-full-badge">FULL</span>';
+            }
+        } else {
+            massBarParent.classList.remove('border-rose-500/50');
+            massLabel.querySelector('.cargo-full-badge')?.remove();
+        }
+
         if (wearWarn) {
             if (agent.wear_and_tear > 80) wearWarn.classList.remove('hidden');
             else wearWarn.classList.add('hidden');
@@ -1180,19 +1202,20 @@ export class UIManager {
                 }).join('');
             }
 
-            if (consumableInvEl) {
-                if (consumables.length === 0) consumableInvEl.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-2">No usable consumables.</div>`;
-                else consumableInvEl.innerHTML = consumables.map(i => `
-                    <div class="bg-rose-500/5 p-3 rounded-xl border border-rose-500/20 flex justify-between items-center group hover:bg-rose-500/10 transition-all">
-                        <span class="text-[9px] font-bold text-rose-300 uppercase">${i.type.replace(/_/g, ' ')}</span>
-                        <div class="flex items-center space-x-3">
-                            <span class="text-rose-400 text-[10px] font-mono">x${i.quantity}</span>
-                            <button onclick="game.api.submitIntent('CONSUME', {item_type: '${i.type}'})" class="bg-rose-500 hover:bg-rose-400 text-white px-3 py-1 rounded text-[8px] font-bold uppercase transition-all shadow-lg shadow-rose-500/10 active:scale-95">USE</button>
-                        </div>
+            if (consumables.length === 0) consumableInvEl.innerHTML = `<div class="text-[10px] text-slate-600 italic text-center py-2">No usable consumables.</div>`;
+            else consumableInvEl.innerHTML = consumables.map(i => `
+                <div class="bg-rose-500/5 p-3 rounded-xl border border-rose-500/20 flex justify-between items-center group hover:bg-rose-500/10 transition-all">
+                    <span class="text-[9px] font-bold text-rose-300 uppercase">${i.type.replace(/_/g, ' ')}</span>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-rose-400 text-[10px] font-mono">x${i.quantity}</span>
+                        <button onclick="game.api.submitIntent('CONSUME', {item_type: '${i.type}'})" class="bg-rose-500 hover:bg-rose-400 text-white px-3 py-1 rounded text-[8px] font-bold uppercase transition-all shadow-lg shadow-rose-500/10 active:scale-95">USE</button>
                     </div>
-                `).join('');
-            }
+                </div>
+            `).join('');
         }
+
+        // --- NEW: Contextual Directive ---
+        this.updateContextualDirective(agent, this.game.lastWorldData);
     }
 
     updateArenaUI(data) {
@@ -2591,9 +2614,134 @@ Intent payload format:
 
         // Animate out
         setTimeout(() => {
-            toast.classList.add('translate-y-[-20px]', 'opacity-0');
-            setTimeout(() => toast.remove(), 500);
+            if (toast && toast.parentElement) {
+                toast.classList.add('translate-y-[-20px]', 'opacity-0');
+                setTimeout(() => toast.remove(), 500);
+            }
         }, 3500);
+    }
+
+    highlightElement(id, label = "") {
+        const el = document.getElementById(id);
+        if (!el) {
+            console.warn(`[UI] Cannot highlight missing element: ${id}`);
+            return;
+        }
+
+        // Clear existing highlights
+        this.clearHighlights();
+
+        el.classList.add('tutorial-highlight');
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        if (label) {
+            const pointer = document.createElement('div');
+            pointer.className = 'tutorial-pointer';
+            pointer.innerText = label;
+            el.appendChild(pointer);
+        }
+    }
+
+    clearHighlights() {
+        document.querySelectorAll('.tutorial-highlight').forEach(el => {
+            el.classList.remove('tutorial-highlight');
+            const pointer = el.querySelector('.tutorial-pointer');
+            if (pointer) pointer.remove();
+        });
+    }
+
+    /**
+     * Contextual Directive Bar Logic
+     */
+    updateContextualDirective(agent, worldState) {
+        const bar = document.getElementById('context-directive-bar');
+        const textEl = document.getElementById('directive-text');
+        const actionsEl = document.getElementById('directive-actions');
+        if (!bar || !textEl || !actionsEl) return;
+
+        let directive = "Analyzing environment...";
+        let actions = [];
+
+        // 1. Check Vital Stats
+        if (agent.energy < 15) {
+            directive = "Energy Critical: Move to REPAIR or MARKET station.";
+            actions.push({ label: "Find Station", cmd: "HELP" });
+        } else if (agent.wear_and_tear > 80) {
+            directive = "High Wear: Systems degrading. Reset wear at REPAIR station.";
+            actions.push({ label: "Go to Repair", cmd: "HELP" });
+        } else if (agent.mass / agent.max_mass > 0.95) {
+            directive = "Cargo Maximized: Unload at MARKET or SMELTER.";
+            actions.push({ label: "Market", cmd: "HELP" });
+        } else {
+            // 2. Proximity based suggestions
+            if (worldState && worldState.stations) {
+                const myPos = { q: agent.q, r: agent.r };
+                const stations = Object.values(worldState.stations);
+                const nearStation = stations.find(s => this._getHexDist(myPos, s) === 0);
+
+                if (nearStation) {
+                    if (nearStation.type === 'SMELTER') {
+                        const hasOre = agent.inventory?.some(i => i.type.includes('ORE'));
+                        if (hasOre) {
+                            directive = "Proximity: SMELTER. Refine raw ore into ingots?";
+                            actions.push({ label: "Refine", cmd: "SMELT" });
+                        }
+                    } else if (nearStation.type === 'CRAFTER') {
+                        directive = "Proximity: CRAFTER. Forge new modules or gear?";
+                        actions.push({ label: "Forge", cmd: "GEAR" });
+                    } else if (nearStation.type === 'MARKET') {
+                        directive = "Proximity: MARKET. Trade resources or reset wear?";
+                        actions.push({ label: "Trade", cmd: "HELP" });
+                    }
+                } else {
+                    // 3. Environment based suggestions
+                    const hasScanned = this.game.lastPerception?.discovery && Object.keys(this.game.lastPerception.discovery).length > 0;
+                    if (!hasScanned) {
+                        directive = "Void Space: No resources found. SCAN the sector?";
+                        actions.push({ label: "Scan Sector", cmd: "SCAN" });
+                    } else if (agent.energy > 50) {
+                        directive = "Operational: Continue extraction or explore further.";
+                        actions.push({ label: "Center Map", onClick: () => {
+                            if (this.game.renderer) this.game.renderer.centerOnAgent(true);
+                        }});
+                    }
+                }
+            }
+        }
+
+        // Update UI
+        textEl.innerText = directive;
+        actionsEl.innerHTML = '';
+        actions.forEach(act => {
+            const btn = document.createElement('button');
+            btn.className = 'directive-btn';
+            btn.innerText = act.label;
+            if (act.cmd) {
+                btn.onclick = () => {
+                    const input = document.getElementById('terminal-input');
+                    if (input) {
+                        input.value = act.cmd;
+                        input.focus();
+                    }
+                };
+            } else if (act.onClick) {
+                btn.onclick = act.onClick;
+            }
+            actionsEl.appendChild(btn);
+        });
+
+        // Show bar if we have a specific directive
+        if (directive !== "Analyzing environment...") {
+            bar.classList.add('active');
+            bar.style.height = '40px'; 
+        } else {
+            bar.classList.remove('active');
+            bar.style.height = '1px';
+        }
+    }
+
+    _getHexDist(p1, p2) {
+        return (Math.abs(p1.q - p2.q) + Math.abs(p1.q + p1.r - p2.q - p2.r) + Math.abs(p1.r - p2.r)) / 2;
     }
 }
 

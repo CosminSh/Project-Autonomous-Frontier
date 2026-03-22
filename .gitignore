@@ -4,6 +4,8 @@ __pycache__/
 *$py.class
 
 # Databases
+*.db-shm
+*.db-wal
 *.db
 *.db-shm
 *.db-wal

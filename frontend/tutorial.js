@@ -61,64 +61,82 @@ export class TutorialManager {
         this.steps = [
             {
                 title: "WELCOME TO THE FRONTIER",
-                text: "You are a Drone Operator tasked with extracting value from deep space. The game follows a cycle: PERCEPTION → STRATEGY → CRUNCH.",
+                text: "You are a Drone Operator tasked with extracting value from deep space. The game follows a cycle: SCAN → DECIDE → EXECUTE. (Previously Perception/Strategy/Crunch)",
                 action: "Click 'NEXT' to begin.",
-                condition: 'next'
+                condition: 'next',
+                highlightId: 'tutorial-next'
             },
             {
                 title: "STEP 1: PROTOCOLS (HELP)",
                 text: "Before we deploy, you should know how to access your command protocols. Knowledge is power in the Frontier.",
-                action: "Type 'HELP' in the terminal.",
+                action: "Type 'HELP' in the terminal or click the shortcut.",
                 condition: 'command',
-                command: 'HELP'
+                command: 'HELP',
+                highlightId: 'terminal-input',
+                buttonAction: 'HELP',
+                buttonLabel: 'RUN HELP'
             },
             {
-                title: "STEP 1: PERCEPTION",
-                text: "The first step is always to PERCEIVE your surroundings. In the terminal below, type 'PERCEIVE' to see what's nearby.",
-                action: "Type 'PERCEIVE' in the terminal.",
+                title: "STEP 2: SCANNING",
+                text: "The first step is always to SCAN your surroundings. In the terminal below, type 'SCAN' to see what's nearby.",
+                action: "Type 'SCAN' in the terminal or use the button.",
                 condition: 'command',
-                command: 'PERCEIVE'
+                command: 'SCAN',
+                highlightId: 'terminal-input',
+                buttonAction: 'SCAN',
+                buttonLabel: 'RUN SCAN'
             },
             {
-                title: "STEP 2: STRATEGY (MINING)",
-                text: "Your sensors detected Iron Ore at coordinates (10, 5). Let's extract it. Strategic actions are sent as intense commands.",
-                action: "Type 'MINE IRON_ORE 10 5' in the terminal.",
+                title: "STEP 3: DECISION (MINING)",
+                text: "Your sensors detected Iron Ore at coordinates (10, 5). Let's extract it. Decisions are sent as intense commands.",
+                action: "Type 'MINE IRON_ORE 10 5' or click 'MINE' shortcut.",
                 condition: 'command',
-                command: 'MINE IRON_ORE 10 5'
+                command: 'MINE IRON_ORE 10 5',
+                highlightId: 'terminal-input',
+                buttonAction: 'MINE IRON_ORE 10 5',
+                buttonLabel: 'MINE IRON (10,5)'
             },
             {
-                title: "STEP 3: VISUALIZATION",
+                title: "STEP 4: VISUALIZATION",
                 text: "Your hardware has received the command! Switch to 'WORLD' mode (top buttons) to see your agent in the 3D environment.",
                 action: "Click 'WORLD' in the top bar.",
                 condition: 'ui_mode',
-                mode: 'world'
+                mode: 'world',
+                highlightId: 'btn-mode-world'
             },
             {
-                title: "STEP 4: THE CRUNCH (TICKS)",
-                text: "The Frontier doesn't run in real-time. Every minute, the server 'crunches' all player intents simultaneously. This is called a TICK.",
-                action: "Click 'NEXT' to continue.",
-                condition: 'next'
+                title: "STEP 5: THE EXECUTION (TICKS)",
+                text: "The Frontier doesn't run in real-time. Every minute, the server 'executes' all player intents simultaneously. This is called a TICK.",
+                action: "Observe the phase indicator and click 'NEXT'.",
+                condition: 'next',
+                highlightId: 'phase-indicator'
             },
             {
-                title: "STEP 5: NAVIGATION",
+                title: "STEP 6: NAVIGATION",
                 text: "Raw ore is bulky. We need a SMELTER. You can move there by clicking on a Smelter in the map or using a command.",
-                action: "Type 'MOVE SMELTER' or click a Smelter on the map.",
+                action: "Type 'MOVE 25 2' or click 'GO' shortcut.",
                 condition: 'move',
-                target: {q: 25, r: 2} // Assuming smelter is at 25, 2
+                target: { q: 25, r: 2 },
+                highlightId: 'terminal-input',
+                buttonAction: 'MOVE 25 2',
+                buttonLabel: 'GO TO SMELTER'
             },
             {
-                title: "STEP 6: TRANSIT",
+                title: "STEP 7: TRANSIT",
                 text: "Your agent is now in transit. In the live game, this might take several ticks depending on your engine speed.",
                 action: "Wait for deployment (simulated).",
                 condition: 'wait',
                 duration: 4000
             },
             {
-                title: "STEP 7: INDUSTRY",
+                title: "STEP 8: REFINING",
                 text: "You've reached the SMELTER. Time to maximize your profit by refining that ore into Iron Bars.",
                 action: "Type 'SMELT IRON_ORE MAX' in the terminal.",
                 condition: 'command',
-                command: 'SMELT IRON_ORE MAX'
+                command: 'SMELT IRON_ORE MAX',
+                highlightId: 'terminal-input',
+                buttonAction: 'SMELT IRON_ORE MAX',
+                buttonLabel: 'REFINE ORE'
             },
             {
                 title: "MISSION COMPLETE",
@@ -276,13 +294,41 @@ export class TutorialManager {
             nextBtn.classList.add('hidden');
         }
 
-        // Visual Guidance (Visual Highlights)
+        // --- NEW: Visual Pointers & Highlights ---
+        if (this.game.ui) {
+            this.game.ui.clearHighlights();
+            if (step.highlightId) {
+                this.game.ui.highlightElement(step.highlightId, "LOOK HERE");
+            }
+        }
+
+        // --- NEW: Quick Action Button ---
+        const footer = document.getElementById('tutorial-footer');
+        let quickBtn = document.getElementById('tutorial-quick-action');
+        if (quickBtn) quickBtn.remove();
+
+        if (step.buttonAction) {
+            quickBtn = document.createElement('button');
+            quickBtn.id = 'tutorial-quick-action';
+            quickBtn.className = 'ml-4 bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-1.5 rounded-xl font-bold orbitron text-[10px] uppercase transition-all shadow-lg shadow-amber-500/20 active:scale-95';
+            quickBtn.innerText = step.buttonLabel || 'EXECUTE';
+            quickBtn.onclick = () => {
+                const terminal = document.getElementById('terminal-input');
+                if (terminal) {
+                    terminal.value = step.buttonAction;
+                    // Trigger enter key
+                    const event = new KeyboardEvent('keydown', { key: 'Enter' });
+                    terminal.dispatchEvent(event);
+                }
+            };
+            footer.appendChild(quickBtn);
+        }
+
+        // Visual Guidance (World Specific Highlights)
         if (this.game.renderer) {
-            if (this.currentStepIndex === 2) {
-                // Step 2: Move to (10, 5)
+            if (step.title.includes("MINING")) {
                 this.game.renderer.setTutorialHighlight(10, 5);
-            } else if (this.currentStepIndex === 5) {
-                // Step 5: Move to Smelter at (25, 2)
+            } else if (step.title.includes("NAVIGATION")) {
                 this.game.renderer.setTutorialHighlight(25, 2);
             } else {
                 this.game.renderer.clearTutorialHighlight();
