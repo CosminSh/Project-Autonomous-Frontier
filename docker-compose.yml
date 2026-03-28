@@ -15,7 +15,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 350M
+          memory: 200M
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d terminal_frontier -U admin"]
       interval: 30s
@@ -52,7 +52,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 350M
+          memory: 400M
     depends_on:
       - db
       - redis
