@@ -186,6 +186,14 @@ class TickManager:
         if not intents:
             return
 
+        # 2. deduplicate intents: only one intent per agent per action type
+        unique_intents = {}
+        for i in intents:
+            key = (i.agent_id, i.action_type)
+            if key not in unique_intents:
+                unique_intents[key] = i
+        intents = list(unique_intents.values())
+
         # 3. BATCH LOAD AGENTS: Avoid N+1 database queries during processing
         agent_ids = {i.agent_id for i in intents}
         from sqlalchemy.orm import selectinload

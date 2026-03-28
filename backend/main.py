@@ -161,8 +161,10 @@ async def lifespan(app: FastAPI):
         # Tag existing pitfighters if they aren't tagged yet
         try:
             conn.execute(text("UPDATE agents SET is_pitfighter = TRUE WHERE name LIKE '%-PitFighter'"))
+            # HEAL: Also fix any Pit Fighters with 0 max_health from broken season resets
+            conn.execute(text("UPDATE agents SET max_health = 100, health = 50 WHERE is_pitfighter = TRUE AND max_health <= 0"))
             conn.commit()
-            logger.info("Migration: Tagged existing Pit Fighters.")
+            logger.info("Migration: Tagged and Healed existing Pit Fighters.")
         except Exception:
             pass # Table or column might not exist yet if migrations failed
 
