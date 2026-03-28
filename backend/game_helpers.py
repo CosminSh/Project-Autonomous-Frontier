@@ -367,19 +367,30 @@ def get_hex_neighbors(q: int, r: int):
     return list(results)
 
 
+# Global cache for static obstacles, as querying this per-pathfind blocks the main event loop
+_GLOBAL_OBSTACLES_CACHE = None
+
 def find_hex_path(db: Session, sq: int, sr: int, gq: int, gr: int, max_steps: int = 50):
     """BFS pathfinding on the axial hex grid. Returns list of (q,r) steps or None."""
+    global _GLOBAL_OBSTACLES_CACHE
+
     sq, sr = wrap_coords(sq, sr)
     gq, gr = wrap_coords(gq, gr)
     
     if sq == gq and sr == gr:
         return []
         
-    obstacles = set(
-        (h.q, h.r) for h in db.execute(
-            select(WorldHex).where(WorldHex.terrain_type == "OBSTACLE")
-        ).scalars().all()
-    )
+    if _GLOBAL_OBSTACLES_CACHE is None:
+        import time
+        t0 = time.time()
+        _GLOBAL_OBSTACLES_CACHE = set(
+            (h.q, h.r) for h in db.execute(
+                select(WorldHex).where(WorldHex.terrain_type == "OBSTACLE")
+            ).scalars().all()
+        )
+        logger.info(f"Built global obstacle cache: {len(_GLOBAL_OBSTACLES_CACHE)} hexes in {time.time()-t0:.2f}s")
+    
+    obstacles = _GLOBAL_OBSTACLES_CACHE
     
     queue = deque([(sq, sr, [])])
     visited = {(sq, sr)}
