@@ -2,7 +2,7 @@ import asyncio
 import gc
 import logging
 import random
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from database import SessionLocal
 from models import GlobalState, Agent, InventoryItem, Intent, AgentMessage
 from datetime import datetime, timezone, timedelta
@@ -181,7 +181,6 @@ class TickManager:
         intents = db.execute(select(Intent).where(Intent.tick_index >= min_tick, Intent.tick_index <= self.tick_count)).scalars().all()
         
         # 2. Hard Cleanup: Delete all intents older than our catch-up window
-        from sqlalchemy import delete
         db.execute(delete(Intent).where(Intent.tick_index < min_tick))
         
         if not intents:
