@@ -20,40 +20,42 @@ async def update_global_agent_stats(db, tick_count, manager):
     """Processes energy regen, wear & tear, clutter, and NPC brains for all agents."""
     _t_start = time.time()
     
-    # 0. Global Station Cache (Batching to avoid per-agent queries)
-    # Fetch all station coordinates into a set for O(1) lookups
+    # 0. Global Station Cache
+    _t0 = time.time()
     stations = db.execute(select(WorldHex.q, WorldHex.r, WorldHex.station_type).where(WorldHex.is_station == True)).all()
     station_coords = {(s.q, s.r) for s in stations}
     station_list = [{"q": s.q, "r": s.r, "station_type": s.station_type} for s in stations]
+    logger.info(f"update_global step 0 (stations): {time.time()-_t0:.2f}s")
     await asyncio.sleep(0)
     
-    # 1. NPC PRE-FETCH CACHE (Critical optimization for 1GB RAM)
-    # Instead of every bot querying the DB, we fetch the context ONCE per tick.
-    
-    # A. Resource Hexes (One of each type for bots to head towards)
+    # 1. NPC PRE-FETCH CACHE
+    _t1 = time.time()
     asteroid_hex = db.execute(select(WorldHex.q, WorldHex.r).where(WorldHex.terrain_type == "ASTEROID").limit(1)).first()
     gas_hex = db.execute(select(WorldHex.q, WorldHex.r).where(WorldHex.resource_type == "HELIUM_GAS").limit(1)).first()
     resource_cache = {
         "ASTEROID": {"q": asteroid_hex.q, "r": asteroid_hex.r} if asteroid_hex else None,
         "HELIUM_GAS": {"q": gas_hex.q, "r": gas_hex.r} if gas_hex else None
     }
+    logger.info(f"update_global step 1 (resources): {time.time()-_t1:.2f}s")
 
-    # B. Human Players (For Feral Aggression)
+    _t2 = time.time()
     human_players = db.execute(select(Agent.q, Agent.r, Agent.id).where(Agent.is_bot == False, Agent.is_feral == False)).all()
     player_cache = [{"q": p.q, "r": p.r, "id": p.id} for p in human_players]
+    logger.info(f"update_global step 2 (human_players): {time.time()-_t2:.2f}s")
 
-    # C. Low Energy Allies (For Refueler Bots)
+    _t3 = time.time()
     low_energy_allies = db.execute(select(Agent.q, Agent.r, Agent.id, Agent.faction_id).where(Agent.energy < 30)).all()
     ally_cache = [{"q": a.q, "r": a.r, "id": a.id, "faction_id": a.faction_id} for a in low_energy_allies]
+    logger.info(f"update_global step 3 (low_energy_allies): {time.time()-_t3:.2f}s")
     await asyncio.sleep(0)
 
-    # D. CLUTTER MAP (Fast O(1) lookup for faction overcrowding)
-    # Group ALL agents by (q, r, faction_id) to avoid nested loops inside the main loop
+    _t4 = time.time()
     clutter_map = {}
     for a in db.execute(select(Agent.q, Agent.r, Agent.id, Agent.faction_id).where(Agent.faction_id != None)).all():
         key = (a.q, a.r, a.faction_id)
         if key not in clutter_map: clutter_map[key] = 0
         clutter_map[key] += 1
+    logger.info(f"update_global step 4 (clutter_map): {time.time()-_t4:.2f}s")
     await asyncio.sleep(0)
 
     # 2. Global Death Reaper & Simulation
@@ -64,8 +66,7 @@ async def update_global_agent_stats(db, tick_count, manager):
         .options(selectinload(Agent.parts), selectinload(Agent.inventory))
     ).scalars().all()
     _q_dur = time.time() - _t_query
-    if _q_dur > 1.0:
-        logger.warning(f"update_global: Agent fetch took {_q_dur:.2f}s (FOUND: {len(all_agents)})")
+    logger.info(f"update_global: Agent fetch took {_q_dur:.2f}s (FOUND: {len(all_agents)})")
     await asyncio.sleep(0)
 
     for idx, agent in enumerate(all_agents):
