@@ -4,6 +4,7 @@ Covers: /api/guide, /api/commands, /api/manifesto, /api/world/library,
         /api/world/poi, /api/world/heat, /api/world/full, /state
 """
 import logging
+import time
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -18,7 +19,27 @@ from config import (
 )
 from logic.leaderboard_manager import LEADERBOARD_CACHE
 
+logger = logging.getLogger("heartbeat")
 router = APIRouter(tags=["World"])
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WORLD MAP CACHE
+# The full world map (9702 hexes) is essentially static terrain.
+# Loading it from the DB on every frontend request was blocking the asyncio
+# event loop for 90+ seconds. We cache it once at first request.
+# ─────────────────────────────────────────────────────────────────────────────
+_WORLD_MAP_CACHE = None
+_WORLD_MAP_CACHE_BUILT_AT = 0
+
+def _get_world_map_cache(db: Session):
+    global _WORLD_MAP_CACHE, _WORLD_MAP_CACHE_BUILT_AT
+    if _WORLD_MAP_CACHE is None:
+        _t = time.time()
+        hexes = db.execute(select(WorldHex.q, WorldHex.r, WorldHex.terrain_type, WorldHex.is_station, WorldHex.station_type)).all()
+        _WORLD_MAP_CACHE = [{"q": h.q, "r": h.r, "terrain": h.terrain_type, "is_station": h.is_station, "station_type": h.station_type} for h in hexes]
+        _WORLD_MAP_CACHE_BUILT_AT = time.time()
+        logger.info(f"World map cache built: {len(_WORLD_MAP_CACHE)} hexes in {time.time()-_t:.2f}s")
+    return _WORLD_MAP_CACHE
 
 @router.get("/api/global_stats")
 async def get_global_stats(db: Session = Depends(get_db)):
@@ -164,9 +185,11 @@ async def get_world_heat(db: Session = Depends(get_db)):
 
 @router.get("/api/world/full")
 async def get_full_world(db: Session = Depends(get_db)):
-    """Returns essential layout of the entire world for global visualization."""
-    hexes = db.execute(select(WorldHex.q, WorldHex.r, WorldHex.terrain_type, WorldHex.is_station, WorldHex.station_type)).all()
-    return [{"q": h.q, "r": h.r, "terrain": h.terrain_type, "is_station": h.is_station, "station_type": h.station_type} for h in hexes]
+    """Returns essential layout of the entire world for global visualization.
+    Served from in-memory cache to avoid blocking the asyncio event loop with
+    a 9702-row DB query on every frontend map load.
+    """
+    return _get_world_map_cache(db)
 
 
 @router.get("/state")
