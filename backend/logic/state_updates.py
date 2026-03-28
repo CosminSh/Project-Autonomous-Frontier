@@ -53,6 +53,7 @@ async def update_global_agent_stats(db, tick_count, manager):
     # 2. Global Death Reaper & Simulation
     all_agents = db.execute(
         select(Agent)
+        .where(Agent.is_pitfighter != True)
         .options(selectinload(Agent.parts), selectinload(Agent.inventory))
     ).scalars().all()
     await asyncio.sleep(0)
