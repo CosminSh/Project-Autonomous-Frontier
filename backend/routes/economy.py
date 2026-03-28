@@ -155,20 +155,35 @@ async def claim_market_pickups(agent: Agent = Depends(verify_api_key), db: Sessi
 # ── VAULT / STORAGE ────────────────────────────────────────────────────────────
 
 @router.get("/storage")
-async def get_vault_contents(agent: Agent = Depends(verify_api_key)):
+async def get_vault_contents(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns the agent's Personal Storage (Vault) inventory."""
-    return [{"type": v.item_type, "quantity": v.quantity, "data": v.data} for v in agent.storage]
+    items = db.execute(select(StorageItem).where(StorageItem.agent_id == agent.id)).scalars().all()
+    return [{"type": v.item_type, "quantity": v.quantity, "data": v.data} for v in items]
 
 @router.get("/storage/info")
-async def get_vault_info(agent: Agent = Depends(verify_api_key)):
+async def get_vault_info(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns vault contents plus capacity stats and next upgrade requirement."""
-    used_mass = sum(v.quantity * ITEM_WEIGHTS.get(v.item_type, 1.0) for v in agent.storage)
+    # Ensure fresh data from DB
+    items = db.execute(select(StorageItem).where(StorageItem.agent_id == agent.id)).scalars().all()
+    
+    # Aggregate and calculate mass for reliable UI display
+    aggregated = {}
+    used_mass = 0.0
+    for v in items:
+        weight = ITEM_WEIGHTS.get(v.item_type, 1.0)
+        used_mass += (v.quantity or 0) * weight
+        
+        key = (v.item_type, str(v.data))
+        if key in aggregated:
+            aggregated[key]["quantity"] += v.quantity
+        else:
+            aggregated[key] = {"type": v.item_type, "quantity": v.quantity, "data": v.data, "weight": weight}
     
     from config import get_vault_upgrade_requirements
     next_reqs = get_vault_upgrade_requirements(agent.storage_capacity)
     
     return {
-        "items": [{"type": v.item_type, "quantity": v.quantity} for v in agent.storage],
+        "items": list(aggregated.values()),
         "capacity": agent.storage_capacity,
         "used": used_mass,
         "next_upgrade_requirements": next_reqs
