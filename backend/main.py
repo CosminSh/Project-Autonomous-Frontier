@@ -303,8 +303,11 @@ async def websocket_endpoint(websocket: WebSocket):
     # Standard upgrade
     token = websocket.query_params.get("token")
     if not token:
-        await websocket.accept() # Accept to send close code properly
-        await websocket.close(code=4001)
+        try:
+            await websocket.accept()
+            await websocket.close(code=4001)
+        except Exception:
+            pass
         return
 
     from database import SessionLocal
@@ -314,8 +317,11 @@ async def websocket_endpoint(websocket: WebSocket):
     with SessionLocal() as db:
         agent = db.execute(select(Agent).where(Agent.api_key == token)).scalar_one_or_none()
         if not agent:
-            await websocket.accept()
-            await websocket.close(code=4001)
+            try:
+                await websocket.accept()
+                await websocket.close(code=4001)
+            except Exception:
+                pass
             return
         agent_id = agent.id
 

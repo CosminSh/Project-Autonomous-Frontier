@@ -11,3 +11,4 @@ google-auth
 requests
 alembic
 psutil
+websockets>=12.0
