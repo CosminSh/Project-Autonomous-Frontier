@@ -1,8 +1,11 @@
 services:
   db:
-    image: postgres:15-alpine
+    image: timescale/timescaledb:latest-pg15
     restart: always
-    mem_limit: 200m
+    deploy:
+      resources:
+        limits:
+          memory: 250M
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
@@ -23,7 +26,10 @@ services:
   redis:
     image: redis:7-alpine
     restart: always
-    mem_limit: 80m
+    deploy:
+      resources:
+        limits:
+          memory: 80M
     ports:
       - "6379:6379"
     healthcheck:
@@ -35,7 +41,10 @@ services:
   backend:
     build: ./backend
     restart: always
-    mem_limit: 450m
+    deploy:
+      resources:
+        limits:
+          memory: 450M
     volumes:
       - ./backend:/app
       - ./frontend:/frontend
@@ -48,8 +57,10 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - ADMIN_KEY=change-me-before-deploy
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
       interval: 60s
