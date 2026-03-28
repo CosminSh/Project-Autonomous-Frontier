@@ -1,3 +1,4 @@
+import os
 import time
 import psutil
 import logging
@@ -13,7 +14,6 @@ from .bot_logic import process_bot_brain, process_feral_brain
 
 logger = logging.getLogger("heartbeat.state_updates")
 
-import time
 _proc = psutil.Process(os.getpid())
 
 async def update_global_agent_stats(db, tick_count, manager):
