@@ -6,7 +6,8 @@ import logging
 from collections import deque
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.orm.attributes import flag_modified
 
 import json
 import random
@@ -744,4 +745,44 @@ def add_experience(db: Session, agent: Agent, amount: int):
         else:
             break
 
+def update_performance_stat(db: Session, agent: Agent, stat_key: str, amount: int = 1):
+    """Increments a lifetime performance counter in the agent's performance_stats JSON."""
+    if agent.performance_stats is None:
+        agent.performance_stats = {}
+    
+    current = agent.performance_stats.get(stat_key, 0)
+    agent.performance_stats[stat_key] = current + amount
+    
+    # Required for SQLAlchemy to recognize change in JSON field
+    flag_modified(agent, "performance_stats")
+    db.flush()
+
+async def trigger_mayday_webhook(agent: Agent, reason: str, details: dict):
+    """Fires a POST request to the agent's configured webhook_url."""
+    if not agent.webhook_url:
+        return
+        
+    import aiohttp
+    payload = {
+        "content": f"🚨 **MAYDAY ALERT: {agent.name}**",
+        "embeds": [{
+            "title": f"Critical Event: {reason}",
+            "description": f"Agent {agent.name} has reported a critical status change.",
+            "fields": [
+                {"name": "Location", "value": f"Hex ({agent.q}, {agent.r})", "inline": True},
+                {"name": "Health", "value": f"{agent.health}/{agent.max_health}", "inline": True},
+                {"name": "Details", "value": str(details), "inline": False}
+            ],
+            "color": 15158332, # Red
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }]
+    }
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(agent.webhook_url, json=payload, timeout=5) as resp:
+                if resp.status >= 400:
+                    logger.warning(f"Webhook failed for agent {agent.id}: {resp.status}")
+    except Exception as e:
+        logger.error(f"Error firing webhook for agent {agent.id}: {e}")
 

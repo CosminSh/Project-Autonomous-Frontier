@@ -3,7 +3,7 @@ import random
 from sqlalchemy import select
 from models import Agent, AuditLog, InventoryItem, Bounty, LootDrop, AgentMission, DailyMission, Intent
 from config import ATTACK_ENERGY_COST, CLUTTER_THRESHOLD, CLUTTER_PENALTY, RESPAWN_HP_PERCENT, TOWN_COORDINATES
-from game_helpers import get_hex_distance, is_in_anarchy_zone, add_experience, find_hex_path
+from game_helpers import get_hex_distance, is_in_anarchy_zone, add_experience, find_hex_path, update_performance_stat, trigger_mayday_webhook
 from logic.combat_system import simulate_battle
 from sqlalchemy.sql import func
 from datetime import datetime, timezone
@@ -76,6 +76,15 @@ async def handle_attack(db, agent, intent, tick_count, manager):
 
     outcome = simulate_battle(db, agent, target, manager, combat_type="SKIRMISH")
     
+    # [NEW] Mayday Webhook Logic
+    if target.health < target.max_health * 0.3 and not target.is_feral:
+        import asyncio
+        asyncio.create_task(trigger_mayday_webhook(target, "LOW_HEALTH", {
+            "attacker": agent.name,
+            "current_hp": target.health,
+            "max_hp": target.max_health
+        }))
+
     if outcome["attacker_damage_dealt"] > 0 or target.health <= 0 or agent.health <= 0:
         
         if manager:
@@ -264,6 +273,7 @@ async def _handle_death(db, killer, target, manager):
                         loot_summary.append({"type": item.item_type, "qty": member_share})
 
     add_experience(db, killer, 50)
+    update_performance_stat(db, killer, "enemies_defeated", 1)
 
 
     # 2. Bounty Claims

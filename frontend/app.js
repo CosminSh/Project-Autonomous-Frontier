@@ -44,6 +44,7 @@ class GameClient {
                     this.auth.logout(); 
                 }
             });
+            this.ui.showBootSequence();
         } else {
             console.log('[BOOT] Guest detected. Showing greeting overlay.');
             const greeting = document.getElementById('guest-greeting-overlay');

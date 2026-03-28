@@ -3,7 +3,7 @@ import random
 from sqlalchemy import select
 from models import AuditLog, WorldHex, InventoryItem
 from config import MINE_ENERGY_COST, BASE_CAPACITY, ITEM_WEIGHTS, MINING_TIERS, DRILL_TIERS, PART_DEFINITIONS
-from game_helpers import get_agent_mass, recalculate_agent_stats, add_experience
+from game_helpers import get_agent_mass, recalculate_agent_stats, add_experience, update_performance_stat
 
 logger = logging.getLogger("heartbeat.actions.mining")
 
@@ -160,6 +160,8 @@ async def handle_mine(db, agent, intent, tick_count, manager):
         new_item = InventoryItem(agent_id=agent.id, item_type=res_name, quantity=yield_amount)
         db.add(new_item)
         agent.inventory.append(new_item)
+
+    update_performance_stat(db, agent, "ores_mined", yield_amount)
 
     # 8b. Energy & Wear
     save_roll = random.randint(1, 100)

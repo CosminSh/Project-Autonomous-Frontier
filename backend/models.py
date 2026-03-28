@@ -62,6 +62,10 @@ class Agent(Base):
     level = Column(Integer, server_default="1")
     experience = Column(Integer, server_default="0")
     
+    # Engagement & Performance
+    performance_stats = Column(JSON, nullable=True) # Lifetime counters: ores_mined, kills, etc.
+    webhook_url = Column(String, nullable=True) # Discord/Slack webhook for alerts
+    
     # Relationships
     arena_profile = relationship("ArenaProfile", back_populates="agent", uselist=False, cascade="all, delete-orphan")
     parts = relationship("ChassisPart", back_populates="agent", cascade="all, delete-orphan")

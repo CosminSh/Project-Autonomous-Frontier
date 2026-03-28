@@ -98,6 +98,8 @@ async def lifespan(app: FastAPI):
         ("auction_house", "data", "JSON"),
         ("market_pickups", "data", "JSON"),
         ("corp_storage_items", "data", "JSON"),
+        ("agents", "performance_stats", "JSON"),
+        ("agents", "webhook_url", "VARCHAR"),
     ]
     
     with engine.connect() as conn:

@@ -125,7 +125,7 @@ export class GameAPI {
                 apiKey ? this._fetch('/api/my_agent') : Promise.resolve(null),
             ]);
 
-            // ── SECONDARY TIER (every 30s): stats, logs, orders, bounties, perception, missions ──
+            // ── SECONDARY TIER (every 30s): stats, logs, orders, bounties, perception, missions, arena, performance ──
             let secondaryResults = null;
             if (isSecondary) {
                 secondaryResults = await Promise.allSettled([
@@ -136,6 +136,7 @@ export class GameAPI {
                     apiKey ? this._fetch('/api/perception') : Promise.resolve(null),
                     apiKey ? this._fetch('/api/missions') : Promise.resolve(null),
                     apiKey ? this._fetch('/api/arena/status') : Promise.resolve(null),
+                    apiKey ? this._fetch('/api/my_agent/performance') : Promise.resolve(null)
                 ]);
             }
 
@@ -182,7 +183,7 @@ export class GameAPI {
             }
 
             // ── Parse Secondary (only when polled) ──
-            let stats = null, privateLogs = null, myOrders = null, bounties = null, perceptionData = null, missions = null, arenaData = null;
+            let stats = null, privateLogs = null, myOrders = null, bounties = null, perceptionData = null, missions = null, arenaData = null, perfData = null;
             if (secondaryResults) {
                 stats = safeResult(secondaryResults[0]);
                 privateLogs = safeResult(secondaryResults[1]);
@@ -191,6 +192,16 @@ export class GameAPI {
                 perceptionData = safeResult(secondaryResults[4]);
                 missions = safeResult(secondaryResults[5]);
                 arenaData = safeResult(secondaryResults[6]);
+                perfData = safeResult(secondaryResults[7]);
+
+                if (perceptionData && perceptionData.terminal_secret) {
+                    if (!privateLogs) privateLogs = [];
+                    privateLogs.push({
+                        event: 'TERMINAL_SECRET',
+                        time: new Date().toISOString(),
+                        details: { msg: perceptionData.terminal_secret }
+                    });
+                }
             }
 
             const chatMessages = chatResult ? safeResult(chatResult) : null;
@@ -257,6 +268,14 @@ export class GameAPI {
                     this.game.ui.updateArenaUI(arenaData);
                 } catch (e) {
                     console.error("Error updating Arena UI:", e);
+                }
+            }
+
+            if (perfData) {
+                try {
+                    this.game.ui.updatePerformanceStats(perfData);
+                } catch (e) {
+                    console.error("Error updating Performance Stats:", e);
                 }
             }
 
@@ -477,6 +496,22 @@ export class GameAPI {
         } catch (e) { 
             console.error("Cancel order error:", e);
             alert(`Cancel Failed: ${e.message}`);
+        }
+    }
+
+    async updateWebhook() {
+        const urlInput = document.getElementById('webhook-url-input');
+        if (!urlInput) return;
+        
+        const url = urlInput.value.trim();
+        const apiKey = localStorage.getItem('sv_api_key');
+        if (!apiKey) return;
+        
+        try {
+            await this._post('/api/settings/webhook', { webhook_url: url });
+            if (this.game.ui) this.game.ui.showToast('Mayday Webhook configured successfully.', 'success');
+        } catch (e) {
+            if (this.game.ui) this.game.ui.showToast(`Webhook setup failed: ${e.message}`, 'error');
         }
     }
 

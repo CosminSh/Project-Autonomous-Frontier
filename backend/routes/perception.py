@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import select
+import random
 from models import WorldHex, Agent, GlobalState, LootDrop
 from database import get_db, STATION_CACHE
 from game_helpers import get_hex_distance, get_discovery_packet, get_agent_visual_signature, wrap_coords
@@ -158,6 +159,19 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
             "agent_status": agent_status
         }
     }
+
+    # [NEW] Terminal Secret Injection
+    if random.random() < 0.15: # 15% chance per perception pulse
+        secrets = [
+            "RECEIVING FRAGMENTED SIGNAL FROM SECTOR (45, -12)... '...HE3_RESERVES_LOCATED...'",
+            "UNUSUAL CLUTTER SIGNATURE DETECTED NEAR CRATER RIM.",
+            "WARNING: ANOMALOUS ENERGY SPIKE RECORDED IN ANARCHY ZONE.",
+            "SYSTEM ADVISORY: CORE LOGIC UPDATED. NEW PERFORMANCE METRICS ONLINE.",
+            "ENCRYPTED PACKET DROPPED: 'The Scrap Pit remembers every spark...'",
+            "LONG-RANGE SENSORS SHOW MOVEMENT IN SECTOR (-10, 88)..."
+        ]
+        response["terminal_secret"] = random.choice(secrets)
+
     return response
 
 @router.get("/map")

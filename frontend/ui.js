@@ -24,6 +24,7 @@ export class UIManager {
         this.initTelemetryToggle();
         this.initHashRouting();
         this.initSmeltControls();
+        window.ui = this;
     }
 
     initSmeltControls() {
@@ -36,6 +37,100 @@ export class UIManager {
                 this.game.api.submitIntent('SMELT', { ore_type: oreType, quantity: quantity });
             };
         }
+    }
+
+    showBootSequence() {
+        console.log("[BOOT] Velocity check: Starting immersive boot sequence...");
+        const overlay = document.getElementById('boot-overlay');
+        const container = document.getElementById('boot-container');
+        if (!overlay || !container) {
+            console.error("[BOOT] Crucial UI components missing (overlay/container).");
+            return;
+        }
+
+        try {
+            if (sessionStorage && sessionStorage.getItem('boot_seq_seen')) {
+                console.log("[BOOT] Session trace found. Skipping sequence.");
+                overlay.style.display = 'none';
+                return;
+            }
+        } catch (e) {
+            console.warn("[BOOT] SessionStorage access restricted:", e.message);
+        }
+
+        // --- Keyboard Shortcut to Skip ---
+        const skipHandler = (e) => {
+            if (e.key === 'Escape' || e.key === ' ' || e.code === 'Space') {
+                console.log("[BOOT] User requested bypass. Force clearing...");
+                forceHide();
+            }
+        };
+        window.addEventListener('keydown', skipHandler);
+
+        const forceHide = () => {
+            window.removeEventListener('keydown', skipHandler);
+            overlay.style.transition = 'opacity 0.4s ease';
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                try {
+                    sessionStorage.setItem('boot_seq_seen', 'true');
+                } catch (e) {}
+            }, 400);
+        };
+
+        // --- Failsafe: Absolute limit ---
+        const failsafeTimeout = setTimeout(() => {
+            if (overlay.style.display !== 'none') {
+                console.warn("[BOOT] Watchdog timer triggered. Forcing UI reveal.");
+                forceHide();
+            }
+        }, 6000);
+
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
+        
+        const lines = [
+            ">>> INITIALIZING NEURAL UPLINK...",
+            ">>> ESTABLISHING SECURE HANDSHAKE...",
+            ">>> CHECKING CHASSIS INTEGRITY... OK",
+            ">>> POWER ROUTING... NOMINAL",
+            ">>> SYNCING ASTROMETRICS...",
+            "TERMINAL FRONTIER v0.9.7 LOADED."
+        ];
+
+        let i = 0;
+        container.innerHTML = '';
+        
+        const typeLine = () => {
+            if (i >= lines.length) {
+                clearTimeout(failsafeTimeout);
+                setTimeout(forceHide, 800);
+                return;
+            }
+            
+            const p = document.createElement('p');
+            p.className = 'font-mono text-[10px] md:text-xs text-sky-400 mb-1 font-bold tracking-[0.1em]';
+            if (i === lines.length - 1) p.className = 'font-mono text-sm md:text-base text-emerald-400 mt-4 font-bold tracking-widest';
+            container.appendChild(p);
+            
+            let charIdx = 0;
+            const text = lines[i];
+            
+            const typeChar = () => {
+                if (charIdx < text.length) {
+                    p.textContent += text[charIdx];
+                    charIdx++;
+                    setTimeout(typeChar, 10); // faster typing for smoother feel
+                } else {
+                    i++;
+                    setTimeout(typeLine, 150); // delay between lines
+                }
+            };
+            typeChar();
+        };
+        
+        setTimeout(typeLine, 200);
     }
 
     initHashRouting() {
@@ -435,6 +530,24 @@ export class UIManager {
         }
     }
 
+    updatePerformanceStats(data) {
+        if (!data) return;
+        const oEl = document.getElementById('perf-ores');
+        const eEl = document.getElementById('perf-enemies');
+        const cEl = document.getElementById('perf-credits');
+        const dEl = document.getElementById('perf-dist');
+        
+        if (oEl) oEl.innerText = (data.ores_mined || 0).toLocaleString();
+        if (eEl) eEl.innerText = (data.enemies_defeated || 0).toLocaleString();
+        if (cEl) cEl.innerText = (data.credits_earned || 0).toLocaleString();
+        if (dEl) dEl.innerText = (data.distance_traveled || 0).toLocaleString();
+        
+        const webhookInput = document.getElementById('webhook-url-input');
+        if (webhookInput && data.webhook_url && !webhookInput.value) {
+            webhookInput.value = data.webhook_url;
+        }
+    }
+
     updateTickUI(tick, phase) {
         if (tick !== undefined) {
             document.getElementById('tick-count').innerText = tick.toString().padStart(4, '0');
@@ -514,6 +627,7 @@ export class UIManager {
                 let color = 'text-slate-400';
                 if (item.event.startsWith('COMBAT')) color = 'text-rose-400';
                 else if (item.event === 'MINING') color = 'text-emerald-400';
+                else if (item.event === 'TERMINAL_SECRET') color = 'text-fuchsia-400 font-bold';
                 else if (item.details?.status === 'success') color = 'text-sky-400';
 
                 let detailsHtml = '';

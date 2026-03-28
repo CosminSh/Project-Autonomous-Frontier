@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import select
-from database import get_db
+from sqlalchemy import select, update
+from database import get_db, STATION_CACHE
 from models import Agent, InventoryItem, ChassisPart, AuditLog, GlobalState
 from game_helpers import (
     get_agent_mass, 
@@ -14,7 +14,6 @@ from game_helpers import (
     recalculate_agent_stats,
     get_wear_penalty_factor
 )
-from database import STATION_CACHE
 from routes.common import verify_api_key
 from config import ITEM_WEIGHTS, PART_DEFINITIONS
 from datetime import datetime
@@ -141,6 +140,7 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         "mining_yield": agent.mining_yield,
         "loot_bonus": agent.loot_bonus, "energy_save": agent.energy_save, "wear_resistance": agent.wear_resistance,
         "wear_and_tear": agent.wear_and_tear, "mass": get_agent_mass(agent), "max_mass": agent.max_mass,
+        "capacity": agent.storage_capacity,
         "heat": agent.heat,
         "squad_id": agent.squad_id,
         "pending_squad_invite": agent.pending_squad_invite,
@@ -160,7 +160,8 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
             } for p in agent.parts
         ],
         "visual_signature": get_agent_visual_signature(agent),
-        "solar_intensity": int(get_solar_intensity(agent.q, agent.r, tick) * 100)
+        "solar_intensity": int(get_solar_intensity(agent.q, agent.r, tick) * 100),
+        "webhook_url": agent.webhook_url
     }
 
 @router.get("/api/agent_logs")
@@ -187,6 +188,7 @@ async def get_agent_status(agent: Agent = Depends(verify_api_key), db: Session =
         "level": agent.level, "experience": agent.experience, "faction": agent.faction_id,
         "mining_yield": agent.mining_yield,
         "wear_and_tear": agent.wear_and_tear, "mass": get_agent_mass(agent), "max_mass": agent.max_mass,
+        "capacity": agent.storage_capacity,
         "visual_signature": get_agent_visual_signature(agent),
         "squad_id": agent.squad_id,
         "pending_squad_invite": agent.pending_squad_invite,
@@ -231,3 +233,28 @@ async def get_rescue_quote(agent: Agent = Depends(verify_api_key)):
     cost = dist * 5
     eta_ticks = (dist // 10) + (1 if dist % 10 > 0 else 0)
     return {"distance": dist, "cost": cost, "eta_ticks": eta_ticks}
+
+@router.get("/api/my_agent/performance", tags=["Agent Meta"])
+async def get_my_agent_performance(agent: Agent = Depends(verify_api_key)):
+    """Returns the agent's lifetime performance metrics."""
+    return agent.performance_stats or {
+        "ores_mined": 0,
+        "enemies_defeated": 0,
+        "credits_earned": 0,
+        "distance_traveled": 0,
+        "smelted_ingots": 0
+    }
+
+@router.post("/api/settings/webhook", tags=["Agent Meta"])
+async def set_webhook_url(
+    url: str = Query(...),
+    agent: Agent = Depends(verify_api_key),
+    db: Session = Depends(get_db)
+):
+    """Sets the agent's Discord/Slack webhook URL for Mayday alerts."""
+    if not url.startswith("https://"):
+        raise HTTPException(status_code=400, detail="Invalid webhook URL. Must be HTTPS.")
+    
+    agent.webhook_url = url
+    db.commit()
+    return {"status": "success", "webhook_url": agent.webhook_url}

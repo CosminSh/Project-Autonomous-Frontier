@@ -3,6 +3,7 @@ from sqlalchemy import select
 from models import AuctionOrder, InventoryItem, AuditLog, Agent, DailyMission, AgentMission, MarketPickup, StorageItem, CorpStorageItem, Corporation
 from sqlalchemy.sql import func
 from datetime import datetime, timezone
+from game_helpers import update_performance_stat
 
 logger = logging.getLogger("heartbeat.actions.economy")
 
@@ -80,6 +81,8 @@ async def handle_list(db, agent, intent, tick_count, manager):
         credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
         if credits: credits.quantity += net_cr
         else: db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=net_cr))
+        
+        update_performance_stat(db, agent, "credits_earned", net_cr)
         
         if matching_buy.owner.startswith("agent:"):
             buyer_id = int(matching_buy.owner.split(":")[1])
@@ -176,6 +179,8 @@ async def handle_buy(db, agent, intent, tick_count, manager):
                     s_cr = next((i for i in seller.inventory if i.item_type == "CREDITS"), None)
                     if s_cr: s_cr.quantity += net_cr
                     else: db.add(InventoryItem(agent_id=seller.id, item_type="CREDITS", quantity=net_cr))
+                    
+                    update_performance_stat(db, seller, "credits_earned", net_cr)
             
             # Update order or delete if fully filled
             if order.quantity > trade_qty:
@@ -205,6 +210,8 @@ async def handle_buy(db, agent, intent, tick_count, manager):
                         s_cr = next((i for i in seller.inventory if i.item_type == "CREDITS"), None)
                         if s_cr: s_cr.quantity += net_cr
                         else: db.add(InventoryItem(agent_id=seller.id, item_type="CREDITS", quantity=net_cr))
+                        
+                        update_performance_stat(db, seller, "credits_earned", net_cr)
                 
                 order.quantity -= trade_qty
                 total_bought += trade_qty
@@ -280,6 +287,9 @@ async def _update_buy_mission(db, agent_id):
                 cr = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
                 if cr: cr.quantity += net_reward
                 else: db.add(InventoryItem(agent_id=agent_id, item_type="CREDITS", quantity=net_reward))
+                
+                agent = db.get(Agent, agent_id)
+                update_performance_stat(db, agent, "credits_earned", net_reward)
 
 async def handle_storage_deposit(db, agent, intent, tick_count, manager):
     """Moves items from agent inventory to personal or corporation vault. Requires Hub (0,0) or Station proximity."""

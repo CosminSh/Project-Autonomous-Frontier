@@ -10,7 +10,7 @@ from config import (
     UPGRADE_MAX_LEVEL, UPGRADE_BASE_INGOT_COST
 )
 import math
-from game_helpers import add_experience, recalculate_agent_stats, ITEM_WEIGHTS, get_hex_distance
+from game_helpers import add_experience, recalculate_agent_stats, ITEM_WEIGHTS, get_hex_distance, update_performance_stat
 
 logger = logging.getLogger("heartbeat.actions.industry")
 
@@ -112,6 +112,8 @@ async def handle_smelt(db, agent, intent, tick_count, manager):
     if inv_ingot: inv_ingot.quantity += amount_produced
     else:
         db.add(InventoryItem(agent_id=agent.id, item_type=ingot_type, quantity=amount_produced))
+    
+    update_performance_stat(db, agent, "smelted_ingots", amount_produced)
     
     is_max = intent.data.get("quantity") == "MAX"
     db.add(AuditLog(agent_id=agent.id, event_type="INDUSTRIAL_SMELT", details={

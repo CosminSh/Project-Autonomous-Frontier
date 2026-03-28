@@ -226,6 +226,13 @@
 
 <body class="bg-slate-950">
     <div id="canvas-container"></div>
+    <!-- Immersive Boot Sequence -->
+    <div id="boot-overlay">
+        <div id="boot-container" class="flex flex-col w-full max-w-xl">
+            <!-- Lines injected by JS -->
+        </div>
+        <div class="boot-cursor mt-4"></div>
+    </div>
     <div id="toast-container" class="fixed top-6 right-6 z-[100] space-y-3 pointer-events-none"></div>
 
     <!-- CONTEXTUAL DIRECTIVE BAR -->
@@ -643,6 +650,29 @@
                             class="relative w-full aspect-square bg-slate-950/80 rounded-xl border border-slate-800 overflow-hidden shadow-inner flex items-center justify-center">
                             <canvas id="minimap-canvas" width="250" height="250"
                                 class="w-full h-full object-contain"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Performance Metrics -->
+                    <div class="pt-4 border-t border-slate-800 mt-4">
+                        <h3 class="orbitron text-[9px] text-slate-500 mb-3 uppercase tracking-widest font-bold">Lifetime Performance</h3>
+                        <div id="performance-stats" class="performance-grid">
+                            <div class="perf-card">
+                                <span class="perf-value" id="perf-ores">0</span>
+                                <span class="perf-label">Ores Mined</span>
+                            </div>
+                            <div class="perf-card">
+                                <span class="perf-value" id="perf-enemies">0</span>
+                                <span class="perf-label">Kills</span>
+                            </div>
+                            <div class="perf-card">
+                                <span class="perf-value" id="perf-credits">0</span>
+                                <span class="perf-label">Total Earnings</span>
+                            </div>
+                            <div class="perf-card">
+                                <span class="perf-value" id="perf-dist">0</span>
+                                <span class="perf-label">KM Traveled</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1269,6 +1299,18 @@
                                     class="flex-grow bg-slate-950/60 p-3 rounded-lg text-emerald-400 font-mono text-sm border border-slate-800">********************************</code>
                                 <button id="copy-api-btn"
                                     class="bg-sky-500 hover:bg-sky-400 text-slate-950 px-5 py-2.5 rounded-lg font-bold text-xs transition-all uppercase">Copy</button>
+                            </div>
+                        </div>
+
+                        <!-- Mayday Webhook -->
+                        <div class="glass p-5 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
+                            <h4 class="text-[10px] text-amber-500 uppercase mb-3 tracking-widest font-bold">Mayday Webhook (Discord/Slack)</h4>
+                            <p class="text-[9px] text-slate-500 mb-3 block">Uplink will fire a high-priority alert to this channel when hull integrity drops below 30% in active skirmishes.</p>
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                                <input type="text" id="webhook-url-input" placeholder="https://discord.com/api/webhooks/..." 
+                                    class="flex-grow bg-slate-900 border border-slate-800 p-2.5 rounded-lg text-slate-300 text-xs focus:border-amber-500/50 outline-none transition-colors">
+                                <button onclick="window.game.api.updateWebhook()" 
+                                    class="bg-amber-600 hover:bg-amber-500 text-slate-950 px-6 py-2.5 rounded-lg font-bold text-[10px] orbitron transition-all uppercase whitespace-nowrap">Save Config</button>
                             </div>
                         </div>
 

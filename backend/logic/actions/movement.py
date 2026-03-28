@@ -2,7 +2,7 @@ import logging
 from sqlalchemy import select
 from models import Intent, AuditLog, WorldHex
 from config import MOVE_ENERGY_COST, BASE_CAPACITY
-from game_helpers import get_hex_distance, find_hex_path, get_agent_mass, wrap_coords
+from game_helpers import get_hex_distance, find_hex_path, get_agent_mass, wrap_coords, update_performance_stat
 
 logger = logging.getLogger("heartbeat.actions.movement")
 
@@ -101,6 +101,7 @@ async def handle_move(db, agent, intent, tick_count, manager):
     agent.q, agent.r = target_q, target_r
     agent.energy -= energy_cost
     agent.wear_and_tear = min(100.0, (agent.wear_and_tear or 0.0) + 0.05)
+    update_performance_stat(db, agent, "distance_traveled", 1)
     db.add(AuditLog(agent_id=agent.id, event_type="MOVEMENT", details={"q": target_q, "r": target_r}))
     if manager:
         await manager.broadcast({"type": "EVENT", "event": "MOVE", "agent_id": agent.id, "q": target_q, "r": target_r})
