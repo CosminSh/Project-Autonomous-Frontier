@@ -168,6 +168,28 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass # Table or column might not exist yet if migrations failed
 
+        # ─── CRITICAL PERFORMANCE INDEXES ─────────────────────────────────────
+        # Missing indexes causing full-table-scans and 2+ second API responses
+        perf_indexes = [
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_agent_time ON audit_logs (agent_id, time DESC)",
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_event_type ON audit_logs (event_type)",
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_inventory_agent ON inventory_items (agent_id)",
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_intents_agent ON intents (agent_id)",
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_intents_tick ON intents (tick_index)",
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agents_pitfighter ON agents (is_pitfighter)",
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agents_bot ON agents (is_bot, is_feral)",
+        ]
+        for idx_sql in perf_indexes:
+            try:
+                # CONCURRENTLY requires autocommit=True (can't run in a transaction)
+                conn.execute(text("COMMIT"))
+                conn.execute(text(idx_sql))
+                logger.info(f"Performance index ensured: {idx_sql.split('idx_')[1].split(' ')[0]}")
+            except Exception as e:
+                if "already exists" not in str(e).lower():
+                    logger.warning(f"Index creation skipped: {e}")
+        # ──────────────────────────────────────────────────────────────────────
+
     with SessionLocal() as db:
         hex_count = db.execute(select(func.count(WorldHex.id))).scalar()
 

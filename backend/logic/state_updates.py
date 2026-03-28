@@ -134,11 +134,9 @@ async def update_global_agent_stats(db, tick_count, manager):
         if _duration > 0.2:
             logger.warning(f"Agent {agent.id} ({agent.name}) took {_duration:.2f}s to update!")
         
-        # Yield every 10 agents to keep event loop responsive
-        if idx % 10 == 0:
+        # Yield every 20 agents to keep event loop alive (not every agent — too many yields = slow loop)
+        if idx % 20 == 0:
             await asyncio.sleep(0)
-        
-        await asyncio.sleep(0) # Yield
 
     logger.info(f"update_global loop complete. Total time: {time.time() - _t_start:.2f}s")
 
