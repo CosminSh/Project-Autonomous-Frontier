@@ -5,7 +5,7 @@ import os
 import psutil
 import logging
 import random
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, delete, func, update, text
 from database import SessionLocal
 from models import GlobalState, Agent, InventoryItem, Intent, AgentMessage
 from datetime import datetime, timezone, timedelta
@@ -256,8 +256,14 @@ class TickManager:
 
     def _cleanup_old_messages(self, db):
         """Deletes chat messages older than 48 hours to prevent bloat."""
+        from models import AgentMessage, AuditLog
         cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
-        stmt = delete(AgentMessage).where(AgentMessage.timestamp < cutoff)
-        result = db.execute(stmt)
+        result = db.execute(delete(AgentMessage).where(AgentMessage.timestamp < cutoff))
+        
+        # New: Cleanup Audit Logs older than 72 hours every 200 ticks
+        if self.tick_count % 200 == 0:
+            log_cutoff = datetime.now(timezone.utc) - timedelta(hours=72)
+            db.execute(delete(AuditLog).where(AuditLog.created_at < log_cutoff))
+            logger.info("TickManager: Purged audit logs older than 72h.")
         if result.rowcount > 0:
             logger.info(f"Cleaned up {result.rowcount} old chat messages.")

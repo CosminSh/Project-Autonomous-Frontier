@@ -13,6 +13,9 @@ from .bot_logic import process_bot_brain, process_feral_brain
 
 logger = logging.getLogger("heartbeat.state_updates")
 
+import time
+_proc = psutil.Process(os.getpid())
+
 async def update_global_agent_stats(db, tick_count, manager):
     """Processes energy regen, wear & tear, clutter, and NPC brains for all agents."""
     _t_start = time.time()
@@ -54,16 +57,18 @@ async def update_global_agent_stats(db, tick_count, manager):
     await asyncio.sleep(0)
 
     # 2. Global Death Reaper & Simulation
-    _t_fetch = time.time()
+    _t_query = time.time()
     all_agents = db.execute(
         select(Agent)
         .where(Agent.is_pitfighter != True)
         .options(selectinload(Agent.parts), selectinload(Agent.inventory))
     ).scalars().all()
-    logger.info(f"update_global: fetch agents took {time.time() - _t_fetch:.2f}s")
+    _q_dur = time.time() - _t_query
+    if _q_dur > 1.0:
+        logger.warning(f"update_global: Agent fetch took {_q_dur:.2f}s (FOUND: {len(all_agents)})")
     await asyncio.sleep(0)
 
-    for agent in all_agents:
+    for idx, agent in enumerate(all_agents):
         _ta = time.time()
         # A. Cleanup Death
         if agent.health <= 0 and not agent.is_feral:
@@ -125,8 +130,12 @@ async def update_global_agent_stats(db, tick_count, manager):
                  agent.accuracy = int(agent.accuracy * (1.0 - CLUTTER_PENALTY))
         
         _duration = time.time() - _ta
-        if _duration > 0.5:
-            logger.warning(f"Agent {agent.id} ({agent.name}) took {_duration:.2f}s in state_updates loop!")
+        if _duration > 0.2:
+            logger.warning(f"Agent {agent.id} ({agent.name}) took {_duration:.2f}s to update!")
+        
+        # Yield every 10 agents to keep event loop responsive
+        if idx % 10 == 0:
+            await asyncio.sleep(0)
         
         await asyncio.sleep(0) # Yield
 
@@ -139,4 +148,4 @@ async def update_global_agent_stats(db, tick_count, manager):
     del resource_cache
     del ally_cache
     del clutter_map
-    gc.collect()
+    # Removed gc.collect() as it is too slow for per-tick loop

@@ -692,6 +692,10 @@ def get_discovery_packet(station_cache: list, agent: Agent) -> dict:
 
 def merge_inventory(db: Session, agent: Agent):
     """Merges duplicate inventory items of the same type and meta (data)."""
+    # Performance Optimization: Skip if inventory is small
+    if len(agent.inventory) < 6:
+        return
+        
     seen = {}  # (item_type, meta_key) -> item
     to_delete = []
 
