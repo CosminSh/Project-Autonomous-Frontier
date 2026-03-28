@@ -2,7 +2,7 @@ import logging
 import asyncio
 import random
 import gc
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
 from models import Agent, InventoryItem, GlobalState, Bounty, Intent, AuditLog, WorldHex
 from config import BASE_REGEN, CLUTTER_PENALTY, TOWN_COORDINATES, RESPAWN_HP_PERCENT
@@ -19,6 +19,7 @@ async def update_global_agent_stats(db, tick_count, manager):
     stations = db.execute(select(WorldHex.q, WorldHex.r, WorldHex.station_type).where(WorldHex.is_station == True)).all()
     station_coords = {(s.q, s.r) for s in stations}
     station_list = [{"q": s.q, "r": s.r, "station_type": s.station_type} for s in stations]
+    await asyncio.sleep(0)
     
     # 1. NPC PRE-FETCH CACHE (Critical optimization for 1GB RAM)
     # Instead of every bot querying the DB, we fetch the context ONCE per tick.
@@ -38,6 +39,7 @@ async def update_global_agent_stats(db, tick_count, manager):
     # C. Low Energy Allies (For Refueler Bots)
     low_energy_allies = db.execute(select(Agent.q, Agent.r, Agent.id, Agent.faction_id).where(Agent.energy < 30)).all()
     ally_cache = [{"q": a.q, "r": a.r, "id": a.id, "faction_id": a.faction_id} for a in low_energy_allies]
+    await asyncio.sleep(0)
 
     # D. CLUTTER MAP (Fast O(1) lookup for faction overcrowding)
     # Group ALL agents by (q, r, faction_id) to avoid nested loops inside the main loop
@@ -46,12 +48,14 @@ async def update_global_agent_stats(db, tick_count, manager):
         key = (a.q, a.r, a.faction_id)
         if key not in clutter_map: clutter_map[key] = 0
         clutter_map[key] += 1
+    await asyncio.sleep(0)
 
     # 2. Global Death Reaper & Simulation
     all_agents = db.execute(
         select(Agent)
         .options(selectinload(Agent.parts), selectinload(Agent.inventory))
     ).scalars().all()
+    await asyncio.sleep(0)
 
     for agent in all_agents:
         # A. Cleanup Death
@@ -61,10 +65,8 @@ async def update_global_agent_stats(db, tick_count, manager):
             agent.health = int(agent.max_health * RESPAWN_HP_PERCENT)
             agent.energy = 0
             
-            # Clear intents
-            cursor = db.execute(select(Intent).where(Intent.agent_id == agent.id))
-            for intent in cursor.scalars().all():
-                db.delete(intent)
+            # Efficient cleanup with a single delete statement
+            db.execute(delete(Intent).where(Intent.agent_id == agent.id))
             db.add(AuditLog(agent_id=agent.id, event_type="REAPER_RESPAWN", details={"q": 0, "r": 0, "hp": agent.health}))
 
         # B. NPC Brains
