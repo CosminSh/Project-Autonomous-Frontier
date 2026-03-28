@@ -55,7 +55,9 @@ class TickManager:
 
         # 1. SCAN
         await self._set_phase("SCAN")
+        logger.info(f"[TICK] Sleeping SCAN ({PHASE_SCAN_DURATION}s)...")
         await asyncio.sleep(PHASE_SCAN_DURATION)
+        logger.info(f"[TICK] SCAN sleep done.")
 
         # 2. DECIDE (NPC Think + Repop)
         await self._set_phase("DECIDE")
@@ -76,37 +78,50 @@ class TickManager:
                 
             db.commit()
         logger.info(f"[TICK] DECIDE done in {time.monotonic()-_t:.1f}s | RAM: {_ram_mb():.1f} MB")
+        logger.info(f"[TICK] Sleeping DECIDE ({PHASE_DECIDE_DURATION}s)...")
         await asyncio.sleep(PHASE_DECIDE_DURATION)
+        logger.info(f"[TICK] DECIDE sleep done.")
 
         # 3. EXECUTE (Intents + Missions + Daily Matchups)
         await self._set_phase("EXECUTE")
         _t = time.monotonic()
         logger.info(f"[TICK] EXECUTE start | RAM: {_ram_mb():.1f} MB")
         with SessionLocal() as db:
+            _ts = time.monotonic()
             generate_daily_missions(db)
+            logger.info(f"[TICK] EXECUTE missions took {time.monotonic()-_ts:.2f}s")
             
             # Daily Arena Matchmaking (Every 2400 ticks ~ 24 hours)
             if self.tick_count % 2400 == 0:
                 generate_daily_matchups(db)
 
+            _ts = time.monotonic()
             await self._process_player_intents(db)
+            logger.info(f"[TICK] EXECUTE intents took {time.monotonic()-_ts:.2f}s")
             
             if self.tick_count % 100 == 0:
+                _ts = time.monotonic()
                 self._cleanup_old_messages(db)
+                logger.info(f"[TICK] EXECUTE cleanup took {time.monotonic()-_ts:.2f}s")
                 
             db.commit()
         logger.info(f"[TICK] EXECUTE done in {time.monotonic()-_t:.1f}s | RAM: {_ram_mb():.1f} MB")
+        logger.info(f"[TICK] Sleeping EXECUTE ({PHASE_EXECUTE_DURATION}s)...")
         await asyncio.sleep(PHASE_EXECUTE_DURATION)
+        logger.info(f"[TICK] EXECUTE sleep done.")
 
     async def _set_phase(self, phase_name):
         """Updates global state and broadcasts phase changes."""
+        logger.info(f"--- TICK {self.tick_count} | PHASE: {phase_name} ---")
+        _ts = time.monotonic()
         with SessionLocal() as db:
             state = db.execute(select(GlobalState)).scalars().first()
             state.tick_index = self.tick_count
             state.phase = phase_name
             db.commit()
-            logger.info(f"--- TICK {self.tick_count} | PHASE: {phase_name} ---")
-            await self.manager.broadcast({"type": "PHASE_CHANGE", "tick": self.tick_count, "phase": phase_name})
+        logger.info(f"[TICK] _set_phase DB commit took {time.monotonic()-_ts:.3f}s")
+        # Fire-and-forget: do NOT await the broadcast while holding DB locks
+        asyncio.create_task(self.manager.broadcast({"type": "PHASE_CHANGE", "tick": self.tick_count, "phase": phase_name}))
 
     def _repopulate_ferals(self, db):
         """Ensures a minimum population of feral scrapper NPCs, tiered by distance."""
@@ -260,7 +275,7 @@ class TickManager:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
         result = db.execute(delete(AgentMessage).where(AgentMessage.timestamp < cutoff))
         
-        # New: Cleanup Audit Logs older than 72 hours every 200 ticks
+        # Cleanup Audit Logs older than 72 hours every 200 ticks
         if self.tick_count % 200 == 0:
             log_cutoff = datetime.now(timezone.utc) - timedelta(hours=72)
             db.execute(delete(AuditLog).where(AuditLog.created_at < log_cutoff))
