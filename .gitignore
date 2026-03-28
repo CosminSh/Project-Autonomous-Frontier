@@ -35,3 +35,6 @@ agent_toolkit/__pycache__/
 .env.local
 .env.*.local
 !.env.example
+
+# App logs
+app.log

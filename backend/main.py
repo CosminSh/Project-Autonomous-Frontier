@@ -14,6 +14,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy import select, func
+import logging.handlers
+import psutil
+import time
+from datetime import datetime
 
 from models import Base, WorldHex
 from database import engine, SessionLocal, refresh_station_cache
@@ -28,8 +32,42 @@ from contextlib import asynccontextmanager
 # ─────────────────────────────────────────────────────────────────────────────
 # App Setup & Lifespan
 # ─────────────────────────────────────────────────────────────────────────────
-logging.basicConfig(level=logging.INFO)
+# Persistent Logging Setup
+log_file = "app.log"
+handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5)
+formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(name)s | %(message)s')
+handler.setFormatter(formatter)
+
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+root_logger.addHandler(handler)
+
+# Console logging remains for convenience
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+root_logger.addHandler(console_handler)
+
 logger = logging.getLogger("heartbeat")
+
+async def monitor_resources():
+    """Background task to log RAM and CPU usage every minute."""
+    process = psutil.Process(os.getpid())
+    while True:
+        try:
+            mem_info = process.memory_info()
+            rss_mb = mem_info.rss / (1024 * 1024)
+            cpu_usage = psutil.cpu_percent(interval=None)
+            sys_mem = psutil.virtual_memory()
+            
+            log_msg = f"[RESOURCES] Process RAM: {rss_mb:.2f} MB | CPU: {cpu_usage}% | System RAM: {sys_mem.percent}% used"
+            
+            if sys_mem.percent > 90:
+                logger.warning(f"CRITICAL: System Memory usage is extremely high! ({sys_mem.percent}%)")
+            
+            logger.info(log_msg)
+        except Exception as e:
+            logger.error(f"Error in resource monitor: {e}")
+        await asyncio.sleep(60)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -160,6 +198,7 @@ async def lifespan(app: FastAPI):
                     f.write(f"{datetime.now()}: {msg}\n")
 
         asyncio.create_task(_safe_leaderboard_init())
+        asyncio.create_task(monitor_resources())
         
         yield
     except Exception as e:
