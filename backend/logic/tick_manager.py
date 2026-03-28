@@ -1,5 +1,8 @@
 import asyncio
 import gc
+import time
+import os
+import psutil
 import logging
 import random
 from sqlalchemy import select, func, delete
@@ -45,17 +48,26 @@ class TickManager:
 
     async def _run_tick(self):
         """Executes a single game tick across three phases."""
+        _proc = psutil.Process(os.getpid())
+
+        def _ram_mb():
+            return _proc.memory_info().rss / (1024 * 1024)
+
         # 1. SCAN
         await self._set_phase("SCAN")
         await asyncio.sleep(PHASE_SCAN_DURATION)
 
         # 2. DECIDE (NPC Think + Repop)
         await self._set_phase("DECIDE")
+        _t = time.monotonic()
+        logger.info(f"[TICK] DECIDE start | RAM: {_ram_mb():.1f} MB")
         with SessionLocal() as db:
             await update_global_agent_stats(db, self.tick_count, self.manager)
+            logger.info(f"[TICK] DECIDE after agent_stats | RAM: {_ram_mb():.1f} MB")
             self._repopulate_ferals(db)
             if self.tick_count % 10 == 0:
                 self._repopulate_resources(db)
+                logger.info(f"[TICK] DECIDE after repop | RAM: {_ram_mb():.1f} MB")
             
             # Anomaly System (Spawn every 400 ticks, Cleanup every 10)
             cleanup_expired_anomalies(db, self.tick_count)
@@ -63,10 +75,13 @@ class TickManager:
                 await spawn_random_anomaly(db, self.tick_count, self.manager)
                 
             db.commit()
+        logger.info(f"[TICK] DECIDE done in {time.monotonic()-_t:.1f}s | RAM: {_ram_mb():.1f} MB")
         await asyncio.sleep(PHASE_DECIDE_DURATION)
 
         # 3. EXECUTE (Intents + Missions + Daily Matchups)
         await self._set_phase("EXECUTE")
+        _t = time.monotonic()
+        logger.info(f"[TICK] EXECUTE start | RAM: {_ram_mb():.1f} MB")
         with SessionLocal() as db:
             generate_daily_missions(db)
             
@@ -80,6 +95,7 @@ class TickManager:
                 self._cleanup_old_messages(db)
                 
             db.commit()
+        logger.info(f"[TICK] EXECUTE done in {time.monotonic()-_t:.1f}s | RAM: {_ram_mb():.1f} MB")
         await asyncio.sleep(PHASE_EXECUTE_DURATION)
 
     async def _set_phase(self, phase_name):

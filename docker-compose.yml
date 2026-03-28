@@ -1,6 +1,8 @@
 services:
   db:
     image: postgres:15-alpine
+    restart: always
+    mem_limit: 200m
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
@@ -12,10 +14,6 @@ services:
       - POSTGRES_MAX_CONNECTIONS=40
     ports:
       - "5432:5432"
-    deploy:
-      resources:
-        limits:
-          memory: 200M
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d terminal_frontier -U admin"]
       interval: 30s
@@ -24,12 +22,10 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: always
+    mem_limit: 80m
     ports:
       - "6379:6379"
-    deploy:
-      resources:
-        limits:
-          memory: 80M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -38,6 +34,8 @@ services:
 
   backend:
     build: ./backend
+    restart: always
+    mem_limit: 450m
     volumes:
       - ./backend:/app
       - ./frontend:/frontend
@@ -49,10 +47,6 @@ services:
       - DATABASE_URL=postgresql://admin:password@db:5432/terminal_frontier
       - REDIS_URL=redis://redis:6379/0
       - ADMIN_KEY=change-me-before-deploy
-    deploy:
-      resources:
-        limits:
-          memory: 400M
     depends_on:
       - db
       - redis
@@ -68,10 +62,7 @@ services:
   autoheal:
     image: willfarrell/autoheal:latest
     restart: always
-    deploy:
-      resources:
-        limits:
-          memory: 50M
+    mem_limit: 50m
     environment:
       - AUTOHEAL_CONTAINER_LABEL=autoheal
     volumes:
@@ -79,4 +70,3 @@ services:
 
 volumes:
   postgres_data:
-
