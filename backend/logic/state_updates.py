@@ -13,6 +13,7 @@ logger = logging.getLogger("heartbeat.state_updates")
 
 async def update_global_agent_stats(db, tick_count, manager):
     """Processes energy regen, wear & tear, clutter, and NPC brains for all agents."""
+    _t_start = time.time()
     
     # 0. Global Station Cache (Batching to avoid per-agent queries)
     # Fetch all station coordinates into a set for O(1) lookups
@@ -51,14 +52,17 @@ async def update_global_agent_stats(db, tick_count, manager):
     await asyncio.sleep(0)
 
     # 2. Global Death Reaper & Simulation
+    _t_fetch = time.time()
     all_agents = db.execute(
         select(Agent)
         .where(Agent.is_pitfighter != True)
         .options(selectinload(Agent.parts), selectinload(Agent.inventory))
     ).scalars().all()
+    logger.info(f"update_global: fetch agents took {time.time() - _t_fetch:.2f}s")
     await asyncio.sleep(0)
 
     for agent in all_agents:
+        _ta = time.time()
         # A. Cleanup Death
         if agent.health <= 0 and not agent.is_feral:
             logger.warning(f"Reaper: Respawning {agent.name} ({agent.id})")
@@ -118,7 +122,13 @@ async def update_global_agent_stats(db, tick_count, manager):
              if friend_count >= 3: # 2 friends + self
                  agent.accuracy = int(agent.accuracy * (1.0 - CLUTTER_PENALTY))
         
+        _duration = time.time() - _ta
+        if _duration > 0.5:
+            logger.warning(f"Agent {agent.id} ({agent.name}) took {_duration:.2f}s in state_updates loop!")
+        
         await asyncio.sleep(0) # Yield
+
+    logger.info(f"update_global loop complete. Total time: {time.time() - _t_start:.2f}s")
 
     # Final tick cleanup
     del all_agents

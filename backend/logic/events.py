@@ -26,15 +26,12 @@ class ConnectionManager:
 
         message_str = json.dumps(message)
         
-        # We use asyncio.gather to broadcast simultaneously
-        # Note: In a production 1000+ user scenario, this should be handled by a queue,
-        # but for an indie game with <100 concurrent users, this in-memory set is optimal for 1GB RAM.
-        tasks = []
+        # Fire-and-forget: do not wait for WebSockets to receive the message.
+        # This prevents a half-open/dead client connection from blocking the main TickManager 
+        # and exhausting the database connection pool.
         for connection in list(self.active_connections):
-            tasks.append(self.send_personal_message(message_str, connection))
-        
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            asyncio.create_task(self.send_personal_message(message_str, connection))
+
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
         try:
