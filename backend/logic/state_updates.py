@@ -62,7 +62,7 @@ async def update_global_agent_stats(db, tick_count, manager):
         if agent.health <= 0 and not agent.is_feral:
             logger.warning(f"Reaper: Respawning {agent.name} ({agent.id})")
             agent.q, agent.r = TOWN_COORDINATES
-            agent.health = int(agent.max_health * RESPAWN_HP_PERCENT)
+            agent.health = max(1, int(agent.max_health * RESPAWN_HP_PERCENT))
             agent.energy = 0
             
             # Efficient cleanup with a single delete statement

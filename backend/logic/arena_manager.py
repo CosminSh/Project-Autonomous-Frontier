@@ -7,9 +7,10 @@ import logging
 import random
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from models import Agent, AuditLog, ChassisPart
+from models import Agent, AuditLog, ChassisPart, InventoryItem
 from database import SessionLocal
 from logic.combat_system import simulate_battle
+from game_helpers import recalculate_agent_stats
 
 logger = logging.getLogger("heartbeat.arena")
 
@@ -139,14 +140,9 @@ def reset_arena_season(db: Session):
             db.delete(p)
             total_parts_destroyed += 1
             
-        # Reset Stats to base (empty chassis frame)
-        f.health = 0
-        f.max_health = 0
-        f.damage = 0
-        f.accuracy = 0
-        f.speed = 0
-        f.armor = 0
-        f.storage_capacity = 0.0
+            
+        # Reset Stats to base (empty chassis frame) using proper helper
+        recalculate_agent_stats(db, f)
         
         # Soft reset Elo (compress towards 1200)
         profile = f.arena_profile
