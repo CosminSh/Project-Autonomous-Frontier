@@ -80,15 +80,17 @@ async def get_recent_chat(since: str = None, agent: Agent = Depends(verify_api_k
         
     query = query.where(or_(*conditions))
     
+    five_mins_ago = datetime.now(timezone.utc) - timedelta(minutes=5)
+
     if since:
         try:
             since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
-            query = query.where(AgentMessage.timestamp > since_dt)
+            # Prevent unbounded queries if 'since' is very old (e.g. left tab open overnight)
+            actual_since = max(since_dt, five_mins_ago)
+            query = query.where(AgentMessage.timestamp > actual_since)
         except ValueError:
-            pass # Ignore invalid timestamps and fallback to recent logic
+            query = query.where(AgentMessage.timestamp >= five_mins_ago)
     else:
-        # If no since is provided, get last 5 minutes or last 50 messages
-        five_mins_ago = datetime.now(timezone.utc) - timedelta(minutes=5)
         query = query.where(AgentMessage.timestamp >= five_mins_ago)
         
     query = query.order_by(AgentMessage.timestamp.desc()).limit(50)

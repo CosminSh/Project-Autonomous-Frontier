@@ -41,11 +41,23 @@ def _get_world_map_cache(db: Session):
         logger.info(f"World map cache built: {len(_WORLD_MAP_CACHE)} hexes in {time.time()-_t:.2f}s")
     return _WORLD_MAP_CACHE
 
+# ─────────────────────────────────────────────────────────────────────────────
+# GLOBAL STATS CACHE
+# Stats are polled frequently by all frontends. Caching them for 5s reduces DB load significantly.
+# ─────────────────────────────────────────────────────────────────────────────
+_STATS_CACHE = None
+_STATS_CACHE_TIME = 0
+
 @router.get("/api/global_stats")
 async def get_global_stats(db: Session = Depends(get_db)):
     """Returns global metrics and current game tick/phase."""
+    global _STATS_CACHE, _STATS_CACHE_TIME
+    
+    if _STATS_CACHE and (time.time() - _STATS_CACHE_TIME < 5.0):
+        return _STATS_CACHE
+        
     state = db.execute(select(GlobalState)).scalars().first()
-    stats_out = {
+    _STATS_CACHE = {
         "tick": state.tick_index if state else 0,
         "phase": state.phase if state else "PERCEPTION",
         "active_agents": db.query(Agent).filter(Agent.energy > 0, Agent.is_pitfighter == False).count(),
@@ -53,7 +65,8 @@ async def get_global_stats(db: Session = Depends(get_db)):
         "market_listings": db.query(AuctionOrder).count(),
         "actions_processed": state.actions_processed if state and state.actions_processed else 0
     }
-    return stats_out
+    _STATS_CACHE_TIME = time.time()
+    return _STATS_CACHE
 
 
 @router.get("/api/leaderboards")
