@@ -178,6 +178,8 @@ async def lifespan(app: FastAPI):
             "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_intents_tick ON intents (tick_index)",
             "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agents_pitfighter ON agents (is_pitfighter)",
             "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agents_bot ON agents (is_bot, is_feral)",
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_messages_timestamp ON agent_messages (timestamp DESC)",
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_messages_channel ON agent_messages (channel, timestamp DESC)",
         ]
         for idx_sql in perf_indexes:
             try:

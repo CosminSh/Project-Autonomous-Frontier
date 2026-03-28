@@ -87,14 +87,11 @@ async def get_recent_chat(since: str = None, agent: Agent = Depends(verify_api_k
         except ValueError:
             pass # Ignore invalid timestamps and fallback to recent logic
     else:
-        # If no since is provided, get last 10 minutes or last 50 messages
-        ten_mins_ago = datetime.now(timezone.utc) - timedelta(minutes=10)
-        query = query.where(AgentMessage.timestamp >= ten_mins_ago)
+        # If no since is provided, get last 5 minutes or last 50 messages
+        five_mins_ago = datetime.now(timezone.utc) - timedelta(minutes=5)
+        query = query.where(AgentMessage.timestamp >= five_mins_ago)
         
-    # We need to filter PROX messages in python or using a complex mathematical query.
-    # Given the max scale, doing distance filter post-DB fetch for PROX is safe enough.
-    # Alternatively within SQL: abs(q - agent.q) + abs(q + r - agent.q - agent.r) + abs(r - agent.r) <= 20
-    query = query.order_by(AgentMessage.timestamp.desc()).limit(100)
+    query = query.order_by(AgentMessage.timestamp.desc()).limit(50)
     messages = db.execute(query).scalars().all()
     
     # Distance filter for PROX
