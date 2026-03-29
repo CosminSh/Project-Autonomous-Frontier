@@ -19,7 +19,7 @@ def _check_key(x_admin_key: str):
 
 
 @router.post("/reseed")
-async def admin_reseed(x_admin_key: str = Header(...)):
+def admin_reseed(x_admin_key: str = Header(...)):
     """
     Full world re-seed: wipes all hexes, sectors, and bots.
     Teleports all real players back to the hub (0, 0).
@@ -41,7 +41,7 @@ async def admin_reseed(x_admin_key: str = Header(...)):
 
 
 @router.post("/teleport_all")
-async def admin_teleport_all(x_admin_key: str = Header(...)):
+def admin_teleport_all(x_admin_key: str = Header(...)):
     """
     Teleports ALL real players to the hub (0, 0) without wiping the world.
     Useful for fixing stranded players after a coordinate system change.
@@ -63,7 +63,7 @@ async def admin_teleport_all(x_admin_key: str = Header(...)):
 
 
 @router.post("/trigger_arena")
-async def admin_trigger_arena(x_admin_key: str = Header(...)):
+def admin_trigger_arena(x_admin_key: str = Header(...)):
     """
     Manually triggers a round of Scrap Pit battles.
     
