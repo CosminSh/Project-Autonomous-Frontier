@@ -42,6 +42,9 @@ def run_migrations(engine: Engine):
         ("agents", "experience", "INTEGER DEFAULT 0"),
         ("agents", "level", "INTEGER DEFAULT 1"),
         ("agents", "speed", "INTEGER DEFAULT 10"),
+        ("agents", "loot_bonus", "FLOAT DEFAULT 0.0"),
+        ("agents", "energy_save", "INTEGER DEFAULT 0"),
+        ("agents", "wear_resistance", "FLOAT DEFAULT 0.0"),
         ("world_hexes", "resource_quantity", "INTEGER DEFAULT 0"),
         ("world_hexes", "expires_tick", "BIGINT"),
         ("global_state", "actions_processed", "INTEGER DEFAULT 0"),
@@ -49,7 +52,9 @@ def run_migrations(engine: Engine):
         ("bounties", "claim_tick", "BIGINT"),
         ("bounties", "created_at", "DATETIME"),
         ("auction_house", "created_at", "DATETIME"),
+        ("auction_house", "data", "JSON"),
         ("market_pickups", "created_at", "DATETIME"),
+        ("market_pickups", "data", "JSON"),
         ("intents", "created_at", "DATETIME"),
         ("daily_missions", "created_at", "DATETIME"),
         ("daily_missions", "reward_xp", "INTEGER DEFAULT 100"),
@@ -63,6 +68,10 @@ def run_migrations(engine: Engine):
         ("corporations", "join_policy", "VARCHAR DEFAULT 'OPEN'"),
         ("corporations", "motd", "TEXT"),
         ("corporations", "upgrades", "JSON"),
+        ("corp_storage_items", "data", "JSON"),
+        ("agents", "performance_stats", "JSON"),
+        ("agents", "webhook_url", "VARCHAR"),
+        ("agents", "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
     ]
     
     logger.info(f"Starting migrations on: {DATABASE_URL}")
@@ -90,6 +99,15 @@ def run_migrations(engine: Engine):
                 else:
                     logger.error(f"FAIL: Could not add column '{col}' to table '{table}': {e}")
                     # We don't raise here to allow other migrations to proceed
+        
+        # Data Migration: Tag existing guests
+        try:
+            conn.execute(text("UPDATE agents SET owner = 'guest' WHERE user_email LIKE '%@local.test' AND owner = 'player'"))
+            conn.commit()
+            logger.info("SUCCESS: Tagged existing guest accounts.")
+        except Exception as e:
+            logger.warning(f"SKIP: Guest tagging failed (maybe column 'owner' doesn't exist yet): {e}")
+            conn.rollback()
                     
     logger.info("Migrations complete.")
 
