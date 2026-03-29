@@ -7,7 +7,7 @@ import random
 # Game Constants (GDD Section 3.2 & 5.2)
 # ─────────────────────────────────────────────────────────────────────────────
 MOVE_ENERGY_COST = 5
-MINE_ENERGY_COST = 10
+MINE_ENERGY_COST = 25
 ATTACK_ENERGY_COST = 15
 BASE_REGEN = 4  # Energy recharged per tick (at 100% intensity)
 MAX_CAPACITOR = 100
@@ -232,9 +232,9 @@ CORPORATE_UPGRADES = {
     "EXTRACTION": {
         "name": "Extraction Protocols",
         "levels": [
-            {"cost": 3000, "bonus": 50, "description": "+50 Mining Yield per member"},
-            {"cost": 10000, "bonus": 150, "description": "+150 Mining Yield per member"},
-            {"cost": 25000, "bonus": 400, "description": "+400 Mining Yield per member"}
+            {"cost": 3000, "bonus": 2, "description": "+2 Mining Yield per member"},
+            {"cost": 10000, "bonus": 5, "description": "+5 Mining Yield per member"},
+            {"cost": 25000, "bonus": 12, "description": "+12 Mining Yield per member"}
         ]
     },
     "NEURAL_LINK": {
@@ -367,17 +367,17 @@ PART_DEFINITIONS = {
     
 
     # ACTUATORS - DRILLS (Mining Yield + Combat Damage)
-    "DRILL_UNIT": {"type": "Actuator", "stats": {"mining_yield": 15, "damage": 5}, "name": "Basic Iron Drill", "weight": 12.0, "description": "Standard mining tool."},
-    "DRILL_IRON_BASIC": {"type": "Actuator", "stats": {"mining_yield": 25, "damage": 6}, "name": "Iron Drill", "weight": 12.0, "description": "Starter drill for iron extraction."},
-    "DRILL_IRON_ADVANCED": {"type": "Actuator", "stats": {"mining_yield": 40, "damage": 8}, "name": "Advanced Iron Drill", "weight": 15.0, "description": "Reinforced iron drill."},
-    "DRILL_COPPER_BASIC": {"type": "Actuator", "stats": {"mining_yield": 60, "damage": 10}, "name": "Copper Drill", "weight": 14.0, "description": "Required for copper extraction."},
-    "DRILL_COPPER_ADVANCED": {"type": "Actuator", "stats": {"mining_yield": 90, "damage": 15}, "name": "Advanced Copper Drill", "weight": 16.0, "description": "High-efficiency copper drill."},
-    "DRILL_GOLD_BASIC": {"type": "Actuator", "stats": {"mining_yield": 120, "damage": 20}, "name": "Gold Drill", "weight": 12.0, "description": "Required for gold extraction."},
-    "DRILL_GOLD_ADVANCED": {"type": "Actuator", "stats": {"mining_yield": 180, "damage": 28}, "name": "Advanced Gold Drill", "weight": 10.0, "description": "Deep-vein gold extractor."},
-    "DRILL_COBALT_BASIC": {"type": "Actuator", "stats": {"mining_yield": 250, "damage": 40}, "name": "Cobalt Drill", "weight": 9.0, "description": "Required for cobalt extraction."},
-    "DRILL_COBALT_ADVANCED": {"type": "Actuator", "stats": {"mining_yield": 400, "damage": 60}, "name": "Advanced Cobalt Drill", "weight": 8.0, "description": "The peak of mining technology."},
-    "DEEP_CORE_DRILL": {"type": "Actuator", "stats": {"mining_yield": 600, "damage": 15, "speed": -5}, "name": "Deep Core Thermal Drill", "weight": 25.0, "description": "Ultimate mining power, but heavy."},
-    "CONDUCTIVE_DRILL": {"type": "Actuator", "stats": {"mining_yield": 150, "damage": 10, "energy_save": 25}, "name": "Conductive Gold Drill", "weight": 8.0, "description": "High-efficiency drill that often bypasses energy consumption."},
+    "DRILL_UNIT": {"type": "Actuator", "stats": {"mining_yield": 1, "damage": 5}, "name": "Basic Iron Drill", "weight": 12.0, "description": "Standard mining tool."},
+    "DRILL_IRON_BASIC": {"type": "Actuator", "stats": {"mining_yield": 1, "damage": 6}, "name": "Iron Drill", "weight": 12.0, "description": "Starter drill for iron extraction."},
+    "DRILL_IRON_ADVANCED": {"type": "Actuator", "stats": {"mining_yield": 2, "damage": 8}, "name": "Advanced Iron Drill", "weight": 15.0, "description": "Reinforced iron drill."},
+    "DRILL_COPPER_BASIC": {"type": "Actuator", "stats": {"mining_yield": 3, "damage": 10}, "name": "Copper Drill", "weight": 14.0, "description": "Required for copper extraction."},
+    "DRILL_COPPER_ADVANCED": {"type": "Actuator", "stats": {"mining_yield": 5, "damage": 15}, "name": "Advanced Copper Drill", "weight": 16.0, "description": "High-efficiency copper drill."},
+    "DRILL_GOLD_BASIC": {"type": "Actuator", "stats": {"mining_yield": 8, "damage": 20}, "name": "Gold Drill", "weight": 12.0, "description": "Required for gold extraction."},
+    "DRILL_GOLD_ADVANCED": {"type": "Actuator", "stats": {"mining_yield": 12, "damage": 28}, "name": "Advanced Gold Drill", "weight": 10.0, "description": "Deep-vein gold extractor."},
+    "DRILL_COBALT_BASIC": {"type": "Actuator", "stats": {"mining_yield": 20, "damage": 40}, "name": "Cobalt Drill", "weight": 9.0, "description": "Required for cobalt extraction."},
+    "DRILL_COBALT_ADVANCED": {"type": "Actuator", "stats": {"mining_yield": 35, "damage": 60}, "name": "Advanced Cobalt Drill", "weight": 8.0, "description": "The peak of mining technology."},
+    "DEEP_CORE_DRILL": {"type": "Actuator", "stats": {"mining_yield": 45, "damage": 15, "speed": -5}, "name": "Deep Core Thermal Drill", "weight": 25.0, "description": "Ultimate mining power, but heavy."},
+    "CONDUCTIVE_DRILL": {"type": "Actuator", "stats": {"mining_yield": 10, "damage": 10, "energy_save": 25}, "name": "Conductive Gold Drill", "weight": 8.0, "description": "High-efficiency drill that often bypasses energy consumption."},
 
     # ACTUATORS - WEAPONS (RPS)
     "IRON_AUTO_RIFLE": {"type": "Actuator", "stats": {"damage": 15, "accuracy": 10, "speed": 5}, "name": "Standard Auto-Rifle", "weight": 10.0, "description": "Balanced weapon."},
@@ -395,8 +395,8 @@ PART_DEFINITIONS = {
     "COPPER_ARRAY": {"type": "Sensor", "stats": {"radar_radius": 8, "accuracy": 10}, "name": "Copper Comm-Array", "weight": 6.0, "description": "Standard array."},
     "NEURAL_SCANNER": {"type": "Sensor", "stats": {"radar_radius": 12, "scan_depth": 1}, "name": "Neural-Link Scanner", "weight": 4.0, "description": "Detailed scanning."},
     "ADVANCED_SCANNER": {"type": "Sensor", "stats": {"radar_radius": 18, "scan_depth": 2}, "name": "Deep-Space Array", "weight": 3.0, "description": "Long-range detection."},
-    "GEOLOGICAL_SURVEYOR": {"type": "Sensor", "stats": {"radar_radius": 10, "mining_yield": 50}, "name": "Geological Surveyor", "weight": 8.0, "description": "Boosts mining efficiency."},
-    "MINING_SIG_ENHANCER": {"type": "Sensor", "stats": {"mining_yield": 100, "radar_radius": 15}, "name": "Signal Enhancer", "weight": 8.0, "description": "Advanced mining intelligence."},
+    "GEOLOGICAL_SURVEYOR": {"type": "Sensor", "stats": {"radar_radius": 10, "mining_yield": 2}, "name": "Geological Surveyor", "weight": 8.0, "description": "Boosts mining efficiency."},
+    "MINING_SIG_ENHANCER": {"type": "Sensor", "stats": {"mining_yield": 5, "radar_radius": 15}, "name": "Signal Enhancer", "weight": 8.0, "description": "Advanced mining intelligence."},
     "MIDAS_SCANNER": {"type": "Sensor", "stats": {"radar_radius": 18, "loot_bonus": 0.20}, "name": "Midas Search-Array", "weight": 5.0, "description": "Gold-plated sensors calibrated to detect valuable loot remains."},
     "COPPER_SENSE_DISH": {"type": "Sensor", "stats": {"radar_radius": 6, "accuracy": 3}, "name": "Copper Sensing Dish", "weight": 4.0, "description": "A basic sensor dish made of copper wiring."},
     
@@ -426,7 +426,7 @@ PART_DEFINITIONS = {
 
     # SPECIAL RELICS
     "ULTRA_SCANNER": {"type": "Sensor", "stats": {"radar_radius": 35, "scan_depth": 3}, "name": "Void-Ultra Scanner", "weight": 1.0, "description": "Pierces the veil of the void."},
-    "RELIC_DRILL": {"type": "Actuator", "stats": {"mining_yield": 1200, "damage": 150}, "name": "Ancient Relic Drill", "weight": 5.0, "description": "Shatters even the hardest crusts."},
+    "RELIC_DRILL": {"type": "Actuator", "stats": {"mining_yield": 50, "damage": 150}, "name": "Ancient Relic Drill", "weight": 5.0, "description": "Shatters even the hardest crusts."},
     "OMEGA_CHASSIS": {"type": "Frame", "stats": {"max_health": 1000, "armor": 100, "capacity": 2000, "speed": 10}, "name": "Omega God-Frame", "weight": 250.0, "description": "The pinnacle of colonial engineering."},
 }
 

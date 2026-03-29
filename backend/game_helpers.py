@@ -447,7 +447,7 @@ def recalculate_agent_stats(db: Session, agent: Agent):
     agent.overclock = 10
     agent.armor = 5
     agent.max_mass = BASE_CAPACITY
-    agent.mining_yield = 10
+    agent.mining_yield = 0
     agent.loot_bonus = 0.0
     agent.energy_save = 0
     agent.wear_resistance = 0.0
@@ -549,7 +549,7 @@ def recalculate_agent_stats(db: Session, agent: Agent):
     agent.damage = int(agent.damage * penalty_factor)
     agent.accuracy = int(agent.accuracy * penalty_factor)
     agent.speed = int(agent.speed * penalty_factor)
-    agent.mining_yield = int(agent.mining_yield * penalty_factor)
+    agent.mining_yield = round(agent.mining_yield * penalty_factor)
     agent.armor = int(agent.armor * penalty_factor)
     
     # agent.damage = int(agent.damage * penalty_factor)
