@@ -2777,18 +2777,32 @@ Intent payload format:
         let actions = [];
 
         // 1. Check Vital Stats
-        if (agent.energy < 15) {
+        if (agent.energy < 30) {
             directive = "Energy Critical: Move to REPAIR or MARKET station.";
             actions.push({ label: "Find Station", cmd: "HELP" });
         } else if (agent.wear_and_tear > 80) {
             directive = "High Wear: Systems degrading. Reset wear at REPAIR station.";
             actions.push({ label: "Go to Repair", cmd: "HELP" });
-        } else if (agent.mass / agent.max_mass > 0.95) {
-            directive = "Cargo Maximized: Unload at MARKET or SMELTER.";
+        } else if (agent.mass / agent.max_mass > 0.90) {
+            directive = "Cargo Capacity Warning: Unload at MARKET or SMELTER.";
             actions.push({ label: "Market", cmd: "HELP" });
         } else {
-            // 2. Proximity based suggestions
-            if (worldState && worldState.stations) {
+            // 2. Action based status
+            if (this.game.lastIntent) {
+                const intent = this.game.lastIntent.type;
+                if (intent === 'MOVE') {
+                    directive = "In Transit: Vectoring to coordinates.";
+                } else if (intent === 'MINE') {
+                    directive = "Extraction Active: Harvesting raw minerals.";
+                } else if (intent === 'SMELT') {
+                    directive = "Industry Protocol: Refining ores into ingots.";
+                } else if (intent === 'SCAN') {
+                    directive = "Perception Active: Mapping orbital sector.";
+                }
+            }
+
+            // 3. Proximity based suggestions (if not overridden by action)
+            if (directive === "Analyzing environment..." && worldState && worldState.stations) {
                 const myPos = { q: agent.q, r: agent.r };
                 const stations = Object.values(worldState.stations);
                 const nearStation = stations.find(s => this._getHexDist(myPos, s) === 0);
@@ -2808,7 +2822,7 @@ Intent payload format:
                         actions.push({ label: "Trade", cmd: "HELP" });
                     }
                 } else {
-                    // 3. Environment based suggestions
+                    // 4. Environment based suggestions
                     const hasScanned = this.game.lastPerception?.discovery && Object.keys(this.game.lastPerception.discovery).length > 0;
                     if (!hasScanned) {
                         directive = "Void Space: No resources found. SCAN the sector?";

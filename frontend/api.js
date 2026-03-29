@@ -243,6 +243,14 @@ export class GameAPI {
 
             if (agentData) {
                 this.game.lastAgentData = agentData;
+                if (agentData.pending_intent) {
+                    this.game.lastIntent = { type: agentData.pending_intent, time: Date.now() };
+                } else {
+                    // Only clear if it's been more than 10s (to prevent flickering right after submission)
+                    if (this.game.lastIntent && Date.now() - this.game.lastIntent.time > 10000) {
+                        this.game.lastIntent = null;
+                    }
+                }
                 try {
                     this.game.updatePrivateUI(agentData);
                 } catch (e) {
@@ -457,6 +465,7 @@ export class GameAPI {
 
         try {
             const result = await this._post('/api/intent', { action_type: actionType, data });
+            this.game.lastIntent = { type: actionType, time: Date.now() };
             if (this.game.terminal) {
                 this.game.terminal.log(`✓ ACCEPTED — Scheduled for Tick #${result.tick}`, 'success');
             }

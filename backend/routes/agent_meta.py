@@ -161,7 +161,8 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         ],
         "visual_signature": get_agent_visual_signature(agent),
         "solar_intensity": int(get_solar_intensity(agent.q, agent.r, tick) * 100),
-        "webhook_url": agent.webhook_url
+        "webhook_url": agent.webhook_url,
+        "pending_intent": next((i.action_type for i in sorted(agent.intents, key=lambda x: x.tick_index, reverse=True) if i.tick_index >= tick), None)
     }
 
 @router.get("/api/agent_logs")
