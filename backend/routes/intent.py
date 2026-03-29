@@ -7,7 +7,7 @@ from routes.common import verify_api_key, get_next_tick_index
 router = APIRouter(prefix="/api", tags=["Intent"])
 
 @router.post("/intent")
-async def schedule_intent(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db), action_type: str = Body(...), data: dict = Body({})):
+def schedule_intent(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db), action_type: str = Body(...), data: dict = Body({})):
     """Schedules an action for the next game tick."""
     next_tick = get_next_tick_index(db)
     

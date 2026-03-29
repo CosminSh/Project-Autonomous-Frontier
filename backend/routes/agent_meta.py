@@ -165,13 +165,13 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
     }
 
 @router.get("/api/agent_logs")
-async def get_agent_logs(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_agent_logs(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns the activity log for the agent."""
     logs = db.execute(select(AuditLog).where(AuditLog.agent_id == agent.id).order_by(AuditLog.time.desc()).limit(50)).scalars().all()
     return [{"time": l.time.isoformat(), "event": l.event_type, "details": l.details} for l in logs]
 
 @router.get("/status")
-async def get_agent_status(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_agent_status(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns detailed status of the authenticated agent."""
     
     state = db.execute(select(GlobalState)).scalars().first()
@@ -197,7 +197,7 @@ async def get_agent_status(agent: Agent = Depends(verify_api_key), db: Session =
     }
 
 @router.get("/inventory")
-async def get_agent_inventory(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_agent_inventory(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns the agent's current inventory."""
     items = db.execute(select(InventoryItem).where(InventoryItem.agent_id == agent.id)).scalars().all()
     aggregated = {}
@@ -211,7 +211,7 @@ async def get_agent_inventory(agent: Agent = Depends(verify_api_key), db: Sessio
     return list(aggregated.values())
 
 @router.get("/api/gear")
-async def get_agent_gear(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_agent_gear(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns the agent's equipped chassis parts with wear-penalized stats."""
     penalty = get_wear_penalty_factor(agent.wear_and_tear)
     
@@ -227,7 +227,7 @@ async def get_agent_gear(agent: Agent = Depends(verify_api_key), db: Session = D
     ]
 
 @router.get("/api/rescue_quote")
-async def get_rescue_quote(agent: Agent = Depends(verify_api_key)):
+def get_rescue_quote(agent: Agent = Depends(verify_api_key)):
     """Calculates the cost and ETA for a rescue to the Hub."""
     dist = get_hex_distance(agent.q, agent.r, 0, 0)
     cost = dist * 5
@@ -235,7 +235,7 @@ async def get_rescue_quote(agent: Agent = Depends(verify_api_key)):
     return {"distance": dist, "cost": cost, "eta_ticks": eta_ticks}
 
 @router.get("/api/my_agent/performance", tags=["Agent Meta"])
-async def get_my_agent_performance(agent: Agent = Depends(verify_api_key)):
+def get_my_agent_performance(agent: Agent = Depends(verify_api_key)):
     """Returns the agent's lifetime performance metrics."""
     return agent.performance_stats or {
         "ores_mined": 0,

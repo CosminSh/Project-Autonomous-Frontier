@@ -5,10 +5,10 @@ router = APIRouter(prefix="/api/wiki", tags=["Wiki"])
 
 @router.get("/")
 @router.get("/data")
-async def get_wiki_data():
-    return await _get_wiki_payload()
+def get_wiki_data():
+    return _get_wiki_payload()
 
-async def _get_wiki_payload():
+def _get_wiki_payload():
     """Internal generator for wiki data."""
     # 1. Industrial Data
     smelting = []
@@ -123,17 +123,11 @@ async def _get_wiki_payload():
         }
     }
 
-@router.get("/")
-@router.get("/data")
-async def get_wiki_data():
-    return await _get_wiki_payload()
-
-@router.get("/manual")
-async def get_manual():
-    wiki = await _get_wiki_payload()
+def get_manual():
+    wiki = _get_wiki_payload()
     return wiki["manual"]
 
 @router.get("/commands")
-async def get_commands():
-    wiki = await _get_wiki_payload()
+def get_commands():
+    wiki = _get_wiki_payload()
     return wiki["commands"]

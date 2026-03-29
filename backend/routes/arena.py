@@ -83,7 +83,7 @@ def update_fighter_stats(fighter: Agent, db: Session):
 
 
 @router.get("/status")
-async def get_arena_status(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_arena_status(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     fighter = get_or_create_pit_fighter(agent, db)
     parts = db.execute(select(ChassisPart).where(ChassisPart.agent_id == fighter.id)).scalars().all()
     profile = fighter.arena_profile
@@ -126,7 +126,7 @@ async def get_arena_status(agent: Agent = Depends(verify_api_key), db: Session =
 
 
 @router.post("/equip")
-async def equip_pit_fighter(req: EquipRequest, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def equip_pit_fighter(req: EquipRequest, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """
     PERMANENTLY transfers an unequipped ChassisPart from the main agent to the Pit Fighter.
     WARNING: This action is non-reversible. Donated gear is lost forever at the end of the season.
@@ -153,7 +153,7 @@ async def equip_pit_fighter(req: EquipRequest, agent: Agent = Depends(verify_api
 
 
 @router.get("/logs")
-async def get_arena_logs(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_arena_logs(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     fighter = get_or_create_pit_fighter(agent, db)
     
     logs = db.execute(

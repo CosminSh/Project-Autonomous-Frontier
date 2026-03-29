@@ -18,7 +18,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=500)
 
 @router.get("/api/bounties")
-async def get_bounties(db: Session = Depends(get_db)):
+def get_bounties(db: Session = Depends(get_db)):
     """Returns all active bounties."""
     bounties = db.execute(
         select(Bounty)
@@ -31,7 +31,7 @@ async def get_bounties(db: Session = Depends(get_db)):
     } for b in bounties]
 
 @router.post("/api/chat")
-async def send_chat(req: ChatRequest, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def send_chat(req: ChatRequest, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Sends a chat message to a specific channel (GLOBAL, PROX, SQUAD, CORP)."""
     channel = req.channel.upper()
     if channel not in ["GLOBAL", "PROX", "SQUAD", "CORP"]:
@@ -62,7 +62,7 @@ async def send_chat(req: ChatRequest, agent: Agent = Depends(verify_api_key), db
     return {"status": "success", "channel": channel, "message": req.message}
 
 @router.get("/api/chat")
-async def get_recent_chat(since: str = None, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_recent_chat(since: str = None, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns recent chat messages relevant to the agent. 'since' is an ISO formatted timestamp."""
     
     query = select(AgentMessage)
@@ -122,7 +122,7 @@ async def get_recent_chat(since: str = None, agent: Agent = Depends(verify_api_k
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/api/squad/invite")
-async def invite_to_squad(req: SquadInvite, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def invite_to_squad(req: SquadInvite, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Invites another agent to join the current agent's squad."""
     if req.target_id == agent.id:
         raise HTTPException(status_code=400, detail="Cannot invite yourself.")
@@ -146,7 +146,7 @@ async def invite_to_squad(req: SquadInvite, agent: Agent = Depends(verify_api_ke
     return {"status": "success", "message": f"Invite sent to {target.name}."}
 
 @router.post("/api/squad/accept")
-async def accept_squad_invite(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def accept_squad_invite(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Accepts a pending squad invite."""
     if not agent.pending_squad_invite:
         raise HTTPException(status_code=400, detail="No pending invite found.")
@@ -160,7 +160,7 @@ async def accept_squad_invite(agent: Agent = Depends(verify_api_key), db: Sessio
     return {"status": "success", "message": "Joined squad."}
 
 @router.post("/api/squad/decline")
-async def decline_squad_invite(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def decline_squad_invite(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Declines a pending squad invite."""
     if not agent.pending_squad_invite:
         raise HTTPException(status_code=400, detail="No pending invite found.")
@@ -170,7 +170,7 @@ async def decline_squad_invite(agent: Agent = Depends(verify_api_key), db: Sessi
     return {"status": "success", "message": "Invite declined."}
 
 @router.post("/api/squad/leave")
-async def leave_squad(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def leave_squad(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Leaves the current squad."""
     if not agent.squad_id:
         raise HTTPException(status_code=400, detail="You are not in a squad.")

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select
 import random
 from models import WorldHex, Agent, GlobalState, LootDrop
@@ -10,7 +10,7 @@ from routes.common import verify_api_key
 router = APIRouter(prefix="/api", tags=["Perception"])
 
 @router.get("/perception")
-async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_perception(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns local sensor data: NPCs, Resources, Stations, and Loot nearby."""
     state = db.execute(select(GlobalState)).scalars().first()
     
@@ -43,7 +43,9 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
         from sqlalchemy import or_
         return or_(*filters)
 
-    visible_agents = db.execute(select(Agent).where(
+    visible_agents = db.execute(select(Agent)
+        .options(selectinload(Agent.corporation), selectinload(Agent.inventory), selectinload(Agent.parts))
+        .where(
         get_wrap_filter(Agent.q, agent.q, sensor_range, 100),
         # r-wrapping is special (poles), so we'll just query a slightly larger range and filter in Python
         Agent.r >= agent.r - sensor_range, Agent.r <= agent.r + sensor_range,
@@ -175,7 +177,7 @@ async def get_perception(agent: Agent = Depends(verify_api_key), db: Session = D
     return response
 
 @router.get("/map")
-async def get_map_data(q: int = Query(...), r: int = Query(...), radius: int = Query(10), db: Session = Depends(get_db)):
+def get_map_data(q: int = Query(...), r: int = Query(...), radius: int = Query(10), db: Session = Depends(get_db)):
     """Returns static world hex data for a specific region."""
     hexes = db.execute(select(WorldHex).where(
         WorldHex.q >= q - radius, WorldHex.q <= q + radius,

@@ -13,6 +13,8 @@ from models import Agent, InventoryItem, ChassisPart, AuctionOrder, APIKeyRevoca
 from database import get_db, SessionLocal
 from config import PART_DEFINITIONS
 from game_helpers import recalculate_agent_stats
+from pydantic import BaseModel
+from typing import Optional
 from routes.common import verify_api_key
 
 from google.oauth2 import id_token
@@ -26,12 +28,18 @@ router = APIRouter()
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "419308259695-sj14gj8q7ml5o9uao2j59pgkp1vvthh0.apps.googleusercontent.com")
 
 
+class LoginRequest(BaseModel):
+    token: str
+
+class GuestLoginRequest(BaseModel):
+    email: Optional[str] = None
+    name: Optional[str] = None
+
 @router.post("/auth/login")
-async def login(request: Request):
+def login(request: Request, login_data: LoginRequest):
     print("\n--- AUTH LOGIN REQUEST RECEIVED ---")
     try:
-        data = await request.json()
-        token = data.get("token")
+        token = login_data.token
         if not token:
             return {"status": "error", "message": "Missing token"}
 
@@ -90,7 +98,7 @@ async def login(request: Request):
 
 
 @router.post("/auth/rotate_key")
-async def rotate_api_key(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def rotate_api_key(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Rotates the agent's API key. Invalidates the old one immediately."""
     # Record revocation of old key
     db.add(APIKeyRevocation(
@@ -106,21 +114,17 @@ async def rotate_api_key(agent: Agent = Depends(verify_api_key), db: Session = D
     return {"status": "success", "new_api_key": new_key}
 
 @router.post("/auth/guest")
-async def guest_login(request: Request, db: Session = Depends(get_db)):
+def guest_login(login_data: GuestLoginRequest, db: Session = Depends(get_db)):
     """Bypass Auth for local testing. Creates or returns a guest agent."""
-    data = {}
-    try:
-        data = await request.json()
-    except Exception:
-        pass
+    email = login_data.email
+    name = login_data.name
 
-    email = data.get("email")
     if not email:
         uid = str(uuid.uuid4())[:8]
         email = f"guest-{uid}@local.test"
-        name = data.get("name", f"Guest-{uid}")
+        name = name or f"Guest-{uid}"
     else:
-        name = data.get("name", "Guest-Pilot")
+        name = name or "Guest-Pilot"
 
     agent = db.execute(select(Agent).where(Agent.user_email == email)).scalar_one_or_none()
     if not agent:

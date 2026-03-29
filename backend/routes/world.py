@@ -6,7 +6,8 @@ Covers: /api/guide, /api/commands, /api/manifesto, /api/world/library,
 import logging
 import time
 
-from fastapi import APIRouter, Depends
+import json
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -29,17 +30,19 @@ router = APIRouter(tags=["World"])
 # event loop for 90+ seconds. We cache it once at first request.
 # ─────────────────────────────────────────────────────────────────────────────
 _WORLD_MAP_CACHE = None
+_WORLD_MAP_JSON_CACHE = None
 _WORLD_MAP_CACHE_BUILT_AT = 0
 
-def _get_world_map_cache(db: Session):
-    global _WORLD_MAP_CACHE, _WORLD_MAP_CACHE_BUILT_AT
-    if _WORLD_MAP_CACHE is None:
+def _get_world_map_json_cache(db: Session):
+    global _WORLD_MAP_CACHE, _WORLD_MAP_JSON_CACHE, _WORLD_MAP_CACHE_BUILT_AT
+    if _WORLD_MAP_JSON_CACHE is None:
         _t = time.time()
         hexes = db.execute(select(WorldHex.q, WorldHex.r, WorldHex.terrain_type, WorldHex.is_station, WorldHex.station_type)).all()
         _WORLD_MAP_CACHE = [{"q": h.q, "r": h.r, "terrain": h.terrain_type, "is_station": h.is_station, "station_type": h.station_type} for h in hexes]
+        _WORLD_MAP_JSON_CACHE = json.dumps(_WORLD_MAP_CACHE)
         _WORLD_MAP_CACHE_BUILT_AT = time.time()
         logger.info(f"World map cache built: {len(_WORLD_MAP_CACHE)} hexes in {time.time()-_t:.2f}s")
-    return _WORLD_MAP_CACHE
+    return _WORLD_MAP_JSON_CACHE
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GLOBAL STATS CACHE
@@ -49,7 +52,7 @@ _STATS_CACHE = None
 _STATS_CACHE_TIME = 0
 
 @router.get("/api/global_stats")
-async def get_global_stats(db: Session = Depends(get_db)):
+def get_global_stats(db: Session = Depends(get_db)):
     """Returns global metrics and current game tick/phase."""
     global _STATS_CACHE, _STATS_CACHE_TIME
     
@@ -171,7 +174,7 @@ async def get_commands():
 
 
 @router.get("/api/world/library")
-async def get_world_library():
+def get_world_library():
     """Returns technical data on parts and recipes for agent discovery."""
     return {
         "part_definitions": PART_DEFINITIONS,
@@ -184,29 +187,30 @@ async def get_world_library():
 
 
 @router.get("/api/world/poi")
-async def get_world_poi():
+def get_world_poi():
     """Returns coordinates of all permanent Points of Interest (Stations) from cache."""
     return {"stations": STATION_CACHE}
 
 
 @router.get("/api/world/heat")
-async def get_world_heat(db: Session = Depends(get_db)):
+def get_world_heat(db: Session = Depends(get_db)):
     """Returns coordinates of all PLAYER agents with heat >= 5."""
     hot_agents = db.execute(select(Agent).where(Agent.is_feral == False, Agent.is_pitfighter == False, Agent.heat >= 5)).scalars().all()
     return [{"id": a.id, "name": a.name, "q": a.q, "r": a.r, "heat": a.heat} for a in hot_agents]
 
 
 @router.get("/api/world/full")
-async def get_full_world(db: Session = Depends(get_db)):
+def get_full_world(db: Session = Depends(get_db)):
     """Returns essential layout of the entire world for global visualization.
     Served from in-memory cache to avoid blocking the asyncio event loop with
     a 9702-row DB query on every frontend map load.
     """
-    return _get_world_map_cache(db)
+    json_data = _get_world_map_json_cache(db)
+    return Response(content=json_data, media_type="application/json")
 
 
 @router.get("/state")
-async def get_world_state():
+def get_world_state():
     """Returns global public game state. Sensitive entity data removed for performance and fairness."""
     with SessionLocal() as db:
         state = db.execute(select(GlobalState)).scalars().first()

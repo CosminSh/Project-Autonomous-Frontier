@@ -9,7 +9,7 @@ from game_helpers import get_agent_mass, ITEM_WEIGHTS
 router = APIRouter(prefix="/api", tags=["Economy"])
 
 @router.get("/market")
-async def get_market_orders(item_type: str = Query(None), db: Session = Depends(get_db)):
+def get_market_orders(item_type: str = Query(None), db: Session = Depends(get_db)):
     """Returns active sell and buy orders on the galactic market."""
     query = select(AuctionOrder)
     if item_type: query = query.where(AuctionOrder.item_type == item_type)
@@ -17,13 +17,13 @@ async def get_market_orders(item_type: str = Query(None), db: Session = Depends(
     return [{"id": o.id, "item": o.item_type, "qty": o.quantity, "price": o.price, "type": o.order_type} for o in orders]
 
 @router.get("/market/my_orders")
-async def get_my_orders(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_my_orders(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns only the authenticated agent's active market orders."""
     orders = db.execute(select(AuctionOrder).where(AuctionOrder.owner == agent.name)).scalars().all()
     return [{"id": o.id, "item": o.item_type, "qty": o.quantity, "price": o.price, "type": o.order_type} for o in orders]
 
 @router.get("/market/prices")
-async def get_market_prices(db: Session = Depends(get_db)):
+def get_market_prices(db: Session = Depends(get_db)):
     """Returns a summary of average prices for all traded items."""
     orders = db.execute(select(AuctionOrder)).scalars().all()
     prices = {}
@@ -34,7 +34,7 @@ async def get_market_prices(db: Session = Depends(get_db)):
     return {k: sum(v)/len(v) for k, v in prices.items() if v}
     
 @router.get("/market/depth")
-async def get_market_depth(item_type: str = Query(None), db: Session = Depends(get_db)):
+def get_market_depth(item_type: str = Query(None), db: Session = Depends(get_db)):
     """Returns aggregated volume at each price point for a specific item (Order Book view)."""
     if not item_type:
         raise HTTPException(status_code=400, detail="item_type is required for market depth.")
@@ -53,7 +53,7 @@ async def get_market_depth(item_type: str = Query(None), db: Session = Depends(g
     }
 
 @router.delete("/market/orders/{order_id}")
-async def cancel_market_order(order_id: int, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def cancel_market_order(order_id: int, agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Cancels an active market order and refunds the items/credits."""
     order = db.get(AuctionOrder, order_id)
     if not order:
@@ -86,7 +86,7 @@ async def cancel_market_order(order_id: int, agent: Agent = Depends(verify_api_k
     return {"message": "Order cancelled and resources refunded."}
 
 @router.patch("/market/orders/{order_id}")
-async def adjust_market_order(order_id: int, price: float = Body(..., embed=True), agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def adjust_market_order(order_id: int, price: float = Body(..., embed=True), agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Adjusts the price of an active market order."""
     if price <= 0:
         raise HTTPException(status_code=400, detail="Price must be positive.")
@@ -119,13 +119,13 @@ async def adjust_market_order(order_id: int, price: float = Body(..., embed=True
     return {"message": "Order price adjusted."}
 
 @router.get("/market/pickups")
-async def get_market_pickups(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_market_pickups(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns all items waiting for the agent to pick up from the market."""
     pickups = db.execute(select(MarketPickup).where(MarketPickup.agent_id == agent.id)).scalars().all()
     return [{"id": p.id, "item": p.item_type, "qty": p.quantity} for p in pickups]
 
 @router.post("/market/pickup")
-async def claim_market_pickups(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def claim_market_pickups(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Claims all pending market pickups. Must be at a MARKET station."""
     hex_loc = db.execute(select(WorldHex).where(WorldHex.q == agent.q, WorldHex.r == agent.r)).scalars().first()
     if not (hex_loc and hex_loc.is_station and (hex_loc.station_type == "MARKET" or hex_loc.station_type == "STATION_HUB")):
@@ -155,13 +155,13 @@ async def claim_market_pickups(agent: Agent = Depends(verify_api_key), db: Sessi
 # ── VAULT / STORAGE ────────────────────────────────────────────────────────────
 
 @router.get("/storage")
-async def get_vault_contents(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_vault_contents(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns the agent's Personal Storage (Vault) inventory."""
     items = db.execute(select(StorageItem).where(StorageItem.agent_id == agent.id)).scalars().all()
     return [{"type": v.item_type, "quantity": v.quantity, "data": v.data} for v in items]
 
 @router.get("/storage/info")
-async def get_vault_info(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_vault_info(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns vault contents plus capacity stats and next upgrade requirement."""
     # Ensure fresh data from DB
     items = db.execute(select(StorageItem).where(StorageItem.agent_id == agent.id)).scalars().all()
@@ -190,7 +190,7 @@ async def get_vault_info(agent: Agent = Depends(verify_api_key), db: Session = D
     }
 
 @router.post("/storage/deposit")
-async def deposit_to_vault(
+def deposit_to_vault(
     agent: Agent = Depends(verify_api_key),
     db: Session = Depends(get_db),
     item_type: str = Body(...),
@@ -233,7 +233,7 @@ async def deposit_to_vault(
     return {"message": f"Deposited {quantity}x {item_type} into vault."}
 
 @router.post("/storage/withdraw")
-async def withdraw_from_vault(
+def withdraw_from_vault(
     agent: Agent = Depends(verify_api_key),
     db: Session = Depends(get_db),
     item_type: str = Body(...),
@@ -276,7 +276,7 @@ async def withdraw_from_vault(
     return {"message": f"Withdrew {quantity}x {item_type} from vault."}
 
 @router.post("/storage/upgrade")
-async def upgrade_vault(
+def upgrade_vault(
     agent: Agent = Depends(verify_api_key),
     db: Session = Depends(get_db),
 ):

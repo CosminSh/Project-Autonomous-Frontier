@@ -4,7 +4,7 @@ from sqlalchemy import select
 from database import get_db
 from models import Agent, GlobalState
 
-async def verify_api_key(request: Request, db: Session = Depends(get_db)):
+def verify_api_key(request: Request, db: Session = Depends(get_db)):
     """Dependency to authenticate agents via API key in headers."""
     api_key = request.headers.get("X-API-KEY") or request.headers.get("X-API-Key")
     if not api_key:

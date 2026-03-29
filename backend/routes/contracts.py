@@ -20,7 +20,7 @@ class ContractCreate(BaseModel):
     expiry_hours: Optional[int] = 24
 
 @router.post("/post")
-async def post_contract(
+def post_contract(
     contract_data: ContractCreate,
     agent: Agent = Depends(verify_api_key),
     db: Session = Depends(get_db)
@@ -64,7 +64,7 @@ async def post_contract(
     return {"status": "success", "contract_id": new_contract.id}
 
 @router.get("/available")
-async def get_available_contracts(db: Session = Depends(get_db)):
+def get_available_contracts(db: Session = Depends(get_db)):
     # Clean up expired ones on the fly for UI
     now = datetime.utcnow()
     contracts = db.execute(
@@ -94,7 +94,7 @@ async def get_available_contracts(db: Session = Depends(get_db)):
     return results
 
 @router.post("/claim/{contract_id}")
-async def claim_contract(
+def claim_contract(
     contract_id: int,
     agent: Agent = Depends(verify_api_key),
     db: Session = Depends(get_db)
@@ -124,7 +124,7 @@ async def claim_contract(
     return {"status": "success", "message": "Contract claimed."}
 
 @router.post("/fulfill/{contract_id}")
-async def fulfill_contract(
+def fulfill_contract(
     contract_id: int,
     agent: Agent = Depends(verify_api_key),
     db: Session = Depends(get_db)
@@ -180,7 +180,7 @@ async def fulfill_contract(
     return {"status": "success", "message": "Contract fulfilled. Reward paid and items delivered to issuer storage."}
 
 @router.get("/my_contracts")
-async def get_my_contracts(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_my_contracts(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns contracts issued or claimed by the agent."""
     issued = db.execute(
         select(PlayerContract).where(PlayerContract.issuer_id == agent.id)

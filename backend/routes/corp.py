@@ -7,15 +7,38 @@ from models import Agent, Corporation, InventoryItem, AuditLog
 from database import get_db
 from .common import verify_api_key
 
+from pydantic import BaseModel
+from typing import Optional
+
 logger = logging.getLogger("heartbeat")
 router = APIRouter()
 
+class CorpCreateRequest(BaseModel):
+    name: str
+    ticker: str
+    tax_rate: float = 0.0
+
+class CorpMemberRequest(BaseModel):
+    agent_id: int
+
+class CorpMotdRequest(BaseModel):
+    motd: str
+
+class CorpJoinRequest(BaseModel):
+    ticker: str
+
+class CorpDepositRequest(BaseModel):
+    amount: int
+
+class CorpRespondRequest(BaseModel):
+    invite_id: int
+    status: str # ACCEPTED, REJECTED
+
 @router.post("/api/corp/create")
-async def create_corp(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    data = await request.json()
-    name = data.get("name")
-    ticker = data.get("ticker")
-    tax_rate = data.get("tax_rate", 0.0)
+def create_corp(request: CorpCreateRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    name = request.name
+    ticker = request.ticker
+    tax_rate = request.tax_rate
     
     if not name or not ticker:
         raise HTTPException(status_code=400, detail="Name and ticker are required.")
@@ -51,9 +74,8 @@ async def create_corp(request: Request, current_agent: Agent = Depends(verify_ap
     return {"status": "success", "corp_id": corp.id, "message": f"Corporation {corp.name} [{corp.ticker}] established."}
 
 @router.post("/api/corp/promote")
-async def promote_member(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    data = await request.json()
-    target_id = data.get("agent_id")
+def promote_member(request: CorpMemberRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    target_id = request.agent_id
     
     if not current_agent.corporation_id:
         raise HTTPException(status_code=400, detail="You are not in a corporation.")
@@ -79,9 +101,8 @@ async def promote_member(request: Request, current_agent: Agent = Depends(verify
     return {"status": "success", "new_role": target.corp_role}
 
 @router.post("/api/corp/demote")
-async def demote_member(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    data = await request.json()
-    target_id = data.get("agent_id")
+def demote_member(request: CorpMemberRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    target_id = request.agent_id
     
     if not current_agent.corporation_id:
         raise HTTPException(status_code=400, detail="You are not in a corporation.")
@@ -111,9 +132,8 @@ async def demote_member(request: Request, current_agent: Agent = Depends(verify_
     return {"status": "success", "new_role": target.corp_role}
 
 @router.post("/api/corp/motd")
-async def update_motd(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    data = await request.json()
-    motd = data.get("motd")
+def update_motd(request: CorpMotdRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    motd = request.motd
     
     if not current_agent.corporation_id:
         raise HTTPException(status_code=400, detail="You are not in a corporation.")
@@ -129,9 +149,8 @@ async def update_motd(request: Request, current_agent: Agent = Depends(verify_ap
 from models import Agent, Corporation, InventoryItem, AuditLog, CorpInvite
 
 @router.post("/api/corp/join")
-async def join_corp(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    data = await request.json()
-    ticker = data.get("ticker")
+def join_corp(request: CorpJoinRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    ticker = request.ticker
     
     if current_agent.corporation_id:
         raise HTTPException(status_code=400, detail="Already in a corporation.")
@@ -163,7 +182,7 @@ async def join_corp(request: Request, current_agent: Agent = Depends(verify_api_
     return {"status": "success", "message": f"Welcome to {corp.name}."}
 
 @router.post("/api/corp/leave")
-async def leave_corp(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def leave_corp(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     if not current_agent.corporation_id:
         raise HTTPException(status_code=400, detail="You are not in a corporation.")
         
@@ -177,9 +196,8 @@ async def leave_corp(request: Request, current_agent: Agent = Depends(verify_api
     return {"status": "success", "message": "Left corporation."}
 
 @router.post("/api/corp/deposit")
-async def corp_deposit(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    data = await request.json()
-    amount = data.get("amount", 0)
+def corp_deposit(request: CorpDepositRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    amount = request.amount
     
     if amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be > 0.")
@@ -203,9 +221,8 @@ async def corp_deposit(request: Request, current_agent: Agent = Depends(verify_a
     return {"status": "success", "message": f"Deposited {amount} CR into vault."}
 
 @router.post("/api/corp/invite")
-async def invite_agent(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    data = await request.json()
-    target_id = data.get("agent_id")
+def invite_agent(request: CorpMemberRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    target_id = request.agent_id
     
     if not current_agent.corporation_id:
         raise HTTPException(status_code=400, detail="You are not in a corporation.")
@@ -230,9 +247,8 @@ async def invite_agent(request: Request, current_agent: Agent = Depends(verify_a
     return {"status": "success", "invite_id": invite.id}
 
 @router.post("/api/corp/apply")
-async def apply_to_corp(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    data = await request.json()
-    ticker = data.get("ticker")
+def apply_to_corp(request: CorpJoinRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    ticker = request.ticker
     
     if current_agent.corporation_id:
         raise HTTPException(status_code=400, detail="Already in a corporation.")
@@ -251,7 +267,7 @@ async def apply_to_corp(request: Request, current_agent: Agent = Depends(verify_
     return {"status": "success", "invite_id": invite.id}
 
 @router.get("/api/corp/applications")
-async def get_corp_applications(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_corp_applications(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     if not current_agent.corporation_id:
         raise HTTPException(status_code=400, detail="Not in a corporation.")
         
@@ -270,10 +286,9 @@ async def get_corp_applications(current_agent: Agent = Depends(verify_api_key), 
     ]
 
 @router.post("/api/corp/application/respond")
-async def respond_to_application(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    data = await request.json()
-    invite_id = data.get("invite_id")
-    status = data.get("status") # ACCEPTED, REJECTED
+def respond_to_application(request: CorpRespondRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    invite_id = request.invite_id
+    status = request.status
     
     if not current_agent.corporation_id:
         raise HTTPException(status_code=400, detail="Not in a corp.")
@@ -296,7 +311,7 @@ async def respond_to_application(request: Request, current_agent: Agent = Depend
     return {"status": "success"}
 
 @router.get("/api/my_invites")
-async def get_my_invites(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_my_invites(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     invites = db.execute(select(CorpInvite).where(
         CorpInvite.agent_id == current_agent.id,
         CorpInvite.invite_type == "INVITE",
@@ -309,10 +324,9 @@ async def get_my_invites(current_agent: Agent = Depends(verify_api_key), db: Ses
     ]
 
 @router.post("/api/invite/respond")
-async def respond_to_invite(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    data = await request.json()
-    invite_id = data.get("invite_id")
-    status = data.get("status") # ACCEPTED, REJECTED
+def respond_to_invite(request: CorpRespondRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    invite_id = request.invite_id
+    status = request.status
     
     invite = db.get(CorpInvite, invite_id)
     if not invite or invite.agent_id != current_agent.id:
@@ -323,9 +337,8 @@ async def respond_to_invite(request: Request, current_agent: Agent = Depends(ver
     return {"status": "success"}
 
 @router.post("/api/corp/withdraw")
-async def corp_withdraw(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    data = await request.json()
-    amount = data.get("amount", 0)
+def corp_withdraw(request: CorpDepositRequest, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+    amount = request.amount
     
     if amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be > 0.")
@@ -354,7 +367,7 @@ async def corp_withdraw(request: Request, current_agent: Agent = Depends(verify_
     return {"status": "success", "message": f"Withdrew {amount} CR from vault."}
 
 @router.get("/api/corp/members")
-async def get_corp_members(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_corp_members(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     if not current_agent.corporation_id:
         raise HTTPException(status_code=400, detail="Not in a corporation.")
         
@@ -373,7 +386,7 @@ async def get_corp_members(current_agent: Agent = Depends(verify_api_key), db: S
     ]
 
 @router.get("/api/corp/vault")
-async def get_corp_vault(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_corp_vault(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     if not current_agent.corporation_id:
         raise HTTPException(status_code=400, detail="You are not in a corporation.")
         
@@ -402,7 +415,7 @@ async def get_corp_vault(current_agent: Agent = Depends(verify_api_key), db: Ses
     }
 
 @router.get("/api/corp/upgrades")
-async def get_corp_upgrades(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
+def get_corp_upgrades(current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     if not current_agent.corporation_id:
         raise HTTPException(status_code=400, detail="You are not in a corporation.")
         
@@ -420,8 +433,7 @@ async def get_corp_upgrades(current_agent: Agent = Depends(verify_api_key), db: 
     }
 
 @router.post("/api/corp/upgrade/purchase")
-async def purchase_upgrade(request: Request, current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
-    data = await request.json()
+def purchase_upgrade(data: dict = Body(...), current_agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     category = data.get("category")
     
     if not current_agent.corporation_id:
