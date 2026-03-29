@@ -1,6 +1,6 @@
 """
 Terminal Frontier: Master Miner FSM
-Version 0.4.0 - Universal Resource Extraction (Ore & Gas)
+Version 0.5.0 - Universal Resource Extraction (Ore & Gas)
 """
 import time
 import logging
@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s | [%(levelname)s] %(
 # ---- CONFIGURATION ----
 API_KEY = os.getenv("TF_API_KEY", "YOUR-API-KEY-HERE")
 BASE_URL = os.getenv("TF_BASE_URL", "https://terminal-frontier.pixek.xyz")
-RECHARGE_THRESHOLD = 20
+RECHARGE_THRESHOLD = 30
 # -----------------------
 
 def calculate_mass(agent):
@@ -109,12 +109,25 @@ def main():
                 # DO NOT continue here; let the state machine below handle submitting the MOVE intent.
 
             if energy < RECHARGE_THRESHOLD and state != "CHARGING":
-                client.submit_intent("STOP")
                 state = "CHARGING"
+                
+            if state == "CHARGING":
+                intensity = perception.get("solar_intensity", 100)
+                if energy >= 95:
+                    logging.info("SYSTEM: Energy restored. Resuming operations.")
+                    state = "IDLE"
+                elif intensity > 70:
+                    logging.info(f"CHARGING: Energy {energy}% | Intensity {intensity}% (Waiting for sun)")
+                    client.submit_intent("STOP")
+                else:
+                    # If intensity is poor, check if it's night or just a low solar zone
+                    if agent.get("r", 0) > 66:
+                        logging.warning("CHARGING: Intensity Abyssal. Returning to Hub.")
+                        client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
+                    else:
+                        logging.info(f"CHARGING: Energy {energy}% | Intensity {intensity}% (Waiting for solar cycle)")
+                        client.submit_intent("STOP")
                 continue
-            if energy >= 95 and state == "CHARGING":
-                state = "IDLE"
-            if state == "CHARGING": continue
 
             # 4. State Machine
             if state == "IDLE":

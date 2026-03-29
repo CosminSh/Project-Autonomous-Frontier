@@ -11,7 +11,7 @@ import re
 from bot_client import TFClient
 from dotenv import load_dotenv
 
-VERSION = "0.8.0"
+VERSION = "0.9.0"
 GITHUB_RAW_VERSION_URL = "https://raw.githubusercontent.com/CosminSh/Project-Autonomous-Frontier/main/agent_toolkit/console.py"
 DEFAULT_API_URL = "https://terminal-frontier.pixek.xyz"
 LOCAL_API_URL = "http://localhost:8000"
@@ -455,19 +455,23 @@ class PilotConsole:
             self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
             return "RETREATING"
 
-        if energy < 20:
+        if energy < 30:
             if current_state != "CHARGING":
                 if intensity > 70:
                     self.log(f"SYSTEM: Energy Low ({energy}%). Intensity High. Recharging on-site.")
                     self.client.submit_intent("STOP")
                 else:
-                    self.log(f"SYSTEM: Energy Low ({energy}%). Intensity Poor. Returning to Hub.")
-                    self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
+                    self.log(f"SYSTEM: Energy Low ({energy}%). Intensity Poor ({intensity}%). Waiting for solar recharge or returning to Hub.")
+                    # If in safe zone (r < 6), we can just wait. If in anarchy, maybe return.
+                    if agent.get("r", 0) < 6:
+                        self.client.submit_intent("STOP")
+                    else:
+                        self.log("SYSTEM: In Anarchy Zone. Returning to Hub for safe recharge.")
+                        self.client.submit_intent("MOVE", {"target_q": 0, "target_r": 0})
                     return "CHARGING"
                 return "CHARGING"
-            return "CHARGING"
         
-        if energy >= 90 and current_state == "CHARGING":
+        if energy >= 95 and current_state == "CHARGING":
             self.log("SYSTEM: Power nominal. Resuming Operations.")
             current_state = "IDLE"
 
