@@ -65,14 +65,15 @@ class Agent(Base):
     # Engagement & Performance
     performance_stats = Column(JSON, nullable=True) # Lifetime counters: ores_mined, kills, etc.
     webhook_url = Column(String, nullable=True) # Discord/Slack webhook for alerts
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     
     # Relationships
     arena_profile = relationship("ArenaProfile", back_populates="agent", uselist=False, cascade="all, delete-orphan")
     parts = relationship("ChassisPart", back_populates="agent", cascade="all, delete-orphan")
-    intents = relationship("Intent", back_populates="agent")
-    inventory = relationship("InventoryItem", back_populates="agent")
-    storage = relationship("StorageItem", back_populates="agent")
-    missions = relationship("AgentMission", back_populates="agent")
+    intents = relationship("Intent", back_populates="agent", cascade="all, delete-orphan")
+    inventory = relationship("InventoryItem", back_populates="agent", cascade="all, delete-orphan")
+    storage = relationship("StorageItem", back_populates="agent", cascade="all, delete-orphan")
+    missions = relationship("AgentMission", back_populates="agent", cascade="all, delete-orphan")
 
 class ArenaProfile(Base):
     __tablename__ = "arena_profiles"

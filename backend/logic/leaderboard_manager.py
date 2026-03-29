@@ -38,11 +38,11 @@ def generate_leaderboards(db: Session):
     credit_list = []
     elo_list = []
 
-    # 1. Top Experience
+    # 1. Top Experience (Real Players only)
     try:
         xp_agents = db.execute(
             select(Agent.id, Agent.name, Agent.experience)
-            .where(Agent.is_bot == False)
+            .where(Agent.owner == "player")
             .order_by(Agent.experience.desc())
             .limit(100)
         ).all()
@@ -57,12 +57,12 @@ def generate_leaderboards(db: Session):
     except Exception as e:
         logger.error(f"Error generating XP leaderboard: {e}")
 
-    # 2. Top Credits (SUM of InventoryItems of type 'CREDITS')
+    # 2. Top Credits (Real Players only)
     try:
         credit_query = db.execute(
             select(Agent.id, Agent.name, func.sum(InventoryItem.quantity).label("total_credits"))
             .join(InventoryItem, Agent.id == InventoryItem.agent_id)
-            .where(Agent.is_bot == False, InventoryItem.item_type == "CREDITS")
+            .where(Agent.owner == "player", InventoryItem.item_type == "CREDITS")
             .group_by(Agent.id, Agent.name)
             .order_by(func.sum(InventoryItem.quantity).desc())
             .limit(100)
@@ -78,12 +78,12 @@ def generate_leaderboards(db: Session):
     except Exception as e:
         logger.error(f"Error generating Credits leaderboard: {e}")
 
-    # 3. Arena Rating (From ArenaProfile.elo)
+    # 3. Arena Rating (Real Players only)
     try:
         arena_query = db.execute(
             select(Agent.id, Agent.name, ArenaProfile.elo)
             .join(ArenaProfile, Agent.id == ArenaProfile.agent_id)
-            .where(ArenaProfile.elo > 1000)
+            .where(Agent.owner == "player", ArenaProfile.elo > 1000)
             .order_by(ArenaProfile.elo.desc())
             .limit(100)
         ).all()
@@ -113,15 +113,38 @@ def generate_leaderboards(db: Session):
     del elo_list
     gc.collect()
 
+def purge_expired_guests(db: Session):
+    """Deletes guest accounts older than 24 hours to keep the world clean."""
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import delete
+    
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    try:
+        stmt = delete(Agent).where(Agent.owner == "guest", Agent.created_at < cutoff)
+        result = db.execute(stmt)
+        db.commit()
+        if result.rowcount > 0:
+            logger.info(f"Purge: Removed {result.rowcount} expired guest accounts.")
+    except Exception as e:
+        logger.error(f"Error during guest purge: {e}")
+        db.rollback()
+
 async def start_leaderboard_loop():
-    """Background task to refresh leaderboards periodically."""
+    """Background task to refresh leaderboards periodically and purge guests once per day."""
     import asyncio
+    hour_counter = 0
     while True:
         try:
             with SessionLocal() as db:
                 generate_leaderboards(db)
+                
+                # Run guest purge once every 24 iterations (approx once a day)
+                if hour_counter % 24 == 0:
+                    purge_expired_guests(db)
+                
+                hour_counter += 1
         except Exception as e:
             logger.error(f"Leaderboard loop error: {e}")
         
-        # Sleep for 1 hour (3600 seconds)
+        # Sleep for 1 hour
         await asyncio.sleep(3600)

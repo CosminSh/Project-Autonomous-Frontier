@@ -129,7 +129,7 @@ def guest_login(login_data: GuestLoginRequest, db: Session = Depends(get_db)):
     agent = db.execute(select(Agent).where(Agent.user_email == email)).scalar_one_or_none()
     if not agent:
         agent = Agent(
-            user_email=email, name=name, api_key=str(uuid.uuid4()), owner="player",
+            user_email=email, name=name, api_key=str(uuid.uuid4()), owner="guest",
             q=0, r=0, faction_id=1,
             health=100, max_health=100, energy=100,
             storage_capacity=500.0,
@@ -138,7 +138,8 @@ def guest_login(login_data: GuestLoginRequest, db: Session = Depends(get_db)):
         db.add(agent)
         db.commit()
         db.refresh(agent)
-        db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=1000))
+        # Guest accounts start with 0 credits to prevent exploit laundering.
+        db.add(InventoryItem(agent_id=agent.id, item_type="CREDITS", quantity=0))
         db.add(InventoryItem(agent_id=agent.id, item_type="FIELD_REPAIR_KIT", quantity=2, data={"is_tradable": False}))
         drill_def = PART_DEFINITIONS.get("DRILL_UNIT") or PART_DEFINITIONS.get("DRILL_IRON_BASIC")
         if drill_def:

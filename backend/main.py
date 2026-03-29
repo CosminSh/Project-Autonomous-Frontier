@@ -138,6 +138,7 @@ async def lifespan(app: FastAPI):
         ("corp_storage_items", "data", "JSON"),
         ("agents", "performance_stats", "JSON"),
         ("agents", "webhook_url", "VARCHAR"),
+        ("agents", "created_at", "TIMESTAMP WITH TIME ZONE DEFAULT NOW()"),
     ]
     
     with engine.connect() as conn:
@@ -163,6 +164,9 @@ async def lifespan(app: FastAPI):
             conn.execute(text("UPDATE agents SET is_pitfighter = TRUE WHERE name LIKE '%-PitFighter'"))
             # HEAL: Also fix any Pit Fighters with 0 max_health from broken season resets
             conn.execute(text("UPDATE agents SET max_health = 100, health = 50 WHERE is_pitfighter = TRUE AND max_health <= 0"))
+            conn.commit()
+            # Tag existing guests
+            conn.execute(text("UPDATE agents SET owner = 'guest' WHERE user_email LIKE '%@local.test' AND owner = 'player'"))
             conn.commit()
             logger.info("Migration: Tagged and Healed existing Pit Fighters.")
         except Exception:
