@@ -79,3 +79,31 @@ def admin_trigger_arena(x_admin_key: str = Header(...)):
     except Exception as e:
         logger.error(f"ADMIN: Arena trigger failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/logs")
+def admin_logs(lines: int = 100, x_admin_key: str = Header(...)):
+    """
+    Returns the last N lines of the app.log file.
+    
+    Requires: X-Admin-Key header matching ADMIN_KEY env var.
+    """
+    _check_key(x_admin_key)
+    log_path = "app.log"
+    if not os.path.exists(log_path):
+        return {"status": "error", "message": "Log file not found."}
+    
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            # Efficiently read last N lines
+            # For small files, readlines is fine. 
+            # For 10MB (our rotation limit), it's also okay.
+            all_lines = f.readlines()
+            requested_lines = all_lines[-max(1, min(lines, 1000)):]
+            return {
+                "status": "ok", 
+                "line_count": len(requested_lines),
+                "logs": requested_lines
+            }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

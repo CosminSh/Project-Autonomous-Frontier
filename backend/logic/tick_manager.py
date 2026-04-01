@@ -39,12 +39,25 @@ class TickManager:
             self.tick_count = state.tick_index
 
         while True:
+            _loop_start = time.monotonic()
             try:
+                # 1. Increment local tick count first
                 self.tick_count += 1
+                
+                # 2. Run the tick logic
                 await self._run_tick()
+                
             except Exception as e:
                 logger.error(f"Fatal error in tick {self.tick_count}: {e}", exc_info=True)
-                await asyncio.sleep(5)
+                
+                # If we crashed, we should wait until the FULL expected tick duration has passed
+                # to prevent the server from "racing" through ticks and getting out of sync with clients.
+                elapsed = time.monotonic() - _loop_start
+                expected = (PHASE_SCAN_DURATION + PHASE_DECIDE_DURATION + PHASE_EXECUTE_DURATION)
+                sleep_time = max(5, expected - elapsed)
+                
+                logger.warning(f"Tick {self.tick_count} failed. Sleeping {sleep_time:.1f}s before next cycle.")
+                await asyncio.sleep(sleep_time)
 
     async def _run_tick(self):
         """Executes a single game tick across three phases."""
@@ -278,7 +291,8 @@ class TickManager:
         # Cleanup Audit Logs older than 72 hours every 200 ticks
         if self.tick_count % 200 == 0:
             log_cutoff = datetime.now(timezone.utc) - timedelta(hours=72)
-            db.execute(delete(AuditLog).where(AuditLog.created_at < log_cutoff))
+            # Corrected column name: models.AuditLog uses 'time' instead of 'created_at'
+            db.execute(delete(AuditLog).where(AuditLog.time < log_cutoff))
             logger.info("TickManager: Purged audit logs older than 72h.")
         if result.rowcount > 0:
             logger.info(f"Cleaned up {result.rowcount} old chat messages.")
