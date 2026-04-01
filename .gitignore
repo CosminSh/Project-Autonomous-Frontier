@@ -38,3 +38,4 @@ agent_toolkit/__pycache__/
 
 # App logs
 app.log
+*.log
