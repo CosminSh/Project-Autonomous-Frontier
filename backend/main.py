@@ -213,6 +213,14 @@ async def add_security_headers(request: Request, call_next):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         
+        # ── Cache Bashing for API Routes ──
+        # Prevents CDNs (Cloudflare) or Browsers from caching the tick/state,
+        # which was causing a 1-2 minute UI delay (6 ticks lag).
+        if request.url.path.startswith("/api") or request.url.path == "/state":
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        
         return response
     except Exception as e:
         import traceback
