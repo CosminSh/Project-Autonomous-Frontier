@@ -2,24 +2,20 @@ from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, JSO
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.ext.associationproxy import association_proxy
 
 Base = declarative_base()
 
-class Agent(Base):
-    __tablename__ = "agents"
-
+class AgentStats(Base):
+    __tablename__ = "agent_stats"
     id = Column(Integer, primary_key=True, index=True)
-    user_email = Column(String, unique=True, index=True)
-    api_key = Column(String, unique=True, index=True)
-    owner = Column(String, index=True)
-    name = Column(String, unique=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), unique=True, index=True)
     
-    # Primary Stats
     health = Column(Integer, server_default="100")
     max_health = Column(Integer, server_default="100")
-    energy = Column(Integer, server_default="100") # Changed from capacitor
+    energy = Column(Integer, server_default="100")
     damage = Column(Integer, server_default="10")
-    accuracy = Column(Integer, server_default="15") # Buffed from 12
+    accuracy = Column(Integer, server_default="15")
     speed = Column(Integer, server_default="10")
     armor = Column(Integer, server_default="5")
     overclock = Column(Integer, server_default="10")
@@ -27,45 +23,115 @@ class Agent(Base):
     storage_capacity = Column(Float, server_default="500.0")
     mining_yield = Column(Integer, server_default="10")
     
-    # Reward & Efficiency Attributes
     loot_bonus = Column(Float, server_default="0.0")
-    energy_save = Column(Integer, server_default="0") # Percentage chance to skip energy cost
-    wear_resistance = Column(Float, server_default="0.0") # Percentage reduction (0.0 to 1.0)
+    energy_save = Column(Integer, server_default="0")
+    wear_resistance = Column(Float, server_default="0.0")
 
+    agent = relationship("Agent", back_populates="stats")
+
+class AgentState(Base):
+    __tablename__ = "agent_state"
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), unique=True, index=True)
     
-    # State / Status
     is_bot = Column(Boolean, default=False)
     is_feral = Column(Boolean, default=False)
     is_pitfighter = Column(Boolean, default=False)
-    is_aggressive = Column(Boolean, default=False) # Will attack on sight if feral
+    is_aggressive = Column(Boolean, default=False)
     
-    # Location
-    q = Column(Integer, nullable=False)
-    r = Column(Integer, nullable=False)
+    q = Column(Integer, nullable=False, default=0)
+    r = Column(Integer, nullable=False, default=0)
     
-    # Allegiance
-    faction_id = Column(Integer, default=1) # 1: Cybernetics, 2: Industrials, 3: Scavengers
-    squad_id = Column(Integer, nullable=True, index=True)
-    pending_squad_invite = Column(Integer, nullable=True) # ID of the squad inviting this agent
-    corporation_id = Column(Integer, ForeignKey("corporations.id"), nullable=True, index=True)
-    corp_role = Column(String, server_default="MEMBER") # CEO, OFFICER, MEMBER, INITIATE
     heat = Column(Integer, server_default="0", index=True)
     overclock_ticks = Column(Integer, server_default="0")
     wear_and_tear = Column(Float, server_default="0.0")
     last_faction_change_tick = Column(Integer, server_default="0")
     last_attacked_tick = Column(Integer, server_default="0")
-    unlocked_recipes = Column(JSON, nullable=True) # List of strings: ["DRILL_UNIT", "ENGINE_UNIT"]
-    last_daily_reward = Column(DateTime(timezone=True), nullable=True)
     is_in_anarchy_zone = Column(Boolean, server_default="FALSE")
+
+    agent = relationship("Agent", back_populates="state")
+
+class AgentProgression(Base):
+    __tablename__ = "agent_progression"
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), unique=True, index=True)
     
-    # Leveling
     level = Column(Integer, server_default="1")
     experience = Column(Integer, server_default="0")
+    unlocked_recipes = Column(JSON, nullable=True)
+    last_daily_reward = Column(DateTime(timezone=True), nullable=True)
+    performance_stats = Column(JSON, nullable=True)
     
-    # Engagement & Performance
-    performance_stats = Column(JSON, nullable=True) # Lifetime counters: ores_mined, kills, etc.
-    webhook_url = Column(String, nullable=True) # Discord/Slack webhook for alerts
+    agent = relationship("Agent", back_populates="progression")
+
+class Agent(Base):
+    __tablename__ = "agents"
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.stats = AgentStats()
+        self.state = AgentState()
+        self.progression = AgentProgression()
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_email = Column(String, unique=True, index=True)
+    api_key = Column(String, unique=True, index=True)
+    owner = Column(String, index=True)
+    name = Column(String, unique=True, index=True)
+    
+    # Allegiance / Identity (Kept on main model for Join simplicity and Foreign Keys)
+    faction_id = Column(Integer, default=1)
+    squad_id = Column(Integer, nullable=True, index=True)
+    pending_squad_invite = Column(Integer, nullable=True)
+    corporation_id = Column(Integer, ForeignKey("corporations.id"), nullable=True, index=True)
+    corp_role = Column(String, server_default="MEMBER")
+    
+    webhook_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    # 1-to-1 Composition Relationships
+    stats = relationship("AgentStats", back_populates="agent", uselist=False, cascade="all, delete-orphan")
+    state = relationship("AgentState", back_populates="agent", uselist=False, cascade="all, delete-orphan")
+    progression = relationship("AgentProgression", back_populates="agent", uselist=False, cascade="all, delete-orphan")
+
+    # Association Proxies (Stats)
+    health = association_proxy("stats", "health")
+    max_health = association_proxy("stats", "max_health")
+    energy = association_proxy("stats", "energy")
+    damage = association_proxy("stats", "damage")
+    accuracy = association_proxy("stats", "accuracy")
+    speed = association_proxy("stats", "speed")
+    armor = association_proxy("stats", "armor")
+    overclock = association_proxy("stats", "overclock")
+    max_mass = association_proxy("stats", "max_mass")
+    storage_capacity = association_proxy("stats", "storage_capacity")
+    mining_yield = association_proxy("stats", "mining_yield")
+    loot_bonus = association_proxy("stats", "loot_bonus")
+    energy_save = association_proxy("stats", "energy_save")
+    wear_resistance = association_proxy("stats", "wear_resistance")
+
+    # Association Proxies (State)
+    is_bot = association_proxy("state", "is_bot")
+    is_feral = association_proxy("state", "is_feral")
+    is_pitfighter = association_proxy("state", "is_pitfighter")
+    is_aggressive = association_proxy("state", "is_aggressive")
+    q = association_proxy("state", "q")
+    r = association_proxy("state", "r")
+    heat = association_proxy("state", "heat")
+    overclock_ticks = association_proxy("state", "overclock_ticks")
+    wear_and_tear = association_proxy("state", "wear_and_tear")
+    last_faction_change_tick = association_proxy("state", "last_faction_change_tick")
+    last_attacked_tick = association_proxy("state", "last_attacked_tick")
+    is_in_anarchy_zone = association_proxy("state", "is_in_anarchy_zone")
+
+    # Association Proxies (Progression)
+    level = association_proxy("progression", "level")
+    experience = association_proxy("progression", "experience")
+    unlocked_recipes = association_proxy("progression", "unlocked_recipes")
+    last_daily_reward = association_proxy("progression", "last_daily_reward")
+    performance_stats = association_proxy("progression", "performance_stats")
     
     # Relationships
     arena_profile = relationship("ArenaProfile", back_populates="agent", uselist=False, cascade="all, delete-orphan")

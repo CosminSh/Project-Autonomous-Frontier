@@ -43,7 +43,8 @@ SMELTING_RECIPES = {
     "IRON_ORE": "IRON_INGOT",
     "COPPER_ORE": "COPPER_INGOT",
     "GOLD_ORE": "GOLD_INGOT",
-    "COBALT_ORE": "COBALT_INGOT"
+    "COBALT_ORE": "COBALT_INGOT",
+    "TITANIUM_ORE": "TITANIUM_INGOT"
 }
 SMELTING_RATIO = 5  # 5 Ore -> 1 Ingot
 SMELTING_MAX_PER_TICK = 1
@@ -51,7 +52,8 @@ SMELTING_ENERGY_COSTS = {
     "IRON_ORE": 5,
     "COPPER_ORE": 10,
     "GOLD_ORE": 15,
-    "COBALT_ORE": 20
+    "COBALT_ORE": 20,
+    "TITANIUM_ORE": 25
 }
 
 CRAFTING_RECIPES = {
@@ -435,8 +437,8 @@ PART_DEFINITIONS = {
 # ─────────────────────────────────────────────────────────────────────────────
 ITEM_WEIGHTS = {
     "CREDITS": 0.0,
-    "IRON_ORE": 1.0, "COPPER_ORE": 1.2, "GOLD_ORE": 2.5, "COBALT_ORE": 5.0,
-    "IRON_INGOT": 4.0, "COPPER_INGOT": 3.0, "GOLD_INGOT": 2.0, "COBALT_INGOT": 1.0,
+    "IRON_ORE": 1.0, "COPPER_ORE": 1.2, "GOLD_ORE": 2.5, "COBALT_ORE": 5.0, "TITANIUM_ORE": 6.5,
+    "IRON_INGOT": 4.0, "COPPER_INGOT": 3.0, "GOLD_INGOT": 2.0, "COBALT_INGOT": 1.0, "TITANIUM_INGOT": 0.5,
     "EMPTY_CANISTER": 5.0, "HE3_CANISTER": 8.0, "HELIUM_GAS": 1.0,
     "UPGRADE_MODULE": 2.0, "REPAIR_KIT": 5.0, "FIELD_REPAIR_KIT": 8.0, "CORE_VOUCHER": 0.5,
     "SCRAP_METAL": 1.0, "ELECTRONICS": 0.5,
@@ -455,10 +457,12 @@ BASE_CAPACITY = 100.0
 # Mining Tier Logic
 # ─────────────────────────────────────────────────────────────────────────────
 MINING_TIERS = {
-    "IRON_ORE": {"tier": 1, "name": "Iron"},
-    "COPPER_ORE": {"tier": 2, "name": "Copper"},
-    "GOLD_ORE": {"tier": 3, "name": "Gold"},
-    "COBALT_ORE": {"tier": 4, "name": "Cobalt"}
+    "IRON_ORE": {"tier": 1, "name": "Iron", "hardness": 5},
+    "COPPER_ORE": {"tier": 2, "name": "Copper", "hardness": 15},
+    "GOLD_ORE": {"tier": 3, "name": "Gold", "hardness": 50},
+    "COBALT_ORE": {"tier": 4, "name": "Cobalt", "hardness": 150},
+    "TITANIUM_ORE": {"tier": 5, "name": "Titanium", "hardness": 400},
+    "HELIUM_GAS": {"tier": 1, "name": "Helium", "hardness": 50}
 }
 
 DRILL_TIERS = {

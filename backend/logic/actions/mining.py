@@ -123,7 +123,10 @@ async def handle_mine(db, agent, intent, tick_count, manager):
     roll = random.uniform(0.8, 1.2)
     base_yield = (agent.mining_yield or 10) * roll * (hex_data.resource_density or 1.0)
     if (agent.overclock_ticks or 0) > 0: base_yield *= 2.0
-    yield_amount = max(1, int(base_yield))
+    
+    # 6b. Apply hardness divisor based on tier
+    hardness = MINING_TIERS.get(res_name, {}).get("hardness", 1.0)
+    yield_amount = max(1, int(base_yield / hardness))
 
     max_yield = int(space_remaining / item_weight) if item_weight > 0 else yield_amount
     yield_amount = min(yield_amount, max_yield)

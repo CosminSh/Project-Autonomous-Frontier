@@ -465,12 +465,26 @@ export class GameAPI {
 
         try {
             const result = await this._post('/api/intent', { action_type: actionType, data });
-            this.game.lastIntent = { type: actionType, time: Date.now() };
+            
+            // Flag stat-changing actions for UI feedback
+            const statChangingActions = ['EQUIP', 'UNEQUIP', 'UPGRADE', 'RESET_WEAR'];
+            const isStatChanging = statChangingActions.includes(actionType);
+            
+            this.game.lastIntent = { 
+                type: actionType, 
+                time: Date.now(),
+                isStatChanging: isStatChanging 
+            };
+
             if (this.game.terminal) {
                 this.game.terminal.log(`✓ ACCEPTED — Scheduled for Tick #${result.tick}`, 'success');
             }
             if (this.game.ui && this.game.ui.showToast) {
-                this.game.ui.showToast(`${actionType} Intent Scheduled!`, 'success');
+                if (isStatChanging) {
+                    this.game.ui.showToast(`System Configuration Scheduled! Stats will update after Tick #${result.tick}.`, 'info');
+                } else {
+                    this.game.ui.showToast(`${actionType} Intent Scheduled!`, 'success');
+                }
             }
         } catch (e) {
             const detail = e.message || 'Server error';

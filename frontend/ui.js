@@ -2798,6 +2798,8 @@ Intent payload format:
                     directive = "Industry Protocol: Refining ores into ingots.";
                 } else if (intent === 'SCAN') {
                     directive = "Perception Active: Mapping orbital sector.";
+                } else if (this.game.lastIntent.isStatChanging) {
+                    directive = "System Configuration Pending: Stats recalibrating next tick...";
                 }
             }
 
