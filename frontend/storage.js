@@ -3,6 +3,22 @@
  * Handles UI rendering and API interactions for the Storage system.
  */
 
+const STORAGE_HTML_ESCAPES = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+};
+
+function escapeStorageHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => STORAGE_HTML_ESCAPES[ch]);
+}
+
+function safeStorageArg(value) {
+    return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 class StorageUI {
     constructor() {
         this.capacity = 500;
@@ -100,11 +116,11 @@ class StorageUI {
                 storageList.innerHTML = this.items.map(item => `
                     <div class="flex justify-between items-center p-2 bg-slate-900/40 border border-slate-800 rounded group hover:border-sky-500/30 transition-all">
                         <div>
-                            <span class="text-[10px] text-slate-300 font-bold uppercase">${item.type.replace(/_/g, ' ')}</span>
-                            <span class="text-[9px] text-slate-500 block">Stored: ${item.quantity}</span>
+                            <span class="text-[10px] text-slate-300 font-bold uppercase">${escapeStorageHtml(item.type).replace(/_/g, ' ')}</span>
+                            <span class="text-[9px] text-slate-500 block">Stored: ${Number(item.quantity) || 0}</span>
                         </div>
                         <div class="flex gap-1">
-                            <button onclick="window.storageUI.withdrawPartial('${item.type}', ${item.quantity})"
+                            <button onclick="window.storageUI.withdrawPartial('${safeStorageArg(item.type)}', ${Number(item.quantity) || 0})"
                                     class="bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-slate-950 px-2 py-1 rounded text-[8px] orbitron font-bold border border-sky-500/20 transition-all">
                                 WITHDRAW
                             </button>
@@ -143,10 +159,10 @@ class StorageUI {
                 depositList.innerHTML = inv.map(item => `
                     <div class="flex justify-between items-center p-2 bg-slate-900/40 border border-slate-800 rounded group hover:border-emerald-500/30 transition-all">
                         <div>
-                            <span class="text-[10px] text-slate-300 font-bold uppercase">${item.type.replace(/_/g, ' ')}</span>
-                            <span class="text-[9px] text-slate-500 block">Cargo: ${item.quantity}</span>
+                            <span class="text-[10px] text-slate-300 font-bold uppercase">${escapeStorageHtml(item.type).replace(/_/g, ' ')}</span>
+                            <span class="text-[9px] text-slate-500 block">Cargo: ${Number(item.quantity) || 0}</span>
                         </div>
-                        <button onclick="window.storageUI.depositPartial('${item.type}', ${item.quantity})"
+                        <button onclick="window.storageUI.depositPartial('${safeStorageArg(item.type)}', ${Number(item.quantity) || 0})"
                                 class="bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 px-2 py-1 rounded text-[8px] orbitron font-bold border border-emerald-500/20 transition-all">
                             DEPOSIT
                         </button>

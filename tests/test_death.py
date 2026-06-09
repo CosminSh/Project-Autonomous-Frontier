@@ -62,7 +62,7 @@ async def test_feral_safe_zone():
     db.commit()
     
     # Run brain
-    process_feral_brain(db, feral, 0)
+    process_feral_brain(db, feral, 0, [{"q": player.q, "r": player.r, "id": player.id}])
     
     # Check intents
     intents = db.execute(select(Intent).where(Intent.agent_id == feral.id)).scalars().all()
@@ -81,7 +81,7 @@ async def test_feral_safe_zone():
     for i in intents: db.delete(i)
     db.commit()
     
-    process_feral_brain(db, feral, 1)
+    process_feral_brain(db, feral, 1, [{"q": player.q, "r": player.r, "id": player.id}])
     intents = db.execute(select(Intent).where(Intent.agent_id == feral.id)).scalars().all()
     attack_intents = [i for i in intents if i.action_type == "ATTACK"]
     assert len(attack_intents) == 1

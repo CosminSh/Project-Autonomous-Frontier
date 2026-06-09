@@ -67,7 +67,11 @@ export class AuthManager {
     async handleGuestLogin() {
         console.log("--- INITIATING GUEST BYPASS ---");
         try {
-            const res = await fetch('/auth/guest', { method: 'POST' });
+            const res = await fetch('/auth/guest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
             console.log("Guest Auth Status:", res.status);
 
             if (res.status === 405) {

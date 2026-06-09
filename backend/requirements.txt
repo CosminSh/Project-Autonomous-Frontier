@@ -9,6 +9,7 @@ python-jose[cryptography]
 passlib[bcrypt]
 google-auth
 requests
+aiohttp
 alembic
 psutil
 websockets>=12.0

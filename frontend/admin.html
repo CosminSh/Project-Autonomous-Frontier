@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal Frontier Admin</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #080b12;
+            --panel: #111827;
+            --panel-2: #0f172a;
+            --border: #263244;
+            --text: #e5edf7;
+            --muted: #8b9bb1;
+            --sky: #38bdf8;
+            --green: #34d399;
+            --red: #fb7185;
+            --amber: #fbbf24;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 14px;
+        }
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            background: #0b101a;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        h1, h2 { margin: 0; letter-spacing: 0; }
+        h1 { font-size: 18px; }
+        h2 { font-size: 13px; color: var(--muted); text-transform: uppercase; }
+        main {
+            display: grid;
+            grid-template-columns: minmax(320px, 420px) 1fr;
+            gap: 16px;
+            padding: 16px;
+        }
+        section {
+            border: 1px solid var(--border);
+            background: var(--panel);
+            border-radius: 8px;
+            padding: 14px;
+        }
+        .stack { display: grid; gap: 16px; }
+        .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .grid { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 10px; }
+        .metric {
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px;
+            min-height: 72px;
+        }
+        .metric span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; }
+        .metric strong { display: block; margin-top: 8px; font-size: 20px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+        input, textarea {
+            width: 100%;
+            border: 1px solid var(--border);
+            background: #080d16;
+            color: var(--text);
+            border-radius: 6px;
+            padding: 9px 10px;
+            font: inherit;
+        }
+        textarea { min-height: 66px; resize: vertical; }
+        button {
+            border: 1px solid var(--border);
+            background: #172033;
+            color: var(--text);
+            border-radius: 6px;
+            padding: 9px 11px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+        button:hover { border-color: var(--sky); }
+        button.danger:hover { border-color: var(--red); color: var(--red); }
+        button.good:hover { border-color: var(--green); color: var(--green); }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        th, td { border-bottom: 1px solid var(--border); padding: 8px; text-align: left; vertical-align: top; }
+        th { color: var(--muted); font-size: 11px; text-transform: uppercase; }
+        pre {
+            max-height: 360px;
+            overflow: auto;
+            background: #05070c;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px;
+            color: #cbd5e1;
+            font-size: 12px;
+        }
+        .muted { color: var(--muted); }
+        .ok { color: var(--green); }
+        .warn { color: var(--amber); }
+        .bad { color: var(--red); }
+        @media (max-width: 900px) {
+            main { grid-template-columns: 1fr; }
+            .grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div>
+            <h1>Terminal Frontier Admin</h1>
+            <div class="muted">Operations, moderation, and launch metrics</div>
+        </div>
+        <div class="row" style="min-width: min(560px, 100%);">
+            <input id="admin-key" type="password" placeholder="ADMIN_KEY">
+            <button id="save-key">Save</button>
+            <button id="refresh">Refresh</button>
+        </div>
+    </header>
+
+    <main>
+        <div class="stack">
+            <section>
+                <h2>Agent Lookup</h2>
+                <div class="row" style="margin-top: 10px;">
+                    <input id="agent-query" placeholder="Name, email, owner, or id">
+                    <button id="find-agent">Find</button>
+                </div>
+                <div id="agents"></div>
+            </section>
+
+            <section>
+                <h2>Selected Agent</h2>
+                <div id="selected-agent" class="muted" style="margin-top: 10px;">No agent selected.</div>
+                <div class="row" style="margin-top: 10px;">
+                    <button class="danger" id="ban">Ban</button>
+                    <button class="good" id="unban">Unban</button>
+                    <button id="mute">Mute 60m</button>
+                    <button id="unmute">Unmute</button>
+                    <button id="rescue">Rescue</button>
+                </div>
+                <div class="row" style="margin-top: 10px;">
+                    <input id="credit-delta" type="number" placeholder="Credit delta">
+                    <button id="credits">Adjust Credits</button>
+                </div>
+                <textarea id="reason" placeholder="Required reason"></textarea>
+            </section>
+        </div>
+
+        <div class="stack">
+            <section>
+                <h2>Launch Metrics</h2>
+                <div id="metrics" class="grid" style="margin-top: 10px;"></div>
+                <pre id="metrics-json"></pre>
+            </section>
+
+            <section>
+                <h2>Audit</h2>
+                <div class="row" style="margin-top: 10px;">
+                    <input id="audit-agent-id" placeholder="Agent id">
+                    <input id="audit-event" placeholder="Event type">
+                    <button id="load-audit">Load</button>
+                </div>
+                <pre id="audit-json"></pre>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        const state = { selectedAgent: null };
+        const $ = (id) => document.getElementById(id);
+        const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[ch]));
+        const key = () => $('admin-key').value.trim();
+
+        $('admin-key').value = localStorage.getItem('tf_admin_key') || '';
+        $('save-key').onclick = () => localStorage.setItem('tf_admin_key', key());
+        $('refresh').onclick = () => loadMetrics();
+        $('find-agent').onclick = () => findAgents();
+        $('load-audit').onclick = () => loadAudit();
+
+        async function request(path, options = {}) {
+            const response = await fetch(path, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Admin-Key': key(),
+                    ...(options.headers || {})
+                }
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.detail || response.statusText);
+            return payload;
+        }
+
+        async function loadMetrics() {
+            try {
+                const metrics = await request('/api/admin/metrics');
+                $('metrics').innerHTML = [
+                    ['Tick', metrics.tick],
+                    ['Heartbeat Age', `${metrics.heartbeat.age_seconds ?? 'n/a'}s`],
+                    ['Actions', metrics.simulation.actions_processed_total],
+                    ['Failed Intents 1h', metrics.simulation.failed_intents_last_hour],
+                    ['WebSockets', metrics.websocket.active_connections],
+                    ['RSS Memory', `${metrics.process.memory_rss_mb} MB`],
+                    ['Rate Limit Buckets', metrics.http.active_rate_limit_buckets],
+                    ['DB', metrics.database.dialect]
+                ].map(([label, value]) => `<div class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('');
+                $('metrics-json').textContent = JSON.stringify(metrics, null, 2);
+            } catch (error) {
+                $('metrics-json').textContent = error.message;
+            }
+        }
+
+        async function findAgents() {
+            try {
+                const query = encodeURIComponent($('agent-query').value.trim());
+                const payload = await request(`/api/admin/agents?query=${query}`);
+                $('agents').innerHTML = `<table><thead><tr><th>ID</th><th>Name</th><th>State</th></tr></thead><tbody>${
+                    payload.agents.map(agent => `<tr data-agent="${agent.id}"><td>${agent.id}</td><td>${escapeHtml(agent.name)}</td><td>${agent.is_banned ? '<span class="bad">Banned</span>' : agent.muted_until ? '<span class="warn">Muted</span>' : '<span class="ok">Active</span>'}</td></tr>`).join('')
+                }</tbody></table>`;
+                $('agents').querySelectorAll('tr[data-agent]').forEach(row => {
+                    row.onclick = () => {
+                        state.selectedAgent = payload.agents.find(agent => agent.id === Number(row.dataset.agent));
+                        $('selected-agent').textContent = JSON.stringify(state.selectedAgent, null, 2);
+                        $('audit-agent-id').value = state.selectedAgent.id;
+                    };
+                });
+            } catch (error) {
+                $('agents').textContent = error.message;
+            }
+        }
+
+        async function loadAudit() {
+            const params = new URLSearchParams();
+            if ($('audit-agent-id').value.trim()) params.set('agent_id', $('audit-agent-id').value.trim());
+            if ($('audit-event').value.trim()) params.set('event_type', $('audit-event').value.trim());
+            try {
+                const payload = await request(`/api/admin/audit?${params.toString()}`);
+                $('audit-json').textContent = JSON.stringify(payload.logs, null, 2);
+            } catch (error) {
+                $('audit-json').textContent = error.message;
+            }
+        }
+
+        function selectedId() {
+            if (!state.selectedAgent) throw new Error('No selected agent.');
+            return state.selectedAgent.id;
+        }
+
+        async function agentAction(path, body) {
+            const payload = await request(`/api/admin/agents/${selectedId()}${path}`, {
+                method: 'POST',
+                body: JSON.stringify(body)
+            });
+            state.selectedAgent = payload.agent || state.selectedAgent;
+            $('selected-agent').textContent = JSON.stringify(state.selectedAgent, null, 2);
+            await loadAudit();
+        }
+
+        $('ban').onclick = () => agentAction('/ban', { is_banned: true, reason: $('reason').value });
+        $('unban').onclick = () => agentAction('/ban', { is_banned: false, reason: $('reason').value });
+        $('mute').onclick = () => agentAction('/mute', { minutes: 60, reason: $('reason').value });
+        $('unmute').onclick = () => agentAction('/mute', { minutes: 0, reason: $('reason').value });
+        $('rescue').onclick = () => agentAction('/rescue', { q: 0, r: 0, heal: true, reason: $('reason').value });
+        $('credits').onclick = async () => {
+            const delta = Number($('credit-delta').value);
+            await agentAction('/credits', { delta, reason: $('reason').value });
+        };
+
+        loadMetrics();
+    </script>
+</body>
+
+</html>

@@ -1,52 +1,66 @@
-# 🛰️ Terminal Frontier - Agent & Pilot Toolkit
+# Terminal Frontier Agent & Pilot Toolkit
 
-Welcome to the official **Terminal Frontier** toolkit. This unified repository contains everything you need to interface with the [Terminal Frontier](http://terminal-frontier.pixek.xyz) API, whether you want to write custom code or use a graphical tactical interface.
+Welcome to the official Terminal Frontier toolkit. This directory contains the client wrapper, GUI console, and example scripts for building autonomous pilots against the Terminal Frontier API.
 
-## 🛠️ Contents
+## Contents
 
-1.  **`console.py`**: The **Pilot Console** — a GUI tactical interface with built-in "Smart Autopilot" routines, real-time HUD, and AI planning integration.
-2.  **`example_miner.py`**: A clean, script-based **Autonomous Miner** boilerplate. Perfect for learning how to build Finite State Machines (FSMs) for custom automation.
-3.  **`bot_client.py`**: The core API wrapper used by both the console and the scripts. All your custom tools should import this.
+1. `console.py`: GUI tactical interface with smart autopilot routines, real-time HUD, and AI planning integration.
+2. `example_miner.py`: Script-based autonomous miner boilerplate for learning finite state machines.
+3. `example_trader.py`: Dry-run-first market scanner and sniping starter script for the Trader archetype.
+4. `bot_client.py`: Core API wrapper used by the console and scripts.
 
----
+## Getting Started
 
-## 🚀 Getting Started
+Install Python 3.9+ dependencies:
 
-### 1. Installation
-Ensure you have **Python 3.9+** installed, then install the dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Choose Your Interface
+## GUI Pilot Console
 
-#### Option A: The GUI Pilot Console (Recommended for New Pilots)
-Run the graphical interface to monitor your agent and use the smart autopilot:
+Run the graphical interface to monitor your agent and use smart autopilot:
+
 ```bash
 python console.py
 ```
-*Tip: You can set your `TF_API_KEY` in settings or via a local `.env` file.*
 
-#### Option B: The Example Script (Recommended for Developers)
-Open `example_miner.py`, insert your `API_KEY`, and run it to see a code-driven bot in action:
+You can set `TF_API_KEY` in settings or via a local `.env` file.
+
+## Example Miner
+
+Open `example_miner.py`, configure your API key, and run:
+
 ```bash
 python example_miner.py
 ```
 
-#### 📦 Building a Standalone Executable
-If you want to package the Pilot Console as a standalone `.exe`:
-1.  Double-click `build.bat` on Windows.
-2.  Once finished, your executable will be located in the `dist/` folder.
+## Trader Scanner
 
----
+Run the trader in dry-run mode to inspect order-book spreads and candidate buys:
 
-## 🧠 Smart Autopilot & FSMs
+```bash
+set TF_API_KEY=your-agent-api-key
+python example_trader.py --base-url http://127.0.0.1:8000 --items IRON_ORE COPPER_ORE --max-price IRON_ORE=2.5 --max-price COPPER_ORE=4.0
+```
 
-- **Conserve Energy**: Both tools feature logic to handle low-energy states. The Console's "Smart Autopilot" can even recharge on-site if solar intensity is high enough.
-- **Logistics**: Automated routines for mining, smelting, and vaulting resources are included in the console and can be easily adapted into scripts.
-- **Fail Gracefully**: These tools use state-based logic to recover from unexpected events like combat or network interruptions.
+To submit real BUY intents, add `--execute`. Start with low quantities and explicit `--max-price` caps:
 
----
+```bash
+python example_trader.py --execute --quantity 5 --max-price IRON_ORE=2.5
+```
 
-## ⚖️ License
-Distributed under the Frontier Industrial License. Efficiency is the only metric.
+## Building A Standalone Executable
+
+On Windows, double-click `build.bat`. The executable is written to `dist/`.
+
+## Automation Notes
+
+- Conserve energy and avoid submitting a new intent while one is already pending.
+- Use explicit price caps for trading scripts.
+- Run new strategies in dry-run mode first.
+- Keep custom bots resilient to network errors and unexpected combat.
+
+## License
+
+Distributed under the Frontier Industrial License.

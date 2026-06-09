@@ -123,6 +123,7 @@ def _get_wiki_payload():
         }
     }
 
+@router.get("/manual")
 def get_manual():
     wiki = _get_wiki_payload()
     return wiki["manual"]

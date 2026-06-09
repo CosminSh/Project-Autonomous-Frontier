@@ -51,12 +51,16 @@ async def heartbeat_loop():
             
             now_after_sleep = datetime.now(timezone.utc)
             if now_after_sleep.weekday() == 6 and now_after_sleep.hour == 0:
+                db = None
                 try:
                     db = SessionLocal()
-                    reset_arena_season(db)
-                    db.close()
+                    result = reset_arena_season(db, source="scheduler")
+                    logger.info(f"Season reset result: {result}")
                 except Exception as e:
                     logger.error(f"Season reset error: {e}")
+                finally:
+                    if db:
+                        db.close()
 
     asyncio.create_task(_battler_loop())
     asyncio.create_task(_season_loop())

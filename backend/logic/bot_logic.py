@@ -48,8 +48,8 @@ def process_bot_brain(db, agent: Agent, current_tick: int, stations: list, resou
                     db.add(Intent(
                         agent_id=agent.id,
                         tick_index=current_tick + 1,
-                        action_type="FIELD_TRADE",
-                        data={"target_id": target["id"], "price": 0, "items": [{"type": "HE3_CANISTER", "qty": 1}]}
+                        action_type="TRANSFER",
+                        data={"target_id": target["id"], "item_type": "HE3_CANISTER", "quantity": 1}
                     ))
                 else:
                     move_towards(db, agent, target["q"], target["r"], current_tick)

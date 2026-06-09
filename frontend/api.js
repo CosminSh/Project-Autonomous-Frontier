@@ -68,7 +68,7 @@ export class GameAPI {
         if (this.wsRetries >= this.maxWsRetries) return;
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const token = localStorage.getItem('sv_token');
+        const token = localStorage.getItem('sv_api_key');
         const wsUrl = `${protocol}//${window.location.host}/ws` + (token ? `?token=${token}` : '');
         
         try {
@@ -545,7 +545,11 @@ export class GameAPI {
         if (!newPrice || isNaN(newPrice) || Number(newPrice) <= 0) return;
 
         try {
-            await this._post(`/api/market/orders/${orderId}`, { price: Number(newPrice) });
+            await this._fetch(`/api/market/orders/${orderId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ price: Number(newPrice) })
+            });
             if (this.game.terminal) this.game.terminal.log(`✓ Market order #${orderId} price adjusted to $${newPrice}.`, 'success');
             this.pollState();
         } catch (e) { 
@@ -599,9 +603,13 @@ export class GameAPI {
         const actionType = this.game.tradeSide === 'BUY' ? 'BUY' : 'LIST';
         const data = {
             item_type: itemType,
-            quantity: quantity,
-            price: price
+            quantity: quantity
         };
+        if (actionType === 'BUY') {
+            data.max_price = price;
+        } else {
+            data.price = price;
+        }
 
         await this.submitIntent(actionType, data);
     }
@@ -942,6 +950,16 @@ export class GameAPI {
             this.game.ui.showToast(e.message, "error");
         }
     }
+
+    async cancelContract(contractId) {
+        try {
+            await this._post(`/api/contracts/cancel/${contractId}`);
+            this.game.ui.showToast("Contract cancelled. Escrow returned.", "success");
+            this.fetchContracts();
+        } catch (e) {
+            this.game.ui.showToast(e.message, "error");
+        }
+    }
 }
 
 /**
@@ -965,7 +983,7 @@ window.sendGameIntent = async function (actionType, data) {
         if (resp.ok) {
             if (window.game && window.game.terminal) {
                 const result = await resp.json();
-                window.game.terminal.log(`✓ ACCEPTED — Tick #${result.scheduled_tick}`, 'success');
+                window.game.terminal.log(`✓ ACCEPTED — Tick #${result.tick}`, 'success');
             }
         } else {
             console.error('Intent failed');

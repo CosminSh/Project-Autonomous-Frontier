@@ -13,6 +13,8 @@ def verify_api_key(request: Request, db: Session = Depends(get_db)):
     agent = db.execute(select(Agent).where(Agent.api_key == api_key)).scalar_one_or_none()
     if not agent:
         raise HTTPException(status_code=401, detail="Invalid API Key")
+    if agent.is_banned:
+        raise HTTPException(status_code=403, detail="Agent account is banned.")
     return agent
 
 def get_next_tick_index(db: Session):

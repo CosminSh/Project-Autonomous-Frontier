@@ -25,15 +25,23 @@ async def get_my_missions(agent: Agent = Depends(verify_api_key), db: Session = 
     results = []
     for m in available_missions:
         am = progress_map.get(m.id)
+        progress = am.progress if am else 0
+        is_completed = am.is_completed if am else False
+        title = m.mission_type.replace("_", " ")
         results.append({
             "id": m.id,
             "type": m.mission_type,
             "target": m.target_amount,
-            "progress": am.progress if am else 0,
-            "is_completed": am.is_completed if am else False,
+            "target_amount": m.target_amount,
+            "required_quantity": m.target_amount,
+            "progress": progress,
+            "current_quantity": progress,
+            "is_completed": is_completed,
+            "is_turned_in": is_completed,
             "reward_credits": m.reward_credits,
             "item_type": m.item_type,
-            "description": f"{m.mission_type.replace('_', ' ')}: {m.target_amount} {m.item_type if m.item_type else ''}"
+            "title": title,
+            "description": f"{title}: {m.target_amount} {m.item_type if m.item_type else ''}"
         })
     return results
 

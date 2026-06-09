@@ -7,6 +7,22 @@ export const FACTION_NAMES = {
     3: 'Freelancer Core'
 };
 
+const HTML_ESCAPES = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+};
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => HTML_ESCAPES[ch]);
+}
+
+function escapeJsString(value) {
+    return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ');
+}
+
 export class UIManager {
     constructor(game) {
         this.game = game;
@@ -96,7 +112,7 @@ export class UIManager {
             ">>> CHECKING CHASSIS INTEGRITY... OK",
             ">>> POWER ROUTING... NOMINAL",
             ">>> SYNCING ASTROMETRICS...",
-            "TERMINAL FRONTIER v0.9.7 LOADED."
+            "TERMINAL FRONTIER v0.9.8 LOADED."
         ];
 
         let i = 0;
@@ -256,8 +272,8 @@ export class UIManager {
         toast.innerHTML = `
             <span class="text-lg">${icon}</span>
             <div class="flex flex-col">
-                <span class="text-[10px] orbitron font-bold tracking-widest uppercase opacity-70">${type}</span>
-                <span class="text-xs font-semibold">${message}</span>
+                <span class="text-[10px] orbitron font-bold tracking-widest uppercase opacity-70">${escapeHtml(type)}</span>
+                <span class="text-xs font-semibold">${escapeHtml(message)}</span>
             </div>
         `;
 
@@ -577,7 +593,7 @@ export class UIManager {
         }
         if (pendingIntent) {
             this._pendingIntentEl.className = 'border-b border-sky-500/30 pb-2 mb-2 flex flex-col bg-sky-500/5 p-2 rounded-lg border border-sky-500/10';
-            this._pendingIntentEl.innerHTML = `<div class="flex justify-between items-center mb-1"><span class="text-sky-400 font-bold uppercase tracking-widest text-[8px]">Next Action</span></div><div class="flex space-x-2 text-sky-300"><span class="font-bold flex-shrink-0">${pendingIntent.action}</span><span class="truncate">${JSON.stringify(pendingIntent.data)}</span></div>`;
+            this._pendingIntentEl.innerHTML = `<div class="flex justify-between items-center mb-1"><span class="text-sky-400 font-bold uppercase tracking-widest text-[8px]">Next Action</span></div><div class="flex space-x-2 text-sky-300"><span class="font-bold flex-shrink-0">${escapeHtml(pendingIntent.action)}</span><span class="truncate">${escapeHtml(JSON.stringify(pendingIntent.data))}</span></div>`;
             this._pendingIntentEl.classList.remove('hidden');
         } else {
             this._pendingIntentEl.className = 'hidden';
@@ -622,7 +638,7 @@ export class UIManager {
                 if (item.channel === 'PROX' || item.channel === 'LOCAL') badgeColor = 'bg-emerald-600 text-emerald-100';
                 if (item.channel === 'SQUAD') badgeColor = 'bg-sky-600 text-sky-100';
                 if (item.channel === 'CORP') badgeColor = 'bg-amber-600 text-amber-100';
-                entry.innerHTML = `<span class="text-slate-700 font-mono flex-shrink-0">[${time}]</span><span class="${badgeColor} px-1 rounded text-[10px] font-bold tracking-widest leading-none flex items-center flex-shrink-0">${item.channel}</span><span class="text-slate-300 font-bold flex-shrink-0">${item.sender}:</span><span class="text-slate-100" style="word-break: break-all;">${item.message}</span>`;
+                entry.innerHTML = `<span class="text-slate-700 font-mono flex-shrink-0">[${escapeHtml(time)}]</span><span class="${badgeColor} px-1 rounded text-[10px] font-bold tracking-widest leading-none flex items-center flex-shrink-0">${escapeHtml(item.channel)}</span><span class="text-slate-300 font-bold flex-shrink-0">${escapeHtml(item.sender)}:</span><span class="text-slate-100" style="word-break: break-all;">${escapeHtml(item.message)}</span>`;
             } else {
                 let color = 'text-slate-400';
                 if (item.event.startsWith('COMBAT')) color = 'text-rose-400';
@@ -634,17 +650,17 @@ export class UIManager {
                 if (item.details?.log && Array.isArray(item.details.log)) {
                     // Show combat rounds as a sub-list
                     detailsHtml = `<div class="mt-1 pl-4 border-l border-slate-800 space-y-0.5 text-[8px] opacity-80">` +
-                        item.details.log.map(line => `<div>${line}</div>`).join('') +
+                        item.details.log.map(line => `<div>${escapeHtml(line)}</div>`).join('') +
                         `</div>`;
                 } else {
-                    detailsHtml = `<span class="truncate opacity-60">${JSON.stringify(item.details)}</span>`;
+                    detailsHtml = `<span class="truncate opacity-60">${escapeHtml(JSON.stringify(item.details))}</span>`;
                 }
 
                 entry.classList.add(color, 'flex-col', 'space-x-0');
                 entry.innerHTML = `
                     <div class="flex space-x-2">
-                        <span class="text-slate-700 font-mono flex-shrink-0">[${time}]</span>
-                        <span class="font-bold flex-shrink-0">${item.event}</span>
+                        <span class="text-slate-700 font-mono flex-shrink-0">[${escapeHtml(time)}]</span>
+                        <span class="font-bold flex-shrink-0">${escapeHtml(item.event)}</span>
                     </div>
                     ${detailsHtml}
                 `;
@@ -702,22 +718,29 @@ export class UIManager {
             row.className = "border-b border-slate-800/50 hover:bg-slate-800/20 transition-all group";
             const color = order.type === 'SELL' ? 'text-sky-400' : 'text-amber-400';
             const isMine = myOrderIds.has(order.id);
+            const item = String(order.item || '');
+            const safeItem = escapeHtml(item.replace('_', ' '));
+            const safeItemArg = escapeJsString(item);
+            const safeType = order.type === 'SELL' ? 'SELL' : 'BUY';
+            const qty = Number(order.qty ?? order.quantity ?? 0);
+            const price = Number(order.price || 0);
+            const orderId = Number(order.id);
 
             row.innerHTML = `
                 <td class="py-4 font-bold text-slate-300">
-                    ${order.item.replace('_', ' ')}
+                    ${safeItem}
                     ${isMine ? '<span class="ml-2 px-1.5 py-0.5 rounded text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 tracking-widest hidden lg:inline-block">YOURS</span>' : ''}
                 </td>
-                <td class="py-4"><span class="px-2 py-0.5 rounded-full text-[7px] font-black border ${order.type === 'SELL' ? 'bg-sky-500/10 border-sky-500/30 text-sky-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-400'}">${order.type}</span></td>
-                <td class="py-4 font-mono text-slate-400">${order.quantity}</td>
-                <td class="py-4 font-bold ${color}">$${(order.price || 0).toFixed(2)}</td>
+                <td class="py-4"><span class="px-2 py-0.5 rounded-full text-[7px] font-black border ${safeType === 'SELL' ? 'bg-sky-500/10 border-sky-500/30 text-sky-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-400'}">${safeType}</span></td>
+                <td class="py-4 font-mono text-slate-400">${qty}</td>
+                <td class="py-4 font-bold ${color}">$${price.toFixed(2)}</td>
                 <td class="py-4 text-right">
                     ${isMine ? `
-                        <button class="opacity-0 group-hover:opacity-100 bg-rose-800/50 hover:bg-rose-700 text-rose-300 px-3 py-1 rounded text-[9px] font-bold mr-1 border border-rose-500/30 transition-all" onclick="window.game.api.cancelMarketOrder(${order.id})">CANCEL</button>
-                        <button class="opacity-0 group-hover:opacity-100 bg-sky-800/50 hover:bg-sky-700 text-sky-300 px-3 py-1 rounded text-[9px] font-bold border border-sky-500/30 transition-all" onclick="window.game.api.adjustMarketOrder(${order.id}, ${order.price})">ADJUST</button>
+                        <button class="opacity-0 group-hover:opacity-100 bg-rose-800/50 hover:bg-rose-700 text-rose-300 px-3 py-1 rounded text-[9px] font-bold mr-1 border border-rose-500/30 transition-all" onclick="window.game.api.cancelMarketOrder(${orderId})">CANCEL</button>
+                        <button class="opacity-0 group-hover:opacity-100 bg-sky-800/50 hover:bg-sky-700 text-sky-300 px-3 py-1 rounded text-[9px] font-bold border border-sky-500/30 transition-all" onclick="window.game.api.adjustMarketOrder(${orderId}, ${price})">ADJUST</button>
                     ` : `
-                        <button class="opacity-0 group-hover:opacity-100 bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded text-[9px] font-bold transition-all" onclick="game.ui.quickTrade('${order.item}', ${order.price}, '${order.type}')">
-                            ${order.type === 'SELL' ? 'BUY' : 'SELL'}
+                        <button class="opacity-0 group-hover:opacity-100 bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded text-[9px] font-bold transition-all" onclick="game.ui.quickTrade('${safeItemArg}', ${price}, '${safeType}')">
+                            ${safeType === 'SELL' ? 'BUY' : 'SELL'}
                         </button>
                     `}
                 </td>
@@ -742,11 +765,14 @@ export class UIManager {
     updateMarketDepthUI(data) {
         const body = document.getElementById('market-listings-body');
         if (!body || this.marketViewMode !== 'DEPTH') return;
+        const item = String(data.item || '');
+        const safeItem = escapeHtml(item.replace('_', ' '));
+        const safeItemArg = escapeJsString(item);
 
         let html = `
             <tr><td colspan="5" class="py-2 text-center bg-slate-900/50 border-y border-slate-800">
                 <div class="flex justify-center items-center space-x-4">
-                    <span class="text-[10px] orbitron font-bold text-sky-400">ORDER BOOK: ${data.item.replace('_', ' ')}</span>
+                    <span class="text-[10px] orbitron font-bold text-sky-400">ORDER BOOK: ${safeItem}</span>
                     <button onclick="game.ui.toggleMarketView()" class="text-[8px] text-slate-500 hover:text-white underline">BACK TO LISTINGS</button>
                 </div>
             </td></tr>
@@ -760,13 +786,15 @@ export class UIManager {
 
         // Sell Orders (Asks) - Reddish/Sky
         data.sell_orders.forEach(o => {
+            const price = Number(o.price || 0);
+            const qty = Number(o.qty || 0);
             html += `
                 <tr class="group hover:bg-sky-500/5 transition-all">
                     <td class="py-2"><span class="px-1.5 py-0.5 rounded text-[7px] font-black bg-sky-500/10 border border-sky-500/30 text-sky-400">ASK</span></td>
-                    <td class="py-2 font-bold text-sky-400">$${(o.price || 0).toFixed(2)}</td>
-                    <td class="py-2 font-mono text-slate-400">${o.qty}</td>
+                    <td class="py-2 font-bold text-sky-400">$${price.toFixed(2)}</td>
+                    <td class="py-2 font-mono text-slate-400">${qty}</td>
                     <td class="py-2 text-right">
-                        <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded text-[8px] font-bold" onclick="game.ui.quickTrade('${data.item}', ${o.price}, 'SELL')">BUY</button>
+                        <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded text-[8px] font-bold" onclick="game.ui.quickTrade('${safeItemArg}', ${price}, 'SELL')">BUY</button>
                     </td>
                 </tr>
             `;
@@ -780,13 +808,15 @@ export class UIManager {
 
         // Buy Orders (Bids) - Amber
         data.buy_orders.forEach(o => {
+            const price = Number(o.price || 0);
+            const qty = Number(o.qty || 0);
             html += `
                 <tr class="group hover:bg-amber-500/5 transition-all">
                     <td class="py-2"><span class="px-1.5 py-0.5 rounded text-[7px] font-black bg-amber-500/10 border border-amber-500/30 text-amber-400">BID</span></td>
-                    <td class="py-2 font-bold text-amber-500">$${(o.price || 0).toFixed(2)}</td>
-                    <td class="py-2 font-mono text-slate-400">${o.qty}</td>
+                    <td class="py-2 font-bold text-amber-500">$${price.toFixed(2)}</td>
+                    <td class="py-2 font-mono text-slate-400">${qty}</td>
                     <td class="py-2 text-right">
-                        <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded text-[8px] font-bold" onclick="game.ui.quickTrade('${data.item}', ${o.price}, 'BUY')">SELL</button>
+                        <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded text-[8px] font-bold" onclick="game.ui.quickTrade('${safeItemArg}', ${price}, 'BUY')">SELL</button>
                     </td>
                 </tr>
             `;
@@ -840,12 +870,16 @@ export class UIManager {
             body.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-slate-600 italic">No active warrants.</td></tr>';
             return;
         }
-        body.innerHTML = bounties.map(b => `
+        body.innerHTML = bounties.map(b => {
+            const targetId = String(b.target_id ?? '').padStart(4, '0');
+            const reward = Number(b.reward || 0);
+            return `
             <tr class="border-b border-slate-800/50 hover:bg-slate-800/20 transition-all">
-                <td class="py-3 font-bold text-rose-400">AGENT #${b.target_id.toString().padStart(4, '0')}</td>
-                <td class="py-3 font-mono text-slate-300 text-right font-bold text-amber-400">$${b.reward}</td>
+                <td class="py-3 font-bold text-rose-400">AGENT #${escapeHtml(targetId)}</td>
+                <td class="py-3 font-mono text-slate-300 text-right font-bold text-amber-400">$${reward}</td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
     }
 
     updateMissionsUI(missions) {
@@ -857,25 +891,33 @@ export class UIManager {
             return;
         }
 
-        list.innerHTML = missions.map(m => `
+        list.innerHTML = missions.map(m => {
+            const title = escapeHtml(m.title || (m.type || 'MISSION').replace(/_/g, ' '));
+            const description = escapeHtml(m.description || '');
+            const reward = Number(m.reward_credits || 0);
+            const current = Number(m.current_quantity ?? m.progress ?? 0);
+            const required = Number(m.required_quantity ?? m.target ?? 0);
+            const missionId = Number(m.id);
+            return `
             <div class="p-3 bg-slate-900/50 rounded-lg border border-slate-800 ${m.is_completed ? 'border-emerald-500/30' : ''}">
                 <div class="flex justify-between items-start mb-2">
-                    <h5 class="text-[10px] orbitron font-bold ${m.is_completed ? 'text-emerald-400' : 'text-slate-300'}">${m.title}</h5>
-                    <span class="text-[9px] text-sky-400 font-bold">$${m.reward_credits}</span>
+                    <h5 class="text-[10px] orbitron font-bold ${m.is_completed ? 'text-emerald-400' : 'text-slate-300'}">${title}</h5>
+                    <span class="text-[9px] text-sky-400 font-bold">$${reward}</span>
                 </div>
-                <p class="text-[9px] text-slate-500 mb-2">${m.description}</p>
+                <p class="text-[9px] text-slate-500 mb-2">${description}</p>
                 <div class="flex justify-between items-center">
                     <div class="text-[8px] text-slate-500 uppercase tracking-tighter">
-                        Progress: <span class="${m.is_completed ? 'text-emerald-400' : 'text-slate-300'}">${m.current_quantity} / ${m.required_quantity}</span>
+                        Progress: <span class="${m.is_completed ? 'text-emerald-400' : 'text-slate-300'}">${current} / ${required}</span>
                     </div>
                     ${m.is_completed && !m.is_turned_in ? `
-                        <button onclick="game.api.turnInMission(${m.id})" class="px-2 py-1 bg-emerald-500 text-slate-950 text-[8px] orbitron font-bold rounded hover:bg-emerald-400 transition-colors">TURN IN</button>
+                        <button onclick="game.api.turnInMission(${missionId})" class="px-2 py-1 bg-emerald-500 text-slate-950 text-[8px] orbitron font-bold rounded hover:bg-emerald-400 transition-colors">TURN IN</button>
                     ` : m.is_turned_in ? `
                         <span class="text-[8px] text-emerald-500 font-bold italic">COMPLETED</span>
                     ` : ''}
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
     }
 
     updateLeaderboardsUI(data) {
@@ -895,13 +937,18 @@ export class UIManager {
 
         const renderRows = (list, isCredits = false) => {
             if (!list || list.length === 0) return '<tr><td colspan="3" class="py-4 text-center text-slate-500 italic">No entries found.</td></tr>';
-            return list.map(entry => `
+            return list.map(entry => {
+                const rank = Number(entry.rank || 0);
+                const name = escapeHtml(entry.name || 'Unknown');
+                const value = Number(entry.value || 0);
+                return `
                 <tr class="border-b border-slate-800/50 ${entry.agent_id === myAgentId ? 'bg-sky-500/10 text-sky-400 font-bold' : 'text-slate-400'}">
-                    <td class="py-3 pl-2">${entry.rank}</td>
-                    <td class="py-3">${entry.name} ${entry.agent_id === myAgentId ? '<span class="text-[8px] bg-sky-500 text-slate-950 px-1 rounded ml-1">YOU</span>' : ''}</td>
-                    <td class="py-3 text-right pr-4 font-mono">${isCredits ? '$' : ''}${entry.value.toLocaleString()}</td>
+                    <td class="py-3 pl-2">${rank}</td>
+                    <td class="py-3">${name} ${entry.agent_id === myAgentId ? '<span class="text-[8px] bg-sky-500 text-slate-950 px-1 rounded ml-1">YOU</span>' : ''}</td>
+                    <td class="py-3 text-right pr-4 font-mono">${isCredits ? '$' : ''}${value.toLocaleString()}</td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         };
 
         console.log("Leaderboard Data Received:", data);
@@ -916,15 +963,19 @@ export class UIManager {
             container.innerHTML = '<div class="text-[10px] text-slate-600 italic text-center py-4">No active contracts found.</div>';
             return;
         }
-        container.innerHTML = orders.map(o => `
+        container.innerHTML = orders.map(o => {
+            const item = escapeHtml(String(o.item || '').replace('_', ' '));
+            const orderId = Number(o.id);
+            return `
             <div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl border border-slate-800">
                 <div class="flex items-center space-x-3">
                     <div class="w-2 h-2 rounded-full ${o.type === 'SELL' ? 'bg-sky-400' : 'bg-amber-400'}"></div>
-                    <div class="text-[10px] font-bold text-slate-200 uppercase">${o.item.replace('_', ' ')}</div>
+                    <div class="text-[10px] font-bold text-slate-200 uppercase">${item}</div>
                 </div>
-                <button onclick="game.api.submitIntent('CANCEL', {order_id: ${o.id}})" class="text-slate-600 hover:text-rose-500 text-xs text-[9px]">Cancel</button>
+                <button onclick="game.api.submitIntent('CANCEL', {order_id: ${orderId}})" class="text-slate-600 hover:text-rose-500 text-xs text-[9px]">Cancel</button>
             </div>
-        `).join('');
+        `;
+        }).join('');
     }
 
     updateMarketSellList(inventory) {
@@ -1383,38 +1434,55 @@ export class UIManager {
         // Gear
         const gearListEl = document.getElementById('arena-gear-list');
         if (gearListEl) {
-            if (!data.arena_gear || data.arena_gear.length === 0) {
+            const arenaGear = data.arena_gear || data.gear || [];
+            if (arenaGear.length === 0) {
                 gearListEl.innerHTML = '<div class="text-[10px] text-slate-600 italic">No gear equipped for the pit.</div>';
             } else {
-                gearListEl.innerHTML = data.arena_gear.map(g => `
+                gearListEl.innerHTML = arenaGear.map(g => {
+                    const name = escapeHtml(g.name || 'Unknown Part');
+                    const rarity = escapeHtml(g.rarity || 'STANDARD');
+                    const type = escapeHtml(g.type || 'PART');
+                    const level = escapeHtml(g.level || 0);
+                    return `
                     <div class="flex justify-between items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800 border-l-2 border-l-amber-500">
                         <div class="flex flex-col">
-                            <span class="text-[9px] font-bold text-slate-200 uppercase">${g.name}</span>
-                            <span class="text-[7px] text-slate-500 uppercase">${g.rarity} ${g.type}</span>
+                            <span class="text-[9px] font-bold text-slate-200 uppercase">${name}</span>
+                            <span class="text-[7px] text-slate-500 uppercase">${rarity} ${type}</span>
                         </div>
-                        <span class="text-[8px] text-amber-500 font-bold">LVL ${g.level || 0}</span>
+                        <span class="text-[8px] text-amber-500 font-bold">LVL ${level}</span>
                     </div>
-                `).join('');
+                `;
+                }).join('');
             }
         }
 
         // Logs
         const logsListEl = document.getElementById('arena-logs-list');
         if (logsListEl) {
-            if (!data.logs || data.logs.length === 0) {
+            const arenaLogs = data.logs || data.arena_logs || [];
+            if (arenaLogs.length === 0) {
                 logsListEl.innerHTML = '<div class="text-[10px] text-slate-600 italic">No recent combat data found.</div>';
             } else {
-                logsListEl.innerHTML = data.logs.map(log => {
-                    const time = new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
-                    const isWin = log.winner_id === this.game.lastAgentData?.id;
+                logsListEl.innerHTML = arenaLogs.map(log => {
+                    const parsedTime = new Date(log.timestamp || log.time);
+                    const time = Number.isNaN(parsedTime.getTime())
+                        ? '--:--'
+                        : parsedTime.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
+                    const isWin = log.result === 'WIN' || log.event === 'ARENA_VICTORY';
                     const color = isWin ? 'text-emerald-400' : 'text-rose-400';
+                    const arenaLabel = isWin ? 'WIN' : log.result === 'RESET' ? 'RST' : 'LOSS';
+                    const event = escapeHtml(log.event || 'ARENA');
+                    const opponent = escapeHtml(log.opponent_name || 'Unknown');
+                    const opponentElo = escapeHtml(log.opponent_elo ?? 'n/a');
+                    const eloChange = Number(log.elo_change || 0);
+                    const eloText = `${eloChange > 0 ? '+' : ''}${eloChange} Elo`;
                     const icon = isWin ? '✓' : '✗';
                     return `
                         <div class="flex space-x-2 border-b border-slate-900/50 py-1">
-                            <span class="text-slate-700 font-mono">[${time}]</span>
-                            <span class="font-bold ${color}">${icon}</span>
-                            <span class="text-slate-300 text-[9px]">${log.event}: ${log.opponent_name || 'Unknown'} (Elo: ${log.opponent_elo})</span>
-                            <span class="text-slate-500 italic ml-auto text-[8px]">${log.elo_change > 0 ? '+' : ''}${log.elo_change} Elo</span>
+                            <span class="text-slate-700 font-mono">[${escapeHtml(time)}]</span>
+                            <span class="font-bold ${color}">${arenaLabel}</span>
+                            <span class="text-slate-300 text-[9px]">${event}: ${opponent} (Elo: ${opponentElo})</span>
+                            <span class="text-slate-500 italic ml-auto text-[8px]">${escapeHtml(eloText)}</span>
                         </div>
                     `;
                 }).join('');
@@ -1449,13 +1517,16 @@ export class UIManager {
                     squadMembersList.innerHTML = '<div class="text-[10px] text-slate-600 italic">Connecting to squad uplink...</div>';
                 } else {
                     squadMembersList.innerHTML = members.map(m => {
-                        const hpPct = (m.health / m.max_health) * 100;
+                        const hpPct = Math.max(0, Math.min(100, (Number(m.health || 0) / Math.max(1, Number(m.max_health || 1))) * 100));
                         const isSelf = m.id === agent.id;
+                        const name = escapeHtml(m.name || 'Unknown');
+                        const q = Number(m.q || 0);
+                        const r = Number(m.r || 0);
                         return `
                             <div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800 border-l-2 ${isSelf ? 'border-l-sky-500' : 'border-l-purple-500'}">
                                 <div class="flex justify-between items-center mb-1">
-                                    <span class="text-[10px] font-bold ${isSelf ? 'text-sky-300' : 'text-purple-300'} uppercase">${m.name} ${isSelf ? '(YOU)' : ''}</span>
-                                    <span class="text-[8px] font-mono text-slate-500">Q:${m.q}, R:${m.r}</span>
+                                    <span class="text-[10px] font-bold ${isSelf ? 'text-sky-300' : 'text-purple-300'} uppercase">${name} ${isSelf ? '(YOU)' : ''}</span>
+                                    <span class="text-[8px] font-mono text-slate-500">Q:${q}, R:${r}</span>
                                 </div>
                                 <div class="w-full h-1 bg-slate-950 rounded-full overflow-hidden">
                                     <div class="h-full ${hpPct > 50 ? 'bg-emerald-500' : 'bg-rose-500'} transition-all" style="width: ${hpPct}%"></div>
@@ -1479,7 +1550,13 @@ export class UIManager {
         }
 
         navList.innerHTML = entries
-            .map(([type, data]) => `<div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800 text-[10px] text-sky-400">${type}: ${data.q}, ${data.r} (Dist: ${data.distance.toFixed(1)})</div>`)
+            .map(([type, data]) => {
+                const label = escapeHtml(type);
+                const q = Number(data.q || 0);
+                const r = Number(data.r || 0);
+                const distance = Number(data.distance || 0).toFixed(1);
+                return `<div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800 text-[10px] text-sky-400">${label}: ${q}, ${r} (Dist: ${distance})</div>`;
+            })
             .join('');
     }
 
@@ -2252,18 +2329,21 @@ Intent payload format:
                         const level = currentLevels[key] || 0;
                         const isMax = level >= data.levels.length;
                         const nextLevelData = isMax ? null : data.levels[level];
+                        const upgradeName = escapeHtml(data.name || key);
+                        const upgradeDescription = escapeHtml(isMax ? 'Maximum development achieved.' : nextLevelData.description);
+                        const upgradeKey = escapeJsString(key);
                         
                         return `
                             <div class="bg-slate-950/50 p-2.5 rounded-xl border border-slate-900/50 flex justify-between items-center group hover:border-sky-500/30 transition-all">
                                 <div class="flex flex-col">
                                     <div class="flex items-center space-x-2">
-                                        <span class="text-[9px] font-black orbitron ${level > 0 ? 'text-sky-400' : 'text-slate-500'} uppercase tracking-tight">${data.name}</span>
+                                        <span class="text-[9px] font-black orbitron ${level > 0 ? 'text-sky-400' : 'text-slate-500'} uppercase tracking-tight">${upgradeName}</span>
                                         <span class="text-[7px] bg-slate-900 border border-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-mono uppercase">LVL ${level}</span>
                                     </div>
-                                    <p class="text-[8px] text-slate-600 mt-1 font-medium italic">${isMax ? 'Maximum development achieved.' : nextLevelData.description}</p>
+                                    <p class="text-[8px] text-slate-600 mt-1 font-medium italic">${upgradeDescription}</p>
                                 </div>
                                 ${!isMax ? `
-                                    <button onclick="game.api.purchaseCorpUpgrade('${key}')" class="px-3 py-1.5 ${canManage && vault.credit_balance >= nextLevelData.cost ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-900/20' : 'bg-slate-900 text-slate-600 cursor-not-allowed border border-slate-800'} text-[8px] orbitron font-bold rounded-lg transition-all" ${!canManage || vault.credit_balance < nextLevelData.cost ? 'disabled' : ''}>
+                                    <button onclick="game.api.purchaseCorpUpgrade('${upgradeKey}')" class="px-3 py-1.5 ${canManage && vault.credit_balance >= nextLevelData.cost ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-900/20' : 'bg-slate-900 text-slate-600 cursor-not-allowed border border-slate-800'} text-[8px] orbitron font-bold rounded-lg transition-all" ${!canManage || vault.credit_balance < nextLevelData.cost ? 'disabled' : ''}>
                                         $${nextLevelData.cost.toLocaleString()}
                                     </button>
                                 ` : `
@@ -2280,11 +2360,11 @@ Intent payload format:
                 let membersHtml = members.map(m => `
                     <div class="flex justify-between items-center p-3 bg-slate-900/50 rounded-xl border border-slate-800">
                         <div class="flex flex-col">
-                            <span class="text-[10px] font-bold text-sky-400 orbitron">${m.name} [ID:${m.agent_id}]</span>
-                            <span class="text-[8px] text-slate-500 uppercase tracking-tighter">${m.role} | LVL ${m.level}</span>
+                            <span class="text-[10px] font-bold text-sky-400 orbitron">${escapeHtml(m.name || 'Unknown')} [ID:${Number(m.agent_id)}]</span>
+                            <span class="text-[8px] text-slate-500 uppercase tracking-tighter">${escapeHtml(m.role || 'MEMBER')} | LVL ${Number(m.level || 0)}</span>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <span class="text-[8px] font-mono text-slate-600 mr-2">@ ${m.q},${m.r}</span>
+                            <span class="text-[8px] font-mono text-slate-600 mr-2">@ ${Number(m.q || 0)},${Number(m.r || 0)}</span>
                             ${canManage && m.agent_id !== agent.id ? `
                                 <button onclick="game.api.corpAction('promote', {agent_id: ${m.agent_id}})" class="p-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 rounded transition-all" title="Promote">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
@@ -2302,22 +2382,22 @@ Intent payload format:
                         <!-- Left: Hub Info & Research -->
                         <div class="space-y-6">
                             <div class="glass p-5 rounded-2xl border-l-4 border-l-emerald-500 shadow-xl">
-                                <h3 class="orbitron text-sm font-black text-emerald-500 uppercase tracking-widest mb-1">${vault.name} [${vault.ticker}]</h3>
+                                <h3 class="orbitron text-sm font-black text-emerald-500 uppercase tracking-widest mb-1">${escapeHtml(vault.name || 'Corporation')} [${escapeHtml(vault.ticker || 'CORP')}]</h3>
                                 <p class="text-[10px] text-slate-500 mb-4 font-bold uppercase tracking-widest">Corporate Operations Center</p>
                                 
                                 <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800 mb-4">
                                     <label class="text-[8px] text-slate-600 uppercase font-black tracking-widest block mb-1.5">Directives</label>
-                                    <p class="text-xs text-sky-400 font-medium italic">"${vault.motd || 'No announcements today.'}"</p>
+                                    <p class="text-xs text-sky-400 font-medium italic">"${escapeHtml(vault.motd || 'No announcements today.')}"</p>
                                 </div>
 
                                 <div class="grid grid-cols-2 gap-3">
                                     <div class="bg-slate-950 p-3 rounded-xl border border-slate-900 shadow-inner">
                                         <span class="text-[7px] text-slate-600 uppercase font-bold tracking-widest block mb-1">Corporate Vault</span>
-                                        <span class="text-xs font-mono text-emerald-400 font-bold">$${vault.credit_balance.toLocaleString()}</span>
+                                        <span class="text-xs font-mono text-emerald-400 font-bold">$${Number(vault.credit_balance || 0).toLocaleString()}</span>
                                     </div>
                                     <div class="bg-slate-950 p-3 rounded-xl border border-slate-900 shadow-inner">
                                         <span class="text-[7px] text-slate-600 uppercase font-bold tracking-widest block mb-1">Net Taxation</span>
-                                        <span class="text-xs font-mono text-amber-500 font-bold">${(vault.tax_rate * 100).toFixed(1)}%</span>
+                                        <span class="text-xs font-mono text-amber-500 font-bold">${(Number(vault.tax_rate || 0) * 100).toFixed(1)}%</span>
                                     </div>
                                 </div>
                             </div>
@@ -2381,7 +2461,7 @@ Intent payload format:
                                 ${membersHtml}
                             </div>
                             <div class="mt-8 pt-4 border-t border-slate-800">
-                                <button onclick="if(confirm('Resigning from corporate duties will strip your [${vault.ticker}] tag and clear your rank. Proceed?')) game.api.corpAction('leave')" class="w-full py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[9px] orbitron font-bold rounded-lg transition-all uppercase tracking-widest">RECHART CONTRACT (LEAVE)</button>
+                                <button onclick="if(confirm('Resigning from corporate duties will strip your [${escapeJsString(vault.ticker || 'CORP')}] tag and clear your rank. Proceed?')) game.api.corpAction('leave')" class="w-full py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[9px] orbitron font-bold rounded-lg transition-all uppercase tracking-widest">RECHART CONTRACT (LEAVE)</button>
                             </div>
                         </div>
                     </div>
@@ -2393,8 +2473,8 @@ Intent payload format:
                 let invitesHtml = invites.length > 0 ? invites.map(i => `
                     <div class="p-4 bg-slate-900/50 rounded-xl border border-slate-800 flex justify-between items-center">
                         <div>
-                            <h4 class="text-xs font-bold text-sky-400 orbitron">${i.corp_name} [${i.corp_ticker}]</h4>
-                            <p class="text-[9px] text-slate-500 mt-0.5 uppercase tracking-tighter">Invited by CEO ${i.inviter_name}</p>
+                            <h4 class="text-xs font-bold text-sky-400 orbitron">${escapeHtml(i.corp_name || 'Corporation')} [${escapeHtml(i.corp_ticker || 'CORP')}]</h4>
+                            <p class="text-[9px] text-slate-500 mt-0.5 uppercase tracking-tighter">Invited by CEO ${escapeHtml(i.inviter_name || 'Unknown')}</p>
                         </div>
                         <div class="flex space-x-2">
                             <button onclick="game.api.respondToInvite(${i.id}, 'ACCEPTED')" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-[9px] orbitron font-bold rounded-lg transition-all uppercase">Join</button>
@@ -2464,27 +2544,36 @@ Intent payload format:
         if (!available || available.length === 0) {
             list.innerHTML = '<p class="text-slate-600 italic text-sm">No public contracts currently posted.</p>';
         } else {
-            list.innerHTML = available.map(c => `
+            list.innerHTML = available.map(c => {
+                const type = escapeHtml(c.type);
+                const item = escapeHtml(String(c.item || c.item_type || '').replace(/_/g, ' '));
+                const quantity = Number(c.quantity) || 0;
+                const reward = Number(c.reward_credits ?? c.reward) || 0;
+                const targetQ = Number(c.target?.q ?? c.target_station_q ?? 0);
+                const targetR = Number(c.target?.r ?? c.target_station_r ?? 0);
+                const issuer = escapeHtml(c.issuer_name || c.issuer || 'Unknown');
+                const id = Number(c.id) || 0;
+                return `
                 <div class="glass p-4 rounded-xl border border-slate-800 hover:border-sky-500/50 transition-all group">
                     <div class="flex justify-between items-start mb-2">
                         <div>
-                            <span class="text-[10px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded border border-sky-500/30 font-bold orbitron">${c.type}</span>
-                            <h4 class="text-sm font-bold text-slate-200 mt-2">${c.quantity}x ${c.item.replace('_', ' ')}</h4>
+                            <span class="text-[10px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded border border-sky-500/30 font-bold orbitron">${type}</span>
+                            <h4 class="text-sm font-bold text-slate-200 mt-2">${quantity}x ${item}</h4>
                         </div>
                         <div class="text-right">
-                            <span class="text-lg font-bold text-amber-400 orbitron">${c.reward_credits} Ȼ</span>
+                            <span class="text-lg font-bold text-amber-400 orbitron">${reward} Ȼ</span>
                             <p class="text-[9px] text-slate-500 uppercase mt-1">Reward</p>
                         </div>
                     </div>
                     <div class="flex justify-between items-end mt-4">
                         <div class="text-[10px] text-slate-500">
-                            <p><span class="text-slate-400">Target:</span> Station #${c.target_station_id}</p>
-                            <p><span class="text-slate-400">Issuer:</span> ${c.issuer_name}</p>
+                            <p><span class="text-slate-400">Target:</span> (${targetQ}, ${targetR})</p>
+                            <p><span class="text-slate-400">Issuer:</span> ${issuer}</p>
                         </div>
-                        <button onclick="window.game.api.claimContract(${c.id})" class="px-4 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 text-[10px] font-bold orbitron rounded-lg transition-all uppercase">Accept</button>
+                        <button onclick="window.game.api.claimContract(${id})" class="px-4 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 text-[10px] font-bold orbitron rounded-lg transition-all uppercase">Accept</button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         // Render Mine
@@ -2494,16 +2583,25 @@ Intent payload format:
             myList.innerHTML = mine.map(c => {
                 const isIssuer = c.issuer_id === parseInt(localStorage.getItem('sv_agent_id'));
                 const statusColor = c.status === 'OPEN' ? 'text-sky-400' : (c.status === 'CLAIMED' ? 'text-amber-400' : 'text-emerald-400');
+                const status = escapeHtml(c.status);
+                const item = escapeHtml(String(c.item || c.item_type || '').replace(/_/g, ' '));
+                const quantity = Number(c.quantity) || 0;
+                const targetQ = Number(c.target?.q ?? c.target_station_q ?? 0);
+                const targetR = Number(c.target?.r ?? c.target_station_r ?? 0);
+                const id = Number(c.id) || 0;
                 
                 return `
                 <div class="p-3 bg-slate-900/50 rounded-lg border border-slate-800 mb-2">
                     <div class="flex justify-between items-center mb-1">
-                        <span class="text-[8px] font-bold ${statusColor} orbitron">${c.status}</span>
+                        <span class="text-[8px] font-bold ${statusColor} orbitron">${status}</span>
                         <span class="text-[8px] text-slate-500 uppercase">${isIssuer ? 'Issued By You' : 'Claimed By You'}</span>
                     </div>
-                    <p class="text-[10px] text-slate-300 font-bold">${c.quantity}x ${c.item.replace('_', ' ')} @ Station #${c.target_station_id}</p>
+                    <p class="text-[10px] text-slate-300 font-bold">${quantity}x ${item} @ (${targetQ}, ${targetR})</p>
+                    ${isIssuer && c.status === 'OPEN' ? `
+                        <button onclick="if(confirm('Cancel this contract and refund escrow?')) window.game.api.cancelContract(${id})" class="w-full mt-2 py-1 bg-rose-500/20 hover:bg-rose-500/40 border border-rose-500/40 text-rose-400 text-[9px] font-bold orbitron rounded transition-all">CANCEL CONTRACT</button>
+                    ` : ''}
                     ${!isIssuer && c.status === 'CLAIMED' ? `
-                        <button onclick="window.game.api.fulfillContract(${c.id})" class="w-full mt-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-500/40 text-emerald-400 text-[9px] font-bold orbitron rounded transition-all">FULFILL AT STATION</button>
+                        <button onclick="window.game.api.fulfillContract(${id})" class="w-full mt-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-500/40 text-emerald-400 text-[9px] font-bold orbitron rounded transition-all">FULFILL AT STATION</button>
                     ` : ''}
                 </div>
             `}).join('');
@@ -2515,15 +2613,24 @@ Intent payload format:
         const item = document.getElementById('contract-item').value.toUpperCase();
         const qty = parseInt(document.getElementById('contract-qty').value);
         const reward = parseInt(document.getElementById('contract-reward').value);
-        const target = parseInt(document.getElementById('contract-target').value);
+        const target = document.getElementById('contract-target').value.trim();
 
         if (!item || !qty || !reward || !target) {
             this.showToast("All fields are required for contract transmission.", "warning");
             return;
         }
 
+        const coords = target.split(',').map(v => parseInt(v.trim()));
+        const targetQ = coords.length === 2 && !Number.isNaN(coords[0]) ? coords[0] : 0;
+        const targetR = coords.length === 2 && !Number.isNaN(coords[1]) ? coords[1] : parseInt(target);
+
         await this.game.api.postContract({
-            type, item, quantity: qty, reward_credits: reward, target_station_id: target
+            contract_type: type,
+            item_type: item,
+            quantity: qty,
+            reward_credits: reward,
+            target_station_q: targetQ,
+            target_station_r: Number.isNaN(targetR) ? 0 : targetR
         });
     }
 

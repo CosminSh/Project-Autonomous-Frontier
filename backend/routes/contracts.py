@@ -1,14 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from database import get_db
+from database import STATION_CACHE, get_db
 from models import Agent, PlayerContract, InventoryItem, AuditLog, StorageItem
 from routes.common import verify_api_key
 from typing import List, Optional, Dict
 from pydantic import BaseModel
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from config import ITEM_WEIGHTS
 
 router = APIRouter(prefix="/api/contracts", tags=["Contracts"])
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+def _coerce_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 class ContractCreate(BaseModel):
     contract_type: str = "DELIVERY" # Currently only DELIVERY supported
@@ -18,6 +27,56 @@ class ContractCreate(BaseModel):
     target_station_q: int
     target_station_r: int
     expiry_hours: Optional[int] = 24
+
+def _serialize_contract(contract: PlayerContract) -> dict:
+    requirements = contract.requirements or {}
+    item_type = requirements.get("item")
+    quantity = requirements.get("qty", 0)
+    target = {
+        "q": contract.target_station_q,
+        "r": contract.target_station_r,
+    }
+
+    return {
+        "id": contract.id,
+        "issuer_id": contract.issuer_id,
+        "issuer": contract.issuer_name,
+        "issuer_name": contract.issuer_name,
+        "claimed_by_id": contract.claimed_by_id,
+        "type": contract.contract_type,
+        "contract_type": contract.contract_type,
+        "item": item_type,
+        "item_type": item_type,
+        "quantity": quantity,
+        "requirements": requirements,
+        "reward": contract.reward_credits,
+        "reward_credits": contract.reward_credits,
+        "status": contract.status,
+        "target": target,
+        "target_station_q": contract.target_station_q,
+        "target_station_r": contract.target_station_r,
+        "created_at": contract.created_at,
+        "expires_at": contract.expires_at,
+    }
+
+def _credit_agent(db: Session, agent_id: int, amount: int):
+    credits = db.execute(
+        select(InventoryItem).where(InventoryItem.agent_id == agent_id, InventoryItem.item_type == "CREDITS")
+    ).scalars().first()
+    if credits:
+        credits.quantity += amount
+    else:
+        db.add(InventoryItem(agent_id=agent_id, item_type="CREDITS", quantity=amount))
+
+def _refund_contract_escrow(db: Session, contract: PlayerContract, reason: str):
+    if contract.status != "OPEN":
+        return
+    _credit_agent(db, contract.issuer_id, int(contract.reward_credits or 0))
+    contract.status = reason
+    db.add(AuditLog(agent_id=contract.issuer_id, event_type=f"CONTRACT_{reason}", details={
+        "contract_id": contract.id,
+        "refund": contract.reward_credits
+    }))
 
 @router.post("/post")
 def post_contract(
@@ -29,6 +88,19 @@ def post_contract(
         raise HTTPException(status_code=400, detail="Reward must be positive.")
     if contract_data.quantity <= 0:
         raise HTTPException(status_code=400, detail="Quantity must be positive.")
+    if contract_data.contract_type.upper() != "DELIVERY":
+        raise HTTPException(status_code=400, detail="Only DELIVERY contracts are currently supported.")
+
+    item_type = contract_data.item_type.strip().upper().replace(" ", "_").replace("-", "_")
+    if item_type not in ITEM_WEIGHTS:
+        raise HTTPException(status_code=400, detail="Unknown item type.")
+
+    target_exists = any(
+        s["q"] == contract_data.target_station_q and s["r"] == contract_data.target_station_r
+        for s in STATION_CACHE
+    )
+    if not target_exists:
+        raise HTTPException(status_code=400, detail="Target station coordinates are invalid.")
 
     # 1. Verify credits and Escrow
     credits = next((i for i in agent.inventory if i.item_type == "CREDITS"), None)
@@ -38,13 +110,13 @@ def post_contract(
     credits.quantity -= contract_data.reward_credits
     
     # 2. Create Contract
-    expires_at = datetime.utcnow() + timedelta(hours=contract_data.expiry_hours or 24)
+    expires_at = _utcnow() + timedelta(hours=contract_data.expiry_hours or 24)
     
     new_contract = PlayerContract(
         issuer_id=agent.id,
         issuer_name=agent.name,
-        contract_type=contract_data.contract_type,
-        requirements={"item": contract_data.item_type, "qty": contract_data.quantity},
+        contract_type="DELIVERY",
+        requirements={"item": item_type, "qty": contract_data.quantity},
         reward_credits=contract_data.reward_credits,
         target_station_q=contract_data.target_station_q,
         target_station_r=contract_data.target_station_r,
@@ -66,29 +138,18 @@ def post_contract(
 @router.get("/available")
 def get_available_contracts(db: Session = Depends(get_db)):
     # Clean up expired ones on the fly for UI
-    now = datetime.utcnow()
+    now = _utcnow()
     contracts = db.execute(
         select(PlayerContract).where(PlayerContract.status == "OPEN")
     ).scalars().all()
     
     results = []
     for c in contracts:
-        if c.expires_at and c.expires_at < now:
-            # Mark as expired and refund (simplified cleanup)
-            c.status = "EXPIRED"
-            # Return credits to issuer storage or inventory
-            # For now, just mark expired. System-wide cleanup should handle refunds properly.
+        if c.expires_at and _coerce_utc(c.expires_at) < now:
+            _refund_contract_escrow(db, c, "EXPIRED")
             continue
             
-        results.append({
-            "id": c.id,
-            "issuer": c.issuer_name,
-            "type": c.contract_type,
-            "requirements": c.requirements,
-            "reward": c.reward_credits,
-            "expires_at": c.expires_at,
-            "target": {"q": c.target_station_q, "r": c.target_station_r}
-        })
+        results.append(_serialize_contract(c))
         
     db.commit()
     return results
@@ -179,6 +240,24 @@ def fulfill_contract(
     
     return {"status": "success", "message": "Contract fulfilled. Reward paid and items delivered to issuer storage."}
 
+@router.post("/cancel/{contract_id}")
+def cancel_contract(
+    contract_id: int,
+    agent: Agent = Depends(verify_api_key),
+    db: Session = Depends(get_db)
+):
+    contract = db.get(PlayerContract, contract_id)
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+    if contract.issuer_id != agent.id:
+        raise HTTPException(status_code=403, detail="Only the issuer can cancel this contract.")
+    if contract.status != "OPEN":
+        raise HTTPException(status_code=400, detail="Only open contracts can be cancelled.")
+
+    _refund_contract_escrow(db, contract, "CANCELLED")
+    db.commit()
+    return {"status": "success", "message": "Contract cancelled and escrow refunded."}
+
 @router.get("/my_contracts")
 def get_my_contracts(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Returns contracts issued or claimed by the agent."""
@@ -190,7 +269,4 @@ def get_my_contracts(agent: Agent = Depends(verify_api_key), db: Session = Depen
         select(PlayerContract).where(PlayerContract.claimed_by_id == agent.id)
     ).scalars().all()
     
-    return {
-        "issued": issued,
-        "claimed": claimed
-    }
+    return [_serialize_contract(c) for c in issued + claimed]

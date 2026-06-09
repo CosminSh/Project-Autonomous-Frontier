@@ -35,6 +35,18 @@ class GuestLoginRequest(BaseModel):
     email: Optional[str] = None
     name: Optional[str] = None
 
+def _env_flag(name: str) -> Optional[bool]:
+    raw = os.getenv(name)
+    if raw is None:
+        return None
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+def _guest_login_allowed() -> bool:
+    explicit = _env_flag("ALLOW_GUEST_LOGIN")
+    if explicit is not None:
+        return explicit
+    return os.getenv("ENVIRONMENT") != "production"
+
 @router.post("/auth/login")
 def login(request: Request, login_data: LoginRequest):
     print("\n--- AUTH LOGIN REQUEST RECEIVED ---")
@@ -116,6 +128,9 @@ def rotate_api_key(agent: Agent = Depends(verify_api_key), db: Session = Depends
 @router.post("/auth/guest")
 def guest_login(login_data: GuestLoginRequest, db: Session = Depends(get_db)):
     """Bypass Auth for local testing. Creates or returns a guest agent."""
+    if not _guest_login_allowed():
+        raise HTTPException(status_code=403, detail="Guest login is disabled in this environment.")
+
     email = login_data.email
     name = login_data.name
 

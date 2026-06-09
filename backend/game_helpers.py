@@ -4,6 +4,7 @@ Depends on: config.py, models.py, database.py
 """
 import logging
 from collections import deque
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select, text
@@ -769,12 +770,21 @@ def update_performance_stat(db: Session, agent: Agent, stat_key: str, amount: in
     agent.performance_stats[stat_key] = current + amount
     
     # Required for SQLAlchemy to recognize change in JSON field
-    flag_modified(agent, "performance_stats")
+    flag_modified(agent.progression, "performance_stats")
     db.flush()
 
 async def trigger_mayday_webhook(agent: Agent, reason: str, details: dict):
     """Fires a POST request to the agent's configured webhook_url."""
     if not agent.webhook_url:
+        return
+
+    from fastapi import HTTPException
+    from webhook_security import validate_webhook_url
+
+    try:
+        webhook_url = validate_webhook_url(agent.webhook_url)
+    except HTTPException as exc:
+        logger.warning(f"Skipping unsafe webhook for agent {agent.id}: {exc.detail}")
         return
         
     import aiohttp
@@ -795,7 +805,7 @@ async def trigger_mayday_webhook(agent: Agent, reason: str, details: dict):
     
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(agent.webhook_url, json=payload, timeout=5) as resp:
+            async with session.post(webhook_url, json=payload, timeout=5) as resp:
                 if resp.status >= 400:
                     logger.warning(f"Webhook failed for agent {agent.id}: {resp.status}")
     except Exception as e:

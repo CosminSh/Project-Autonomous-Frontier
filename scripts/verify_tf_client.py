@@ -10,7 +10,8 @@ BASE_URL = os.getenv("TF_BASE_URL", "http://localhost:8000")
 
 def test_client_mappings():
     # 1. Guest login to get an API key
-    resp = requests.post(f"{BASE_URL}/auth/guest")
+    resp = requests.post(f"{BASE_URL}/auth/guest", json={})
+    resp.raise_for_status()
     api_key = resp.json()["api_key"]
     print(f"Testing with API Key: {api_key}")
     
@@ -29,7 +30,7 @@ def test_client_mappings():
         print(f"[OK] get_available_contracts: {len(contracts)} available")
         
         my_contracts = client.get_my_contracts()
-        print(f"[OK] get_my_contracts: {len(my_contracts.get('issued', []))} issued, {len(my_contracts.get('claimed', []))} claimed")
+        print(f"[OK] get_my_contracts: {len(my_contracts)} total")
         
         # Test Social
         chat = client.send_chat("Uplink Test Live")

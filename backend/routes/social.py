@@ -38,6 +38,12 @@ def send_chat(req: ChatRequest, agent: Agent = Depends(verify_api_key), db: Sess
         raise HTTPException(status_code=400, detail="Invalid channel.")
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
+    if agent.muted_until:
+        muted_until = agent.muted_until
+        if muted_until.tzinfo is None:
+            muted_until = muted_until.replace(tzinfo=timezone.utc)
+        if muted_until > datetime.now(timezone.utc):
+            raise HTTPException(status_code=403, detail=f"Agent is muted until {muted_until.isoformat()}.")
     
     msg = AgentMessage(
         sender_id=agent.id,

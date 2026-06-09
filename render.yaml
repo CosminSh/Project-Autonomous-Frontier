@@ -9,3 +9,7 @@ services:
         value: 419308259695-sj14gj8q7ml5o9uao2j59pgkp1vvthh0.apps.googleusercontent.com
       - key: DATABASE_URL
         value: sqlite:///./demo_cloud.db
+      - key: ENVIRONMENT
+        value: production
+      - key: ADMIN_KEY
+        sync: false

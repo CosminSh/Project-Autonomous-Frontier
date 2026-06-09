@@ -32,6 +32,20 @@ class TFClient:
         response.raise_for_status()
         return response.json()
 
+    def _patch(self, endpoint: str, json_data: dict = None):
+        response = self.session.patch(f"{self.base_url}{endpoint}", json=json_data or {})
+        if not response.ok:
+            logging.error(f"Action Failed. API Error: {response.text}")
+        response.raise_for_status()
+        return response.json()
+
+    def _delete(self, endpoint: str):
+        response = self.session.delete(f"{self.base_url}{endpoint}")
+        if not response.ok:
+            logging.error(f"Action Failed. API Error: {response.text}")
+        response.raise_for_status()
+        return response.json()
+
     # --- Core Endpoints ---
 
     def get_my_agent(self) -> dict:
@@ -71,15 +85,42 @@ class TFClient:
     def get_market_pickups(self) -> list:
         return self._get("/api/market/pickups")
 
+    def get_market_depth(self, item_type: str) -> dict:
+        return self._get(f"/api/market/depth?item_type={item_type}")
+
+    def place_market_buy(self, item_type: str, quantity: int, max_price: float) -> dict:
+        return self.submit_intent("BUY", {
+            "item_type": item_type,
+            "quantity": quantity,
+            "max_price": max_price,
+        })
+
+    def place_market_sell(self, item_type: str, quantity: int, price: float) -> dict:
+        return self.submit_intent("LIST", {
+            "item_type": item_type,
+            "quantity": quantity,
+            "price": price,
+        })
+
+    def adjust_market_order(self, order_id: int, price: float) -> dict:
+        return self._patch(f"/api/market/orders/{order_id}", {"price": price})
+
+    def cancel_market_order(self, order_id: int) -> dict:
+        return self._delete(f"/api/market/orders/{order_id}")
+
+    def claim_market_pickups(self) -> dict:
+        return self._post("/api/market/pickup")
+
     # --- Contract Endpoints ---
     def get_available_contracts(self) -> list:
         return self._get("/api/contracts/available")
 
-    def get_my_contracts(self) -> dict:
+    def get_my_contracts(self) -> list:
         return self._get("/api/contracts/my_contracts")
 
     def post_contract(self, item_type: str, quantity: int, reward: int, q: int, r: int) -> dict:
         return self._post("/api/contracts/post", {
+            "contract_type": "DELIVERY",
             "item_type": item_type,
             "quantity": quantity,
             "reward_credits": reward,
@@ -93,6 +134,9 @@ class TFClient:
     def fulfill_contract(self, contract_id: int) -> dict:
         return self._post(f"/api/contracts/fulfill/{contract_id}")
 
+    def cancel_contract(self, contract_id: int) -> dict:
+        return self._post(f"/api/contracts/cancel/{contract_id}")
+
     # --- Social Endpoints ---
     def send_chat(self, message: str) -> dict:
         return self._post("/api/chat", {"message": message})
@@ -101,14 +145,17 @@ class TFClient:
         return self._get("/api/chat")
 
     # --- Corporation Endpoints ---
-    def get_corp_info(self, corp_id: int) -> dict:
-        return self._get(f"/api/corp/{corp_id}")
+    def get_corp_members(self) -> list:
+        return self._get("/api/corp/members")
 
-    def get_my_corp(self) -> dict:
-        return self._get("/api/corp/my_corp")
+    def get_corp_vault(self) -> dict:
+        return self._get("/api/corp/vault")
 
-    def create_corp(self, name: str, description: str = "") -> dict:
-        return self._post("/api/corp/create", {"name": name, "description": description})
+    def get_corp_upgrades(self) -> dict:
+        return self._get("/api/corp/upgrades")
+
+    def create_corp(self, name: str, ticker: str, tax_rate: float = 0.0) -> dict:
+        return self._post("/api/corp/create", {"name": name, "ticker": ticker, "tax_rate": tax_rate})
 
     # --- Wiki Endpoints ---
     def get_wiki_manual(self) -> dict:

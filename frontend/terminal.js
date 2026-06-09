@@ -34,7 +34,7 @@ export class TerminalHandler {
             'LOOT': { cat: 'COMBAT', syntax: 'LOOT <target_id>', example: 'LOOT 7', help: 'Piracy: light skirmish to siphon 15% inventory' },
             'DESTROY': { cat: 'COMBAT', syntax: 'DESTROY <target_id>', example: 'DESTROY 7', help: 'Piracy: deathmatch fight to 5% HP, siphons 40% cargo' },
             'LIST': { cat: 'MARKET', syntax: 'LIST <item> <pricePerUnit> <qty>', example: 'LIST IRON_INGOT 50 10', help: 'List item for $50 each, 10 units total' },
-            'BUY': { cat: 'MARKET', syntax: 'BUY <item> <max_price>', example: 'BUY IRON_INGOT 60', help: 'Purchase from Auction House' },
+            'BUY': { cat: 'MARKET', syntax: 'BUY <item> [qty] <max_price>', example: 'BUY IRON_INGOT 10 60', help: 'Purchase from Auction House' },
             'CANCEL': { cat: 'MARKET', syntax: 'CANCEL <order_id>', example: 'CANCEL 15', help: 'Withdraw an active order' },
             'TRANSFER': { cat: 'MARKET', syntax: 'TRANSFER <target_id> <item> <qty>', example: 'TRANSFER 42 IRON_ORE 10', help: 'Directly transfer items to a nearby agent.' },
             'MARKET_CLAIM': { cat: 'MARKET', syntax: 'MARKET_CLAIM', example: 'MARKET_CLAIM', help: 'Retrieve purchased items from the current Market station.' },
@@ -73,11 +73,9 @@ export class TerminalHandler {
             'CLAIM_LOST_DRILL': { cat: 'OTHER', syntax: 'CLAIM_LOST_DRILL', example: 'CLAIM_LOST_DRILL', help: 'Emergency recovery if your drill became Scrap Metal' },
             'DROP_LOAD': { cat: 'OTHER', syntax: 'DROP_LOAD', example: 'DROP_LOAD', help: 'Jettison all cargo' },
             'STOP': { cat: 'NAV', syntax: 'STOP', example: 'STOP', help: 'Cancel all queued intents' },
-            'FIELD_TRADE': { cat: 'MARKET', syntax: 'FIELD_TRADE <id> <price> <items...>', example: 'FIELD_TRADE 5 100 IRON_ORE', help: 'Direct trade with nearby agent' },
             'REQUEST_RESCUE': { cat: 'NAV', syntax: 'REQUEST_RESCUE', example: 'REQUEST_RESCUE', help: 'Get a quote for emergency towing to the Hub' },
             'CONFIRM_RESCUE': { cat: 'NAV', syntax: 'CONFIRM_RESCUE', example: 'CONFIRM_RESCUE', help: 'Confirm emergency tow at quoted price' },
             'ARENA_STATUS': { cat: 'ARENA', syntax: 'ARENA_STATUS', example: 'ARENA_STATUS', help: 'Shows your Pit Fighter\'s stats, Elo, and equipped gear.' },
-            'ARENA_REGISTER': { cat: 'ARENA', syntax: 'ARENA_REGISTER', example: 'ARENA_REGISTER', help: 'Register your agent as a Pit Fighter in the Scrap Pit Arena.' },
             'ARENA_EQUIP': { cat: 'ARENA', syntax: 'ARENA_EQUIP <part_id>', example: 'ARENA_EQUIP 123', help: 'Permanently donates an unequipped part from your main inventory to your Pit Fighter.' },
             'ARENA_LOGS': { cat: 'ARENA', syntax: 'ARENA_LOGS', example: 'ARENA_LOGS', help: 'Shows the combat results of your Pit Fighter\'s recent Scrap Pit arena battles.' },
             'LEADERBOARD': { cat: 'META', syntax: 'LEADERBOARD', example: 'LEADERBOARD', help: 'Shows the top 10 players by XP, Credits, and Arena Elo.' },
@@ -185,7 +183,7 @@ export class TerminalHandler {
         div.className = `font-mono ${colors[type] || colors.info} py-1 flex flex-wrap items-center gap-2`;
         const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
         
-        let content = `<span class="opacity-30 flex-shrink-0">[${time}]</span> <span class="flex-grow">${msg}</span>`;
+        let content = `<span class="opacity-30 flex-shrink-0">[${time}]</span> <span class="flex-grow">${this.sanitizeTerminalHtml(msg)}</span>`;
         div.innerHTML = content;
 
         if (action && action.label && action.cmd) {
@@ -202,6 +200,35 @@ export class TerminalHandler {
 
         this.buffer.appendChild(div);
         this.buffer.scrollTop = this.buffer.scrollHeight;
+    }
+
+    sanitizeTerminalHtml(html) {
+        const template = document.createElement('template');
+        template.innerHTML = String(html ?? '');
+        const allowedTags = new Set(['B', 'I', 'EM', 'STRONG', 'SPAN', 'BR', 'CODE']);
+        const allowedAttrs = new Set(['class', 'style']);
+        const safeStyle = (value) => !/(url\s*\(|expression\s*\(|behavior\s*:|@import|javascript\s*:)/i.test(value || '');
+
+        const walk = (node) => {
+            [...node.childNodes].forEach(child => {
+                if (child.nodeType === Node.ELEMENT_NODE) {
+                    if (!allowedTags.has(child.tagName)) {
+                        child.replaceWith(document.createTextNode(child.textContent || ''));
+                        return;
+                    }
+                    [...child.attributes].forEach(attr => {
+                        const name = attr.name.toLowerCase();
+                        if (!allowedAttrs.has(name) || (name === 'style' && !safeStyle(attr.value))) {
+                            child.removeAttribute(attr.name);
+                        }
+                    });
+                }
+                walk(child);
+            });
+        };
+
+        walk(template.content);
+        return template.innerHTML;
     }
 
     updateSuggestions() {
@@ -252,7 +279,7 @@ export class TerminalHandler {
     }
 
     /**
-     * Programmatically execute a command string (e.g. 'ARENA_REGISTER')
+     * Programmatically execute a command string (e.g. 'ARENA_STATUS')
      * without requiring user input.
      */
     async execute(cmdStr) {
@@ -270,14 +297,16 @@ export class TerminalHandler {
             // Wait, parseIntent for meta commands returns early.
             
             // Re-use logic from submit() for network intents
-            const metaCommands = ['HELP', 'RECIPES', 'MISSIONS', 'GUIDE', 'MARKET', 'MARKET_PICKUPS', 'BOUNTIES', 'ROTATE_KEY', 'GEAR', 'STATUS', 'PERCEIVE', 'SCAN', 'REQUEST_RESCUE', 'LEADERBOARD', 'ARENA_STATUS', 'ARENA_LOGS', 'ARENA_REGISTER'];
+            const metaCommands = ['HELP', 'RECIPES', 'MISSIONS', 'GUIDE', 'MARKET', 'MARKET_PICKUPS', 'BOUNTIES', 'ROTATE_KEY', 'GEAR', 'STATUS', 'PERCEIVE', 'SCAN', 'REQUEST_RESCUE', 'LEADERBOARD', 'ARENA_STATUS', 'ARENA_LOGS'];
             if (metaCommands.includes(actionType)) {
                 // For now, let's just make submit() more modular or re-implement here
                 // Meta logic is actually inside submit(). Let's refactor submit() slightly or just call it.
                 this.input.value = cmdStr;
                 await this.submit();
             } else {
-                await this.game.api.submitIntent(actionType, data);
+                const submitAction = data._action || actionType;
+                delete data._action;
+                await this.game.api.submitIntent(submitAction, data);
             }
         } catch (e) {
             this.log(`ERROR: ${e.message}`, 'error');
@@ -395,6 +424,18 @@ export class TerminalHandler {
                 if (isNaN(data.target_id) || isNaN(data.quantity)) throw new Error('Target ID and Quantity must be integers.');
                 break;
             case 'BUY':
+                if (args.length < 2) throw new Error('Usage: BUY <item> [qty] <max_price>');
+                data.item_type = args[0].toUpperCase();
+                if (args.length >= 3) {
+                    data.quantity = args[1].toUpperCase() === 'MAX' ? 'MAX' : parseInt(args[1]);
+                    data.max_price = parseInt(args[2]);
+                } else {
+                    data.quantity = 1;
+                    data.max_price = parseInt(args[1]);
+                }
+                if (data.quantity !== 'MAX' && (isNaN(data.quantity) || data.quantity <= 0)) throw new Error('Quantity must be a positive integer or MAX.');
+                if (isNaN(data.max_price)) throw new Error('Max price must be an integer.');
+                break;
                 if (args.length < 2) throw new Error('Usage: BUY <item> <max_price>  — e.g. BUY IRON_INGOT 60');
                 data.item_type = args[0].toUpperCase(); data.max_price = parseInt(args[1]);
                 if (isNaN(data.max_price)) throw new Error('Max price must be an integer.');
@@ -403,6 +444,7 @@ export class TerminalHandler {
                 if (args.length < 1) throw new Error('Usage: CANCEL <order_id>  — e.g. CANCEL 15');
                 data.order_id = parseInt(args[0]);
                 if (isNaN(data.order_id)) throw new Error('Order ID must be an integer.');
+                data._action = 'CANCEL_ORDER';
                 break;
             case 'SMELT':
                 if (args.length < 1) throw new Error('Usage: SMELT <ore_type> [quantity|MAX]');
@@ -481,15 +523,17 @@ export class TerminalHandler {
                 break;
             case 'RESET_WEAR': case 'STOP': case 'DROP_LOAD':
                 break;
-            case 'FIELD_TRADE':
-                if (args.length < 3) throw new Error('Usage: FIELD_TRADE <target_id> <price> <items...>');
-                data.target_id = parseInt(args[0]); data.price = parseInt(args[1]);
-                data.items = args.slice(2);
+            case 'TRANSFER':
+                if (args.length < 3) throw new Error(`Usage: ${actionType} <target_id> <item> <qty>`);
+                data.target_id = parseInt(args[0]);
+                data.item_type = args[1].toUpperCase().replace(/-/g, '_');
+                data.quantity = args[2].toUpperCase() === 'MAX' ? 'MAX' : parseInt(args[2]);
+                if (isNaN(data.target_id)) throw new Error('Target ID must be an integer.');
+                if (data.quantity !== 'MAX' && (isNaN(data.quantity) || data.quantity <= 0)) throw new Error('Quantity must be a positive integer or MAX.');
                 break;
             case 'MARKET_CLAIM':
             case 'ARENA_STATUS':
             case 'ARENA_LOGS':
-            case 'ARENA_REGISTER':
             case 'LEADERBOARD':
             case 'BOUNTIES':
                 return { action: actionType, timestamp: Date.now() };
@@ -772,7 +816,8 @@ export class TerminalHandler {
                 let sells = 0, buys = 0;
                 market.forEach(o => {
                     const typeColor = o.type === 'SELL' ? 'color:#38bdf8' : 'color:#fbbf24';
-                    this.log(`  [#${o.id}] <span style="${typeColor}">${o.type}</span> <b>${o.item.replace('_', ' ')}</b> x${o.quantity} for <span style="color:#10b981">$${o.price}</span> ea`, 'info');
+                    const quantity = o.qty ?? o.quantity ?? 0;
+                    this.log(`  [#${o.id}] <span style="${typeColor}">${o.type}</span> <b>${o.item.replace('_', ' ')}</b> x${quantity} for <span style="color:#10b981">$${o.price}</span> ea`, 'info');
                     if (o.type === 'SELL') sells++; else buys++;
                 });
                 this.log(`  <i>${sells} SELL / ${buys} BUY orders total.</i>`, 'system');
@@ -807,8 +852,11 @@ export class TerminalHandler {
                     return;
                 }
                 bounties.forEach(b => {
-                    const poster = b.posted_by_name || 'System';
-                    this.log(`  🎯 <b>${b.target_name}</b> — Reward: <span style="color:#10b981">$${b.reward_credits}</span> [Posted by: ${poster}]`, 'info');
+                    const poster = b.issuer || b.posted_by_name || 'System';
+                    const target = b.target_name || `Agent #${b.target_id}`;
+                    const reward = b.reward_credits ?? b.reward ?? 0;
+                    this.log(`  [BOUNTY] <b>${target}</b> - Reward: <span style="color:#10b981">$${reward}</span> [Posted by: ${poster}]`, 'info');
+                    return;
                 });
             } catch (e) { this.log(`ERROR: ${e.message}`, 'error'); }
             return;
@@ -1380,10 +1428,12 @@ export class TerminalHandler {
 
         try {
             const data = await this.parseIntent(actionType, args);
-            this.log(`Transmitting: <span style="color:#38bdf8">${actionType}</span>...`, 'info');
+            const submitAction = data._action || actionType;
+            delete data._action;
+            this.log(`Transmitting: <span style="color:#38bdf8">${submitAction}</span>...`, 'info');
 
             try {
-                const result = await this.game.api._post('/api/intent', { action_type: actionType, data });
+                const result = await this.game.api._post('/api/intent', { action_type: submitAction, data });
                 this.log(`✓ ACCEPTED — Tick #${result.tick_index || result.tick}`, 'success');
             } catch (e) {
                 const errorDetail = typeof e.message === 'object' ? JSON.stringify(e.message) : e.message;

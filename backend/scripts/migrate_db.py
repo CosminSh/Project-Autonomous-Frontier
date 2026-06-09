@@ -72,6 +72,9 @@ def run_migrations(engine: Engine):
         ("agents", "performance_stats", "JSON"),
         ("agents", "webhook_url", "VARCHAR"),
         ("agents", "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+        ("agent_state", "is_banned", "BOOLEAN DEFAULT FALSE"),
+        ("agent_state", "muted_until", "TIMESTAMP"),
+        ("agent_state", "moderation_note", "VARCHAR"),
     ]
     
     logger.info(f"Starting migrations on: {DATABASE_URL}")

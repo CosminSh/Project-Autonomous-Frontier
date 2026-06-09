@@ -82,11 +82,64 @@ def update_fighter_stats(fighter: Agent, db: Session):
     db.commit()
 
 
+def _serialize_arena_gear(parts):
+    return [
+        {
+            "id": p.id,
+            "type": p.part_type,
+            "name": p.name,
+            "rarity": p.rarity,
+            "stats": p.stats,
+            "durability": p.durability,
+            "level": (p.stats or {}).get("upgrade_level", 0),
+        } for p in parts
+    ]
+
+
+def _get_recent_arena_logs(fighter: Agent, db: Session, limit: int = 10):
+    logs = db.execute(
+        select(AuditLog)
+        .where(AuditLog.agent_id == fighter.id, AuditLog.event_type.in_(["ARENA_VICTORY", "ARENA_DEFEAT", "ARENA_SEASON_RESET_AGENT"]))
+        .order_by(AuditLog.time.desc())
+        .limit(limit)
+    ).scalars().all()
+    opponent_ids = {
+        (l.details or {}).get("opponent_id")
+        for l in logs
+        if (l.details or {}).get("opponent_id")
+    }
+    opponent_names = {}
+    if opponent_ids:
+        opponents = db.execute(select(Agent.id, Agent.name).where(Agent.id.in_(opponent_ids))).all()
+        opponent_names = {row.id: row.name for row in opponents}
+
+    serialized = []
+    for log in logs:
+        details = log.details or {}
+        opponent_id = details.get("opponent_id")
+        serialized.append({
+            "time": log.time.isoformat(),
+            "timestamp": log.time.isoformat(),
+            "event": log.event_type,
+            "result": "WIN" if log.event_type == "ARENA_VICTORY" else "LOSS" if log.event_type == "ARENA_DEFEAT" else "RESET",
+            "details": details,
+            "message": details.get("message", ""),
+            "opponent_id": opponent_id,
+            "opponent_name": opponent_names.get(opponent_id),
+            "opponent_elo": details.get("opponent_elo"),
+            "elo_change": details.get("elo_delta", 0),
+            "winner_id": fighter.id if log.event_type == "ARENA_VICTORY" else None,
+        })
+    return serialized
+
+
 @router.get("/status")
 def get_arena_status(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     fighter = get_or_create_pit_fighter(agent, db)
     parts = db.execute(select(ChassisPart).where(ChassisPart.agent_id == fighter.id)).scalars().all()
     profile = fighter.arena_profile
+    gear = _serialize_arena_gear(parts)
+    logs = _get_recent_arena_logs(fighter, db)
     
     # A fighter is ready if they have a Frame and at least one Actuator (Weapon/Drill)
     has_frame = any(p.part_type == "Frame" for p in parts)
@@ -112,16 +165,10 @@ def get_arena_status(agent: Agent = Depends(verify_api_key), db: Session = Depen
             "has_weapon": has_weapon,
             "details": "Requires 1x Chassis Frame (HP) and 1x Actuator (Damage)."
         },
-        "gear": [
-            {
-                "id": p.id,
-                "type": p.part_type,
-                "name": p.name,
-                "rarity": p.rarity,
-                "stats": p.stats,
-                "durability": p.durability
-            } for p in parts
-        ]
+        "gear": gear,
+        "arena_gear": gear,
+        "logs": logs,
+        "arena_logs": logs,
     }
 
 
@@ -155,12 +202,4 @@ def equip_pit_fighter(req: EquipRequest, agent: Agent = Depends(verify_api_key),
 @router.get("/logs")
 def get_arena_logs(agent: Agent = Depends(verify_api_key), db: Session = Depends(get_db)):
     fighter = get_or_create_pit_fighter(agent, db)
-    
-    logs = db.execute(
-        select(AuditLog)
-        .where(AuditLog.agent_id == fighter.id, AuditLog.event_type.in_(["ARENA_VICTORY", "ARENA_DEFEAT"]))
-        .order_by(AuditLog.time.desc())
-        .limit(10)
-    ).scalars().all()
-    
-    return [{"time": l.time.isoformat(), "event": l.event_type, "details": l.details} for l in logs]
+    return _get_recent_arena_logs(fighter, db)

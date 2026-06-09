@@ -5,14 +5,42 @@ Handles the asynchronous Scrap Pit PvP battles and season resets.
 
 import logging
 import random
+from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from models import Agent, AuditLog, ChassisPart, InventoryItem
 from database import SessionLocal
 from logic.combat_system import simulate_battle
-from game_helpers import recalculate_agent_stats
 
 logger = logging.getLogger("heartbeat.arena")
+
+
+def _season_key(reset_time: datetime | None = None) -> str:
+    """Return a stable UTC season key for duplicate-reset protection."""
+    reset_time = reset_time or datetime.now(timezone.utc)
+    if reset_time.tzinfo is None:
+        reset_time = reset_time.replace(tzinfo=timezone.utc)
+    iso_year, iso_week, _ = reset_time.isocalendar()
+    return f"{iso_year}-W{iso_week:02d}"
+
+
+def _season_reset_already_ran(db: Session, season_key: str) -> bool:
+    recent_resets = db.execute(
+        select(AuditLog)
+        .where(AuditLog.event_type == "ARENA_SEASON_RESET")
+        .order_by(AuditLog.time.desc())
+        .limit(20)
+    ).scalars().all()
+    return any((log.details or {}).get("season_key") == season_key for log in recent_resets)
+
+
+def _reset_pit_fighter_stats(fighter: Agent) -> None:
+    fighter.health = 0
+    fighter.max_health = 0
+    fighter.damage = 0
+    fighter.accuracy = 0
+    fighter.speed = 0
+    fighter.armor = 0
 
 def resolve_battle(f1: Agent, f2: Agent, db: Session):
     """
@@ -119,12 +147,34 @@ def trigger_arena_battles(db: Session):
     logger.info(f"Arena processing complete. Resolved {matches_made} matches.")
 
 
-def reset_arena_season(db: Session):
+def reset_arena_season(
+    db: Session,
+    *,
+    reset_time: datetime | None = None,
+    force: bool = False,
+    source: str = "scheduler",
+):
     """
     Wipes ALL chassis parts attached to pit fighters and resets Elo.
     This acts as the massive weekly gear sink.
     """
-    logger.info("Initializing Scrap Pit Season Reset...")
+    reset_time = reset_time or datetime.now(timezone.utc)
+    if reset_time.tzinfo is None:
+        reset_time = reset_time.replace(tzinfo=timezone.utc)
+    season_key = _season_key(reset_time)
+
+    if not force and _season_reset_already_ran(db, season_key):
+        logger.info("Skipping Scrap Pit Season Reset for %s; reset already recorded.", season_key)
+        return {
+            "status": "skipped",
+            "reason": "already_reset",
+            "season_key": season_key,
+            "fighters_reset": 0,
+            "parts_destroyed": 0,
+            "source": source,
+        }
+
+    logger.info("Initializing Scrap Pit Season Reset for %s...", season_key)
     
     from models import ArenaProfile
     fighters = db.execute(
@@ -133,26 +183,63 @@ def reset_arena_season(db: Session):
     ).scalars().all()
     
     total_parts_destroyed = 0
+    fighter_summaries = []
     for f in fighters:
+        profile = f.arena_profile
+        old_elo = profile.elo if profile else 1200
+
         # Delete parts
         parts = db.execute(select(ChassisPart).where(ChassisPart.agent_id == f.id)).scalars().all()
+        destroyed_for_fighter = len(parts)
         for p in parts:
             db.delete(p)
             total_parts_destroyed += 1
             
-            
-        # Reset Stats to base (empty chassis frame) using proper helper
-        recalculate_agent_stats(db, f)
+        # Pit fighters have no base chassis. Stats come entirely from donated gear.
+        _reset_pit_fighter_stats(f)
         
         # Soft reset Elo (compress towards 1200)
-        profile = f.arena_profile
         if profile:
             profile.elo = 1200 + ((profile.elo - 1200) // 2)
             profile.wins = 0
             profile.losses = 0
+            profile.daily_opponents = []
+            new_elo = profile.elo
+        else:
+            new_elo = 1200
+
+        fighter_summaries.append({
+            "fighter_id": f.id,
+            "fighter_name": f.name,
+            "old_elo": old_elo,
+            "new_elo": new_elo,
+            "parts_destroyed": destroyed_for_fighter,
+        })
+        db.add(AuditLog(agent_id=f.id, event_type="ARENA_SEASON_RESET_AGENT", details={
+            "season_key": season_key,
+            "old_elo": old_elo,
+            "new_elo": new_elo,
+            "parts_destroyed": destroyed_for_fighter,
+            "source": source,
+        }))
+
+    result = {
+        "status": "ok",
+        "season_key": season_key,
+        "fighters_reset": len(fighters),
+        "parts_destroyed": total_parts_destroyed,
+        "source": source,
+        "reset_at": reset_time.isoformat(),
+    }
+    db.add(AuditLog(agent_id=None, event_type="ARENA_SEASON_RESET", details={
+        **result,
+        "fighters": fighter_summaries[:100],
+        "fighter_summary_truncated": len(fighter_summaries) > 100,
+    }))
 
     db.commit()
     logger.info(f"Season Reset Complete. Destroyed {total_parts_destroyed} pieces of gear across {len(fighters)} Pit Fighters.")
+    return result
 
 
 def generate_daily_matchups(db: Session):

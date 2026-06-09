@@ -11,7 +11,7 @@ services:
     environment:
       - POSTGRES_DB=terminal_frontier
       - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=password
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting docker compose}
       - POSTGRES_SHARED_BUFFERS=64MB
       - POSTGRES_WORK_MEM=4MB
       - POSTGRES_MAX_CONNECTIONS=40
@@ -53,9 +53,9 @@ services:
       - "3000:8000"
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://admin:password@db:5432/terminal_frontier
+      - DATABASE_URL=postgresql://admin:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting docker compose}@db:5432/terminal_frontier
       - REDIS_URL=redis://redis:6379/0
-      - ADMIN_KEY=change-me-before-deploy
+      - ADMIN_KEY=${ADMIN_KEY:?Set ADMIN_KEY before starting docker compose}
     depends_on:
       db:
         condition: service_healthy

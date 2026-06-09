@@ -64,3 +64,6 @@ The map now uses a **Unified Interaction Model** (v0.5.3+).
 *   **One Tap**: Select hex/object (updates scanner).
 *   **Double Tap**: Open context menu.
 *   **Right Click**: Select + Open menu (PC shortcut).
+
+## Scrap Pit Season Reset
+Arena season resets are guarded by weekly audit records and can be run manually through the admin API if the scheduler misses a reset. See `docs/ARENA_OPERATIONS_RUNBOOK.md` before using `force=true`.

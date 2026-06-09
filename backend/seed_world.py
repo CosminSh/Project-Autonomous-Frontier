@@ -129,6 +129,9 @@ def seed_world():
         ("agents", "speed", "INTEGER DEFAULT 10"),
         ("agents", "is_pitfighter", "BOOLEAN DEFAULT FALSE"),
         ("agents", "is_aggressive", "BOOLEAN DEFAULT FALSE"),
+        ("agent_state", "is_banned", "BOOLEAN DEFAULT FALSE"),
+        ("agent_state", "muted_until", "TIMESTAMP"),
+        ("agent_state", "moderation_note", "VARCHAR"),
         ("global_state", "actions_processed", "INTEGER DEFAULT 0"),
     ]
     

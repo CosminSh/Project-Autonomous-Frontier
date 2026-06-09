@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<!-- VERSION: 0.9.7 -->
+<!-- VERSION: 0.9.8 -->
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TERMINAL FRONTIER</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="tailwind.generated.css?v=0.9.8">
     <link rel="icon" href="favicon.jpeg" type="image/jpeg">
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=0.9.7">
+    <link rel="stylesheet" href="styles.css?v=0.9.8">
     <style>
         body {
             background-color: #050507;
@@ -1510,13 +1510,12 @@
                     <div>
                         <label class="text-[9px] text-slate-500 uppercase font-black block mb-1.5">Contract Type</label>
                         <select id="contract-type" class="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-sky-300">
-                            <option value="PROCUREMENT">PROCUREMENT</option>
-                            <option value="TRANSPORT">TRANSPORT</option>
+                            <option value="DELIVERY">DELIVERY</option>
                         </select>
                     </div>
                     <div>
-                        <label class="text-[9px] text-slate-500 uppercase font-black block mb-1.5">Target Station ID</label>
-                        <input type="number" id="contract-target" placeholder="E.g. 1" class="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-sky-400">
+                        <label class="text-[9px] text-slate-500 uppercase font-black block mb-1.5">Target Station Coordinates</label>
+                        <input type="text" id="contract-target" placeholder="E.g. 0,0" class="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-sky-400">
                     </div>
                 </div>
                 <div>
@@ -1755,8 +1754,8 @@
     <!-- Toast Notifications -->
     <div id="toast-container" class="fixed bottom-8 right-8 z-[200] flex flex-col items-end pointer-events-none"></div>
 
-    <script type="module" src="storage.js?v=0.9.7"></script>
-    <script type="module" src="app.js?v=0.9.7"></script>
+    <script type="module" src="storage.js?v=0.9.8"></script>
+    <script type="module" src="app.js?v=0.9.8"></script>
 
 </body>
 

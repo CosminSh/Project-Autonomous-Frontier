@@ -9,38 +9,45 @@ import asyncio
 import logging
 import os
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 import logging.handlers
 import psutil
 import time
+from collections import defaultdict, deque
 from datetime import datetime
 
-from models import Base, WorldHex
+from models import Base, GlobalState, WorldHex
 from database import engine, SessionLocal, refresh_station_cache
 import heartbeat as hb
 
 # Routers
 from routes import auth, perception, agent_meta, intent, economy, missions, social, world, corp, admin, arena, debug
 from logic.events import event_manager
+from observability import record_rate_limit_bucket_count, record_rate_limit_rejection, record_slow_request
 
 from contextlib import asynccontextmanager
 
 # ─────────────────────────────────────────────────────────────────────────────
 # App Setup & Lifespan
 # ─────────────────────────────────────────────────────────────────────────────
-# Persistent Logging Setup
-log_file = "app.log"
-handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5)
 formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(name)s | %(message)s')
-handler.setFormatter(formatter)
 
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.INFO)
-root_logger.addHandler(handler)
+
+# Persistent Logging Setup
+log_file = os.getenv("LOG_FILE", "app.log")
+if log_file:
+    try:
+        handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5)
+        handler.setFormatter(formatter)
+        root_logger.addHandler(handler)
+    except OSError as exc:
+        root_logger.warning("File logging disabled; could not open %s: %s", log_file, exc)
 
 # Console logging remains for convenience
 console_handler = logging.StreamHandler()
@@ -94,28 +101,55 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass # Table or column might not exist yet if migrations failed
 
+        is_postgres = engine.dialect.name == "postgresql"
+        runtime_migrations = [
+            ("bounties", "claimed_by", "INTEGER"),
+            ("bounties", "claim_tick", "BIGINT"),
+            ("agent_state", "is_banned", "BOOLEAN DEFAULT FALSE"),
+            ("agent_state", "muted_until", "TIMESTAMP"),
+            ("agent_state", "moderation_note", "VARCHAR"),
+        ]
+        for table_name, column_name, column_type in runtime_migrations:
+            if is_postgres:
+                migration_sql = f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {column_name} {column_type}"
+            else:
+                migration_sql = f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
+            try:
+                conn.execute(text(migration_sql))
+                conn.commit()
+                logger.info(f"Runtime migration ensured: {table_name}.{column_name}")
+            except Exception as e:
+                conn.rollback()
+                err_str = str(e).lower()
+                if "duplicate column" not in err_str and "already exists" not in err_str:
+                    logger.warning(f"Runtime migration skipped for {table_name}.{column_name}: {e}")
+
         # ─── CRITICAL PERFORMANCE INDEXES ─────────────────────────────────────
         # Missing indexes causing full-table-scans and 2+ second API responses
         perf_indexes = [
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_agent_time ON audit_logs (agent_id, time DESC)",
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_event_type ON audit_logs (event_type)",
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_inventory_agent ON inventory_items (agent_id)",
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_intents_agent ON intents (agent_id)",
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_intents_tick ON intents (tick_index)",
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agents_pitfighter ON agents (is_pitfighter)",
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agents_bot ON agents (is_bot, is_feral)",
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_messages_timestamp ON agent_messages (timestamp DESC)",
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_messages_channel ON agent_messages (channel, timestamp DESC)",
+            ("idx_audit_agent_time", "audit_logs", "agent_id, time DESC"),
+            ("idx_audit_event_type", "audit_logs", "event_type"),
+            ("idx_inventory_agent", "inventory_items", "agent_id"),
+            ("idx_intents_agent", "intents", "agent_id"),
+            ("idx_intents_tick", "intents", "tick_index"),
+            ("idx_agent_state_pitfighter", "agent_state", "is_pitfighter"),
+            ("idx_agent_state_bot", "agent_state", "is_bot, is_feral"),
+            ("idx_messages_timestamp", "agent_messages", "timestamp DESC"),
+            ("idx_messages_channel", "agent_messages", "channel, timestamp DESC"),
         ]
-        for idx_sql in perf_indexes:
+        is_postgres = engine.dialect.name == "postgresql"
+        index_conn = conn.execution_options(isolation_level="AUTOCOMMIT") if is_postgres else conn
+        for index_name, table_name, columns in perf_indexes:
+            concurrently = "CONCURRENTLY " if is_postgres else ""
+            idx_sql = f"CREATE INDEX {concurrently}IF NOT EXISTS {index_name} ON {table_name} ({columns})"
             try:
-                # CONCURRENTLY requires autocommit=True (can't run in a transaction)
-                conn.execute(text("COMMIT"))
-                conn.execute(text(idx_sql))
-                logger.info(f"Performance index ensured: {idx_sql.split('idx_')[1].split(' ')[0]}")
+                index_conn.execute(text(idx_sql))
+                logger.info(f"Performance index ensured: {index_name}")
             except Exception as e:
                 if "already exists" not in str(e).lower():
                     logger.warning(f"Index creation skipped: {e}")
+        if not is_postgres:
+            conn.commit()
         # ──────────────────────────────────────────────────────────────────────
 
     with SessionLocal() as db:
@@ -194,14 +228,69 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins if os.getenv("ENVIRONMENT") == "production" else ["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-API-KEY", "X-API-Key"],
 )
 
+_rate_limit_windows = defaultdict(deque)
+_rate_limits = [
+    (("/auth/login", "/auth/guest", "/auth/rotate_key"), 20, 60),
+    (("/api/intent",), 60, 60),
+    (("/api/chat",), 90, 60),
+    (("/state", "/api/my_agent", "/api/perception", "/api/agent_logs", "/api/market"), 180, 60),
+]
+
+
+def _rate_limit_for_path(path: str):
+    for prefixes, max_requests, window_seconds in _rate_limits:
+        if any(path.startswith(prefix) for prefix in prefixes):
+            return max_requests, window_seconds
+    return None
+
+
+@app.middleware("http")
+async def rate_limit_requests(request: Request, call_next):
+    limit = _rate_limit_for_path(request.url.path)
+    if not limit or os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "false":
+        return await call_next(request)
+
+    max_requests, window_seconds = limit
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    client_ip = forwarded_for.split(",", 1)[0].strip() or (request.client.host if request.client else "unknown")
+    api_key = request.headers.get("x-api-key", "")
+    identity = api_key or client_ip
+    bucket_key = (identity, request.url.path)
+    now = time.monotonic()
+    bucket = _rate_limit_windows[bucket_key]
+
+    while bucket and bucket[0] <= now - window_seconds:
+        bucket.popleft()
+    record_rate_limit_bucket_count(sum(1 for active_bucket in _rate_limit_windows.values() if active_bucket))
+
+    if len(bucket) >= max_requests:
+        retry_after = max(1, int(window_seconds - (now - bucket[0])))
+        from fastapi.responses import JSONResponse
+        record_rate_limit_rejection(request.url.path)
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded."},
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    bucket.append(now)
+    return await call_next(request)
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
+    started_at = time.monotonic()
     try:
         response = await call_next(request)
+        record_slow_request(
+            request.method,
+            request.url.path,
+            time.monotonic() - started_at,
+            response.status_code,
+        )
         
         # ── Security Headers ──
         # Inject HSTS and other headers, primarily for HTTPS
@@ -294,16 +383,17 @@ if os.getenv("ENVIRONMENT") != "production":
 # ─────────────────────────────────────────────────────────────────────────────
 # Auth Debug Endpoint
 # ─────────────────────────────────────────────────────────────────────────────
-@app.get("/api/debug/auth", tags=["System"])
-async def debug_auth(request: Request):
-    """Diagnose Origin and Auth headers for local dev friction."""
-    return {
-        "origin": request.headers.get("origin"),
-        "host": request.headers.get("host"),
-        "referer": request.headers.get("referer"),
-        "env": os.getenv("ENVIRONMENT", "development"),
-        "allowed_origins": allowed_origins if os.getenv("ENVIRONMENT") == "production" else "*"
-    }
+if os.getenv("ENVIRONMENT") != "production":
+    @app.get("/api/debug/auth", tags=["System"])
+    async def debug_auth(request: Request):
+        """Diagnose Origin and Auth headers for local dev friction."""
+        return {
+            "origin": request.headers.get("origin"),
+            "host": request.headers.get("host"),
+            "referer": request.headers.get("referer"),
+            "env": os.getenv("ENVIRONMENT", "development"),
+            "allowed_origins": allowed_origins if os.getenv("ENVIRONMENT") == "production" else "*"
+        }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -311,8 +401,46 @@ async def debug_auth(request: Request):
 # ─────────────────────────────────────────────────────────────────────────────
 @app.get("/api/health", tags=["System"])
 async def health_check():
-    """Lightweight liveness probe. Returns 200 if server is responsive."""
-    return {"status": "ok"}
+    """Readiness probe for HTTP, database, schema, and heartbeat freshness."""
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+            hex_count = db.execute(select(func.count(WorldHex.id))).scalar() or 0
+            state = db.execute(select(GlobalState)).scalars().first()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail={"status": "error", "database": str(e)})
+
+    if not state:
+        raise HTTPException(status_code=503, detail={"status": "error", "heartbeat": "missing"})
+
+    updated_at = state.updated_at
+    heartbeat_age = None
+    if updated_at:
+        now = datetime.now(updated_at.tzinfo) if updated_at.tzinfo else datetime.utcnow()
+        heartbeat_age = max(0.0, (now - updated_at).total_seconds())
+
+    max_heartbeat_age = int(os.getenv("HEALTH_MAX_HEARTBEAT_AGE_SECONDS", "180"))
+    if heartbeat_age is not None and heartbeat_age > max_heartbeat_age:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "error",
+                "heartbeat": "stale",
+                "heartbeat_age_seconds": heartbeat_age,
+                "max_heartbeat_age_seconds": max_heartbeat_age,
+            },
+        )
+
+    return {
+        "status": "ok",
+        "database": "ok",
+        "world_hexes": hex_count,
+        "heartbeat": {
+            "tick": state.tick_index,
+            "phase": state.phase,
+            "age_seconds": heartbeat_age,
+        },
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -382,11 +510,19 @@ if os.path.exists(frontend_path):
 
     @app.get("/dashboard")
     async def get_dashboard():
-        return FileResponse(os.path.join(frontend_path, "dashboard.html"))
+        resp = FileResponse(os.path.join(frontend_path, "index.html"))
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return resp
 
     @app.get("/about")
     async def get_about():
         return FileResponse(os.path.join(frontend_path, "about.html"))
+
+    @app.get("/admin", include_in_schema=False)
+    async def get_admin_dashboard():
+        resp = FileResponse(os.path.join(frontend_path, "admin.html"))
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return resp
 
     @app.get("/api/metadata")
     async def get_metadata():

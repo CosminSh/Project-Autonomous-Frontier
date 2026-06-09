@@ -7,7 +7,7 @@ import random
 import gc
 from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
-from models import Agent, InventoryItem, GlobalState, Bounty, Intent, AuditLog, WorldHex
+from models import Agent, AgentState, AgentStats, InventoryItem, GlobalState, Bounty, Intent, AuditLog, WorldHex
 from config import BASE_REGEN, CLUTTER_PENALTY, TOWN_COORDINATES, RESPAWN_HP_PERCENT
 from game_helpers import get_solar_intensity, merge_inventory
 from .bot_logic import process_bot_brain, process_feral_brain
@@ -39,19 +39,32 @@ async def update_global_agent_stats(db, tick_count, manager):
     logger.info(f"update_global step 1 (resources): {time.time()-_t1:.2f}s")
 
     _t2 = time.time()
-    human_players = db.execute(select(Agent.q, Agent.r, Agent.id).where(Agent.is_bot == False, Agent.is_feral == False)).all()
+    human_players = db.execute(
+        select(AgentState.q, AgentState.r, Agent.id)
+        .join(Agent.state)
+        .where(AgentState.is_bot == False, AgentState.is_feral == False)
+    ).all()
     player_cache = [{"q": p.q, "r": p.r, "id": p.id} for p in human_players]
     logger.info(f"update_global step 2 (human_players): {time.time()-_t2:.2f}s")
 
     _t3 = time.time()
-    low_energy_allies = db.execute(select(Agent.q, Agent.r, Agent.id, Agent.faction_id).where(Agent.energy < 30)).all()
+    low_energy_allies = db.execute(
+        select(AgentState.q, AgentState.r, Agent.id, Agent.faction_id)
+        .join(Agent.state)
+        .join(Agent.stats)
+        .where(AgentStats.energy < 30)
+    ).all()
     ally_cache = [{"q": a.q, "r": a.r, "id": a.id, "faction_id": a.faction_id} for a in low_energy_allies]
     logger.info(f"update_global step 3 (low_energy_allies): {time.time()-_t3:.2f}s")
     await asyncio.sleep(0)
 
     _t4 = time.time()
     clutter_map = {}
-    for a in db.execute(select(Agent.q, Agent.r, Agent.id, Agent.faction_id).where(Agent.faction_id != None)).all():
+    for a in db.execute(
+        select(AgentState.q, AgentState.r, Agent.id, Agent.faction_id)
+        .join(Agent.state)
+        .where(Agent.faction_id != None)
+    ).all():
         key = (a.q, a.r, a.faction_id)
         if key not in clutter_map: clutter_map[key] = 0
         clutter_map[key] += 1

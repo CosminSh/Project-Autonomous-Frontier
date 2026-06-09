@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update
@@ -17,6 +17,7 @@ from game_helpers import (
 from routes.common import verify_api_key
 from config import ITEM_WEIGHTS, PART_DEFINITIONS
 from datetime import datetime
+from webhook_security import validate_webhook_url
 import logging
 
 logger = logging.getLogger("heartbeat")
@@ -24,6 +25,9 @@ router = APIRouter(tags=["Agent Meta"])
 
 class RenameRequest(BaseModel):
     new_name: str
+
+class WebhookRequest(BaseModel):
+    webhook_url: str
 
 @router.post("/api/rename_agent")
 async def rename_agent(
@@ -248,13 +252,12 @@ def get_my_agent_performance(agent: Agent = Depends(verify_api_key)):
 
 @router.post("/api/settings/webhook", tags=["Agent Meta"])
 async def set_webhook_url(
-    url: str = Query(...),
+    req: WebhookRequest,
     agent: Agent = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Sets the agent's Discord/Slack webhook URL for Mayday alerts."""
-    if not url.startswith("https://"):
-        raise HTTPException(status_code=400, detail="Invalid webhook URL. Must be HTTPS.")
+    url = validate_webhook_url(req.webhook_url)
     
     agent.webhook_url = url
     db.commit()
