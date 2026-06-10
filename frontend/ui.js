@@ -1,27 +1,15 @@
+import { escapeHtml, escapeJsString } from './ui-utils.js';
+import { updatePrivateLogsUI } from './ui-logs.js';
+import * as marketUI from './ui-market.js';
+
 /**
- * ui.js — DOM manipulation and UI management
+ * ui.js - DOM manipulation and UI management
  */
 export const FACTION_NAMES = {
     1: 'Colonial Administration',
     2: 'Independent Syndicate',
     3: 'Freelancer Core'
 };
-
-const HTML_ESCAPES = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-};
-
-function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, ch => HTML_ESCAPES[ch]);
-}
-
-function escapeJsString(value) {
-    return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ');
-}
 
 export class UIManager {
     constructor(game) {
@@ -263,11 +251,11 @@ export class UIManager {
         toast.className = `toast glass p-3 rounded-xl border-l-4 ${colors[type] || colors.info} flex items-center space-x-3 min-w-[200px] pointer-events-auto interactive shadow-2xl`;
         
         const icon = {
-            info: 'ℹ️',
-            success: '✅',
-            warning: '⚠️',
-            error: '🚫'
-        }[type] || '🔔';
+            info: 'i',
+            success: 'OK',
+            warning: '!',
+            error: 'X'
+        }[type] || '!';
 
         toast.innerHTML = `
             <span class="text-lg">${icon}</span>
@@ -562,6 +550,28 @@ export class UIManager {
         if (webhookInput && data.webhook_url && !webhookInput.value) {
             webhookInput.value = data.webhook_url;
         }
+        this.updateWebhookStatus(data.webhook_status);
+    }
+
+    updateWebhookStatus(status) {
+        const statusEl = document.getElementById('webhook-status');
+        if (!statusEl) return;
+        if (!status) {
+            statusEl.textContent = 'Last delivery: no Mayday attempts recorded';
+            statusEl.className = 'mt-3 text-[9px] text-slate-500 font-mono';
+            return;
+        }
+
+        const state = String(status.status || 'unknown').toUpperCase();
+        const reason = status.reason ? ` (${status.reason})` : '';
+        const httpStatus = status.http_status ? ` HTTP ${status.http_status}` : '';
+        const error = status.error ? ` - ${status.error}` : '';
+        statusEl.textContent = `Last delivery: ${state}${reason}${httpStatus}${error}`;
+        statusEl.className = 'mt-3 text-[9px] font-mono ' + (
+            status.status === 'success' ? 'text-emerald-400' :
+            status.status === 'failed' ? 'text-rose-400' :
+            'text-amber-400'
+        );
     }
 
     updateTickUI(tick, phase) {
@@ -583,284 +593,35 @@ export class UIManager {
     }
 
     updatePrivateLogs(logs, pendingIntent, chatMessages = []) {
-        const logEl = document.getElementById('private-logs');
-
-        // ── Pending Intent card (pinned at top, updated every call) ──
-        if (logEl && !this._pendingIntentEl) {
-            this._pendingIntentEl = document.createElement('div');
-            this._pendingIntentEl.id = 'telemetry-pending-intent';
-            logEl.prepend(this._pendingIntentEl);
-        }
-        if (pendingIntent) {
-            this._pendingIntentEl.className = 'border-b border-sky-500/30 pb-2 mb-2 flex flex-col bg-sky-500/5 p-2 rounded-lg border border-sky-500/10';
-            this._pendingIntentEl.innerHTML = `<div class="flex justify-between items-center mb-1"><span class="text-sky-400 font-bold uppercase tracking-widest text-[8px]">Next Action</span></div><div class="flex space-x-2 text-sky-300"><span class="font-bold flex-shrink-0">${escapeHtml(pendingIntent.action)}</span><span class="truncate">${escapeHtml(JSON.stringify(pendingIntent.data))}</span></div>`;
-            this._pendingIntentEl.classList.remove('hidden');
-        } else {
-            this._pendingIntentEl.className = 'hidden';
-        }
-
-        // ── Append only NEW log/chat entries (never clear, like a terminal) ──
-        const combined = [...(logs || []), ...(chatMessages || [])].sort(
-            (a, b) => new Date(b.time || b.timestamp) - new Date(a.time || a.timestamp)
-        );
-
-        const fragment = document.createDocumentFragment();
-        let hasNew = false;
-
-        combined.forEach(item => {
-            const isChat = !!item.channel;
-            const timeStr = item.time || item.timestamp;
-            const key = isChat
-                ? `chat:${timeStr}:${item.sender}:${item.message}`
-                : `log:${timeStr}:${item.event}`;
-
-            if (this._seenLogKeys.has(key)) return;  // already rendered
-            this._seenLogKeys.add(key);
-
-            // Auto-Toast for failures or critical events
-            if (!isChat) {
-                if (item.event && item.event.endsWith('_FAILED')) {
-                    this.showToast(item.details.reason || item.event, 'error');
-                } else if (item.event === 'COMBAT_HIT' && item.details?.damage > 0) {
-                    // Only toast players if they are involved or it's high stakes
-                } else if (item.event === 'MARKET_MATCH' || item.event === 'INDUSTRIAL_CRAFT') {
-                    this.showToast(`${item.event}: Success`, 'success');
-                }
-            }
-
-            const time = new Date(timeStr).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            const entry = document.createElement('div');
-            entry.className = 'border-b border-slate-900/50 pb-1 flex space-x-2';
-
-            if (isChat) {
-                let badgeColor = 'bg-slate-500 text-white';
-                if (item.channel === 'GLOBAL') badgeColor = 'bg-indigo-600 text-indigo-100';
-                if (item.channel === 'PROX' || item.channel === 'LOCAL') badgeColor = 'bg-emerald-600 text-emerald-100';
-                if (item.channel === 'SQUAD') badgeColor = 'bg-sky-600 text-sky-100';
-                if (item.channel === 'CORP') badgeColor = 'bg-amber-600 text-amber-100';
-                entry.innerHTML = `<span class="text-slate-700 font-mono flex-shrink-0">[${escapeHtml(time)}]</span><span class="${badgeColor} px-1 rounded text-[10px] font-bold tracking-widest leading-none flex items-center flex-shrink-0">${escapeHtml(item.channel)}</span><span class="text-slate-300 font-bold flex-shrink-0">${escapeHtml(item.sender)}:</span><span class="text-slate-100" style="word-break: break-all;">${escapeHtml(item.message)}</span>`;
-            } else {
-                let color = 'text-slate-400';
-                if (item.event.startsWith('COMBAT')) color = 'text-rose-400';
-                else if (item.event === 'MINING') color = 'text-emerald-400';
-                else if (item.event === 'TERMINAL_SECRET') color = 'text-fuchsia-400 font-bold';
-                else if (item.details?.status === 'success') color = 'text-sky-400';
-
-                let detailsHtml = '';
-                if (item.details?.log && Array.isArray(item.details.log)) {
-                    // Show combat rounds as a sub-list
-                    detailsHtml = `<div class="mt-1 pl-4 border-l border-slate-800 space-y-0.5 text-[8px] opacity-80">` +
-                        item.details.log.map(line => `<div>${escapeHtml(line)}</div>`).join('') +
-                        `</div>`;
-                } else {
-                    detailsHtml = `<span class="truncate opacity-60">${escapeHtml(JSON.stringify(item.details))}</span>`;
-                }
-
-                entry.classList.add(color, 'flex-col', 'space-x-0');
-                entry.innerHTML = `
-                    <div class="flex space-x-2">
-                        <span class="text-slate-700 font-mono flex-shrink-0">[${escapeHtml(time)}]</span>
-                        <span class="font-bold flex-shrink-0">${escapeHtml(item.event)}</span>
-                    </div>
-                    ${detailsHtml}
-                `;
-            }
-
-            fragment.appendChild(entry);
-            hasNew = true;
-        });
-
-        if (hasNew) {
-            // Insert new entries after the pending-intent card (at top of log feed)
-            if (logEl) {
-                const afterPending = this._pendingIntentEl?.nextSibling || null;
-                logEl.insertBefore(fragment.cloneNode(true), afterPending);
-                // Auto-scroll to top to show newest entries
-                logEl.scrollTop = 0;
-            }
-
-            // --- SYNC TO WORLD SCREEN FEED ---
-            const worldFeed = document.getElementById('world-telemetry-feed');
-            if (worldFeed) {
-                // For world screen, we keep it simpler but show newest at top
-                if (worldFeed.children.length > 50) worldFeed.lastElementChild.remove();
-                worldFeed.prepend(fragment);
-                worldFeed.scrollTop = 0;
-            }
-        }
+        updatePrivateLogsUI(this, logs, pendingIntent, chatMessages);
     }
 
     async updateMarketUI(market) {
-        const body = document.getElementById('market-listings-body');
-        const countSell = document.getElementById('count-sell');
-        const countBuy = document.getElementById('count-buy');
-        if (!body || !market) return;
-
-        let myOrderIds = new Set();
-        try {
-            if (this.game.apiKey) {
-                const resp = await fetch(`${window.location.origin}/api/market/my_orders`, {
-                    headers: { 'X-API-KEY': this.game.apiKey }
-                });
-                if (resp.ok) {
-                    const myOrders = await resp.json();
-                    myOrderIds = new Set(myOrders.map(o => o.id));
-                }
-            }
-        } catch (e) { console.error("Failed to fetch my orders for market UI:", e); }
-
-        body.innerHTML = '';
-        let sells = 0, buys = 0;
-
-        market.forEach(order => {
-            if (order.type === 'SELL') sells++; else buys++;
-            const row = document.createElement('tr');
-            row.className = "border-b border-slate-800/50 hover:bg-slate-800/20 transition-all group";
-            const color = order.type === 'SELL' ? 'text-sky-400' : 'text-amber-400';
-            const isMine = myOrderIds.has(order.id);
-            const item = String(order.item || '');
-            const safeItem = escapeHtml(item.replace('_', ' '));
-            const safeItemArg = escapeJsString(item);
-            const safeType = order.type === 'SELL' ? 'SELL' : 'BUY';
-            const qty = Number(order.qty ?? order.quantity ?? 0);
-            const price = Number(order.price || 0);
-            const orderId = Number(order.id);
-
-            row.innerHTML = `
-                <td class="py-4 font-bold text-slate-300">
-                    ${safeItem}
-                    ${isMine ? '<span class="ml-2 px-1.5 py-0.5 rounded text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 tracking-widest hidden lg:inline-block">YOURS</span>' : ''}
-                </td>
-                <td class="py-4"><span class="px-2 py-0.5 rounded-full text-[7px] font-black border ${safeType === 'SELL' ? 'bg-sky-500/10 border-sky-500/30 text-sky-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-400'}">${safeType}</span></td>
-                <td class="py-4 font-mono text-slate-400">${qty}</td>
-                <td class="py-4 font-bold ${color}">$${price.toFixed(2)}</td>
-                <td class="py-4 text-right">
-                    ${isMine ? `
-                        <button class="opacity-0 group-hover:opacity-100 bg-rose-800/50 hover:bg-rose-700 text-rose-300 px-3 py-1 rounded text-[9px] font-bold mr-1 border border-rose-500/30 transition-all" onclick="window.game.api.cancelMarketOrder(${orderId})">CANCEL</button>
-                        <button class="opacity-0 group-hover:opacity-100 bg-sky-800/50 hover:bg-sky-700 text-sky-300 px-3 py-1 rounded text-[9px] font-bold border border-sky-500/30 transition-all" onclick="window.game.api.adjustMarketOrder(${orderId}, ${price})">ADJUST</button>
-                    ` : `
-                        <button class="opacity-0 group-hover:opacity-100 bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded text-[9px] font-bold transition-all" onclick="game.ui.quickTrade('${safeItemArg}', ${price}, '${safeType}')">
-                            ${safeType === 'SELL' ? 'BUY' : 'SELL'}
-                        </button>
-                    `}
-                </td>
-            `;
-            body.appendChild(row);
-        });
-        if (countSell) countSell.textContent = sells;
-        if (countBuy) countBuy.textContent = buys;
-        
-        // If we are in depth mode, we need to handle that too
-        if (this.marketViewMode === 'DEPTH') {
-            this.refreshMarketDepth();
-        }
+        await marketUI.updateMarketUI(this, market);
     }
 
     async refreshMarketDepth() {
-        const depth = await this.game.api.getMarketDepth(this.marketDepthItem);
-        if (!depth) return;
-        this.updateMarketDepthUI(depth);
+        await marketUI.refreshMarketDepth(this);
     }
 
     updateMarketDepthUI(data) {
-        const body = document.getElementById('market-listings-body');
-        if (!body || this.marketViewMode !== 'DEPTH') return;
-        const item = String(data.item || '');
-        const safeItem = escapeHtml(item.replace('_', ' '));
-        const safeItemArg = escapeJsString(item);
-
-        let html = `
-            <tr><td colspan="5" class="py-2 text-center bg-slate-900/50 border-y border-slate-800">
-                <div class="flex justify-center items-center space-x-4">
-                    <span class="text-[10px] orbitron font-bold text-sky-400">ORDER BOOK: ${safeItem}</span>
-                    <button onclick="game.ui.toggleMarketView()" class="text-[8px] text-slate-500 hover:text-white underline">BACK TO LISTINGS</button>
-                </div>
-            </td></tr>
-            <tr class="text-[8px] text-slate-500 uppercase border-b border-slate-800">
-                <th class="py-2 font-normal">Side</th>
-                <th class="py-2 font-normal">Price</th>
-                <th class="py-2 font-normal">Quantity</th>
-                <th class="py-2 font-normal text-right">Action</th>
-            </tr>
-        `;
-
-        // Sell Orders (Asks) - Reddish/Sky
-        data.sell_orders.forEach(o => {
-            const price = Number(o.price || 0);
-            const qty = Number(o.qty || 0);
-            html += `
-                <tr class="group hover:bg-sky-500/5 transition-all">
-                    <td class="py-2"><span class="px-1.5 py-0.5 rounded text-[7px] font-black bg-sky-500/10 border border-sky-500/30 text-sky-400">ASK</span></td>
-                    <td class="py-2 font-bold text-sky-400">$${price.toFixed(2)}</td>
-                    <td class="py-2 font-mono text-slate-400">${qty}</td>
-                    <td class="py-2 text-right">
-                        <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded text-[8px] font-bold" onclick="game.ui.quickTrade('${safeItemArg}', ${price}, 'SELL')">BUY</button>
-                    </td>
-                </tr>
-            `;
-        });
-
-        if (data.sell_orders.length === 0) {
-            html += `<tr><td colspan="4" class="py-2 text-center text-slate-600 italic text-[9px]">No sellers.</td></tr>`;
-        }
-
-        html += `<tr class="border-t-2 border-slate-800"><td colspan="4" class="py-1"></td></tr>`;
-
-        // Buy Orders (Bids) - Amber
-        data.buy_orders.forEach(o => {
-            const price = Number(o.price || 0);
-            const qty = Number(o.qty || 0);
-            html += `
-                <tr class="group hover:bg-amber-500/5 transition-all">
-                    <td class="py-2"><span class="px-1.5 py-0.5 rounded text-[7px] font-black bg-amber-500/10 border border-amber-500/30 text-amber-400">BID</span></td>
-                    <td class="py-2 font-bold text-amber-500">$${price.toFixed(2)}</td>
-                    <td class="py-2 font-mono text-slate-400">${qty}</td>
-                    <td class="py-2 text-right">
-                        <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded text-[8px] font-bold" onclick="game.ui.quickTrade('${safeItemArg}', ${price}, 'BUY')">SELL</button>
-                    </td>
-                </tr>
-            `;
-        });
-
-        if (data.buy_orders.length === 0) {
-            html += `<tr><td colspan="4" class="py-2 text-center text-slate-600 italic text-[9px]">No buyers.</td></tr>`;
-        }
-
-        body.innerHTML = html;
+        marketUI.updateMarketDepthUI(this, data);
     }
 
     toggleMarketView() {
-        this.marketViewMode = (this.marketViewMode === 'LISTINGS') ? 'DEPTH' : 'LISTINGS';
-        if (this.game.lastWorldData && this.game.lastWorldData.market) {
-            this.updateMarketUI(this.game.lastWorldData.market);
-        }
+        marketUI.toggleMarketView(this);
     }
 
     setMarketDepthItem(item) {
-        this.marketDepthItem = item;
-        this.marketViewMode = 'DEPTH';
-        this.refreshMarketDepth();
+        marketUI.setMarketDepthItem(this, item);
     }
 
     quickTrade(item, price, type) {
-        document.getElementById('trade-item-type').value = item;
-        document.getElementById('trade-price').value = price;
-        document.getElementById('trade-quantity').value = 1;
-        if (type === 'SELL') document.getElementById('trade-side-buy').click();
-        else document.getElementById('trade-side-sell').click();
+        marketUI.quickTrade(item, price, type);
     }
 
     setTradeSide(side) {
-        this.game.tradeSide = side;
-        const buyBtn = document.getElementById('trade-side-buy');
-        const sellBtn = document.getElementById('trade-side-sell');
-        if (side === 'BUY') {
-            buyBtn.classList.add('bg-amber-500', 'text-slate-950');
-            sellBtn.classList.remove('bg-sky-500', 'text-slate-950');
-        } else {
-            sellBtn.classList.add('bg-sky-500', 'text-slate-950');
-            buyBtn.classList.remove('bg-amber-500', 'text-slate-950');
-        }
+        marketUI.setTradeSide(this, side);
     }
 
     updateBountyBoard(bounties) {
@@ -957,57 +718,11 @@ export class UIManager {
     }
 
     updateMyOrdersUI(orders) {
-        const container = document.getElementById('my-orders');
-        if (!container) return;
-        if (!orders || orders.length === 0) {
-            container.innerHTML = '<div class="text-[10px] text-slate-600 italic text-center py-4">No active contracts found.</div>';
-            return;
-        }
-        container.innerHTML = orders.map(o => {
-            const item = escapeHtml(String(o.item || '').replace('_', ' '));
-            const orderId = Number(o.id);
-            return `
-            <div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl border border-slate-800">
-                <div class="flex items-center space-x-3">
-                    <div class="w-2 h-2 rounded-full ${o.type === 'SELL' ? 'bg-sky-400' : 'bg-amber-400'}"></div>
-                    <div class="text-[10px] font-bold text-slate-200 uppercase">${item}</div>
-                </div>
-                <button onclick="game.api.submitIntent('CANCEL', {order_id: ${orderId}})" class="text-slate-600 hover:text-rose-500 text-xs text-[9px]">Cancel</button>
-            </div>
-        `;
-        }).join('');
+        marketUI.updateMyOrdersUI(orders);
     }
 
     updateMarketSellList(inventory) {
-        const select = document.getElementById('trade-item-type');
-        if (!select) return;
-
-        // Keep the current selection if possible
-        const currentVal = select.value;
-
-        // Filter out credits and invalid items
-        const sellable = (inventory || []).filter(i => i && i.type && i.type !== 'CREDITS');
-
-        if (sellable.length === 0) {
-            select.innerHTML = '<option value="">(No items to sell)</option>';
-            return;
-        }
-
-        // De-duplicate types for the dropdown
-        const types = [...new Set(sellable.map(i => i.type))].filter(t => !!t).sort();
-
-        let html = '<option value="">(Select from inventory)</option>';
-        html += types.map(t => {
-            const label = t.replace(/_/g, ' ');
-            return `<option value="${t}">${label}</option>`;
-        }).join('');
-
-        select.innerHTML = html;
-
-        // Restore selection if it still exists
-        if (currentVal && types.includes(currentVal)) {
-            select.value = currentVal;
-        }
+        marketUI.updateMarketSellList(inventory);
     }
 
     updateScannerUI(agentId) {
@@ -1476,7 +1191,7 @@ export class UIManager {
                     const opponentElo = escapeHtml(log.opponent_elo ?? 'n/a');
                     const eloChange = Number(log.elo_change || 0);
                     const eloText = `${eloChange > 0 ? '+' : ''}${eloChange} Elo`;
-                    const icon = isWin ? '✓' : '✗';
+                    const icon = isWin ? 'OK' : 'X';
                     return `
                         <div class="flex space-x-2 border-b border-slate-900/50 py-1">
                             <span class="text-slate-700 font-mono">[${escapeHtml(time)}]</span>
@@ -1629,7 +1344,7 @@ export class UIManager {
                 const have = available[m] || 0;
                 const met = have >= q;
                 const haveColor = met ? 'text-emerald-400' : 'text-rose-400';
-                const icon = met ? '✓' : '✗';
+                const icon = met ? 'OK' : 'X';
                 return `
                     <div class="flex justify-between text-[8px] font-mono">
                         <span class="text-slate-500">${m.replace(/_/g, ' ')}</span>
@@ -1666,7 +1381,7 @@ export class UIManager {
                 })()}
                         </div>
                         <div class="flex flex-col items-end gap-1">
-                            ${craftable ? '<span class="text-[8px] text-emerald-400 font-bold">✓ READY</span>' : ''}
+                            ${craftable ? '<span class="text-[8px] text-emerald-400 font-bold">READY</span>' : ''}
                             <div class="flex flex-col items-end">
                                 <span class="text-[8px] text-slate-500 font-mono leading-none">${r.type} SLOT</span>
                                 <span class="text-[6px] text-slate-600 uppercase font-bold tracking-tighter">Hardware Port</span>
@@ -1695,63 +1410,6 @@ export class UIManager {
                         return '<div class="mb-4"></div>';
                     })()}
                     <button onclick="game.api.submitIndustryIntent('CRAFT', {item_type: '${r.id}'})" class="w-full ${craftable ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-sky-600 hover:bg-sky-500'} text-white px-3 py-1.5 rounded text-[9px] font-bold orbitron transition-all">INITIATE ASSEMBLY</button>
-                </div>
-            `;
-        }).join('');
-    }
-
-
-    updateMissionsUI(missions) {
-        const container = document.getElementById('missions-list');
-        if (!container || !missions) return;
-
-        if (missions.length === 0) {
-            container.innerHTML = '<div class="text-[10px] text-slate-600 italic text-center py-4">Checking for local activity...</div>';
-            return;
-        }
-
-        // Get agent inventory to check for turn-in readiness
-        const inv = (this.game.lastAgentData && this.game.lastAgentData.inventory) ? this.game.lastAgentData.inventory : [];
-
-        container.innerHTML = missions.map(m => {
-            const isCompleted = m.is_completed;
-            const isItemMission = m.type === "TURN_IN";
-            const progress = m.progress || 0;
-            const target = m.target || 1;
-
-            let canTurnIn = false;
-            if (isItemMission && !isCompleted) {
-                const item = inv.find(i => i.type === m.item_type);
-                if (item && item.quantity >= target) canTurnIn = true;
-            }
-
-            return `
-                <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800 text-[10px] flex flex-col ${isCompleted ? 'opacity-50' : ''}">
-                    <div class="flex justify-between items-center mb-1">
-                        <div class="font-bold text-slate-200 uppercase">${m.type.replace('_', ' ')}</div>
-                        <span class="text-amber-500 font-bold">$${m.reward_credits}</span>
-                    </div>
-                    <div class="text-slate-500 text-[8px] mb-2 uppercase tracking-tighter">${m.description}</div>
-                    
-                    ${isCompleted ? `
-                        <div class="text-emerald-400 font-bold text-center py-1 bg-emerald-500/10 rounded uppercase tracking-widest border border-emerald-500/20">Mission Secure</div>
-                    ` : `
-                        ${isItemMission ? `
-                            <div class="flex justify-between items-center mt-2">
-                                <span class="text-[8px] text-slate-400 uppercase">Target: ${target} ${m.item_type}</span>
-                                <button onclick="game.api.submitIntent('TURN_IN', {mission_id: ${m.id}})" 
-                                    ${!canTurnIn ? 'disabled' : ''}
-                                    class="${canTurnIn ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 active:scale-95' : 'bg-slate-800 text-slate-500 cursor-not-allowed'} px-3 py-1 rounded text-[8px] font-bold uppercase transition-all">
-                                    Turn In [#${m.id}]
-                                </button>
-                            </div>
-                        ` : `
-                            <div class="w-full h-1 bg-slate-950 rounded-full overflow-hidden mb-1">
-                                <div class="h-full bg-amber-500" style="width: ${(progress / target) * 100}%"></div>
-                            </div>
-                            <div class="text-emerald-400 font-mono text-right text-[8px]">${progress}/${target} Complete</div>
-                        `}
-                    `}
                 </div>
             `;
         }).join('');
@@ -2072,9 +1730,9 @@ Intent payload format:
         ctx.globalAlpha = 1.0;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------------
     // Map Context Menu & Confirmation Logic
-    // ─────────────────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------------
 
     _getActionsForTarget(targetData) {
         const actions = [];
@@ -2084,7 +1742,7 @@ Intent payload format:
         actions.push({
             type: 'MOVE',
             label: `Move to ${q}, ${r}`,
-            icon: '🚀',
+            icon: 'NAV',
             payload: { target_q: q, target_r: r }
         });
 
@@ -2092,7 +1750,7 @@ Intent payload format:
             actions.push({
                 type: 'MINE',
                 label: `Mine ${resource.replace(/_/g, ' ')}`,
-                icon: '⛏️',
+                icon: 'MINE',
                 payload: { ore_type: resource, q, r }
             });
         }
@@ -2101,13 +1759,13 @@ Intent payload format:
             actions.push({
                 type: 'ATTACK',
                 label: `Attack ${name}`,
-                icon: '⚔️',
+                icon: 'COMBAT',
                 payload: { target_id: targetData.id, q, r }
             });
             actions.push({
                 type: 'LOOT',
                 label: `Loot ${name}`,
-                icon: '💰',
+                icon: '$',
                 payload: { target_id: targetData.id, q, r }
             });
         }
@@ -2116,7 +1774,7 @@ Intent payload format:
             actions.push({
                 type: 'HIGHLIGHT',
                 label: `Target Signal: ${stationType}`,
-                icon: '📡',
+                icon: 'RADAR',
                 payload: { q, r, label: stationType }
             });
         }
@@ -2124,7 +1782,7 @@ Intent payload format:
         actions.push({
             type: 'INSPECT',
             label: `Inspect ${type === 'hex' ? 'Sector' : name || resource || 'Object'}`,
-            icon: '🔍',
+            icon: 'SCAN',
             payload: { q, r, type, id: targetData.id }
         });
 
@@ -2306,7 +1964,7 @@ Intent payload format:
             const agent = await agentResp.json();
 
             if (agent.corp_name) {
-                // ── ALIGNED VIEW ──
+                // -- ALIGNED VIEW --
                 const [members, vault, upgradesData] = await Promise.all([
                     this.game.api.fetchCorpMembers(),
                     this.game.api.fetchCorpVault(),
@@ -2467,7 +2125,7 @@ Intent payload format:
                     </div>
                 `;
             } else {
-                // ── UNALIGNED VIEW ──
+                // -- UNALIGNED VIEW --
                 const invites = await this.game.api.fetchMyInvites();
                 
                 let invitesHtml = invites.length > 0 ? invites.map(i => `
@@ -2534,7 +2192,7 @@ Intent payload format:
         }
     }
 
-    // ── CONTRACTS UI ──
+    // -- CONTRACTS UI --
     updateContractsUI(available, mine) {
         const list = document.getElementById('contracts-list');
         const myList = document.getElementById('my-contracts-list');
@@ -2561,7 +2219,7 @@ Intent payload format:
                             <h4 class="text-sm font-bold text-slate-200 mt-2">${quantity}x ${item}</h4>
                         </div>
                         <div class="text-right">
-                            <span class="text-lg font-bold text-amber-400 orbitron">${reward} Ȼ</span>
+                            <span class="text-lg font-bold text-amber-400 orbitron">${reward} CR</span>
                             <p class="text-[9px] text-slate-500 uppercase mt-1">Reward</p>
                         </div>
                     </div>
@@ -2634,7 +2292,7 @@ Intent payload format:
         });
     }
 
-    // ── WIKI UI ──
+    // -- WIKI UI --
     renderWiki(data) {
         this._wikiData = data;
         if (!this._currentWikiTab) this._currentWikiTab = 'MANUAL';
@@ -2718,7 +2376,7 @@ Intent payload format:
                             ${data.smelting.map(s => `
                                 <div class="bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
                                     <div class="flex justify-between items-center mb-1">
-                                        <span class="text-xs font-bold text-slate-200">${s.ore.replace('_', ' ')} → ${s.ingot.replace('_', ' ')}</span>
+                                        <span class="text-xs font-bold text-slate-200">${s.ore.replace('_', ' ')} -> ${s.ingot.replace('_', ' ')}</span>
                                         <span class="text-[10px] text-emerald-400 font-bold orbitron">${s.ratio}:1</span>
                                     </div>
                                     <div class="text-[9px] text-slate-500 uppercase font-medium">Capacitor Load: <span class="text-sky-400">${s.energy_cost} EN</span></div>
@@ -2818,7 +2476,7 @@ Intent payload format:
                 : 'bg-rose-950/90 border-rose-500/30 text-rose-400'
         }`;
         
-        const icon = type === 'success' ? '✓' : '✗';
+        const icon = type === 'success' ? 'OK' : 'X';
         toast.innerHTML = `
             <div class="w-6 h-6 rounded-full flex items-center justify-center border font-bold text-xs ${
                 type === 'success' ? 'border-emerald-500/50' : 'border-rose-500/50'

@@ -215,7 +215,7 @@ The market has evolved from a simple listing board into a true **Commodity Excha
 
 - **Order Book (Market Depth)**: Agents can view aggregated BUY and SELL volume at each price point. This allows for rapid assessment of market liquidity and price trends.
 - **Bulk Matching**: The exchange engine supports multi-order matching. A single `BUY` intent can sweep multiple `SELL` orders from cheapest to most expensive until the requested quantity is satisfied.
-- **Escrow & Logistics**: Selling items locks them in market escrow. Buying locks credits. Purchased items must be physically claimed at a **MARKET** station using the `MARKET_CLAIM` command.
+- **Escrow & Logistics**: Selling items locks them in market escrow. Buying reserves credits for unmatched BUY orders. Purchased items must be physically claimed at a **MARKET** or **STATION_HUB** hex using `MARKET_CLAIM` (`POST /api/market/pickup`).
 - **Price-Time Priority**: Orders are matched based on the best price first, then by the time they were placed.
 
 **Status:** ✅ Live — Bulk matching and Market Depth visualization fully implemented.
@@ -318,9 +318,9 @@ The Scrap Pit is an automated, low-stakes combat arena where Fleet Commanders ca
 - **Separate Vessel**: Unlike the main game, the Arena uses a dedicated **Pit Proxy** ship. This allows your main ship to continue mining and hunting Ferals while your Proxy participates in the Arena asynchronously.
 - **Gladiator Logic**: You "donate" gear from your main inventory to your Pit Proxy. Once equipped, the Proxy participates in automated battles fund its own existence.
 - **Auto-Battles**: Battles occur automatically every cycle (e.g., 8 hours). You do not need to be online to participate.
-- **Matchmaking (Elo)**: The arena uses a Glicko-2 style Elo system to match opponents of similar skill.
+- **Matchmaking (Elo)**: The arena uses Elo-style ratings to match opponents of similar skill.
 - **Readiness Check**: Proxies are only matched for battles if they have at least one piece of gear equipped (Structure > 0). Use `ARENA_STATUS` to check readiness.
-- **Scrap Entry**: Novices can craft a cheap `SCRAP_FRAME` for just 2 Iron Ingots to start their arena career.
+- **Scrap Entry**: Novices can craft a cheap `SCRAP_FRAME` for 1 Iron Ingot to start their arena career.
 
 ### 8.2 Gear Destruction (The Grind)
 Unlike the main game, **arena gear is permanently lost at the end of a Season**.
@@ -389,7 +389,7 @@ Terminal Frontier is designed to run 24/7 without human input — but the game i
 
 - **Auto-suggest** action types (MOVE, MINE, ATTACK, etc.)
 - **Quick-trigger buttons** for common commands
-- **Economic Management**: `MARKET_PICKUPS` to view pending items and `MARKET_CLAIM` to retrieve them at a station.
+- **Economic Management**: `MARKET_PICKUPS` to view pending items and `MARKET_CLAIM` to retrieve them at a MARKET or STATION_HUB hex.
 - **Direct API link** — commands are queued as intents, identical to automated submissions
 
 ### 10.3 The TF Pilot Console (Official Automation)
@@ -439,7 +439,10 @@ POST /api/intent            → Submit your action
 GET  /api/my_agent          → Read your agent's full status
 GET  /api/commands          → Live action reference with costs
 GET  /api/world/poi         → Station registry
-GET  /api/market/listings   → Auction house data
+GET  /api/market            → Active Auction House orders
+GET  /api/market/depth      → Aggregated BUY/SELL order book for one item
+GET  /api/market/pickups    → Authenticated pending market pickups
+POST /api/market/pickup     → Claim pending pickups at a MARKET or STATION_HUB
 ```
 
 ---

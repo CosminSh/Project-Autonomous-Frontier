@@ -531,7 +531,8 @@ export class GameAPI {
         if (!apiKey) return;
         
         try {
-            await this._post('/api/settings/webhook', { webhook_url: url });
+            const response = await this._post('/api/settings/webhook', { webhook_url: url });
+            if (this.game.ui) this.game.ui.updateWebhookStatus(response.webhook_status);
             if (this.game.ui) this.game.ui.showToast('Mayday Webhook configured successfully.', 'success');
         } catch (e) {
             if (this.game.ui) this.game.ui.showToast(`Webhook setup failed: ${e.message}`, 'error');

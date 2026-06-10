@@ -773,10 +773,27 @@ def update_performance_stat(db: Session, agent: Agent, stat_key: str, amount: in
     flag_modified(agent.progression, "performance_stats")
     db.flush()
 
+def _record_webhook_delivery(agent_id: int, status: str, reason: str, http_status: int = None, error: str = None):
+    from database import SessionLocal
+
+    details = {
+        "status": status,
+        "reason": reason,
+        "http_status": http_status,
+        "error": error,
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        with SessionLocal() as db:
+            db.add(AuditLog(agent_id=agent_id, event_type="WEBHOOK_DELIVERY", details=details))
+            db.commit()
+    except Exception as exc:
+        logger.warning(f"Could not record webhook delivery status for agent {agent_id}: {exc}")
+
 async def trigger_mayday_webhook(agent: Agent, reason: str, details: dict):
     """Fires a POST request to the agent's configured webhook_url."""
     if not agent.webhook_url:
-        return
+        return {"status": "skipped", "reason": "NO_WEBHOOK"}
 
     from fastapi import HTTPException
     from webhook_security import validate_webhook_url
@@ -785,7 +802,8 @@ async def trigger_mayday_webhook(agent: Agent, reason: str, details: dict):
         webhook_url = validate_webhook_url(agent.webhook_url)
     except HTTPException as exc:
         logger.warning(f"Skipping unsafe webhook for agent {agent.id}: {exc.detail}")
-        return
+        _record_webhook_delivery(agent.id, "skipped", reason, error=exc.detail)
+        return {"status": "skipped", "reason": "UNSAFE_URL", "error": exc.detail}
         
     import aiohttp
     payload = {
@@ -808,6 +826,12 @@ async def trigger_mayday_webhook(agent: Agent, reason: str, details: dict):
             async with session.post(webhook_url, json=payload, timeout=5) as resp:
                 if resp.status >= 400:
                     logger.warning(f"Webhook failed for agent {agent.id}: {resp.status}")
+                    _record_webhook_delivery(agent.id, "failed", reason, http_status=resp.status)
+                    return {"status": "failed", "reason": reason, "http_status": resp.status}
+                _record_webhook_delivery(agent.id, "success", reason, http_status=resp.status)
+                return {"status": "success", "reason": reason, "http_status": resp.status}
     except Exception as e:
         logger.error(f"Error firing webhook for agent {agent.id}: {e}")
+        _record_webhook_delivery(agent.id, "failed", reason, error=str(e))
+        return {"status": "failed", "reason": reason, "error": str(e)}
 

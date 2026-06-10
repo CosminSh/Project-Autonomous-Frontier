@@ -9,7 +9,7 @@ from sqlalchemy import select
 from database import STATION_CACHE, SessionLocal
 from game_helpers import trigger_mayday_webhook
 from main import app
-from models import Agent, DailyMission, InventoryItem, PlayerContract, StorageItem
+from models import Agent, AuditLog, DailyMission, InventoryItem, PlayerContract, StorageItem
 
 
 client = TestClient(app)
@@ -110,6 +110,15 @@ def test_webhook_settings_accept_https_public_host():
 
     assert response.status_code == 200
     assert response.json()["webhook_url"] == "https://discord.com/api/webhooks/test/token"
+    assert response.json()["webhook_status"] is None
+
+    status = client.get("/api/settings/webhook/status", headers=_headers(agent))
+    assert status.status_code == 200
+    assert status.json() == {
+        "configured": True,
+        "webhook_url": "https://discord.com/api/webhooks/test/token",
+        "webhook_status": None,
+    }
 
 
 def test_contract_post_cancel_and_normalized_schema():
@@ -348,9 +357,10 @@ async def test_mayday_webhook_posts_expected_payload(monkeypatch):
         webhook_url="https://discord.com/api/webhooks/test/token",
     )
 
-    await trigger_mayday_webhook(agent, "LOW_HEALTH", {"source": "test"})
+    result = await trigger_mayday_webhook(agent, "LOW_HEALTH", {"source": "test"})
 
     assert len(posts) == 1
+    assert result == {"status": "success", "reason": "LOW_HEALTH", "http_status": 204}
     assert posts[0]["url"] == "https://discord.com/api/webhooks/test/token"
     assert posts[0]["timeout"] == 5
     payload = posts[0]["json"]
@@ -362,6 +372,61 @@ async def test_mayday_webhook_posts_expected_payload(monkeypatch):
         {"name": "Details", "value": "{'source': 'test'}", "inline": False},
     ]
     assert payload["embeds"][0]["timestamp"]
+
+    with SessionLocal() as db:
+        delivery = db.execute(
+            select(AuditLog)
+            .where(AuditLog.agent_id == 42, AuditLog.event_type == "WEBHOOK_DELIVERY")
+            .order_by(AuditLog.id.desc())
+        ).scalars().first()
+        assert delivery.details["status"] == "success"
+        assert delivery.details["reason"] == "LOW_HEALTH"
+        assert delivery.details["http_status"] == 204
+
+
+async def test_mayday_webhook_records_failed_http_status(monkeypatch):
+    class FakeResponse:
+        status = 429
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        def post(self, url, json=None, timeout=None):
+            return FakeResponse()
+
+    monkeypatch.setitem(sys.modules, "aiohttp", SimpleNamespace(ClientSession=FakeSession))
+
+    agent = Agent(
+        id=44,
+        name="Rate Limited Webhook Pilot",
+        q=3,
+        r=4,
+        health=12,
+        max_health=100,
+        webhook_url="https://discord.com/api/webhooks/test/token",
+    )
+
+    result = await trigger_mayday_webhook(agent, "LOW_HEALTH", {"source": "test"})
+
+    assert result == {"status": "failed", "reason": "LOW_HEALTH", "http_status": 429}
+    with SessionLocal() as db:
+        delivery = db.execute(
+            select(AuditLog)
+            .where(AuditLog.agent_id == 44, AuditLog.event_type == "WEBHOOK_DELIVERY")
+            .order_by(AuditLog.id.desc())
+        ).scalars().first()
+        assert delivery.details["status"] == "failed"
+        assert delivery.details["http_status"] == 429
 
 
 async def test_mayday_webhook_skips_unsafe_stored_url(monkeypatch):
@@ -384,6 +449,18 @@ async def test_mayday_webhook_skips_unsafe_stored_url(monkeypatch):
         webhook_url="https://127.0.0.1/hook",
     )
 
-    await trigger_mayday_webhook(agent, "LOW_HEALTH", {})
+    result = await trigger_mayday_webhook(agent, "LOW_HEALTH", {})
 
+    assert result["status"] == "skipped"
+    assert result["reason"] == "UNSAFE_URL"
     assert posts == []
+
+    with SessionLocal() as db:
+        delivery = db.execute(
+            select(AuditLog)
+            .where(AuditLog.agent_id == 43, AuditLog.event_type == "WEBHOOK_DELIVERY")
+            .order_by(AuditLog.id.desc())
+        ).scalars().first()
+        assert delivery.details["status"] == "skipped"
+        assert delivery.details["reason"] == "LOW_HEALTH"
+        assert "Private network" in delivery.details["error"]

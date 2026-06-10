@@ -29,6 +29,22 @@ class RenameRequest(BaseModel):
 class WebhookRequest(BaseModel):
     webhook_url: str
 
+def _latest_webhook_delivery(db: Session, agent_id: int):
+    row = db.execute(
+        select(AuditLog)
+        .where(AuditLog.agent_id == agent_id, AuditLog.event_type == "WEBHOOK_DELIVERY")
+        .order_by(AuditLog.time.desc(), AuditLog.id.desc())
+    ).scalars().first()
+    if not row:
+        return None
+    return {
+        "time": row.time.isoformat() if row.time else None,
+        "status": (row.details or {}).get("status"),
+        "reason": (row.details or {}).get("reason"),
+        "http_status": (row.details or {}).get("http_status"),
+        "error": (row.details or {}).get("error"),
+    }
+
 @router.post("/api/rename_agent")
 async def rename_agent(
     req: RenameRequest,
@@ -166,6 +182,7 @@ async def get_my_agent_legacy(agent: Agent = Depends(verify_api_key), db: Sessio
         "visual_signature": get_agent_visual_signature(agent),
         "solar_intensity": int(get_solar_intensity(agent.q, agent.r, tick) * 100),
         "webhook_url": agent.webhook_url,
+        "webhook_status": _latest_webhook_delivery(db, agent.id),
         "pending_intent": next((i.action_type for i in sorted(agent.intents, key=lambda x: x.tick_index, reverse=True) if i.tick_index >= tick), None)
     }
 
@@ -260,5 +277,18 @@ async def set_webhook_url(
     url = validate_webhook_url(req.webhook_url)
     
     agent.webhook_url = url
+    db.add(AuditLog(agent_id=agent.id, event_type="WEBHOOK_CONFIGURED", details={"host": url.split("/")[2]}))
     db.commit()
-    return {"status": "success", "webhook_url": agent.webhook_url}
+    return {"status": "success", "webhook_url": agent.webhook_url, "webhook_status": _latest_webhook_delivery(db, agent.id)}
+
+@router.get("/api/settings/webhook/status", tags=["Agent Meta"])
+async def get_webhook_status(
+    agent: Agent = Depends(verify_api_key),
+    db: Session = Depends(get_db)
+):
+    """Returns the current webhook configuration and latest Mayday delivery status."""
+    return {
+        "configured": bool(agent.webhook_url),
+        "webhook_url": agent.webhook_url,
+        "webhook_status": _latest_webhook_delivery(db, agent.id),
+    }

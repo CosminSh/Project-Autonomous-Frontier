@@ -1,5 +1,7 @@
+import { TERMINAL_COMMANDS } from './terminal-commands.js';
+
 /**
- * terminal.js — Manual Override Console (TerminalHandler)
+ * terminal.js - Manual Override Console (TerminalHandler)
  * Handles all player-typed commands, suggestions, and meta queries (HELP, RECIPES, STATUS).
  */
 
@@ -20,84 +22,8 @@ export class TerminalHandler {
         this.selectedIndex = -1;
         this.currentMatches = [];
 
-        // ═══════════════════════════════════════════════════════
-        // FULL COMMAND REGISTRY
-        // ═══════════════════════════════════════════════════════
-        this.commands = {
-            'MOVE': { cat: 'NAV', syntax: 'MOVE <q> <r> | <KEYWORD>', example: 'MOVE SMELTER', help: 'Move to coordinates or nearest station (SMELTER, CRAFTER, MARKET, HUB, REPAIR, REFINERY).' },
-            'GO': { cat: 'NAV', syntax: 'GO <q> <r> | <KEYWORD>', example: 'GO HUB', help: 'Alias for MOVE.' },
-            'SCAN': { cat: 'META', syntax: 'SCAN', example: 'SCAN', help: 'Tactical Readout: View nearby agents, resources, and stations.' },
-            'MINE': { cat: 'RESOURCE', syntax: 'MINE [resource] [q] [r]', example: 'MINE COPPER_ORE 2 3', help: 'Extract resources. Optional: auto-move to coordinates first.' },
-            'SALVAGE': { cat: 'RESOURCE', syntax: 'SALVAGE <drop_id>', example: 'SALVAGE 42', help: 'Collect a world loot drop' },
-            'ATTACK': { cat: 'COMBAT', syntax: 'ATTACK <target_id>', example: 'ATTACK 7', help: 'Standard combat engagement' },
-            'INTIMIDATE': { cat: 'COMBAT', syntax: 'INTIMIDATE <target_id>', example: 'INTIMIDATE 7', help: 'Piracy: intimidation check, success siphons 5% inventory' },
-            'LOOT': { cat: 'COMBAT', syntax: 'LOOT <target_id>', example: 'LOOT 7', help: 'Piracy: light skirmish to siphon 15% inventory' },
-            'DESTROY': { cat: 'COMBAT', syntax: 'DESTROY <target_id>', example: 'DESTROY 7', help: 'Piracy: deathmatch fight to 5% HP, siphons 40% cargo' },
-            'LIST': { cat: 'MARKET', syntax: 'LIST <item> <pricePerUnit> <qty>', example: 'LIST IRON_INGOT 50 10', help: 'List item for $50 each, 10 units total' },
-            'BUY': { cat: 'MARKET', syntax: 'BUY <item> [qty] <max_price>', example: 'BUY IRON_INGOT 10 60', help: 'Purchase from Auction House' },
-            'CANCEL': { cat: 'MARKET', syntax: 'CANCEL <order_id>', example: 'CANCEL 15', help: 'Withdraw an active order' },
-            'TRANSFER': { cat: 'MARKET', syntax: 'TRANSFER <target_id> <item> <qty>', example: 'TRANSFER 42 IRON_ORE 10', help: 'Directly transfer items to a nearby agent.' },
-            'MARKET_CLAIM': { cat: 'MARKET', syntax: 'MARKET_CLAIM', example: 'MARKET_CLAIM', help: 'Retrieve purchased items from the current Market station.' },
-            'MARKET': { cat: 'META', syntax: 'MARKET [item_type]', example: 'MARKET IRON_ORE', help: 'View active market listings' },
-            'MARKET_PICKUPS': { cat: 'META', syntax: 'MARKET_PICKUPS', example: 'MARKET_PICKUPS', help: 'View items waiting for retrieval.' },
-            'BOUNTIES': { cat: 'META', syntax: 'BOUNTIES', example: 'BOUNTIES', help: 'View active player bounties (Warrants).' },
-            'SMELT': { cat: 'INDUSTRY', syntax: 'SMELT <ore_type> <quantity>', example: 'SMELT IRON_ORE 5', help: 'Refine ore into ingots (SMELTER). Uses inventory only.' },
-            'CRAFT': { cat: 'INDUSTRY', syntax: 'CRAFT <item_type>', example: 'CRAFT DRILL_MK1', help: 'Assemble parts (CRAFTER). Uses resources from inventory or vault.' },
-            'REFINE_GAS': { cat: 'INDUSTRY', syntax: 'REFINE_GAS <quantity>', example: 'REFINE_GAS 3', help: 'Helium Gas to He3 (REFINERY). Uses inventory only.' },
-            'RESTORE_HP': { cat: 'MAINT', syntax: 'RESTORE_HP <amount>', example: 'RESTORE_HP 20', help: 'Restore agent HP [Costs 1 CR + 0.02 Iron Ingot/HP]. Uses resources from inventory or vault.' },
-            'RESET_WEAR': { cat: 'MAINT', syntax: 'RESET_WEAR', example: 'RESET_WEAR', help: 'Clear Wear & Tear penalty. Costs scale with gear. Uses resources from inventory or vault.' },
-            'EQUIP': { cat: 'GEAR', syntax: 'EQUIP <item_type>', example: 'EQUIP DRILL_MK1', help: 'Attach part to chassis' },
-            'UNEQUIP': { cat: 'GEAR', syntax: 'UNEQUIP <part_id>', example: 'UNEQUIP 3', help: 'Remove equipped part' },
-            'CONSUME': { cat: 'GEAR', syntax: 'CONSUME <item_type>', example: 'CONSUME HE3_FUEL', help: 'Use consumable for buff' },
-            'CHANGE_FACTION': { cat: 'OTHER', syntax: 'CHANGE_FACTION <faction_id>', example: 'CHANGE_FACTION 2', help: 'Realign to faction (1-3)' },
-            'MISSIONS': { cat: 'OTHER', syntax: 'MISSIONS', example: 'MISSIONS', help: 'View active daily missions' },
-            'TURN_IN': { cat: 'OTHER', syntax: 'TURN_IN <mission_id>', example: 'TURN_IN 15', help: 'Complete local station delivery objectives' },
-            'CLAIM_DAILY': { cat: 'OTHER', syntax: 'CLAIM_DAILY', example: 'CLAIM_DAILY', help: 'Claim daily login items' },
-            'RECIPES': { cat: 'META', syntax: 'RECIPES [filter]', example: 'RECIPES drills', help: 'Query crafting database' },
-            'GEAR': { cat: 'META', syntax: 'GEAR', example: 'GEAR', help: 'Show currently equipped gear and stats' },
-            'HELP': { cat: 'META', syntax: 'HELP [command]', example: 'HELP SMELT', help: 'Show commands or details' },
-            'STATUS': { cat: 'META', syntax: 'STATUS', example: 'STATUS', help: 'Show your agent status' },
-            'PERCEIVE': { cat: 'META', syntax: 'PERCEIVE', example: 'PERCEIVE', help: 'Display local tactical perception. Requires a Neural Scanner for deep stats (HP, Inventory) on targets.' },
-            'GUIDE': { cat: 'META', syntax: 'GUIDE', example: 'GUIDE', help: 'Read the survival guide' },
-            'STORAGE_DEPOSIT': { cat: 'STORAGE', syntax: 'STORAGE_DEPOSIT <item> <qty>', example: 'STORAGE_DEPOSIT IRON_ORE 10', help: 'Vault item at MARKET station' },
-            'STORAGE_WITHDRAW': { cat: 'STORAGE', syntax: 'STORAGE_WITHDRAW <item> <qty>', example: 'STORAGE_WITHDRAW IRON_ORE 10', help: 'Retrieve item from vault at MARKET' },
-            'STORAGE_UPGRADE': { cat: 'STORAGE', syntax: 'STORAGE_UPGRADE', example: 'STORAGE_UPGRADE', help: 'Increase vault capacity (+250kg)' },
-            'SQUAD_INVITE': { cat: 'SQUAD', syntax: 'SQUAD_INVITE <target_id>', example: 'SQUAD_INVITE 41', help: 'Invite player to your squad' },
-            'SQUAD_ACCEPT': { cat: 'SQUAD', syntax: 'SQUAD_ACCEPT', example: 'SQUAD_ACCEPT', help: 'Accept pending squad invite' },
-            'SQUAD_DECLINE': { cat: 'SQUAD', syntax: 'SQUAD_DECLINE', example: 'SQUAD_DECLINE', help: 'Decline pending squad invite' },
-            'SQUAD_LEAVE': { cat: 'SQUAD', syntax: 'SQUAD_LEAVE', example: 'SQUAD_LEAVE', help: 'Exit your current squad' },
-            'SAY': { cat: 'COMM', syntax: 'SAY <message>', example: 'SAY Hello nearby!', help: 'Local Chat (Radius 10)' },
-            'SQUAD': { cat: 'COMM', syntax: 'SQUAD <message>', example: 'SQUAD Need backup!', help: 'Squad Chat' },
-            'CORP': { cat: 'COMM', syntax: 'CORP <message>', example: 'CORP Reporting in.', help: 'Corporation Chat' },
-            'GLOBAL': { cat: 'COMM', syntax: 'GLOBAL <message>', example: 'GLOBAL Selling Iron!', help: 'Global Chat' },
-            'CLAIM_LOST_DRILL': { cat: 'OTHER', syntax: 'CLAIM_LOST_DRILL', example: 'CLAIM_LOST_DRILL', help: 'Emergency recovery if your drill became Scrap Metal' },
-            'DROP_LOAD': { cat: 'OTHER', syntax: 'DROP_LOAD', example: 'DROP_LOAD', help: 'Jettison all cargo' },
-            'STOP': { cat: 'NAV', syntax: 'STOP', example: 'STOP', help: 'Cancel all queued intents' },
-            'REQUEST_RESCUE': { cat: 'NAV', syntax: 'REQUEST_RESCUE', example: 'REQUEST_RESCUE', help: 'Get a quote for emergency towing to the Hub' },
-            'CONFIRM_RESCUE': { cat: 'NAV', syntax: 'CONFIRM_RESCUE', example: 'CONFIRM_RESCUE', help: 'Confirm emergency tow at quoted price' },
-            'ARENA_STATUS': { cat: 'ARENA', syntax: 'ARENA_STATUS', example: 'ARENA_STATUS', help: 'Shows your Pit Fighter\'s stats, Elo, and equipped gear.' },
-            'ARENA_EQUIP': { cat: 'ARENA', syntax: 'ARENA_EQUIP <part_id>', example: 'ARENA_EQUIP 123', help: 'Permanently donates an unequipped part from your main inventory to your Pit Fighter.' },
-            'ARENA_LOGS': { cat: 'ARENA', syntax: 'ARENA_LOGS', example: 'ARENA_LOGS', help: 'Shows the combat results of your Pit Fighter\'s recent Scrap Pit arena battles.' },
-            'LEADERBOARD': { cat: 'META', syntax: 'LEADERBOARD', example: 'LEADERBOARD', help: 'Shows the top 10 players by XP, Credits, and Arena Elo.' },
-            'ROTATE_KEY': { cat: 'OTHER', syntax: 'ROTATE_KEY', example: 'ROTATE_KEY', help: 'Regenerate your API key (Invalidates old key)' },
-            'LOGS': { cat: 'META', syntax: 'LOGS', example: 'LOGS', help: 'Show your agent\'s recent action audit trail (Failure reasons, etc.)' },
-
-            // ── CORPORATION ──
-            'CORP_CREATE': { cat: 'CORP', syntax: 'CORP_CREATE <name> <ticker> [tax]', example: 'CORP_CREATE "Deep Space Mining" DSM 0.1', help: 'Establish a new corporation (Costs 10,000 CR).' },
-            'CORP_JOIN': { cat: 'CORP', syntax: 'CORP_JOIN <ticker>', example: 'CORP_JOIN DSM', help: 'Join an OPEN corporation or one where you have an accepted invite.' },
-            'CORP_LEAVE': { cat: 'CORP', syntax: 'CORP_LEAVE', example: 'CORP_LEAVE', help: 'Depart your current corporation (Incurs reputation loss).' },
-            'CORP_MEMBERS': { cat: 'CORP', syntax: 'CORP_MEMBERS', example: 'CORP_MEMBERS', help: 'List all agents in your corporation.' },
-            'CORP_PROMOTE': { cat: 'CORP', syntax: 'CORP_PROMOTE <agent_id>', example: 'CORP_PROMOTE 42', help: 'Advance a member\'s rank (Officers+).' },
-            'CORP_DEMOTE': { cat: 'CORP', syntax: 'CORP_DEMOTE <agent_id>', example: 'CORP_DEMOTE 42', help: 'Reduce a member\'s rank (Officers+).' },
-            'CORP_MOTD': { cat: 'CORP', syntax: 'CORP_MOTD <message>', example: 'CORP_MOTD All miners report to G-4.', help: 'Update corporate Message of the Day (Officers+).' },
-            'CORP_VAULT': { cat: 'CORP', syntax: 'CORP_VAULT', example: 'CORP_VAULT', help: 'Show credits and item storage in the corporate vault.' },
-            'CORP_DEPOSIT': { cat: 'CORP', syntax: 'CORP_DEPOSIT <amount>', example: 'CORP_DEPOSIT 500', help: 'Transfer credits from your inventory to the vault.' },
-            'CORP_WITHDRAW': { cat: 'CORP', syntax: 'CORP_WITHDRAW <amount>', example: 'CORP_WITHDRAW 500', help: 'Retrieve credits from the vault (Officers+).' },
-            'CORP_INVITE': { cat: 'CORP', syntax: 'CORP_INVITE <agent_id>', example: 'CORP_INVITE 8', help: 'Send a recruitment invitation to an agent (Officers+).' },
-            'CORP_APPLY': { cat: 'CORP', syntax: 'CORP_APPLY <ticker>', example: 'CORP_APPLY DSM', help: 'Apply to join a corporation.' },
-            'CORP_UPGRADES': { cat: 'CORP', syntax: 'CORP_UPGRADES', example: 'CORP_UPGRADES', help: 'View corporate research & development status.' },
-            'CORP_UPGRADE_PURCHASE': { cat: 'CORP', syntax: 'CORP_UPGRADE_PURCHASE <category>', example: 'CORP_UPGRADE_PURCHASE LOGISTICS', help: 'Purchase corporate upgrade (Officers+).' },
-        };
+        // Static command metadata lives in terminal-commands.js.
+        this.commands = TERMINAL_COMMANDS;
 
         this.setupListeners();
         setTimeout(() => {
@@ -262,7 +188,7 @@ export class TerminalHandler {
         this.suggestionsEl.innerHTML = this.currentMatches.map((m, idx) => {
             const cmd = this.commands[m];
             const activeClass = idx === this.selectedIndex ? 'active' : '';
-            return `<div class="suggestion-item ${activeClass}" onclick="game.terminal.useSuggestion('${m}')">${cmd.syntax} — ${cmd.help}</div>`;
+            return `<div class="suggestion-item ${activeClass}" onclick="game.terminal.useSuggestion('${m}')">${cmd.syntax} - ${cmd.help}</div>`;
         }).join('');
 
         // Scroll active item into view if needed
@@ -366,7 +292,7 @@ export class TerminalHandler {
                     data.target_r = stations[0].r;
                     this.log(`Routing to nearest ${inputKW} at (${data.target_q}, ${data.target_r})...`, 'info');
                 } else {
-                    if (args.length < 2) throw new Error('Usage: MOVE <q> <r>  — e.g. MOVE 1 -1');
+                    if (args.length < 2) throw new Error('Usage: MOVE <q> <r>  - e.g. MOVE 1 -1');
                     data.target_q = parseInt(args[0]); data.target_r = parseInt(args[1]);
                     if (isNaN(data.target_q) || isNaN(data.target_r)) throw new Error('Coordinates must be integers or a valid station keyword.');
                 }
@@ -414,12 +340,12 @@ export class TerminalHandler {
                 }
                 break;
             case 'LIST':
-                if (args.length < 3) throw new Error('Usage: LIST <item> <price> <qty>  — e.g. LIST IRON_INGOT 50 10');
+                if (args.length < 3) throw new Error('Usage: LIST <item> <price> <qty>  - e.g. LIST IRON_INGOT 50 10');
                 data.item_type = args[0].toUpperCase(); data.price = parseInt(args[1]); data.quantity = parseInt(args[2]);
                 if (isNaN(data.price) || isNaN(data.quantity)) throw new Error('Price and Quantity must be integers.');
                 break;
             case 'TRANSFER':
-                if (args.length < 3) throw new Error('Usage: TRANSFER <target_id> <item> <qty>  — e.g. TRANSFER 42 IRON_ORE 10');
+                if (args.length < 3) throw new Error('Usage: TRANSFER <target_id> <item> <qty>  - e.g. TRANSFER 42 IRON_ORE 10');
                 data.target_id = parseInt(args[0]); data.item_type = args[1].toUpperCase(); data.quantity = parseInt(args[2]);
                 if (isNaN(data.target_id) || isNaN(data.quantity)) throw new Error('Target ID and Quantity must be integers.');
                 break;
@@ -436,12 +362,12 @@ export class TerminalHandler {
                 if (data.quantity !== 'MAX' && (isNaN(data.quantity) || data.quantity <= 0)) throw new Error('Quantity must be a positive integer or MAX.');
                 if (isNaN(data.max_price)) throw new Error('Max price must be an integer.');
                 break;
-                if (args.length < 2) throw new Error('Usage: BUY <item> <max_price>  — e.g. BUY IRON_INGOT 60');
+                if (args.length < 2) throw new Error('Usage: BUY <item> <max_price>  - e.g. BUY IRON_INGOT 60');
                 data.item_type = args[0].toUpperCase(); data.max_price = parseInt(args[1]);
                 if (isNaN(data.max_price)) throw new Error('Max price must be an integer.');
                 break;
             case 'CANCEL':
-                if (args.length < 1) throw new Error('Usage: CANCEL <order_id>  — e.g. CANCEL 15');
+                if (args.length < 1) throw new Error('Usage: CANCEL <order_id>  - e.g. CANCEL 15');
                 data.order_id = parseInt(args[0]);
                 if (isNaN(data.order_id)) throw new Error('Order ID must be an integer.');
                 data._action = 'CANCEL_ORDER';
@@ -462,11 +388,11 @@ export class TerminalHandler {
                 if (isNaN(data.quantity)) throw new Error('Quantity must be an integer.');
                 break;
             case 'CRAFT':
-                if (args.length < 1) throw new Error('Usage: CRAFT <item_type>  — e.g. CRAFT DRILL_MK1');
+                if (args.length < 1) throw new Error('Usage: CRAFT <item_type>  - e.g. CRAFT SCRAP_FRAME');
                 data.item_type = args.join('_').toUpperCase();
                 break;
             case 'RESTORE_HP':
-                if (args.length < 1) throw new Error('Usage: RESTORE_HP <amount|MAX>  — e.g. RESTORE_HP MAX');
+                if (args.length < 1) throw new Error('Usage: RESTORE_HP <amount|MAX>  - e.g. RESTORE_HP MAX');
                 if (args[0].toUpperCase() === 'MAX') {
                     data.amount = 'MAX';
                 } else {
@@ -475,37 +401,37 @@ export class TerminalHandler {
                 }
                 break;
             case 'REFINE_GAS':
-                if (args.length < 1) throw new Error('Usage: REFINE_GAS <qty>  — e.g. REFINE_GAS 3');
+                if (args.length < 1) throw new Error('Usage: REFINE_GAS <qty>  - e.g. REFINE_GAS 3');
                 data.quantity = parseInt(args[0]);
                 if (isNaN(data.quantity)) throw new Error('Quantity must be an integer.');
                 break;
             case 'SALVAGE':
-                if (args.length < 1) throw new Error('Usage: SALVAGE <drop_id>  — e.g. SALVAGE 42');
+                if (args.length < 1) throw new Error('Usage: SALVAGE <drop_id>  - e.g. SALVAGE 42');
                 data.drop_id = parseInt(args[0]);
                 if (isNaN(data.drop_id)) throw new Error('Drop ID must be an integer.');
                 break;
             case 'EQUIP':
-                if (args.length < 1) throw new Error('Usage: EQUIP <item_type>  — e.g. EQUIP DRILL_MK1');
+                if (args.length < 1) throw new Error('Usage: EQUIP <item_type>  - e.g. EQUIP SCRAP_FRAME');
                 data.item_type = args.join('_').toUpperCase();
                 break;
             case 'UNEQUIP':
-                if (args.length < 1) throw new Error('Usage: UNEQUIP <part_id>  — e.g. UNEQUIP 3');
+                if (args.length < 1) throw new Error('Usage: UNEQUIP <part_id>  - e.g. UNEQUIP 3');
                 data.part_id = parseInt(args[0]);
                 if (isNaN(data.part_id)) throw new Error('Part ID must be an integer.');
                 break;
             case 'CLAIM_LOST_DRILL':
                 break;
             case 'CONSUME':
-                if (args.length < 1) throw new Error('Usage: CONSUME <item_type>  — e.g. CONSUME HE3_FUEL');
+                if (args.length < 1) throw new Error('Usage: CONSUME <item_type>  - e.g. CONSUME HE3_FUEL');
                 data.item_type = args.join('_').toUpperCase();
                 break;
             case 'TURN_IN':
-                if (args.length < 1) throw new Error('Usage: TURN_IN <mission_id>  — e.g. TURN_IN 12');
+                if (args.length < 1) throw new Error('Usage: TURN_IN <mission_id>  - e.g. TURN_IN 12');
                 data.mission_id = parseInt(args[0]);
                 if (isNaN(data.mission_id)) throw new Error('Mission ID must be an integer.');
                 break;
             case 'CHANGE_FACTION':
-                if (args.length < 1) throw new Error('Usage: CHANGE_FACTION <faction_id>  — (1, 2, or 3)');
+                if (args.length < 1) throw new Error('Usage: CHANGE_FACTION <faction_id>  - (1, 2, or 3)');
                 data.faction_id = parseInt(args[0]);
                 if (isNaN(data.faction_id)) throw new Error('Faction ID must be 1, 2, or 3.');
                 break;
@@ -538,14 +464,14 @@ export class TerminalHandler {
             case 'BOUNTIES':
                 return { action: actionType, timestamp: Date.now() };
             case 'ARENA_EQUIP':
-                if (args.length < 1) throw new Error('Usage: ARENA_EQUIP <part_id>  — e.g. ARENA_EQUIP 123');
+                if (args.length < 1) throw new Error('Usage: ARENA_EQUIP <part_id>  - e.g. ARENA_EQUIP 123');
                 data.part_id = parseInt(args[0]);
                 if (isNaN(data.part_id)) throw new Error('Part ID must be an integer.');
                 break;
             case 'PERCEIVE': case 'SCAN':
                 return { action: actionType, timestamp: Date.now() };
             case 'CORP_CREATE':
-                if (args.length < 2) throw new Error('Usage: CORP_CREATE <name> <ticker> [tax_rate]  — e.g. CORP_CREATE "My Corp" ABC 0.1');
+                if (args.length < 2) throw new Error('Usage: CORP_CREATE <name> <ticker> [tax_rate]  - e.g. CORP_CREATE "My Corp" ABC 0.1');
                 data.name = args[0]; data.ticker = args[1].toUpperCase();
                 data.tax_rate = args[2] ? parseFloat(args[2]) : 0;
                 break;
@@ -612,7 +538,7 @@ export class TerminalHandler {
                 action = { label: "Help " + cmdPart, cmd: "HELP " + cmdPart };
             }
 
-            this.log(`✗ ERROR: ${msg}`, 'error', action);
+            this.log(`ERROR ERROR: ${msg}`, 'error', action);
         }
 
         if (this.game.inTutorialMode) {
@@ -625,7 +551,7 @@ export class TerminalHandler {
             if (args.length > 0) {
                 const cmdName = args[0].toUpperCase();
 
-                // HELP CRAFT <item> — show specific recipe details
+                // HELP CRAFT <item> - show specific recipe details
                 if (cmdName === 'CRAFT' && args.length > 1) {
                     const itemName = args[1].toUpperCase();
                     try {
@@ -644,7 +570,7 @@ export class TerminalHandler {
                                 const statsStr = Object.entries(recipe.stats || {})
                                     .map(([k, v]) => `${k.substring(0, 3).toUpperCase()}: ${v > 0 ? '+' : ''}${v}`)
                                     .join(' | ');
-                                this.log(`<b>═══ RECIPE FILE: ${recipe.name} ═══</b>`, 'system');
+                                this.log(`<b>========= RECIPE FILE: ${recipe.name} =========</b>`, 'system');
                                 this.log(`  Target: <span style="color:#38bdf8">${recipe.id}</span> [${recipe.type.toUpperCase()}]`, 'info');
                                 this.log(`  Cost:   ${costStr}`, 'info');
                                 if (statsStr) this.log(`  Stats:  <span style="color:#a78bfa">${statsStr}</span>`, 'info');
@@ -658,7 +584,7 @@ export class TerminalHandler {
 
                 const cmd = this.commands[cmdName];
                 if (cmd) {
-                    this.log(`<b>${cmdName}</b> — ${cmd.help}`, 'info');
+                    this.log(`<b>${cmdName}</b> - ${cmd.help}`, 'info');
                     this.log(`  Syntax:  <span style="color:#38bdf8">${cmd.syntax}</span>`, 'info');
                     this.log(`  Example: <span style="color:#a78bfa">${cmd.example}</span>`, 'info');
                 } else {
@@ -667,7 +593,7 @@ export class TerminalHandler {
                 return;
             }
             if (this.game.inTutorialMode) {
-                this.log('═══ TUTORIAL ASSISTANT ═══', 'system');
+                this.log('========= TUTORIAL ASSISTANT =========', 'system');
                 this.log('It looks like you are new here! Here are the 3 most important commands:', 'info');
                 this.log('  1. <span style="color:#38bdf8">SCAN</span>          - See what is around you.', 'info');
                 this.log('  2. <span style="color:#38bdf8">MOVE &lt;q&gt; &lt;r&gt;</span>  - Navigate to coordinates.', 'info');
@@ -677,19 +603,19 @@ export class TerminalHandler {
             }
 
             const categories = {
-                'NAV': '🧭 NAVIGATION', 'RESOURCE': '⛏️ RESOURCES', 'META': '📖 META',
-                'INDUSTRY': '🏭 INDUSTRY', 'MAINT': '🔧 MAINTENANCE',
-                'GEAR': '🎒 GEAR', 'STORAGE': '📦 STORAGE', 'MARKET': '🏪 MARKET',
-                'COMBAT': '⚔️ COMBAT & PIRACY', 'ARENA': '🥊 ARENA', 
-                'COMM': '📡 COMMS', 'SQUAD': '👥 SQUAD', 'CORP': '🏢 CORPORATION',
-                'OTHER': '🌐 OTHER'
+                'NAV': 'NAVIGATION', 'RESOURCE': 'RESOURCES', 'META': 'META',
+                'INDUSTRY': 'INDUSTRY', 'MAINT': 'MAINTENANCE',
+                'GEAR': 'GEAR', 'STORAGE': 'STORAGE', 'MARKET': 'MARKET',
+                'COMBAT': 'COMBAT & PIRACY', 'ARENA': 'ARENA',
+                'COMM': 'COMMS', 'SQUAD': 'SQUAD', 'CORP': 'CORPORATION',
+                'OTHER': 'OTHER'
             };
             const grouped = {};
             for (const [name, cmd] of Object.entries(this.commands)) {
                 if (!grouped[cmd.cat]) grouped[cmd.cat] = [];
                 grouped[cmd.cat].push({ name, ...cmd });
             }
-            this.log('═══ COMMAND PROTOCOLS ═══', 'system');
+            this.log('========= COMMAND PROTOCOLS =========', 'system');
             
             // Show CORE commands first or emphasized? 
             // Let's just reorder categories to put NAV/RESOURCE/META first.
@@ -707,7 +633,7 @@ export class TerminalHandler {
         // --- NEW: Throw for usage errors to trigger Actionable Buttons ---
         const usageThrow = (msg) => { throw new Error(msg); };
 
-        // ── META: RECIPES ──
+        // ---- META: RECIPES ----
         if (actionType === 'RECIPES') {
             try {
                 const apiKey = localStorage.getItem('sv_api_key');
@@ -721,7 +647,7 @@ export class TerminalHandler {
                 const db = a.discovery.crafting_recipes;
                 const filter = args.length > 0 ? args[0].toUpperCase() : null;
 
-                this.log(`<b>═══ CRAFTING DATABANKS ═══</b>`, 'system');
+                this.log(`<b>========= CRAFTING DATABANKS =========</b>`, 'system');
 
                 if (!filter) {
                     this.log(`Terminal usage: <span style="color:#38bdf8">RECIPES &lt;category&gt;</span>`, 'info');
@@ -763,13 +689,13 @@ export class TerminalHandler {
             return;
         }
 
-        // ── META: MISSIONS ──
+        // ---- META: MISSIONS ----
         if (actionType === 'MISSIONS') {
             try {
                 const apiKey = localStorage.getItem('sv_api_key');
                 const missions = await this.game.api._fetch('/api/missions');
 
-                this.log(`<b>═══ DAILY MISSIONS ═══</b>`, 'system');
+                this.log(`<b>========= DAILY MISSIONS =========</b>`, 'system');
                 if (!missions || missions.length === 0) {
                     this.log(`  No active missions available.`, 'info');
                     return;
@@ -777,7 +703,7 @@ export class TerminalHandler {
 
                 missions.forEach(m => {
                     const status = m.is_completed ? '<span style="color:#10b981">[COMPLETED]</span>' : `[${m.progress}/${m.target}]`;
-                    this.log(`  <b>[${m.id}] ${m.type.replace(/_/g, ' ')}</b> — ${status}`, 'info');
+                    this.log(`  <b>[${m.id}] ${m.type.replace(/_/g, ' ')}</b> - ${status}`, 'info');
                     if (m.item_type) this.log(`    Target: ${m.item_type.replace(/_/g, ' ')}`, 'info');
                     this.log(`    Reward: $${m.reward_credits}`, 'success');
                 });
@@ -785,11 +711,11 @@ export class TerminalHandler {
             return;
         }
 
-        // ── META: GUIDE ──
+        // ---- META: GUIDE ----
         if (actionType === 'GUIDE') {
             try {
                 const guide = await this.game.api._fetch('/api/guide');
-                this.log(`<b>═══ ${guide.title.toUpperCase()} ═══</b>`, 'system');
+                this.log(`<b>========= ${guide.title.toUpperCase()} =========</b>`, 'system');
                 this.log(`<i>${guide.philosophy}</i>`, 'info');
                 this.log('', 'info');
                 this.log(`<b>Intel:</b>`, 'success');
@@ -798,7 +724,7 @@ export class TerminalHandler {
             return;
         }
 
-        // ── META: MARKET ──
+        // ---- META: MARKET ----
         if (actionType === 'MARKET') {
             try {
                 let url = '/api/market';
@@ -807,7 +733,7 @@ export class TerminalHandler {
 
                 const market = await this.game.api._fetch(url);
 
-                this.log(`<b>═══ GALACTIC MARKET ═══</b>`, 'system');
+                this.log(`<b>========= GALACTIC MARKET =========</b>`, 'system');
                 if (!market || market.length === 0) {
                     this.log(`  No active orders${filter ? ' for ' + filter : ''}.`, 'info');
                     return;
@@ -829,7 +755,7 @@ export class TerminalHandler {
             try {
                 const pickups = await this.game.api._fetch('/api/market/pickups');
 
-                this.log(`<b>═══ MARKET PICKUPS ═══</b>`, 'system');
+                this.log(`<b>========= MARKET PICKUPS =========</b>`, 'system');
                 if (!pickups || pickups.length === 0) {
                     this.log(`  No items waiting for pickup.`, 'info');
                     return;
@@ -846,7 +772,7 @@ export class TerminalHandler {
         if (actionType === 'BOUNTIES') {
             try {
                 const bounties = await this.game.api._fetch('/api/bounties');
-                this.log(`<b>═══ BOUNTY BOARD ═══</b>`, 'system');
+                this.log(`<b>========= BOUNTY BOARD =========</b>`, 'system');
                 if (!bounties || bounties.length === 0) {
                     this.log(`  No active bounties or warrants.`, 'info');
                     return;
@@ -883,12 +809,12 @@ export class TerminalHandler {
             return;
         }
 
-        // ── META: GEAR ──
+        // ---- META: GEAR ----
         if (actionType === 'GEAR') {
             try {
                 const gear = await this.game.api._fetch('/api/gear');
 
-                this.log(`<b>═══ EQUIPPED GEAR ═══</b>`, 'system');
+                this.log(`<b>========= EQUIPPED GEAR =========</b>`, 'system');
                 if (!gear || gear.length === 0) {
                     this.log(`  No gear equipped. [CHASSIS ONLY]`, 'warning');
                 } else {
@@ -904,11 +830,11 @@ export class TerminalHandler {
             return;
         }
 
-        // ── META: STATUS ──
+        // ---- META: STATUS ----
         if (actionType === 'STATUS') {
             try {
                 const a = await this.game.api._fetch('/api/my_agent');
-                this.log(`<b>═══ AGENT STATUS ═══</b>`, 'system');
+                this.log(`<b>========= AGENT STATUS =========</b>`, 'system');
                 this.log(`  Name:      <b>${a.name}</b>`, 'info');
                 if (a.corporation) {
                     this.log(`  Corp:      <span style="color:#10b981">[${a.corporation.ticker}] ${a.corporation.name}</span>`, 'info');
@@ -935,12 +861,12 @@ export class TerminalHandler {
             return;
         }
 
-        // ── META: PERCEIVE / SCAN ──
+        // ---- META: PERCEIVE / SCAN ----
         if (actionType === 'PERCEIVE' || actionType === 'SCAN') {
             try {
                 const apiKey = localStorage.getItem('sv_api_key');
                 const p = await this.game.api._fetch('/api/perception');
-                this.log(`<b>═══ TACTICAL PERCEIVE ═══</b>`, 'system');
+                this.log(`<b>========= TACTICAL PERCEIVE =========</b>`, 'system');
                 const agentName = p.self?.name || 'TUTORIAL_DRONE';
                 const aq = p.self?.q ?? 0;
                 const ar = p.self?.r ?? 0;
@@ -1032,14 +958,14 @@ export class TerminalHandler {
             return;
         }
 
-        // ── META: REQUEST_RESCUE ──
+        // ---- META: REQUEST_RESCUE ----
         if (actionType === 'REQUEST_RESCUE') {
             try {
                 const apiKey = localStorage.getItem('sv_api_key');
                 const resp = await fetch('/api/rescue_quote', { headers: { 'X-API-KEY': apiKey } });
                 if (!resp.ok) throw new Error('Not authenticated.');
                 const q = await resp.json();
-                this.log(`<b>═══ RESCUE TOW QUOTE ═══</b>`, 'system');
+                this.log(`<b>========= RESCUE TOW QUOTE =========</b>`, 'system');
                 this.log(`  Distance to Hub (0,0): ${q.distance} hexes`, 'info');
                 this.log(`  Tow Speed: 10 hexes / tick`, 'info');
                 this.log(`  Estimated Time: ${q.eta_ticks} ticks`, 'info');
@@ -1049,12 +975,12 @@ export class TerminalHandler {
             return;
         }
 
-        // ── META: LEADERBOARD ──
+        // ---- META: LEADERBOARD ----
         if (actionType === 'LEADERBOARD') {
             try {
                 const resp = await fetch('/api/leaderboards');
                 const stats = await resp.json();
-                this.log(`<b>═══ GLOBAL RANKINGS ═══</b>`, 'system');
+                this.log(`<b>========= GLOBAL RANKINGS =========</b>`, 'system');
 
                 this.log(`  <span style="color:#eab308">Top Experience</span>`, 'info');
                 stats.categories.experience.slice(0, 5).forEach(p => {
@@ -1076,7 +1002,7 @@ export class TerminalHandler {
             return;
         }
 
-        // ── META: LOGS ──
+        // ---- META: LOGS ----
         if (actionType === 'LOGS') {
             this.log('Fetching action audit logs...', 'system');
             try {
@@ -1096,7 +1022,7 @@ export class TerminalHandler {
             return;
         }
 
-        // ── ARENA ──
+        // ---- ARENA ----
         if (actionType === 'ARENA_STATUS') {
             try {
                 const apiKey = localStorage.getItem('sv_api_key');
@@ -1104,7 +1030,7 @@ export class TerminalHandler {
                 if (!resp.ok) throw new Error('Failed to fetch arena status.');
                 const status = await resp.json();
 
-                this.log(`<b>═══ SCRAP PIT: ${status.fighter_name} ═══</b>`, 'system');
+                this.log(`<b>========= SCRAP PIT: ${status.fighter_name} =========</b>`, 'system');
                 const readinessStr = status.is_ready ? '<span style="color:#10b981">READY</span>' : '<span style="color:#fbbf24">NOT READY</span>';
                 this.log(`  Readiness: ${readinessStr}`, 'info');
                 this.log(`  <span style="color:#3b82f6">Rating:</span> ${status.elo} Elo  |  <span style="color:#10b981">${status.wins} W</span> - <span style="color:#ef4444">${status.losses} L</span>`, 'info');
@@ -1112,7 +1038,7 @@ export class TerminalHandler {
                 this.log(`  <span style="color:#a78bfa">Stats:</span> <span style="color:#ef4444">DMG ${s.damage}</span> | <span style="color:#38bdf8">SPD ${s.speed}</span> | <span style="color:#f43f5e">HP ${s.health}</span> | <span style="color:#10b981">HIT ${s.accuracy}</span> | <span style="color:#94a3b8">ARM ${s.armor}</span>`, 'info');
 
                 if (!status.is_ready) {
-                    this.log(`  <span style="color:#fbbf24">⚠ WARNING:</span> Your Pit Fighter lacks basic survival gear (no health or damage).`, 'warning');
+                    this.log(`  <span style="color:#fbbf24">WARNING WARNING:</span> Your Pit Fighter lacks basic survival gear (no health or damage).`, 'warning');
                     this.log(`  Use <span style="color:#38bdf8">ARENA_EQUIP &lt;part_id&gt;</span> to donate gear from your main inventory.`, 'info');
                     this.log(`  Note: Frames provide health/armor, Actuators provide damage/speed, Sensors provide accuracy.`, 'info');
                 }
@@ -1152,7 +1078,7 @@ export class TerminalHandler {
                 if (!resp.ok) throw new Error('Failed to fetch arena logs.');
                 const logs = await resp.json();
 
-                this.log(`<b>═══ ARENA COMBAT LOGS ═══</b>`, 'system');
+                this.log(`<b>========= ARENA COMBAT LOGS =========</b>`, 'system');
                 if (logs.length === 0) {
                     this.log(`  No battles fought yet. Battles automatically occur every 8 hours.`, 'info');
                 } else {
@@ -1166,7 +1092,7 @@ export class TerminalHandler {
             return;
         }
 
-        // ── META: SCAN ──
+        // ---- META: SCAN ----
         if (actionType === 'SCAN') {
             this.log(`Re-synchronizing sensors...`, 'info');
             await this.game.pollState();
@@ -1174,14 +1100,14 @@ export class TerminalHandler {
             return;
         }
 
-        // ── DIRECT COMMANDS (NO INTENT) ──
+        // ---- DIRECT COMMANDS (NO INTENT) ----
 
-        // ── DIRECT COMMANDS: SQUAD ──
+        // ---- DIRECT COMMANDS: SQUAD ----
         if (['SQUAD_INVITE', 'SQUAD_ACCEPT', 'SQUAD_DECLINE', 'SQUAD_LEAVE'].includes(actionType)) {
             const apiKey = localStorage.getItem('sv_api_key');
             if (actionType === 'SQUAD_INVITE') {
                 if (args.length < 1) {
-                    this.log(`✗ Usage: SQUAD_INVITE <target_id> (e.g. SQUAD_INVITE 41)`, 'error');
+                    this.log(`ERROR Usage: SQUAD_INVITE <target_id> (e.g. SQUAD_INVITE 41)`, 'error');
                     return;
                 }
                 try {
@@ -1192,13 +1118,13 @@ export class TerminalHandler {
                     });
                     if (resp.ok) {
                         const result = await resp.json();
-                        this.log(`✓ ${result.message}`, 'success');
+                        this.log(`OK ${result.message}`, 'success');
                         this.game.pollState();
                     } else {
                         const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
-                        this.log(`✗ ${err.detail || 'Server error'}`, 'error');
+                        this.log(`ERROR ${err.detail || 'Server error'}`, 'error');
                     }
-                } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
+                } catch (e) { this.log(`ERROR ${e.message}`, 'error'); }
                 return;
             }
 
@@ -1211,13 +1137,13 @@ export class TerminalHandler {
                     });
                     if (resp.ok) {
                         const result = await resp.json();
-                        this.log(`✓ ${result.message}`, 'success');
+                        this.log(`OK ${result.message}`, 'success');
                         this.game.pollState();
                     } else {
                         const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
-                        this.log(`✗ ${err.detail || 'Server error'}`, 'error');
+                        this.log(`ERROR ${err.detail || 'Server error'}`, 'error');
                     }
-                } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
+                } catch (e) { this.log(`ERROR ${e.message}`, 'error'); }
                 return;
             }
 
@@ -1229,18 +1155,18 @@ export class TerminalHandler {
                     });
                     if (resp.ok) {
                         const result = await resp.json();
-                        this.log(`✓ ${result.message}`, 'success');
+                        this.log(`OK ${result.message}`, 'success');
                         this.game.pollState();
                     } else {
                         const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
-                        this.log(`✗ ${err.detail || 'Server error'}`, 'error');
+                        this.log(`ERROR ${err.detail || 'Server error'}`, 'error');
                     }
-                } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
+                } catch (e) { this.log(`ERROR ${e.message}`, 'error'); }
                 return;
             }
         }
 
-        // ── DIRECT COMMANDS: STORAGE ──
+        // ---- DIRECT COMMANDS: STORAGE ----
         if (['STORAGE_DEPOSIT', 'STORAGE_WITHDRAW', 'STORAGE_UPGRADE'].includes(actionType)) {
             const apiKey = localStorage.getItem('sv_api_key');
             if (actionType === 'STORAGE_UPGRADE') {
@@ -1251,13 +1177,13 @@ export class TerminalHandler {
                     });
                     const result = await resp.json();
                     if (resp.ok) {
-                        this.log(`✓ ${result.message}`, 'success');
+                        this.log(`OK ${result.message}`, 'success');
                         this.game.pollState();
                         if (window.storageUI) window.storageUI.refreshStorage();
                     } else {
-                        this.log(`✗ ${result.detail || 'Server error'}`, 'error');
+                        this.log(`ERROR ${result.detail || 'Server error'}`, 'error');
                     }
-                } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
+                } catch (e) { this.log(`ERROR ${e.message}`, 'error'); }
                 return;
             }
 
@@ -1275,13 +1201,13 @@ export class TerminalHandler {
                 });
                 const result = await resp.json();
                 if (resp.ok) {
-                    this.log(`✓ ${result.message}`, 'success');
+                    this.log(`OK ${result.message}`, 'success');
                     this.game.pollState();
                     if (window.storageUI) window.storageUI.refreshStorage();
                 } else {
-                    this.log(`✗ ${result.detail || 'Server error'}`, 'error');
+                    this.log(`ERROR ${result.detail || 'Server error'}`, 'error');
                 }
-            } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
+            } catch (e) { this.log(`ERROR ${e.message}`, 'error'); }
             return;
         }
 
@@ -1294,15 +1220,15 @@ export class TerminalHandler {
                 });
                 const result = await resp.json();
                 if (resp.ok) {
-                    this.log(`✓ ${result.message}`, 'success');
+                    this.log(`OK ${result.message}`, 'success');
                     for (const [item, qty] of Object.entries(result.claimed)) {
                         this.log(`  Retrieved: ${item.replace(/_/g, ' ')} x${qty}`, 'info');
                     }
                     this.game.pollState();
                 } else {
-                    this.log(`✗ ${result.detail || 'Server error'}`, 'error');
+                    this.log(`ERROR ${result.detail || 'Server error'}`, 'error');
                 }
-            } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
+            } catch (e) { this.log(`ERROR ${e.message}`, 'error'); }
             return;
         }
 
@@ -1315,19 +1241,19 @@ export class TerminalHandler {
                 });
                 if (resp.ok) {
                     const result = await resp.json();
-                    this.log(`✓ Daily claimed! Acquired: ${result.items.join(', ')}`, 'success');
+                    this.log(`OK Daily claimed! Acquired: ${result.items.join(', ')}`, 'success');
                     if (window.game) window.game.pollState();
                 } else {
                     const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
-                    this.log(`✗ ${err.detail || 'Server error'}`, 'error');
+                    this.log(`ERROR ${err.detail || 'Server error'}`, 'error');
                 }
             } catch (e) {
-                this.log(`✗ ${e.message}`, 'error');
+                this.log(`ERROR ${e.message}`, 'error');
             }
             return;
         }
 
-        // ── CORPORATION COMMANDS ──
+        // ---- CORPORATION COMMANDS ----
         if (actionType.startsWith('CORP_')) {
             const cmdParts = actionType.split('_');
             const subAction = cmdParts.slice(1).join('_').toLowerCase();
@@ -1335,12 +1261,12 @@ export class TerminalHandler {
 
             if (actionType === 'CORP_MEMBERS') {
                 const members = await this.game.api.fetchCorpMembers();
-                this.log(`<b>═══ CORPORATE ROSTER ═══</b>`, 'system');
+                this.log(`<b>========= CORPORATE ROSTER =========</b>`, 'system');
                 if (members.length === 0) {
                     this.log(`  No members found or not in a corporation.`, 'info');
                 } else {
                     members.forEach(m => {
-                        this.log(`  [${m.agent_id.toString().padStart(4, '0')}] <b>${m.name}</b> — <span style="color:#38bdf8">${m.role}</span> | LVL ${m.level} | @ ${m.q},${m.r}`, 'info');
+                        this.log(`  [${m.agent_id.toString().padStart(4, '0')}] <b>${m.name}</b> - <span style="color:#38bdf8">${m.role}</span> | LVL ${m.level} | @ ${m.q},${m.r}`, 'info');
                     });
                 }
                 return;
@@ -1349,10 +1275,10 @@ export class TerminalHandler {
             if (actionType === 'CORP_VAULT') {
                 const vault = await this.game.api.fetchCorpVault();
                 if (!vault) {
-                    this.log(`✗ Could not retrieve vault data.`, 'error');
+                    this.log(`ERROR Could not retrieve vault data.`, 'error');
                     return;
                 }
-                this.log(`<b>═══ CORPORATE VAULT: ${vault.name} [${vault.ticker}] ═══</b>`, 'system');
+                this.log(`<b>========= CORPORATE VAULT: ${vault.name} [${vault.ticker}] =========</b>`, 'system');
                 this.log(`  MOTD:    <span style="color:#fbbf24">${vault.motd || 'None'}</span>`, 'info');
                 this.log(`  Credits: <span style="color:#10b981">$${vault.credit_balance.toLocaleString()}</span> / $${vault.vault_capacity.toLocaleString()}`, 'info');
                 this.log(`  Tax Rate: ${(vault.tax_rate * 100).toFixed(1)}%`, 'info');
@@ -1369,11 +1295,11 @@ export class TerminalHandler {
             if (actionType === 'CORP_UPGRADES') {
                 const data = await this.game.api.getCorpUpgrades();
                 if (!data) {
-                    this.log(`✗ Could not retrieve research data.`, 'error');
+                    this.log(`ERROR Could not retrieve research data.`, 'error');
                     return;
                 }
                 const current = data.upgrades || {};
-                this.log(`<b>═══ CORPORATE R&D HUB ═══</b>`, 'system');
+                this.log(`<b>========= CORPORATE R&D HUB =========</b>`, 'system');
                 Object.entries(data.definitions).forEach(([key, d]) => {
                     const level = current[key] || 0;
                     const isMax = level >= d.levels.length;
@@ -1394,9 +1320,9 @@ export class TerminalHandler {
                 const category = args[0].toUpperCase();
                 const res = await this.game.api.purchaseCorpUpgrade(category);
                 if (res.status === 'success') {
-                    this.log(`✓ ${res.message}`, 'success');
+                    this.log(`OK ${res.message}`, 'success');
                 } else {
-                    this.log(`✗ ${res.detail || 'Purchase failed'}`, 'error');
+                    this.log(`ERROR ${res.detail || 'Purchase failed'}`, 'error');
                 }
                 return;
             }
@@ -1406,7 +1332,7 @@ export class TerminalHandler {
             return;
         }
 
-        // ── CHAT COMMANDS ──
+        // ---- CHAT COMMANDS ----
         if (['SAY', 'PROX', 'SQUAD', 'CORP', 'GLOBAL'].includes(actionType)) {
             if (args.length < 1) {
                 usageThrow(`Usage: ${actionType} <message>`);
@@ -1415,13 +1341,13 @@ export class TerminalHandler {
             const channel = actionType === 'SAY' || actionType === 'PROX' ? 'PROX' : actionType;
             try {
                 const result = await this.game.api._post('/api/chat', { channel: channel, message: args.join(' ') });
-                this.log(`✓ Message sent via ${actionType}`, 'success');
+                this.log(`OK Message sent via ${actionType}`, 'success');
                 if (window.game) window.game.pollState();
-            } catch (e) { this.log(`✗ ${e.message}`, 'error'); }
+            } catch (e) { this.log(`ERROR ${e.message}`, 'error'); }
             return;
         }
 
-        // ── SERVER COMMANDS ──
+        // ---- SERVER COMMANDS ----
         if (!this.commands[actionType]) {
             throw new Error(`Unknown command '${actionType}'. Type HELP for list.`);
         }
@@ -1434,7 +1360,7 @@ export class TerminalHandler {
 
             try {
                 const result = await this.game.api._post('/api/intent', { action_type: submitAction, data });
-                this.log(`✓ ACCEPTED — Tick #${result.tick_index || result.tick}`, 'success');
+                this.log(`OK ACCEPTED - Tick #${result.tick_index || result.tick}`, 'success');
             } catch (e) {
                 const errorDetail = typeof e.message === 'object' ? JSON.stringify(e.message) : e.message;
                 throw new Error(`REJECTED: ${errorDetail || 'Server error'}`);

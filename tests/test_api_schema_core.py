@@ -94,8 +94,9 @@ def test_my_agent_and_storage_info_keep_frontend_field_names():
 
     assert agent_response.status_code == 200
     payload = agent_response.json()
-    for key in ["id", "name", "q", "r", "energy", "health", "inventory", "storage", "parts", "webhook_url"]:
+    for key in ["id", "name", "q", "r", "energy", "health", "inventory", "storage", "parts", "webhook_url", "webhook_status"]:
         assert key in payload
+    assert payload["webhook_status"] is None
     assert any(item["type"] == "CREDITS" and item["quantity"] == 50 for item in payload["inventory"])
     assert any(item["type"] == "IRON_ORE" and item["quantity"] == 4 for item in payload["inventory"])
     assert any(item["type"] == "IRON_INGOT" and item["quantity"] == 2 for item in payload["storage"])

@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 import config
+from routes.world import build_command_reference
 
 router = APIRouter(prefix="/api/wiki", tags=["Wiki"])
 
@@ -96,16 +97,10 @@ def _get_wiki_payload():
         }
     ]
     
-    # 4. Command Reference (Merged from world.py information)
+    # 4. Command Reference (projected from the live /api/commands source of truth)
     commands = [
-        {"type": "MOVE", "desc": "Navigate to (q,r). Auto-paths beyond range 1."},
-        {"type": "MINE", "desc": "Looping task. Extracts resources every tick until interrupted."},
-        {"type": "ATTACK", "desc": "Standard 3-round combat. Generates Heat."},
-        {"type": "INTIMIDATE", "desc": "Siphons 5% inventory without full combat. Low Heat."},
-        {"type": "LOOT", "desc": "Attack + 15% siphon. Moderate Heat."},
-        {"type": "DESTROY", "desc": "Massive siphon + 40% cargo. Huge Heat/Bounty."},
-        {"type": "SMELT", "desc": "Refine 5 Ore into 1 Ingot at SMELTER stations."},
-        {"type": "CRAFT", "desc": "Assemble components into parts at CRAFTER stations."}
+        {"type": command["type"], "desc": command["description"], **({"endpoint": command["endpoint"]} if "endpoint" in command else {})}
+        for command in build_command_reference()
     ]
 
     return {

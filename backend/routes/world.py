@@ -133,21 +133,19 @@ async def get_manifesto():
     }
 
 
-@router.get("/api/commands")
-async def get_commands():
-    """Returns all available agent commands, their syntax, energy costs, and range requirements."""
-    return {
-        "commands": [
+def build_command_reference():
+    """Returns the shared live command reference used by API and wiki routes."""
+    return [
             {"type": "MOVE", "description": "Move your agent to any hex. Adjacent targets (distance 1, or 3 if Overclocked) execute immediately. Farther targets trigger automatic BFS pathfinding — the server queues a chain of single-step moves across multiple ticks. Submit STOP to abort mid-navigation.", "payload": {"target_q": "int", "target_r": "int"}, "energy_cost": MOVE_ENERGY_COST, "range": "any (auto-pathed beyond 1)", "req_overclock": "Increases immediate step range to 3"},
             {"type": "MINE", "description": "Extract resources from the current hex. Mining is a looping task: it will automatically re-queue itself every tick until inventory is full, energy is depleted, drills break, you move/stop, or you are attacked.", "payload": {}, "energy_cost": MINE_ENERGY_COST, "range": 0},
             {"type": "ATTACK", "description": "Engage another agent in standard combat (3-round exchange).", "payload": {"target_id": "int"}, "energy_cost": ATTACK_ENERGY_COST, "range": 1},
             {"type": "INTIMIDATE", "description": "Piracy: Siphon 5% of target inventory without full combat. Increases Heat.", "payload": {"target_id": "int"}, "energy_cost": 0, "range": 1},
             {"type": "LOOT", "description": "Piracy: Attack target and siphon 15% of a random stack on hit. Increases Heat.", "payload": {"target_id": "int"}, "energy_cost": ATTACK_ENERGY_COST, "range": 1},
             {"type": "DESTROY", "description": "Piracy: High-damage strike, siphons 40% of all stacks. Massive Heat & Bounty.", "payload": {"target_id": "int"}, "energy_cost": 0, "range": 1},
-            {"type": "LIST", "description": "List an item on the Auction House.", "payload": {"item_type": "str", "price": "int", "quantity": "int"}, "range": 0, "station_required": "STATION_HUB"},
-            {"type": "BUY", "description": "Purchase an item from the Auction House.", "payload": {"item_type": "str", "quantity": "int", "max_price": "int"}, "range": 0, "station_required": "STATION_HUB"},
+            {"type": "LIST", "description": "List an item on the Auction House.", "payload": {"item_type": "str", "price": "int", "quantity": "int"}, "range": "N/A"},
+            {"type": "BUY", "description": "Purchase an item from the Auction House.", "payload": {"item_type": "str", "quantity": "int", "max_price": "int"}, "range": "N/A"},
             {"type": "CANCEL_ORDER", "description": "Withdraw an active order from the Auction House.", "payload": {"order_id": "int"}, "range": "N/A"},
-            {"type": "MARKET_CLAIM", "description": "Claims items that have been bought and are waiting for pickup. NOTE: This is an immediate API call, do NOT submit via /api/intent.", "payload": {}, "range": 0, "station_required": "STATION_HUB", "endpoint": "POST /api/market/pickup"},
+            {"type": "MARKET_CLAIM", "description": "Claims items that have been bought and are waiting for pickup. NOTE: This is an immediate API call, do NOT submit via /api/intent.", "payload": {}, "range": 0, "station_required": "MARKET or STATION_HUB", "endpoint": "POST /api/market/pickup"},
             {"type": "SMELT", "description": "Refine ore into ingots.", "payload": {"ore_type": "str", "quantity": "int"}, "range": 0, "station_required": "SMELTER"},
             {"type": "CRAFT", "description": "Assemble components into parts.", "payload": {"item_type": "str"}, "range": 0, "station_required": "CRAFTER"},
             {"type": "RESTORE_HP", "description": "Restore agent health. Costs 1 Credit and 0.02 Iron Ingots per HP.", "payload": {"amount": "int"}, "range": 0, "station_required": "ANY"},
@@ -169,8 +167,15 @@ async def get_commands():
             {"type": "ARENA_LOGS", "description": "Inspect recent Scrap Pit combat results for your Pit Fighter.", "payload": {}, "range": "N/A", "endpoint": "GET /api/arena/logs"},
             {"type": "RESCUE", "description": "Confirm emergency tow to the Hub after checking POST /api/rescue_quote or REQUEST_RESCUE in the terminal.", "payload": {}, "range": "N/A"},
             {"type": "STOP", "description": "Cancel all queued intents for this agent, including in-progress navigation paths. Executes before all other actions this tick.", "payload": {}, "energy_cost": 0, "range": "N/A"}
-        ],
-        "note": "All commands are executed during the CRUNCH phase. Submit via POST /api/intent"
+        ]
+
+
+@router.get("/api/commands")
+async def get_commands():
+    """Returns all available agent commands, their syntax, energy costs, and range requirements."""
+    return {
+        "commands": build_command_reference(),
+        "note": "Intent commands execute during CRUNCH via POST /api/intent. Commands with an endpoint field are immediate API calls."
     }
 
 
